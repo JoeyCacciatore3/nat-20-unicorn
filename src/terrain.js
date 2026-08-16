@@ -3,10 +3,12 @@
 import { makeVao } from './core.js';
 
 export const WORLD = 128;   // world units across
-const G = 96;               // grid quads per side
-const STEP = WORLD / G;
+export const GRID = 96;     // grid quads per side
+const G = GRID;
+export const STEP = WORLD / G;
 const V = G + 1;
 const H = new Float32Array(V * V);
+export const TABLE = 110;   // the physical table edge — beyond is the void
 
 export const hash = (x, y) => {
   let h = (x * 374761393 + y * 668265263) | 0;
@@ -20,8 +22,10 @@ const vnoise = (x, y) => {
   return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
 };
 
-// baseline: rolling hills + center house hill, fading to the table at the rim
-const genHeight = (x, z) => {
+// baseline: rolling hills + center house hill, fading to the table at the rim.
+// PURE — the zone export tool (tools/export-zone.mjs) imports this same function,
+// so editor deltas are always diffs against exactly what the game generates.
+export const baselineHeight = (x, z) => {
   const r = Math.hypot(x, z);
   const mask = 1 - sm(Math.min(Math.max((r - 40) / 20, 0), 1));
   const n = vnoise(x * .035 + 9, z * .035 + 7) * 5.2 + vnoise(x * .09, z * .09) * 1.6 + vnoise(x * .28, z * .28) * .35;
@@ -30,7 +34,15 @@ const genHeight = (x, z) => {
 };
 
 for (let j = 0; j < V; j++) for (let i = 0; i < V; i++)
-  H[j * V + i] = genHeight(i * STEP - WORLD / 2, j * STEP - WORLD / 2);
+  H[j * V + i] = baselineHeight(i * STEP - WORLD / 2, j * STEP - WORLD / 2);
+
+// editor deltas: repeating [u16 vertex index LE, i8 height*8] triplets
+export const applyDeltas = (bytes) => {
+  for (let i = 0; i + 2 < bytes.length; i += 3) {
+    const k = bytes[i] | (bytes[i + 1] << 8);
+    H[k] += ((bytes[i + 2] << 24) >> 24) / 8;
+  }
+};
 
 export const surfaceHeight = (x, z) => {
   const gx = (x + WORLD / 2) / STEP, gz = (z + WORLD / 2) / STEP;
@@ -67,9 +79,9 @@ export const buildTerrain = (gl) => {
   return makeVao(gl, verts, idx, true);
 };
 
-// the wooden table the island sits on
+// the wooden table the island sits on (finite — you can fall off the edge)
 export const buildTable = (gl) => {
-  const s = 230, y = -.02, c = [.30, .21, .13];
+  const s = TABLE, y = -.02, c = [.30, .21, .13];
   const verts = new Float32Array([
     -s, y, -s, 0, 1, 0, ...c,
      s, y, -s, 0, 1, 0, ...c,

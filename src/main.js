@@ -2,10 +2,12 @@
 // WebGL2 heightfield world, third-person camera, sphere-vs-terrain player,
 // primitive unicorn with gallop + rainbow contrail. Locked 60fps sim.
 import { mul, perspective, lookAt, compose, makeProgram } from './core.js';
-import { buildTerrain, buildTable, surfaceHeight, surfaceNormal } from './terrain.js';
+import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
 import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
 import * as PARTICLES from './particles.js';
-import { initInput, cam, moveInput, consumeJump } from './input.js';
+import { initInput, cam, moveInput, consumeJump, keys } from './input.js';
+import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
+import { buildProps } from './props.js';
 
 const c = document.getElementById('c');
 const gl = c.getContext('webgl2', { antialias: true });
@@ -18,25 +20,39 @@ addEventListener('resize', resize); resize();
 const MESH_VS = `#version 300 es
 layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec3 aC;
 uniform mat4 uVP, uM; uniform vec3 uTint;
-out vec3 vC; out vec3 vW;
+uniform float uGrid; uniform float uEmis; uniform float uB[8];
+out vec3 vC; out vec3 vW; out float vB;
 void main(){
   vec4 w = uM * vec4(aP, 1.);
   vW = w.xyz;
   vec3 n = normalize(mat3(uM) * aN);
   float l = max(dot(n, normalize(vec3(.5, .8, .35))), 0.) * .75 + .38;
-  vC = aC * uTint * l;
+  l = mix(l, 1.25, uEmis);
+  vec3 base = aC;
+  vB = 0.;
+  if (uGrid > 0.) { // terrain: gray -> chapter color as its region blooms
+    float r = length(w.xz);
+    int i = r < 10. ? 7 : clamp(int((atan(w.x, w.z) / 6.28318 + .5) * 7.), 0, 6);
+    vB = uB[i];
+    float h = (float(i) + .5) / 7.;
+    vec3 hc = clamp(vec3(abs(h * 6. - 3.) - 1., 2. - abs(h * 6. - 2.), 2. - abs(h * 6. - 4.)), 0., 1.);
+    if (i == 7) hc = vec3(1., .85, .55); // house circle warms gold
+    vec3 painted = (hc * .72 + .28) * (aC.g * 1.5 + .2);
+    base = mix(aC, painted, vB);
+  }
+  vC = base * uTint * l;
   gl_Position = uVP * w;
 }`;
 const MESH_FS = `#version 300 es
-precision mediump float;
-in vec3 vC; in vec3 vW;
+precision highp float;
+in vec3 vC; in vec3 vW; in float vB;
 uniform vec3 uEye; uniform float uGrid;
 out vec4 o;
 void main(){
   vec3 col = vC;
-  if (uGrid > 0.) { // faint graph paper on the grey world
+  if (uGrid > 0.) { // graph paper fades as the diorama gets painted
     vec2 g = abs(fract(vW.xz / 4.) - .5);
-    col *= 1. - smoothstep(.44, .5, max(g.x, g.y)) * .12;
+    col *= 1. - smoothstep(.44, .5, max(g.x, g.y)) * .12 * (1. - vB * .85);
   }
   float d = length(vW - uEye);
   col = mix(col, vec3(.075, .07, .09), smoothstep(38., 135., d));
@@ -85,16 +101,26 @@ const skyP = makeProgram(gl, SKY_VS, SKY_FS);
 const ptP = makeProgram(gl, PT_VS, PT_FS);
 const U = (p, n) => gl.getUniformLocation(p, n);
 const uVP = U(meshP, 'uVP'), uM = U(meshP, 'uM'), uTint = U(meshP, 'uTint'),
-      uEye = U(meshP, 'uEye'), uGrid = U(meshP, 'uGrid');
+      uEye = U(meshP, 'uEye'), uGrid = U(meshP, 'uGrid'),
+      uEmis = U(meshP, 'uEmis'), uB = U(meshP, 'uB');
 const uAsp = U(skyP, 'uAsp');
 const uVPp = U(ptP, 'uVP');
 
-// ---------- geometry ----------
+// ---------- geometry (zone deltas patch the heightfield BEFORE meshing) ----------
+applyZones();
 const terrain = buildTerrain(gl);
 const table = buildTable(gl);
 const cube = buildCube(gl);
 const cone = buildCone(gl);
+const props = buildProps();
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+
+// shard beacons: one light pillar per un-restored chapter (environment as HUD)
+const beacons = [];
+for (let i = 0; i < 7; i++) {
+  const [bx, bz] = regionCenter(i);
+  beacons.push([i, bx, surfaceHeight(bx, bz), bz]);
+}
 
 // dynamic particle buffer
 const ptVao = gl.createVertexArray();
@@ -121,15 +147,22 @@ const step = (dt) => {
   const fr = 1 / (1 + dt * 6);
   pl.vx *= fr; pl.vz *= fr;
 
-  // jump + gravity + sphere-on-heightfield
+  // jump + gravity + sphere-on-heightfield (no floor past the table edge)
   if (consumeJump() && pl.ground) { pl.vy = 7.6; pl.ground = false; }
   pl.vy -= 21 * dt;
   pl.x += pl.vx * dt; pl.z += pl.vz * dt; pl.y += pl.vy * dt;
+  const onTable = Math.max(Math.abs(pl.x), Math.abs(pl.z)) <= TABLE;
   const sh = surfaceHeight(pl.x, pl.z);
-  if (pl.y <= sh) {
+  if (onTable && pl.y <= sh) {
     pl.y = sh; pl.vy = 0; pl.ground = true;
     const n = surfaceNormal(pl.x, pl.z);
     if (n[1] < .62) { pl.vx += n[0] * 26 * dt; pl.vz += n[2] * 26 * dt; } // steep -> slide
+  } else if (!onTable) {
+    pl.ground = false;
+    if (pl.y < -18) { // fell off the table — the DM puts the mini back
+      pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
+      pl.vx = pl.vy = pl.vz = 0;
+    }
   }
 
   // facing + gallop phase
@@ -161,17 +194,32 @@ const step = (dt) => {
       (Math.random() - .5) * 1.2, .6 + Math.random(), (Math.random() - .5) * 1.2,
       .5, Math.random());
   }
+  // DEV ONLY (removed in P4 when shards drive this): keys 1-7 bloom a chapter, 0 resets
+  for (let i = 0; i < 7; i++) if (keys['Digit' + (i + 1)]) setBloom(i, 1);
+  if (keys.Digit0) for (let i = 0; i < 8; i++) setBloom(i, 0);
+  // house circle warms as chapters are restored
+  let sum = 0; for (let i = 0; i < 7; i++) sum += bloom[i];
+  setBloom(7, sum / 7);
+  tickBloom(dt);
+
   PARTICLES.update(dt);
 };
 
 // ---------- render ----------
-const draw = (geo, model, r, g, b, grid) => {
+const draw = (geo, model, r, g, b, grid, emis) => {
   gl.uniformMatrix4fv(uM, false, model);
   gl.uniform3f(uTint, r, g, b);
   gl.uniform1f(uGrid, grid || 0);
+  gl.uniform1f(uEmis, emis || 0);
   gl.bindVertexArray(geo.vao);
   gl.drawElements(gl.TRIANGLES, geo.n, gl.UNSIGNED_SHORT, 0);
 };
+
+const hue2 = (h) => [
+  Math.min(Math.max(Math.abs(h * 6 - 3) - 1, 0), 1),
+  Math.min(Math.max(2 - Math.abs(h * 6 - 2), 0), 1),
+  Math.min(Math.max(2 - Math.abs(h * 6 - 4), 0), 1),
+];
 
 const render = () => {
   gl.viewport(0, 0, c.width, c.height);
@@ -195,8 +243,22 @@ const render = () => {
   gl.useProgram(meshP);
   gl.uniformMatrix4fv(uVP, false, vp);
   gl.uniform3f(uEye, ex, ey, ez);
+  gl.uniform1fv(uB, bloom);
   draw(table, IDENT, 1, 1, 1, 0);
   draw(terrain, IDENT, 1, 1, 1, 1);
+
+  // props (house + tabletop clutter)
+  for (const p of props) draw(p.prim ? cone : cube, p.m, p.c[0], p.c[1], p.c[2], 0, p.emis);
+
+  // shard beacons — fade out as their chapter is restored, gentle pulse
+  for (const [i, bx, by, bz] of beacons) {
+    const s = 1 - bloom[i];
+    if (s < .02) continue;
+    const [r, g, b] = hue2(regionHue(i));
+    const pulse = 1 + Math.sin(time * 2 + i) * .08;
+    draw(cone, compose(bx, by, bz, 0, 0, 0, 0, 0, 1.1 * pulse * s, 15 * s, 1.1 * pulse * s),
+      r * s + .1, g * s + .1, b * s + .1, 0, 1);
+  }
 
   // unicorn: unicorn-space × part-space (pivot-aware)
   const run = Math.min(Math.hypot(pl.vx, pl.vz) / 7, 1);

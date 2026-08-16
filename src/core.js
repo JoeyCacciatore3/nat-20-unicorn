@@ -46,12 +46,15 @@ export const makeProgram = (gl, vs, fs) => {
   const sh = (t, src) => {
     const s = gl.createShader(t);
     gl.shaderSource(s, src); gl.compileShader(s);
+    // dev-only diagnostics — terser drop_console strips this from the shipped zip
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s));
     return s;
   };
   const p = gl.createProgram();
   gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
   gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
   gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(p));
   return p;
 };
 
