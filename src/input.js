@@ -18,6 +18,7 @@ const mkTouchUI = () => {
   };
   mk('⚔️', 22, () => attack = 1);
   mk('💨', 98, () => dodge = 1);
+  mk('✋', 174, () => interact = 1);
 };
 
 export const initInput = (c) => {

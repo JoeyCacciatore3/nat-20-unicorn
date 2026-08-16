@@ -10,11 +10,6 @@ export const MODULES = [
     [1, .7, .55, .3, 0, .22, .5, .22, 1, .85, .3, .6],
     [1, 0, .55, .55, 0, .22, .5, .22, .5, .6, 1, .6],
   ]],
-  ['Bed', '🛏', { fl: 3, sp: 2 }, [
-    [0, 0, .3, 0, 0, 1.4, .5, 2.2, .5, .3, .5, 0],
-    [0, 0, .62, -.7, 0, 1.2, .28, .7, 1, .9, .95, .2],
-    [0, 0, .55, .3, 0, 1.2, .22, 1.4, .9, .3, .5, .1],
-  ]],
   ['Prism Tower', '🗼', { sp: 4, pr: 2 }, [
     [0, 0, 1.1, 0, .6, .7, 2.2, .7, .75, .78, .95, .15],
     [1, 0, 2.6, 0, 0, .55, .9, .55, 1, .7, 1, .9],
@@ -27,8 +22,8 @@ export const MODULES = [
 
 export const slots = [];   // {a, x, y, z, built: -1|moduleIdx}
 export const initHome = () => {
-  for (let i = 0; i < 4; i++) {
-    const a = 1.1 + i * 1.35, r = 6.5;
+  for (let i = 0; i < 3; i++) {
+    const a = 1.1 + i * 1.7, r = 6.5;
     const x = Math.sin(a) * r, z = Math.cos(a) * r;
     slots.push({ x, z, y: surfaceHeight(x, z), built: -1, i });
   }
@@ -41,4 +36,4 @@ export const costText = (cost) => {
 export const canAfford = (cost) => Object.keys(cost).every(k => inv[k] >= cost[k]);
 export const pay = (cost) => Object.keys(cost).forEach(k => inv[k] -= cost[k]);
 export const has = (name) => slots.some(s => s.built >= 0 && MODULES[s.built][0] === name);
-export const towerSlot = () => slots.find(s => s.built === 2);
+export const towerSlot = () => slots.find(s => s.built === 1); // Prism Tower = MODULES[1]

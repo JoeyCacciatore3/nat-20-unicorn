@@ -82,14 +82,14 @@ export const save = () => {
       s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
       b: [...bloom].map(Math.round), u: slots.map(x => x.built), e: earned,
       c: [ct.kill, ct.crit, ct.dodge, ct.gather, ct.build, ct.sleep, ct.pass, ct.shard],
-      v: 2,
+      v: 3,
     });
   } catch { /* storage may be unavailable */ }
 };
 export const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 2 || !d.s || d.s.length !== 6) return 0;
+    if (!d || d.v !== 3 || !d.s || d.s.length !== 6) return 0;
     for (let i = 0; i < 6; i++) stats[i] = d.s[i];
     [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch] = d.i;
     [ct.kill, ct.crit, ct.dodge, ct.gather, ct.build, ct.sleep, ct.pass, ct.shard] = d.c;

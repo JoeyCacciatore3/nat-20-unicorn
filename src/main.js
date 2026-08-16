@@ -412,16 +412,18 @@ const step = (dt) => {
           gain(S.INT, 14);
           save();
         }
-      } else if (MODULES[sl.built][0] === 'Bed' && hp < maxH()) {
-        pr = 'E — Sleep (heal)';
-        if (consumeInteract()) {
-          sfx(SND.sleep, 1);
-          hp = maxH(); HUD.setHearts(hp, maxH());
-          ct.sleep++;
-          burst(sl.x, sl.y + 1.5, sl.z, 16, .1, 3);
-          DM.say(DM.P.sleep);
-          save();
-        }
+      }
+    }
+    // the house itself: step to the door to rest — heal, save, count the night
+    if (!pr && Math.hypot(pl.x, pl.z - 2.6) < 2) {
+      pr = '🛏 E — rest inside';
+      if (consumeInteract()) {
+        sfx(SND.sleep, 1);
+        hp = maxH(); HUD.setHearts(hp, maxH());
+        ct.sleep++;
+        burst(0, pl.y + 2, 2.6, 16, .1, 3);
+        DM.say(DM.P.sleep);
+        save();
       }
     }
     HUD.setPrompt(pr);
