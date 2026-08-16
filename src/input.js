@@ -6,6 +6,7 @@ let camId = -1, lx = 0, ly = 0, downT = 0, moved = 0, jump = 0, attack = 0, dodg
 
 // touch combat buttons — created on first touch so desktop never sees them
 let touchUI = 0;
+export const isTouch = () => touchUI;
 const mkTouchUI = () => {
   if (touchUI) return;
   touchUI = 1;

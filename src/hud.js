@@ -3,6 +3,7 @@
 import { stats, NAMES, roll4d6 } from './stats.js';
 import * as DM from './dm.js';
 import { sfx, SND } from './audio.js';
+import { isTouch } from './input.js';
 
 const el = (t, css, parent, html) => {
   const e = document.createElement(t);
@@ -29,7 +30,7 @@ export const setRes = (inv) => {
 };
 export const setPrompt = (t) => {
   prompt.style.display = t ? 'block' : 'none';
-  if (t) prompt.textContent = t;
+  if (t) prompt.textContent = isTouch() ? t.replace('E — ', '✋ ') : t;
 };
 export const hurtFlash = () => {
   flash.style.transition = 'none'; flash.style.opacity = .32;
