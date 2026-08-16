@@ -35,5 +35,4 @@ export const costText = (cost) => {
 };
 export const canAfford = (cost) => Object.keys(cost).every(k => inv[k] >= cost[k]);
 export const pay = (cost) => Object.keys(cost).forEach(k => inv[k] -= cost[k]);
-export const has = (name) => slots.some(s => s.built >= 0 && MODULES[s.built][0] === name);
 export const towerSlot = () => slots.find(s => s.built === 1); // Prism Tower = MODULES[1]

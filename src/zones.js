@@ -5,10 +5,7 @@ import { applyDeltas } from './terrain.js';
 const TAU = Math.PI * 2;
 
 // region i covers wedge [i/7, (i+1)/7) of the circle; 7 = house circle (r<10)
-export const regionAt = (x, z) => {
-  if (Math.hypot(x, z) < 10) return 7;
-  return Math.min(6, Math.max(0, Math.floor((Math.atan2(x, z) / TAU + .5) * 7)));
-};
+// (region membership is computed in-shader from world pos — no JS lookup needed)
 export const regionHue = (i) => (i + .5) / 7;
 export const regionCenter = (i) => {
   const a = ((i + .5) / 7 - .5) * TAU;
