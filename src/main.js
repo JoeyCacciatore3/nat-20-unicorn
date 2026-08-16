@@ -11,7 +11,7 @@ import { buildProps } from './props.js';
 import { S, stats, NAMES, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
 import * as HUD from './hud.js';
 import * as DM from './dm.js';
-import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, raid } from './enemies.js';
+import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, raid, setPackSize } from './enemies.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
 import { MODULES, slots, initHome, costText, canAfford, pay, towerSlot } from './home.js';
 import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
@@ -218,10 +218,9 @@ const kill = (f) => {
   ct.kill++;
   const hue = regionHue(f.r);
   burst(f.x, f.y + 1, f.z, 22, hue, 6);
-  const key = ['tf', 'pr', 'ch'][f.k];
   let n = 1;
   if (Math.random() < (stats[S.CHA] - 8) * .04) { n = 2; gain(S.CHA, 8); flyAt(f.x, f.y + 2.4, f.z, 'LUCKY +2', '#7df', 0); }
-  inv[key] += n;
+  if (f.k === 0) inv.tf += n; else if (f.k === 1) inv.pr += n; else inv.ch += n;
   HUD.setRes(inv);
   nudgeAggro(.1);
   if (!firstKill) { firstKill = 1; DM.say(DM.P.kill); }
@@ -322,7 +321,8 @@ const step = (dt) => {
 
   if (playing) {
     // enemies + bolts (raiders can knock a home module dark)
-    tickSpawns(dt);
+    setPackSize(2 + (ct.shard > 1 ? 1 : 0) + (ct.shard > 4 ? 1 : 0)); // 2 -> 3 -> 4 as chapters return
+    tickSpawns(dt, pl);
     foeUpdate(pl, dt, {
       touch: () => hurt(1),
       boltHit: (b) => { hurt(1); burst(b.x, b.y, b.z, 8, .78, 3); },

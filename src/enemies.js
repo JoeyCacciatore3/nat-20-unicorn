@@ -8,8 +8,12 @@ export const bolts = [];  // {x,y,z,vx,vy,vz,life}
 export let aggro = .45;
 export const nudgeAggro = (d) => aggro = Math.min(1, Math.max(0, aggro + d));
 
+// pack size grows with progress (main drives it): 2 early -> 4 late game
+export let packSize = 2;
+export const setPackSize = (n) => packSize = n;
+
 let waveT = 0;
-export const tickSpawns = (dt) => { // keep un-restored chapters haunted
+export const tickSpawns = (dt, pl) => { // keep un-restored chapters haunted
   waveT -= dt;
   if (waveT > 0) return;
   waveT = 4;
@@ -17,14 +21,15 @@ export const tickSpawns = (dt) => { // keep un-restored chapters haunted
     if (bloom[i] > .5) continue;
     let have = 0;
     for (const f of foes) if (f.r === i) have++;
-    while (have < 3) {
+    while (have < packSize) {
       const [cx, cz] = regionCenter(i);
-      const a = Math.random() * 6.283, d = 3 + Math.random() * 8;
+      const a = Math.random() * 6.283, d = 4 + Math.random() * 8;
       const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
-      if (Math.hypot(x, z) < 12) { have++; continue; } // never inside the house circle
-      foes.push({ k: have % 3, r: i, x, z, y: surfaceHeight(x, z), yaw: 0,
-                  hp: 2 + have % 3, t: Math.random() * 9, cd: 1 + Math.random(), flash: 0 });
       have++;
+      if (Math.hypot(x, z) < 12) continue;              // never inside the house circle
+      if (Math.hypot(x - pl.x, z - pl.z) < 13) continue; // never ambush-spawn on the player
+      foes.push({ k: (have - 1) % 3, r: i, x, z, y: surfaceHeight(x, z), yaw: 0,
+                  hp: 2 + ((have - 1) % 3 ? 1 : 0), t: Math.random() * 9, cd: 1 + Math.random(), flash: 0 });
     }
   }
 };
@@ -51,7 +56,7 @@ export const update = (pl, dt, api) => {
   for (const f of foes) {
     f.t += dt; f.cd -= dt; if (f.flash > 0) f.flash -= dt;
     const dx = pl.x - f.x, dz = pl.z - f.z, d = Math.hypot(dx, dz);
-    if (f.raid && d > 5) {    // raider — marches on the house unless you engage
+    if (f.raid && d > 2.2) {  // raider — marches on the house; you must hunt it down
       const hd = Math.hypot(f.x, f.z);
       if (hd > 4) {
         const s = 2.6 * dt / hd;
@@ -61,7 +66,7 @@ export const update = (pl, dt, api) => {
       api.march && api.march(f);
       if (f.cd <= 0) f.cd = .3;
     } else if (f.k === 0) {   // chaser — hunts in a radius that grows with aggro
-      if (d < 9 + 6 * aggro && d > 1.1) {
+      if (d < 7 + 6 * aggro && d > 1.1) {
         const s = (2 + 2.8 * aggro) * dt / d;
         f.x += dx * s; f.z += dz * s;
         f.yaw = Math.atan2(dx, dz);
@@ -71,9 +76,9 @@ export const update = (pl, dt, api) => {
       if (d < 17) {
         f.yaw = Math.atan2(dx, dz);
         if (d < 5.5) { const s = 2.2 * dt / d; f.x -= dx * s; f.z -= dz * s; }
-        if (f.cd <= 0) { f.cd = 2.8 - 1.5 * aggro; fire(f, pl.x, pl.y, pl.z, 8); }
+        if (f.cd <= 0) { f.cd = 2.8 - 1.5 * aggro; fire(f, pl.x, pl.y, pl.z, 7); }
       }
-    } else if (d < 19 && f.cd <= 0) { // turret — slow heavy shots
+    } else if (d < 16 && f.cd <= 0) { // turret — slow heavy shots
       f.cd = 3.6 - 1.7 * aggro;
       fire(f, pl.x, pl.y, pl.z, 5.5);
     }

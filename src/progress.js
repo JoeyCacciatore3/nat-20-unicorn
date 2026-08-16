@@ -50,12 +50,12 @@ const ACH = [
   ['🎯', 'Natural 20 — land a crit', () => ct.crit >= 1, S.CHA],
   ['💨', 'Untouchable — dodge 13', () => ct.dodge >= 13, S.DEX],
   ['🌼', 'Green Hooves — gather 50', () => ct.gather >= 50, S.WIS],
-  ['🧗', 'Summit — stand on the highest peak', () => 0, S.CON], // set externally
+  ['🧗', 'Summit — top the highest peak', () => 0, S.CON], // set externally
   ['🗣', 'Silver Tongue — persuade the troll', () => 0, S.CHA], // set externally
   ['🛏', 'Well Rested — sleep 3 times', () => ct.sleep >= 3, S.CON],
-  ['💎', 'Hoarder — hold 20 sparkles', () => inv.sp >= 20, S.INT],
+  ['💎', 'Hoarder — hold 12 sparkles', () => inv.sp >= 12, S.INT],
   ['🎲', 'Believer — pass 5 checks', () => ct.pass >= 5, S.INT],
-  ['🏗', 'Architect — fill every build slot', () => slots.every(s => s.built >= 0), S.INT],
+  ['🏗', 'Architect — fill all slots', () => slots.every(s => s.built >= 0), S.INT],
   ['🦄', 'Prismatic — restore all 7 chapters', () => ct.shard >= 7, -1],
 ];
 export const earned = new Array(13).fill(0);

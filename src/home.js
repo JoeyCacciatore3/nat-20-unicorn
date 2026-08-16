@@ -4,7 +4,7 @@ import { surfaceHeight } from './terrain.js';
 import { inv } from './items.js';
 
 export const MODULES = [
-  ['Garden', '🌼', { fl: 5 }, [
+  ['Garden', '🌼', { fl: 4, tf: 2 }, [
     [0, 0, .15, 0, 0, 2.6, .3, 1.8, .32, .2, .12, 0],
     [1, -.8, .55, -.4, 0, .22, .5, .22, 1, .45, .6, .6],
     [1, .7, .55, .3, 0, .22, .5, .22, 1, .85, .3, .6],

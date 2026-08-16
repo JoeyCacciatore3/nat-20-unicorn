@@ -13,7 +13,7 @@ export const initItems = () => {
     const [cx, cz] = regionCenter(i);
     for (let n = 0; n < 8; n++) {
       const a = Math.random() * 6.283, d = 2 + Math.random() * 11;
-      addItem(n < 6 ? 0 : 1, cx + Math.sin(a) * d, cz + Math.cos(a) * d);
+      addItem(n < 5 ? 0 : 1, cx + Math.sin(a) * d, cz + Math.cos(a) * d);
     }
   }
 };
@@ -25,6 +25,6 @@ export const update = (pl, dt, magnetR, onPick) => {
     it.t += dt;
     const dx = pl.x - it.x, dz = pl.z - it.z, d = Math.hypot(dx, dz);
     if (d < magnetR && d > .1) { const s = 7 * dt / d; it.x += dx * s; it.z += dz * s; it.y = surfaceHeight(it.x, it.z); }
-    if (d < 1) { inv[it.k ? 'sp' : 'fl']++; items.splice(i, 1); onPick(it); }
+    if (d < 1) { it.k ? inv.sp++ : inv.fl++; items.splice(i, 1); onPick(it); }
   }
 };

@@ -26,7 +26,7 @@ run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
 console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
 // inventory keys used via quoted strings, namespaced localStorage key)
-const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","n20_save","fl","sp","tf","pr","ch"';
+const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","n20_save"';
 run(`npx terser dist/bundle.js -c passes=3,unsafe=true,drop_console=true -m --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' -o dist/min.js`);
 
 // Rules compliance: no external URLs may ship (js13k rule #2)
@@ -42,7 +42,10 @@ if (/localStorage\.(setItem|clear)/.test(min) && !/n20_/.test(min)) {
 }
 
 console.log('3/6 pack (roadroller)…');
-run('npx roadroller dist/min.js -o dist/packed.js');
+// Pinned flags = deterministic builds (no ±20 B jitter). After big source changes,
+// re-tune: `npx roadroller dist/min.js -o /dev/null` and paste the "use ... to replicate" flags here.
+const ROADFLAGS = process.env.TUNE ? '' : '-Zab16 -Zlr1000 -Zmd10 -Zpr14 -S0,1,2,3,6,7,13,21,25,42,198,281';
+run(`npx roadroller ${ROADFLAGS} dist/min.js -o dist/packed.js`);
 
 console.log('4/6 inline into template…');
 const tpl = readFileSync('index.template.html', 'utf8');
