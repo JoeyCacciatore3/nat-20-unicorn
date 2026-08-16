@@ -11,9 +11,11 @@ import { buildProps } from './props.js';
 import { S, stats, NAMES, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
 import * as HUD from './hud.js';
 import * as DM from './dm.js';
-import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro } from './enemies.js';
+import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, raid } from './enemies.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
-import { MODULES, slots, initHome, costText, canAfford, pay, has, towerSlot } from './home.js';
+import { MODULES, slots, initHome, costText, canAfford, pay, towerSlot } from './home.js';
+import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
+import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
 
 const c = document.getElementById('c');
 const gl = c.getContext('webgl2', { antialias: true });
@@ -72,15 +74,17 @@ void main(){
 }`;
 const SKY_FS = `#version 300 es
 precision mediump float;
-in vec2 v; uniform float uAsp; out vec4 o;
+in vec2 v; uniform float uAsp; uniform float uRb; out vec4 o;
 void main(){
-  vec3 col = mix(vec3(.10, .085, .08), vec3(.045, .04, .07), v.y); // warm table glow -> dark room
+  // the room warms as the campaign comes back
+  vec3 col = mix(mix(vec3(.10, .085, .08), vec3(.16, .12, .09), uRb),
+                 mix(vec3(.045, .04, .07), vec3(.09, .06, .10), uRb), v.y);
   vec2 q = (v - vec2(.5, -.12)) * vec2(uAsp, 1.);
   float r = length(q);
-  if (r > .55 && r < .8) { // faint rainbow teaser over the horizon
+  if (r > .55 && r < .8) { // rainbow: withheld teaser -> full arc at restoration
     float h = (r - .55) / .25;
     vec3 hb = clamp(vec3(abs(h * 6. - 3.) - 1., 2. - abs(h * 6. - 2.), 2. - abs(h * 6. - 4.)), 0., 1.);
-    col += hb * .05 * smoothstep(.55, .6, r) * smoothstep(.8, .75, r);
+    col += hb * (.05 + uRb * .4) * smoothstep(.55, .6, r) * smoothstep(.8, .75, r);
   }
   col *= 1.05 - .4 * length(v - vec2(.5));
   o = vec4(col, 1.);
@@ -109,7 +113,7 @@ const U = (p, n) => gl.getUniformLocation(p, n);
 const uVP = U(meshP, 'uVP'), uM = U(meshP, 'uM'), uTint = U(meshP, 'uTint'),
       uEye = U(meshP, 'uEye'), uGrid = U(meshP, 'uGrid'),
       uEmis = U(meshP, 'uEmis'), uB = U(meshP, 'uB');
-const uAsp = U(skyP, 'uAsp');
+const uAsp = U(skyP, 'uAsp'), uRb = U(skyP, 'uRb');
 const uVPp = U(ptP, 'uVP');
 
 // ---------- geometry (zone deltas patch the heightfield BEFORE meshing) ----------
@@ -122,6 +126,15 @@ const props = buildProps();
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 initItems();
 initHome();
+initChecks();
+
+// highest peak (Summit achievement target)
+let peakH = 0;
+for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2)
+  peakH = Math.max(peakH, surfaceHeight(x, z));
+let summitFlag = 0, trollFlag = 0;
+setCond(6, () => summitFlag);
+setCond(7, () => trollFlag);
 
 // shard beacons: one light pillar per un-restored chapter (environment as HUD)
 const beacons = [];
@@ -145,7 +158,10 @@ initInput(c);
 const pl = { x: 2, y: 0, z: 9, vx: 0, vy: 0, vz: 0, yaw: 0, ground: true, gallop: 0 };
 let time = 0, hueT = 0, sparkleT = 0;
 let hp = 3, atkCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0, zapT = 0, gardenT = 0;
+let airJump = 0, achT = 0, prevB = 0;
+const cr = { x: 3, z: 4, tx: 3, tz: 4, t: 0 }; // companion critter (yard)
 let vpNow = null; // current frame's view-projection for world->screen text
+const maxH = () => maxHearts() + (abil(5) ? 1 : 0); // Gloom Ward
 
 const burst = (x, y, z, n, hue, spread) => {
   for (let i = 0; i < n; i++)
@@ -172,7 +188,8 @@ setOnLevel((s) => {
   flyAt(pl.x, pl.y + 2.6, pl.z, NAMES[s] + ' UP!', '#ffd75e', 1);
   burst(pl.x, pl.y + 1.5, pl.z, 24, null, 5);
   juice(.15, 3);
-  if (s === S.CON) hp = Math.min(hp + 1, maxHearts());
+  if (s === S.CON) hp = Math.min(hp + 1, maxH());
+  HUD.setHearts(hp, maxH());
 });
 
 const hurt = (n) => {
@@ -184,16 +201,17 @@ const hurt = (n) => {
   gain(S.CON, 6);
   if (hp <= 0) {
     DM.say('dead');
-    hp = maxHearts();
+    hp = maxH();
     pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
     pl.vx = pl.vy = pl.vz = 0;
   } else DM.say('hurt');
-  HUD.setHearts(hp, maxHearts());
+  HUD.setHearts(hp, maxH());
 };
 
 let firstKill = 0;
 const kill = (f) => {
   foes.splice(foes.indexOf(f), 1);
+  ct.kill++;
   const hue = regionHue(f.r);
   burst(f.x, f.y + 1, f.z, 22, hue, 6);
   const key = ['tf', 'pr', 'ch'][f.k];
@@ -222,25 +240,33 @@ const step = (dt) => {
   if (playing && consumeDodge() && atkCd <= 0) {
     const l = Math.hypot(wx, wz);
     const dxn = l ? wx / l : Math.sin(pl.yaw), dzn = l ? wz / l : Math.cos(pl.yaw);
-    pl.vx += dxn * 14; pl.vz += dzn * 14;
+    const dash = abil(2) ? 24 : 14; // Sun Dash
+    pl.vx += dxn * dash; pl.vz += dzn * dash;
     invulnT = Math.max(invulnT, .32 * mod(S.DEX));
     burst(pl.x, pl.y + .6, pl.z, 8, .8, 3);
     let near = 0;
     for (const b of bolts) if (Math.hypot(pl.x - b.x, pl.z - b.z) < 3) near = 1;
     for (const f of foes) if (Math.hypot(pl.x - f.x, pl.z - f.z) < 3) near = 1;
-    if (near) { gain(S.DEX, 7); flyAt(pl.x, pl.y + 2.2, pl.z, 'DODGE', '#8ef', 0); }
+    if (near) { ct.dodge++; gain(S.DEX, 7); flyAt(pl.x, pl.y + 2.2, pl.z, 'DODGE', '#8ef', 0); }
   }
 
   // jump + gravity + sphere-on-heightfield (no floor past the table edge)
-  if (playing && consumeJump() && pl.ground) { pl.vy = 7.6; pl.ground = false; }
+  if (playing && consumeJump()) {
+    const jv = abil(4) ? 9.2 : 7.6; // Feather Fall
+    if (pl.ground) { pl.vy = jv; pl.ground = false; airJump = 0; }
+    else if (abil(6) && !airJump) { // Double Jump
+      airJump = 1; pl.vy = jv * .9;
+      burst(pl.x, pl.y + .3, pl.z, 10, hueT % 1, 4);
+    }
+  }
   pl.vy -= 21 * dt;
   pl.x += pl.vx * dt; pl.z += pl.vz * dt; pl.y += pl.vy * dt;
   const onTable = Math.max(Math.abs(pl.x), Math.abs(pl.z)) <= TABLE;
   const sh = surfaceHeight(pl.x, pl.z);
   if (onTable && pl.y <= sh) {
-    pl.y = sh; pl.vy = 0; pl.ground = true;
+    pl.y = sh; pl.vy = 0; pl.ground = true; airJump = 0;
     const n = surfaceNormal(pl.x, pl.z);
-    if (n[1] < .62) { pl.vx += n[0] * 26 * dt; pl.vz += n[2] * 26 * dt; } // steep -> slide
+    if (n[1] < .62 && !abil(1)) { pl.vx += n[0] * 26 * dt; pl.vz += n[2] * 26 * dt; } // steep -> slide (Sure Hooves negates)
   } else if (!onTable) {
     pl.ground = false;
     if (pl.y < -18) { // fell off the table — the DM puts the mini back
@@ -272,7 +298,8 @@ const step = (dt) => {
       const roll = d20();
       if (roll === 1) { DM.say('fumble'); flyAt(f.x, f.y + 2.2, f.z, '1 ...', '#999', 1); continue; }
       const crit = roll === 20;
-      const dmg = Math.round((crit ? 2 : 1) * mod(S.STR) * 10) / 10;
+      if (crit) ct.crit++;
+      const dmg = Math.round((crit ? 2 : 1) * mod(S.STR) * (abil(0) ? 1.5 : 1) * 10) / 10; // Ember Horn
       f.hp -= dmg; f.flash = .1;
       const kb = 7 * mod(S.STR) * (crit ? 1.6 : 1);
       const dx = f.x - pl.x, dz = f.z - pl.z, dd = Math.hypot(dx, dz) || 1;
@@ -286,24 +313,74 @@ const step = (dt) => {
   }
 
   if (playing) {
-    // enemies + bolts
+    // enemies + bolts (raiders can knock a home module dark)
     tickSpawns(dt);
     foeUpdate(pl, dt, {
       touch: () => hurt(1),
       boltHit: (b) => { hurt(1); burst(b.x, b.y, b.z, 8, .78, 3); },
+      march: (f) => {
+        for (const sl of slots) {
+          if (sl.built < 0 || sl.dark || Math.hypot(f.x - sl.x, f.z - sl.z) > 2.2) continue;
+          sl.dark = 1;
+          foes.splice(foes.indexOf(f), 1);
+          burst(sl.x, sl.y + 1, sl.z, 18, .78, 6);
+          juice(.08, 5);
+          HUD.toast('💥 ' + MODULES[sl.built][1] + ' <b>' + MODULES[sl.built][0] + '</b> damaged!');
+          return;
+        }
+      },
     });
 
-    // gathering (WIS magnet)
-    itemUpdate(pl, dt, 2 + 2.5 * (mod(S.WIS) - 1) * 4 + 1.5, (it) => {
+    // gathering (WIS magnet; Bloom Step widens it)
+    itemUpdate(pl, dt, 3 + (stats[S.WIS] - 10) * .25 + (abil(3) ? 2.5 : 0), (it) => {
+      ct.gather++;
       gain(S.WIS, 2);
       burst(it.x, it.y + .5, it.z, 6, it.k ? .55 : .12, 2);
       HUD.setRes(inv);
     });
 
-    // ---- home interactions ----
+    // ---- interactions: shards, skill checks, home ----
     let pr = '';
+
+    // free a shard: reach its beacon with no gloom nearby
+    for (const [i, bx, by, bz] of beacons) {
+      if (bloom[i] > .5 || Math.hypot(pl.x - bx, pl.z - bz) > 3) continue;
+      let clear = 1;
+      for (const f of foes) if (!f.raid && Math.hypot(f.x - bx, f.z - bz) < 9) clear = 0;
+      pr = clear ? 'E — Free the shard' : 'Clear the gloom to free the shard';
+      if (clear && consumeInteract()) {
+        freeShard(i);
+        burst(bx, by + 2, bz, 30, regionHue(i), 8);
+        juice(.15, 5);
+        HUD.setHearts(hp, maxH());
+        if (ct.shard >= 2) { raid(i); DM.say('raid'); } // the gloom answers (from 2nd on)
+      }
+    }
+
+    // skill checks: DM table-talk + the falling d20
+    const ck = checkNear(pl.x, pl.z);
+    if (ck && !pr) {
+      pr = 'E — ' + NAMES[ck.stat] + ' check: ' + ck.label + ' (DC ' + ck.dc + ')';
+      if (consumeInteract()) attempt(ck);
+    }
+    checkTick(dt, {
+      fly: flyAt,
+      burst,
+      onPass: (c2) => { ct.pass++; if (c2.troll) trollFlag = 1; HUD.setRes(inv); },
+    });
+
     for (const sl of slots) {
       if (Math.hypot(pl.x - sl.x, pl.z - sl.z) > 2.6) continue;
+      if (sl.built >= 0 && sl.dark) {
+        pr = 'E — Repair ' + MODULES[sl.built][0] + '  (2🌼)';
+        if (consumeInteract() && inv.fl >= 2) {
+          inv.fl -= 2; sl.dark = 0;
+          HUD.setRes(inv);
+          burst(sl.x, sl.y + 1, sl.z, 14, .3, 4);
+          HUD.toast('🔧 <b>' + MODULES[sl.built][0] + '</b> repaired');
+        }
+        continue;
+      }
       if (sl.built < 0) {
         const M = MODULES[sl.i];
         const cost = {};
@@ -313,32 +390,37 @@ const step = (dt) => {
           : M[1] + ' ' + M[0] + ' needs ' + costText(cost);
         if (consumeInteract() && canAfford(cost)) {
           pay(cost); sl.built = sl.i;
+          ct.build++;
           HUD.setRes(inv);
           burst(sl.x, sl.y + 1.5, sl.z, 26, null, 6);
           juice(.1, 4);
           HUD.toast(M[1] + ' <b>' + M[0] + '</b> built!');
           DM.say('build');
           gain(S.INT, 14);
+          save();
         }
-      } else if (MODULES[sl.built][0] === 'Bed' && hp < maxHearts()) {
+      } else if (MODULES[sl.built][0] === 'Bed' && hp < maxH()) {
         pr = 'E — Sleep  (full heal)';
         if (consumeInteract()) {
-          hp = maxHearts(); HUD.setHearts(hp, maxHearts());
+          hp = maxH(); HUD.setHearts(hp, maxH());
+          ct.sleep++;
           burst(sl.x, sl.y + 1.5, sl.z, 16, .1, 3);
           DM.say('sleep');
+          save();
         }
       }
     }
     HUD.setPrompt(pr);
 
-    // module effects: garden regrows flowers; prism tower zaps near-home gloom
-    if (has('Garden') && (gardenT -= dt) <= 0) {
+    // module effects (dark modules are offline until repaired)
+    const gd = slots.find(s => s.built === 0 && !s.dark);
+    if (gd && (gardenT -= dt) <= 0) {
       gardenT = 7;
       const a = Math.random() * 6.283;
       addItem(0, Math.sin(a) * (8 + Math.random() * 5), Math.cos(a) * (8 + Math.random() * 5));
     }
     const tw = towerSlot();
-    if (tw && (zapT -= dt) <= 0) {
+    if (tw && !tw.dark && (zapT -= dt) <= 0) {
       for (const f of foes) {
         if (Math.hypot(f.x - tw.x, f.z - tw.z) > 13) continue;
         zapT = 2;
@@ -369,9 +451,25 @@ const step = (dt) => {
       (Math.random() - .5) * 1.2, .6 + Math.random(), (Math.random() - .5) * 1.2,
       .5, Math.random());
   }
-  // DEV ONLY (removed in P4 when shards drive this): keys 1-7 bloom a chapter, 0 resets
-  for (let i = 0; i < 7; i++) if (keys['Digit' + (i + 1)]) setBloom(i, 1);
-  if (keys.Digit0) for (let i = 0; i < 8; i++) setBloom(i, 0);
+  // achievements + summit + badge grid toggle
+  if ((achT -= dt) <= 0) { achT = .5; achTick(); }
+  if (pl.ground && pl.y >= peakH - .3) summitFlag = 1;
+  if (keys.KeyB && !prevB) HUD.badges(achList());
+  prevB = keys.KeyB;
+
+  // companion critter — lives in the yard, hops between spots
+  if (critter) {
+    cr.t -= dt;
+    if (cr.t <= 0) {
+      cr.t = 2 + Math.random() * 3;
+      const a = Math.random() * 6.283;
+      cr.tx = Math.sin(a) * (4 + Math.random() * 4);
+      cr.tz = Math.cos(a) * (4 + Math.random() * 4);
+    }
+    cr.x += (cr.tx - cr.x) * dt * 1.5;
+    cr.z += (cr.tz - cr.z) * dt * 1.5;
+  }
+
   // house circle warms as chapters are restored
   let sum = 0; for (let i = 0; i < 7; i++) sum += bloom[i];
   setBloom(7, sum / 7);
@@ -416,6 +514,8 @@ const render = () => {
   gl.disable(gl.DEPTH_TEST);
   gl.useProgram(skyP);
   gl.uniform1f(uAsp, asp);
+  let rb = 0; for (let i = 0; i < 7; i++) rb += bloom[i];
+  gl.uniform1f(uRb, rb / 7);
   gl.bindVertexArray(null);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -438,10 +538,34 @@ const render = () => {
       draw(cube, compose(sl.x, sl.y + .04, sl.z, 0, time * .4, 0, 0, 0, 1.6, .06, 1.6), .5, .45, .7, 0, .5);
       continue;
     }
+    const dk = sl.dark ? .3 : 1; // damaged modules go dark until repaired
     for (const R of MODULES[sl.built][3])
       draw(R[0] ? cone : cube,
         compose(sl.x + R[1], sl.y + R[2], sl.z + R[3], 0, R[4], 0, 0, 0, R[5], R[6], R[7]),
-        R[8], R[9], R[10], 0, R[11]);
+        R[8] * dk, R[9] * dk, R[10] * dk, 0, sl.dark ? 0 : R[11]);
+  }
+
+  // open skill-check spots: a little white die hovering, waiting to be rolled
+  for (const ck of checks) {
+    if (ck.done) continue;
+    const bob = Math.sin(time * 2.5 + ck.x) * .15;
+    draw(cube, compose(ck.x, ck.y + 1.2 + bob, ck.z, time * .8, time * 1.1, 0, 0, 0, .34, .34, .34), 1, 1, 1, 0, .5);
+  }
+
+  // the falling d20 (well, d6-shaped — the DM lost the good dice)
+  if (die.t > 0) {
+    const p = 1 - die.t / .8;
+    draw(cube, compose(die.x, die.y + .5 + (1 - p) * (1 - p) * 11, die.z,
+      die.t * 14, die.t * 19, 0, 0, 0, .55, .55, .55), 1, 1, 1, 0, .6);
+  }
+
+  // companion critter — tiny hopping yard-bunny
+  if (critter) {
+    const hop = Math.abs(Math.sin(cr.t * 4 + time * 6)) * .25;
+    const cy = surfaceHeight(cr.x, cr.z);
+    const cyaw = Math.atan2(cr.tx - cr.x, cr.tz - cr.z);
+    draw(cube, compose(cr.x, cy + .25 + hop, cr.z, 0, cyaw, 0, 0, 0, .38, .34, .48), .95, .8, .85, 0);
+    draw(cube, compose(cr.x, cy + .55 + hop, cr.z, .3, cyaw, 0, 0, 0, .1, .3, .1), .95, .8, .85, 0);
   }
 
   // gatherables: flowers = tiny cone + stem, sparkles = spinning cone
@@ -516,12 +640,13 @@ const render = () => {
 gl.vertexAttrib3f(2, 1, 1, 1);
 gl.clearColor(0, 0, 0, 1);
 
-// ---------- boot: Session Zero, then play ----------
-HUD.creation(() => {
-  hp = maxHearts();
-  HUD.setHearts(hp, maxHearts());
+// ---------- boot: Session Zero (or Continue), then play ----------
+const bootHud = () => {
+  hp = maxH();
+  HUD.setHearts(hp, maxH());
   HUD.setRes(inv);
-});
+};
+HUD.creation(bootHud, hasSave() ? () => { load(); bootHud(); } : null);
 
 // locked 60fps sim + hit-stop, render every frame
 let acc = 0, last = performance.now();

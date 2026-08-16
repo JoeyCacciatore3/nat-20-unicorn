@@ -62,9 +62,20 @@ export const tick = (dt) => {
   if (dmT > 0 && (dmT -= dt) <= 0) dmBar.style.opacity = 0;
 };
 
+// --- badge grid (B toggles; grayscale until earned = visible goals) ---
+let badgeOv = null;
+export const badges = (list) => {
+  if (badgeOv) { badgeOv.remove(); badgeOv = null; return; }
+  badgeOv = el('div', 'inset:0;background:#0e0b16cc;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:10px;padding:8vw');
+  for (const [emoji, label, got] of list)
+    el('div', `position:static;width:150px;font-size:13px;color:#fff;background:#ffffff12;border-radius:10px;padding:10px;text-align:center;${got ? '' : 'filter:grayscale(1);opacity:.45'}`,
+      badgeOv, `<span style="font-size:26px">${emoji}</span><br>${label}`);
+  el('div', 'position:static;width:100%;text-align:center;font-size:14px;color:#b9a;margin-top:6px', badgeOv, 'B — close');
+};
+
 // --- Session Zero: character creation (blocks input until Start) ---
 export let playing = 0;
-export const creation = (onStart) => {
+export const creation = (onStart, onContinue) => {
   const ov = el('div', 'inset:0;background:#0e0b16dd;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#eee;text-align:center');
   el('div', 'position:static;font-size:34px;font-weight:800;letter-spacing:2px;color:#fff', ov,
     'NAT <span style="color:#ffd75e">20</span> UNICORN');
@@ -96,4 +107,8 @@ export const creation = (onStart) => {
   btn('🎲 Reroll', 'background:#ffffff1c;color:#fff').onclick = reroll;
   const start = btn('Roll for it.', 'background:#ffd75e;color:#221;font-weight:700;font-size:18px;margin-top:6px');
   start.onclick = () => { ov.remove(); playing = 1; DM.say('start'); onStart(); };
+  if (onContinue) {
+    const c = btn('▶ Continue', 'background:#ffffff1c;color:#fff;font-size:15px');
+    c.onclick = () => { ov.remove(); playing = 1; DM.say('start'); onContinue(); };
+  }
 };

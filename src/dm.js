@@ -38,6 +38,18 @@ const POOLS = {
     'That was not in my notes. Keep going.',
   ],
   sleep: ['Rest. Even imaginary legs get tired.'],
+  raid: [
+    'The gloom does not like losing chapters. Incoming.',
+    'Doubt marches on your little house. Hold it.',
+  ],
+  pass: [
+    'That... actually worked. Noted.',
+    'Fine. FINE. It works. Take it.',
+  ],
+  fail: [
+    'The dice have spoken, and they are laughing.',
+    'No. But points for the confident face.',
+  ],
 };
 const bags = {};
 let show = () => {};
@@ -46,3 +58,4 @@ export const say = (k) => {
   if (!bags[k] || !bags[k].length) bags[k] = [...POOLS[k]];
   show(bags[k].splice(Math.random() * bags[k].length | 0, 1)[0]);
 };
+export const line = (t) => show(t); // ordered story beats bypass the bags

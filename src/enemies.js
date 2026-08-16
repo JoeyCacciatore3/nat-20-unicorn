@@ -29,6 +29,17 @@ export const tickSpawns = (dt) => { // keep un-restored chapters haunted
   }
 };
 
+// gloom raid: chasers spawned at a freed chapter, marching on the house
+export const raid = (i) => {
+  const [cx, cz] = regionCenter(i);
+  for (let n = 0; n < 3; n++) {
+    const a = Math.random() * 6.283;
+    const x = cx + Math.sin(a) * 3, z = cz + Math.cos(a) * 3;
+    foes.push({ k: 0, r: i, x, z, y: surfaceHeight(x, z), yaw: 0,
+                hp: 2, t: Math.random() * 9, cd: 1, flash: 0, raid: 1 });
+  }
+};
+
 const fire = (f, px, py, pz, spd) => {
   const dx = px - f.x, dy = py + 1 - f.y - 1.2, dz = pz - f.z;
   const d = Math.hypot(dx, dy, dz) || 1;
@@ -40,7 +51,16 @@ export const update = (pl, dt, api) => {
   for (const f of foes) {
     f.t += dt; f.cd -= dt; if (f.flash > 0) f.flash -= dt;
     const dx = pl.x - f.x, dz = pl.z - f.z, d = Math.hypot(dx, dz);
-    if (f.k === 0) {          // chaser — hunts in a radius that grows with aggro
+    if (f.raid && d > 5) {    // raider — marches on the house unless you engage
+      const hd = Math.hypot(f.x, f.z);
+      if (hd > 4) {
+        const s = 2.6 * dt / hd;
+        f.x -= f.x * s; f.z -= f.z * s;
+        f.yaw = Math.atan2(-f.x, -f.z);
+      }
+      api.march && api.march(f);
+      if (f.cd <= 0) f.cd = .3;
+    } else if (f.k === 0) {   // chaser — hunts in a radius that grows with aggro
       if (d < 9 + 6 * aggro && d > 1.1) {
         const s = (2 + 2.8 * aggro) * dt / d;
         f.x += dx * s; f.z += dz * s;
