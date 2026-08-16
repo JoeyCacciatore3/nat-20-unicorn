@@ -16,6 +16,7 @@ import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from '.
 import { MODULES, slots, initHome, costText, canAfford, pay, towerSlot } from './home.js';
 import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
 import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
+import { audioInit, sfx, SND } from './audio.js';
 
 const c = document.getElementById('c');
 const gl = c.getContext('webgl2', { antialias: true });
@@ -25,11 +26,14 @@ const resize = () => { c.width = innerWidth * DPR; c.height = innerHeight * DPR;
 addEventListener('resize', resize); resize();
 
 // ---------- shaders ----------
+// shared GLSL: piecewise rainbow (hue 0..1 -> rgb)
+const HUE = `vec3 hue(float h){return clamp(vec3(abs(h*6.-3.)-1.,2.-abs(h*6.-2.),2.-abs(h*6.-4.)),0.,1.);}`;
 const MESH_VS = `#version 300 es
 layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec3 aC;
 uniform mat4 uVP, uM; uniform vec3 uTint;
 uniform float uGrid; uniform float uEmis; uniform float uB[8];
 out vec3 vC; out vec3 vW; out float vB;
+${HUE}
 void main(){
   vec4 w = uM * vec4(aP, 1.);
   vW = w.xyz;
@@ -42,8 +46,7 @@ void main(){
     float r = length(w.xz);
     int i = r < 10. ? 7 : clamp(int((atan(w.x, w.z) / 6.28318 + .5) * 7.), 0, 6);
     vB = uB[i];
-    float h = (float(i) + .5) / 7.;
-    vec3 hc = clamp(vec3(abs(h * 6. - 3.) - 1., 2. - abs(h * 6. - 2.), 2. - abs(h * 6. - 4.)), 0., 1.);
+    vec3 hc = hue((float(i) + .5) / 7.);
     if (i == 7) hc = vec3(1., .85, .55); // house circle warms gold
     vec3 painted = (hc * .72 + .28) * (aC.g * 1.5 + .2);
     base = mix(aC, painted, vB);
@@ -75,6 +78,7 @@ void main(){
 const SKY_FS = `#version 300 es
 precision mediump float;
 in vec2 v; uniform float uAsp; uniform float uRb; out vec4 o;
+${HUE}
 void main(){
   // the room warms as the campaign comes back
   vec3 col = mix(mix(vec3(.10, .085, .08), vec3(.16, .12, .09), uRb),
@@ -82,9 +86,7 @@ void main(){
   vec2 q = (v - vec2(.5, -.12)) * vec2(uAsp, 1.);
   float r = length(q);
   if (r > .55 && r < .8) { // rainbow: withheld teaser -> full arc at restoration
-    float h = (r - .55) / .25;
-    vec3 hb = clamp(vec3(abs(h * 6. - 3.) - 1., 2. - abs(h * 6. - 2.), 2. - abs(h * 6. - 4.)), 0., 1.);
-    col += hb * (.05 + uRb * .4) * smoothstep(.55, .6, r) * smoothstep(.8, .75, r);
+    col += hue((r - .55) / .25) * (.05 + uRb * .4) * smoothstep(.55, .6, r) * smoothstep(.8, .75, r);
   }
   col *= 1.05 - .4 * length(v - vec2(.5));
   o = vec4(col, 1.);
@@ -184,7 +186,8 @@ const flyAt = (x, y, z, text, color, big) => {
 const juice = (stop, shake) => { hitStop = Math.max(hitStop, stop); shakeT = .1; shakeAmp = shake; };
 
 setOnLevel((s) => {
-  HUD.toast('⬆️ <b>' + NAMES[s] + ' ' + stats[s] + '</b> — leveled by doing');
+  sfx(SND.level, 1);
+  HUD.toast('⬆️ <b>' + NAMES[s] + ' ' + stats[s] + '</b>');
   flyAt(pl.x, pl.y + 2.6, pl.z, NAMES[s] + ' UP!', '#ffd75e', 1);
   burst(pl.x, pl.y + 1.5, pl.z, 24, null, 5);
   juice(.15, 3);
@@ -195,16 +198,17 @@ setOnLevel((s) => {
 const hurt = (n) => {
   if (invulnT > 0) return;
   hp -= n; invulnT = 1;
+  sfx(hp <= 0 ? SND.death : SND.hurt, 1);
   HUD.hurtFlash(); juice(.09, 8);
   navigator.vibrate && navigator.vibrate(80);
   nudgeAggro(-.4);               // rubber-band mercy
   gain(S.CON, 6);
   if (hp <= 0) {
-    DM.say('dead');
+    DM.say(DM.P.dead);
     hp = maxH();
     pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
     pl.vx = pl.vy = pl.vz = 0;
-  } else DM.say('hurt');
+  } else DM.say(DM.P.hurt);
   HUD.setHearts(hp, maxH());
 };
 
@@ -220,8 +224,8 @@ const kill = (f) => {
   inv[key] += n;
   HUD.setRes(inv);
   nudgeAggro(.1);
-  if (!firstKill) { firstKill = 1; DM.say('kill'); }
-  else if (Math.random() < .25) DM.say('kill');
+  if (!firstKill) { firstKill = 1; DM.say(DM.P.kill); }
+  else if (Math.random() < .25) DM.say(DM.P.kill);
 };
 
 const step = (dt) => {
@@ -241,6 +245,7 @@ const step = (dt) => {
     const l = Math.hypot(wx, wz);
     const dxn = l ? wx / l : Math.sin(pl.yaw), dzn = l ? wz / l : Math.cos(pl.yaw);
     const dash = abil(2) ? 24 : 14; // Sun Dash
+    sfx(SND.dodge);
     pl.vx += dxn * dash; pl.vz += dzn * dash;
     invulnT = Math.max(invulnT, .32 * mod(S.DEX));
     burst(pl.x, pl.y + .6, pl.z, 8, .8, 3);
@@ -256,6 +261,7 @@ const step = (dt) => {
     if (pl.ground) { pl.vy = jv; pl.ground = false; airJump = 0; }
     else if (abil(6) && !airJump) { // Double Jump
       airJump = 1; pl.vy = jv * .9;
+      sfx(SND.jump2);
       burst(pl.x, pl.y + .3, pl.z, 10, hueT % 1, 4);
     }
   }
@@ -272,7 +278,7 @@ const step = (dt) => {
     if (pl.y < -18) { // fell off the table — the DM puts the mini back
       pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
       pl.vx = pl.vy = pl.vz = 0;
-      DM.say('fall');
+      DM.say(DM.P.fall);
     }
   }
 
@@ -290,14 +296,16 @@ const step = (dt) => {
   atkCd -= dt; invulnT -= dt;
   if (playing && consumeAttack() && atkCd <= 0) {
     atkCd = .45;
+    sfx(SND.swing);
     pl.vx += Math.sin(pl.yaw) * 5; pl.vz += Math.cos(pl.yaw) * 5;   // lunge
     const hx = pl.x + Math.sin(pl.yaw) * 1.7, hz = pl.z + Math.cos(pl.yaw) * 1.7;
     burst(hx, pl.y + 1.4, hz, 6, hueT % 1, 4);
     for (const f of [...foes]) {
       if (Math.hypot(f.x - hx, f.z - hz) > 2.1) continue;
       const roll = d20();
-      if (roll === 1) { DM.say('fumble'); flyAt(f.x, f.y + 2.2, f.z, '1 ...', '#999', 1); continue; }
+      if (roll === 1) { sfx(SND.fumble, 1); DM.say(DM.P.fumble); flyAt(f.x, f.y + 2.2, f.z, '1 ...', '#999', 1); continue; }
       const crit = roll === 20;
+      sfx(crit ? SND.crit : SND.thud, 1);
       if (crit) ct.crit++;
       const dmg = Math.round((crit ? 2 : 1) * mod(S.STR) * (abil(0) ? 1.5 : 1) * 10) / 10; // Ember Horn
       f.hp -= dmg; f.flash = .1;
@@ -306,7 +314,7 @@ const step = (dt) => {
       f.x += dx / dd * kb * .16; f.z += dz / dd * kb * .16;
       juice(crit ? .12 : .06, crit ? 9 : 3);
       flyAt(f.x, f.y + 2.2, f.z, crit ? 'NAT 20!' : '' + roll, crit ? '#ffd75e' : '#fff', crit);
-      if (crit) { DM.say('crit'); burst(f.x, f.y + 1.5, f.z, 26, null, 7); }
+      if (crit) { DM.say(DM.P.crit); burst(f.x, f.y + 1.5, f.z, 26, null, 7); }
       gain(S.STR, 3);
       if (f.hp <= 0) kill(f);
     }
@@ -333,6 +341,7 @@ const step = (dt) => {
 
     // gathering (WIS magnet; Bloom Step widens it)
     itemUpdate(pl, dt, 3 + (stats[S.WIS] - 10) * .25 + (abil(3) ? 2.5 : 0), (it) => {
+      sfx(it.k ? SND.gem : SND.pickup);
       ct.gather++;
       gain(S.WIS, 2);
       burst(it.x, it.y + .5, it.z, 6, it.k ? .55 : .12, 2);
@@ -347,13 +356,14 @@ const step = (dt) => {
       if (bloom[i] > .5 || Math.hypot(pl.x - bx, pl.z - bz) > 3) continue;
       let clear = 1;
       for (const f of foes) if (!f.raid && Math.hypot(f.x - bx, f.z - bz) < 9) clear = 0;
-      pr = clear ? 'E — Free the shard' : 'Clear the gloom to free the shard';
+      pr = clear ? 'E — Free the shard' : 'Clear the gloom first';
       if (clear && consumeInteract()) {
+        sfx(SND.shard, 1);
         freeShard(i);
         burst(bx, by + 2, bz, 30, regionHue(i), 8);
         juice(.15, 5);
         HUD.setHearts(hp, maxH());
-        if (ct.shard >= 2) { raid(i); DM.say('raid'); } // the gloom answers (from 2nd on)
+        if (ct.shard >= 2) { raid(i); DM.say(DM.P.raid); setTimeout(() => sfx(SND.raidal, 1), 900); } // the gloom answers (from 2nd on)
       }
     }
 
@@ -372,8 +382,9 @@ const step = (dt) => {
     for (const sl of slots) {
       if (Math.hypot(pl.x - sl.x, pl.z - sl.z) > 2.6) continue;
       if (sl.built >= 0 && sl.dark) {
-        pr = 'E — Repair ' + MODULES[sl.built][0] + '  (2🌼)';
+        pr = 'E — Repair ' + MODULES[sl.built][0] + ' (2🌼)';
         if (consumeInteract() && inv.fl >= 2) {
+          sfx(SND.repair, 1);
           inv.fl -= 2; sl.dark = 0;
           HUD.setRes(inv);
           burst(sl.x, sl.y + 1, sl.z, 14, .3, 4);
@@ -386,26 +397,28 @@ const step = (dt) => {
         const cost = {};
         for (const k in M[2]) cost[k] = Math.max(1, Math.round(M[2][k] / mod(S.INT))); // INT discounts
         pr = canAfford(cost)
-          ? 'E — Build ' + M[1] + ' ' + M[0] + '  (' + costText(cost) + ')'
+          ? 'E — Build ' + M[1] + ' ' + M[0] + ' (' + costText(cost) + ')'
           : M[1] + ' ' + M[0] + ' needs ' + costText(cost);
         if (consumeInteract() && canAfford(cost)) {
+          sfx(SND.crit, 1);
           pay(cost); sl.built = sl.i;
           ct.build++;
           HUD.setRes(inv);
           burst(sl.x, sl.y + 1.5, sl.z, 26, null, 6);
           juice(.1, 4);
           HUD.toast(M[1] + ' <b>' + M[0] + '</b> built!');
-          DM.say('build');
+          DM.say(DM.P.build);
           gain(S.INT, 14);
           save();
         }
       } else if (MODULES[sl.built][0] === 'Bed' && hp < maxH()) {
-        pr = 'E — Sleep  (full heal)';
+        pr = 'E — Sleep (heal)';
         if (consumeInteract()) {
+          sfx(SND.sleep, 1);
           hp = maxH(); HUD.setHearts(hp, maxH());
           ct.sleep++;
           burst(sl.x, sl.y + 1.5, sl.z, 16, .1, 3);
-          DM.say('sleep');
+          DM.say(DM.P.sleep);
           save();
         }
       }
@@ -642,6 +655,7 @@ gl.clearColor(0, 0, 0, 1);
 
 // ---------- boot: Session Zero (or Continue), then play ----------
 const bootHud = () => {
+  audioInit(); // first user gesture — safe to create the AudioContext
   hp = maxH();
   HUD.setHearts(hp, maxH());
   HUD.setRes(inv);

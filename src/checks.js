@@ -4,6 +4,7 @@ import { regionCenter } from './zones.js';
 import { stats, d20, gain, S } from './stats.js';
 import { inv } from './items.js';
 import * as DM from './dm.js';
+import { sfx, SND } from './audio.js';
 
 // [stat, dc, region, label, reward {..}, offsetX, offsetZ]
 const DEFS = [
@@ -48,8 +49,10 @@ export const tick = (dt, api) => {
   for (const ck of checks) if (ck.cool > 0) ck.cool -= dt;
   if (die.t <= 0 || (die.t -= dt) > 0) return;
   const ck = pend; pend = null;
+  sfx(SND.dice, 1); // the clack lands with the die
   const roll = d20(), bonus = stats[ck.stat] - 10 >> 1;
   const ok = roll === 20 || (roll !== 1 && roll + bonus >= ck.dc);
+  setTimeout(() => sfx(ok ? SND.pass : SND.fail, 1), 160);
   api.fly(ck.x, ck.y + 2.4, ck.z,
     roll + (bonus ? '+' + bonus : '') + ' vs DC ' + ck.dc, ok ? '#8f8' : '#f88', 1);
   if (ok) {
@@ -57,10 +60,10 @@ export const tick = (dt, api) => {
     for (const k in ck.reward) inv[k] += ck.reward[k];
     api.burst(ck.x, ck.y + 1, ck.z, 20, null, 5);
     gain(ck.stat, 10);
-    DM.say('pass');
+    DM.say(DM.P.pass);
     api.onPass(ck);
   } else {
     ck.cool = 8; // failure routes you the long way, never a dead end
-    DM.say('fail');
+    DM.say(DM.P.fail);
   }
 };

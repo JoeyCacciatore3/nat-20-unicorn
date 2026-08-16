@@ -11,13 +11,13 @@ export const ct = { kill: 0, crit: 0, dodge: 0, gather: 0, build: 0, sleep: 0, p
 
 // ---- shards & abilities (one passive per chapter hue) ----
 export const ABIL = [
-  ['Ember Horn', 'horn damage +50%'],
-  ['Sure Hooves', 'steep slopes no longer slide'],
-  ['Sun Dash', 'dodge reaches much farther'],
-  ['Bloom Step', 'gather magnet widened'],
-  ['Feather Fall', 'jump higher'],
+  ['Ember Horn', '+50% damage'],
+  ['Sure Hooves', 'no slope slide'],
+  ['Sun Dash', 'longer dodge'],
+  ['Bloom Step', 'wider magnet'],
+  ['Feather Fall', 'higher jump'],
   ['Gloom Ward', '+1 heart'],
-  ['Double Jump', 'jump again mid-air'],
+  ['Double Jump', 'air jump'],
 ];
 export const abil = (i) => bloom[i] > .5;
 
@@ -46,15 +46,15 @@ export const freeShard = (i) => {
 const ACH = [
   ['🏠', 'Homebody — build a module', () => ct.build >= 1, S.INT],
   ['🌈', 'First Light — free a shard', () => ct.shard >= 1, S.WIS],
-  ['⚔️', 'Gloombuster — slay 13 gloomlings', () => ct.kill >= 13, S.STR],
+  ['⚔️', 'Gloombuster — slay 13', () => ct.kill >= 13, S.STR],
   ['🎯', 'Natural 20 — land a crit', () => ct.crit >= 1, S.CHA],
-  ['💨', 'Untouchable — 13 close dodges', () => ct.dodge >= 13, S.DEX],
-  ['🌼', 'Green Hooves — gather 50 things', () => ct.gather >= 50, S.WIS],
+  ['💨', 'Untouchable — dodge 13', () => ct.dodge >= 13, S.DEX],
+  ['🌼', 'Green Hooves — gather 50', () => ct.gather >= 50, S.WIS],
   ['🧗', 'Summit — stand on the highest peak', () => 0, S.CON], // set externally
   ['🗣', 'Silver Tongue — persuade the troll', () => 0, S.CHA], // set externally
   ['🛏', 'Well Rested — sleep 3 times', () => ct.sleep >= 3, S.CON],
   ['💎', 'Hoarder — hold 20 sparkles', () => inv.sp >= 20, S.INT],
-  ['🎲', 'Believer — pass 5 skill checks', () => ct.pass >= 5, S.INT],
+  ['🎲', 'Believer — pass 5 checks', () => ct.pass >= 5, S.INT],
   ['🏗', 'Architect — fill every build slot', () => slots.every(s => s.built >= 0), S.INT],
   ['🦄', 'Prismatic — restore all 7 chapters', () => ct.shard >= 7, -1],
 ];

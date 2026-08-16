@@ -2,6 +2,7 @@
 // floating text, toasts, and the Session Zero creation screen.
 import { stats, NAMES, roll4d6 } from './stats.js';
 import * as DM from './dm.js';
+import { sfx, SND } from './audio.js';
 
 const el = (t, css, parent, html) => {
   const e = document.createElement(t);
@@ -52,6 +53,7 @@ export const toast = (html) => {
 const nextToast = () => {
   if (!toasts.length) { toasting = 0; return; }
   toasting = 1;
+  sfx(SND.toast);
   const t = el('div', 'left:50%;bottom:-60px;transform:translateX(-50%);font-size:18px;color:#fff;background:#1b1630ee;border:1px solid #ffffff33;padding:10px 22px;border-radius:12px;transition:all .25s cubic-bezier(.2,.9,.3,1.2)', 0, toasts.shift());
   requestAnimationFrame(() => t.style.bottom = '64px');
   setTimeout(() => { t.style.opacity = 0; }, 2600);
@@ -106,9 +108,9 @@ export const creation = (onStart, onContinue) => {
   reroll();
   btn('🎲 Reroll', 'background:#ffffff1c;color:#fff').onclick = reroll;
   const start = btn('Roll for it.', 'background:#ffd75e;color:#221;font-weight:700;font-size:18px;margin-top:6px');
-  start.onclick = () => { ov.remove(); playing = 1; DM.say('start'); onStart(); };
+  start.onclick = () => { ov.remove(); playing = 1; DM.say(DM.P.start); onStart(); };
   if (onContinue) {
     const c = btn('▶ Continue', 'background:#ffffff1c;color:#fff;font-size:15px');
-    c.onclick = () => { ov.remove(); playing = 1; DM.say('start'); onContinue(); };
+    c.onclick = () => { ov.remove(); playing = 1; DM.say(DM.P.start); onContinue(); };
   }
 };

@@ -26,9 +26,7 @@ run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
 console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
 // inventory keys used via quoted strings, namespaced localStorage key)
-const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight",' +
-  '"n20_save","start","crit","fumble","fall","kill","hurt","dead","build","sleep","raid","pass","fail",' +
-  '"fl","sp","tf","pr","ch"';
+const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","n20_save","fl","sp","tf","pr","ch"';
 run(`npx terser dist/bundle.js -c passes=3,unsafe=true,drop_console=true -m --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' -o dist/min.js`);
 
 // Rules compliance: no external URLs may ship (js13k rule #2)
