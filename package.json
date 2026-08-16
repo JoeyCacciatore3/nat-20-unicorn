@@ -10,6 +10,7 @@
     "size": "node build.mjs"
   },
   "devDependencies": {
+    "ect-bin": "^1.4.1",
     "esbuild": "^0.24.0",
     "roadroller": "^2.1.0",
     "terser": "^5.31.0",

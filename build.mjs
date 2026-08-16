@@ -11,8 +11,25 @@ mkdirSync('dist', { recursive: true });
 console.log('1/6 bundle (esbuild)…');
 run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
 
+// GLSL squeeze: minify shader template literals in place (comments, indentation, spaces)
+{
+  const b = readFileSync('dist/bundle.js', 'utf8');
+  const sq = b.replace(/`#version 300 es[\s\S]*?`/g, (s) =>
+    '`#version 300 es\\n' + s.slice(16, -1)
+      .replace(/\/\/[^\n]*/g, '')            // line comments
+      .replace(/\s+/g, ' ')                  // collapse whitespace
+      .replace(/ ?([=+\-*/,;(){}<>.!?:]) ?/g, '$1') // spaces around punctuation
+      .trim() + '`');
+  writeFileSync('dist/bundle.js', sq);
+}
+
 console.log('2/6 minify (terser)…');
-run('npx terser dist/bundle.js -c passes=3,unsafe=true,drop_console=true -m --mangle-props "regex=/^_/" -o dist/min.js');
+// full property mangling; reserved = runtime-string names (key codes, DM pools,
+// inventory keys used via quoted strings, namespaced localStorage key)
+const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight",' +
+  '"n20_save","start","crit","fumble","fall","kill","hurt","dead","build","sleep","raid","pass","fail",' +
+  '"fl","sp","tf","pr","ch"';
+run(`npx terser dist/bundle.js -c passes=3,unsafe=true,drop_console=true -m --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' -o dist/min.js`);
 
 // Rules compliance: no external URLs may ship (js13k rule #2)
 const min = readFileSync('dist/min.js', 'utf8');
@@ -36,10 +53,10 @@ writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 
 console.log('5/6 zip…');
 run('cd dist && rm -f game.zip && zip -9 -X -q game.zip index.html');
-try {
-  run('advzip -z -4 -q dist/game.zip');
+try { // ECT: strongest zip recompressor, vendored via ect-bin (no system install)
+  run('node_modules/ect-bin/vendor/ect -10009 -zip dist/game.zip');
 } catch {
-  console.log('   (advzip not found — install advancecomp for ~5-10% extra)');
+  try { run('advzip -z -4 -q dist/game.zip'); } catch { console.log('   (no ect/advzip)'); }
 }
 
 const size = statSync('dist/game.zip').size;
