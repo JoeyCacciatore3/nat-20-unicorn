@@ -1,13 +1,15 @@
 {
   "name": "nat-20-unicorn",
-  "private": true,
   "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
   "description": "NAT 20 UNICORN — js13kGames 2026 entry (theme: Unicorns and Rainbows)",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "node build.mjs",
-    "size": "node build.mjs"
+    "build": "node build.mjs"
   },
   "devDependencies": {
     "ect-bin": "^1.4.1",

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// NAT 20 UNICORN build pipeline: esbuild → terser → roadroller → inline → zip → advzip → 13,312-byte gate
+// NAT 20 UNICORN build pipeline:
+// esbuild → GLSL squeeze → terser (full prop-mangle) → roadroller (pinned flags) → inline → zip → ECT → 13,312-byte gate
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, statSync, appendFileSync } from 'node:fs';
 

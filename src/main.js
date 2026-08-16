@@ -229,6 +229,7 @@ const kill = (f) => {
 
 const step = (dt) => {
   time += dt;
+  shakeT -= dt; // fixed-step so shake length is display-rate independent
   const playing = HUD.playing;
   const [ix, iy] = playing ? moveInput() : [0, 0];
   // camera-relative wish direction (DEX scales acceleration)
@@ -515,7 +516,6 @@ const render = () => {
   // camera (kept above terrain) + shake
   if (!HUD.playing) cam.yaw += .0012; // slow pre-game orbit
   const shk = shakeT > 0 ? shakeAmp * shakeT * 10 : 0;
-  shakeT -= 1 / 60;
   const jx = (Math.random() - .5) * shk * .06, jy = (Math.random() - .5) * shk * .06;
   const cp = Math.cos(cam.pitch), dist = 7.5;
   const ex = pl.x + Math.sin(cam.yaw) * cp * dist + jx,

@@ -45,7 +45,7 @@ SND.gem = [...SND.pickup]; SND.gem[2] = 1975; // gem = pickup, higher voice
 let lastT = 0;
 export const sfx = (snd, always) => {
   const now = performance.now();
-  if (!always && now - lastT < 90) return; // rate cap — juice fatigue is real
+  if (!always && now - lastT < 90) return; // ~11/sec rate cap — juice fatigue is real
   lastT = now;
   const a = [...snd];
   a[2] *= .94 + Math.random() * .12; // pitch variance so repeats stay fresh

@@ -53,7 +53,8 @@ const fire = (f, px, py, pz, spd) => {
 
 // api: { touch(f), boltHit(b) }
 export const update = (pl, dt, api) => {
-  for (const f of foes) {
+  for (let fi = foes.length; fi--;) { // reverse: api callbacks may splice
+    const f = foes[fi];
     f.t += dt; f.cd -= dt; if (f.flash > 0) f.flash -= dt;
     const dx = pl.x - f.x, dz = pl.z - f.z, d = Math.hypot(dx, dz);
     if (f.raid && d > 2.2) {  // raider — marches on the house; you must hunt it down
@@ -75,7 +76,7 @@ export const update = (pl, dt, api) => {
     } else if (f.k === 1) {   // shooter — keeps range, lobs gloom
       if (d < 17) {
         f.yaw = Math.atan2(dx, dz);
-        if (d < 5.5) { const s = 2.2 * dt / d; f.x -= dx * s; f.z -= dz * s; }
+        if (d < 5.5) { const s = 2.2 * dt / Math.max(d, .1); f.x -= dx * s; f.z -= dz * s; }
         if (f.cd <= 0) { f.cd = 2.8 - 1.5 * aggro; fire(f, pl.x, pl.y, pl.z, 7); }
       }
     } else if (d < 16 && f.cd <= 0) { // turret — slow heavy shots

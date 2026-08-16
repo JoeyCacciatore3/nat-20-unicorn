@@ -74,25 +74,29 @@ export const achTick = () => {
 };
 
 // ---- save / load (rule: namespaced keys, never clear) ----
+// Format note: all-ARRAY payload with 1-char keys — immune to the prop mangler,
+// so a save from any build loads in any later build (bugfix pushes during voting).
 export const save = () => {
   try {
     localStorage.n20_save = JSON.stringify({
-      st: stats, iv: inv, bl: [...bloom].map(b => Math.round(b)),
-      bu: slots.map(s => s.built), ea: earned, ct, v: 1,
+      s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
+      b: [...bloom].map(Math.round), u: slots.map(x => x.built), e: earned,
+      c: [ct.kill, ct.crit, ct.dodge, ct.gather, ct.build, ct.sleep, ct.pass, ct.shard],
+      v: 2,
     });
   } catch { /* storage may be unavailable */ }
 };
 export const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 1) return 0;
-    for (let i = 0; i < 6; i++) stats[i] = d.st[i];
-    Object.assign(inv, d.iv);
-    Object.assign(ct, d.ct);
-    for (let i = 0; i < 13; i++) earned[i] = d.ea[i];
-    for (let i = 0; i < 8; i++) if (d.bl[i]) setBloom(i, 1);
-    slots.forEach((s, i) => s.built = d.bu[i]);
-    if (d.ct.shard) critter = 1;
+    if (!d || d.v !== 2 || !d.s || d.s.length !== 6) return 0;
+    for (let i = 0; i < 6; i++) stats[i] = d.s[i];
+    [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch] = d.i;
+    [ct.kill, ct.crit, ct.dodge, ct.gather, ct.build, ct.sleep, ct.pass, ct.shard] = d.c;
+    for (let i = 0; i < 13; i++) earned[i] = d.e[i];
+    for (let i = 0; i < 8; i++) if (d.b[i]) setBloom(i, 1);
+    slots.forEach((s, i) => s.built = d.u[i]);
+    if (ct.shard) critter = 1;
     return 1;
   } catch { return 0; }
 };
