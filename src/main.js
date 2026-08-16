@@ -215,7 +215,7 @@ const hurt = (n) => {
 let firstKill = 0;
 const kill = (f) => {
   foes.splice(foes.indexOf(f), 1);
-  ct.kill++;
+  ct[0]++;
   const hue = regionHue(f.r);
   burst(f.x, f.y + 1, f.z, 22, hue, 6);
   let n = 1;
@@ -252,7 +252,7 @@ const step = (dt) => {
     let near = 0;
     for (const b of bolts) if (Math.hypot(pl.x - b.x, pl.z - b.z) < 3) near = 1;
     for (const f of foes) if (Math.hypot(pl.x - f.x, pl.z - f.z) < 3) near = 1;
-    if (near) { ct.dodge++; gain(S.DEX, 7); flyAt(pl.x, pl.y + 2.2, pl.z, 'DODGE', '#8ef', 0); }
+    if (near) { ct[2]++; gain(S.DEX, 7); flyAt(pl.x, pl.y + 2.2, pl.z, 'DODGE', '#8ef', 0); }
   }
 
   // jump + gravity + sphere-on-heightfield (no floor past the table edge)
@@ -306,7 +306,7 @@ const step = (dt) => {
       if (roll === 1) { sfx(SND.fumble, 1); DM.say(DM.P.fumble); flyAt(f.x, f.y + 2.2, f.z, '1 ...', '#999', 1); continue; }
       const crit = roll === 20;
       sfx(crit ? SND.crit : SND.thud, 1);
-      if (crit) ct.crit++;
+      if (crit) ct[1]++;
       const dmg = Math.round((crit ? 2 : 1) * mod(S.STR) * (abil(0) ? 1.5 : 1) * 10) / 10; // Ember Horn
       f.hp -= dmg; f.flash = .1;
       const kb = 7 * mod(S.STR) * (crit ? 1.6 : 1);
@@ -322,7 +322,7 @@ const step = (dt) => {
 
   if (playing) {
     // enemies + bolts (raiders can knock a home module dark)
-    setPackSize(2 + (ct.shard > 1 ? 1 : 0) + (ct.shard > 4 ? 1 : 0)); // 2 -> 3 -> 4 as chapters return
+    setPackSize(2 + (ct[7] > 1 ? 1 : 0) + (ct[7] > 4 ? 1 : 0)); // 2 -> 3 -> 4 as chapters return
     tickSpawns(dt, pl);
     foeUpdate(pl, dt, {
       touch: () => hurt(1),
@@ -343,7 +343,7 @@ const step = (dt) => {
     // gathering (WIS magnet; Bloom Step widens it)
     itemUpdate(pl, dt, 3 + (stats[S.WIS] - 10) * .25 + (abil(3) ? 2.5 : 0), (it) => {
       sfx(it.k ? SND.gem : SND.pickup);
-      ct.gather++;
+      ct[3]++;
       gain(S.WIS, 2);
       burst(it.x, it.y + .5, it.z, 6, it.k ? .55 : .12, 2);
       HUD.setRes(inv);
@@ -357,14 +357,15 @@ const step = (dt) => {
       if (bloom[i] > .5 || Math.hypot(pl.x - bx, pl.z - bz) > 3) continue;
       let clear = 1;
       for (const f of foes) if (!f.raid && Math.hypot(f.x - bx, f.z - bz) < 9) clear = 0;
-      pr = clear ? 'E — Free the shard' : 'Clear the gloom first';
+      pr = clear ? 'E — Free shard' : 'Clear the gloom first';
       if (clear && consumeInteract()) {
         sfx(SND.shard, 1);
         freeShard(i);
+        HUD.setObj(objLine());
         burst(bx, by + 2, bz, 30, regionHue(i), 8);
         juice(.15, 5);
         HUD.setHearts(hp, maxH());
-        if (ct.shard >= 2) { raid(i); DM.say(DM.P.raid); setTimeout(() => sfx(SND.raidal, 1), 900); } // the gloom answers (from 2nd on)
+        if (ct[7] >= 2) { raid(i); DM.say(DM.P.raid); setTimeout(() => sfx(SND.raidal, 1), 900); } // the gloom answers (from 2nd on)
       }
     }
 
@@ -377,7 +378,7 @@ const step = (dt) => {
     checkTick(dt, {
       fly: flyAt,
       burst,
-      onPass: (c2) => { ct.pass++; if (c2.troll) trollFlag = 1; HUD.setRes(inv); },
+      onPass: (c2) => { ct[6]++; if (c2.troll) trollFlag = 1; HUD.setRes(inv); },
     });
 
     for (const sl of slots) {
@@ -403,7 +404,7 @@ const step = (dt) => {
         if (consumeInteract() && canAfford(cost)) {
           sfx(SND.crit, 1);
           pay(cost); sl.built = sl.i;
-          ct.build++;
+          ct[4]++;
           HUD.setRes(inv);
           burst(sl.x, sl.y + 1.5, sl.z, 26, null, 6);
           juice(.1, 4);
@@ -420,7 +421,7 @@ const step = (dt) => {
       if (consumeInteract()) {
         sfx(SND.sleep, 1);
         hp = maxH(); HUD.setHearts(hp, maxH());
-        ct.sleep++;
+        ct[5]++;
         burst(0, pl.y + 2, 2.6, 16, .1, 3);
         DM.say(DM.P.sleep);
         save();
@@ -656,11 +657,23 @@ gl.vertexAttrib3f(2, 1, 1, 1);
 gl.clearColor(0, 0, 0, 1);
 
 // ---------- boot: Session Zero (or Continue), then play ----------
+// the always-on objective line — direction at a glance, updated as shards fall
+const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
+  : ct[7] ? '🌈 ' + (7 - ct[7]) + ' shards left · build at home'
+  : '🌈 Free 7 shards — follow a light beam';
 const bootHud = () => {
   audioInit(); // first user gesture — safe to create the AudioContext
   hp = maxH();
   HUD.setHearts(hp, maxH());
   HUD.setRes(inv);
+  // controls first, then the standing objective
+  HUD.setObj(navigator.maxTouchPoints ? '👆 stick move · ⚔️ attack · ✋ use'
+    : '⌨️ WASD · F attack · E use · B badges');
+  setTimeout(() => HUD.setObj(objLine()), 13000);
+  if (!ct[7]) { // fresh campaign: the DM sets the quest
+    setTimeout(() => DM.line('The gloom ate our colors. Seven shards hold them.'), 6500);
+    setTimeout(() => DM.line('See the light beams? Start there.'), 13000);
+  }
 };
 HUD.creation(bootHud, hasSave() ? () => { load(); bootHud(); } : null);
 

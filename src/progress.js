@@ -7,7 +7,8 @@ import * as DM from './dm.js';
 import * as HUD from './hud.js';
 
 // ---- event counters (feed achievements + saves) ----
-export const ct = { kill: 0, crit: 0, dodge: 0, gather: 0, build: 0, sleep: 0, pass: 0, shard: 0 };
+// counters (fixed order): 0 kill · 1 crit · 2 dodge · 3 gather · 4 build · 5 sleep · 6 pass · 7 shard
+export const ct = [0, 0, 0, 0, 0, 0, 0, 0];
 
 // ---- shards & abilities (one passive per chapter hue) ----
 export const ABIL = [
@@ -35,28 +36,28 @@ const BEATS = [
 export let critter = 0; // companion appears after the first rescue
 export const freeShard = (i) => {
   setBloom(i, 1);
-  ct.shard++;
+  ct[7]++;
   critter = 1;
   HUD.toast('🌈 <b>Shard freed!</b> ' + ABIL[i][0] + ' — ' + ABIL[i][1]);
-  DM.line(BEATS[Math.min(ct.shard - 1, 6)]);
+  DM.line(BEATS[Math.min(ct[7] - 1, 6)]);
   save();
 };
 
 // ---- 13 achievements: [emoji, label, condition, stat] ----
 const ACH = [
-  ['🏠', 'Homebody — build a module', () => ct.build >= 1, S.INT],
-  ['🌈', 'First Light — free a shard', () => ct.shard >= 1, S.WIS],
-  ['⚔️', 'Gloombuster — slay 13', () => ct.kill >= 13, S.STR],
-  ['🎯', 'Natural 20 — land a crit', () => ct.crit >= 1, S.CHA],
-  ['💨', 'Untouchable — dodge 13', () => ct.dodge >= 13, S.DEX],
-  ['🌼', 'Green Hooves — gather 50', () => ct.gather >= 50, S.WIS],
+  ['🏠', 'Homebody — build a module', () => ct[4] >= 1, S.INT],
+  ['🌈', 'First Light — free a shard', () => ct[7] >= 1, S.WIS],
+  ['⚔️', 'Gloombuster — slay 13', () => ct[0] >= 13, S.STR],
+  ['🎯', 'Natural 20 — land a crit', () => ct[1] >= 1, S.CHA],
+  ['💨', 'Untouchable — dodge 13', () => ct[2] >= 13, S.DEX],
+  ['🌼', 'Green Hooves — gather 50', () => ct[3] >= 50, S.WIS],
   ['🧗', 'Summit — top the highest peak', () => 0, S.CON], // set externally
   ['🗣', 'Silver Tongue — persuade the troll', () => 0, S.CHA], // set externally
-  ['🛏', 'Well Rested — sleep 3 times', () => ct.sleep >= 3, S.CON],
+  ['🛏', 'Well Rested — sleep 3×', () => ct[5] >= 3, S.CON],
   ['💎', 'Hoarder — hold 12 sparkles', () => inv.sp >= 12, S.INT],
-  ['🎲', 'Believer — pass 5 checks', () => ct.pass >= 5, S.INT],
+  ['🎲', 'Believer — pass 5 checks', () => ct[6] >= 5, S.INT],
   ['🏗', 'Architect — fill all slots', () => slots.every(s => s.built >= 0), S.INT],
-  ['🦄', 'Prismatic — restore all 7 chapters', () => ct.shard >= 7, -1],
+  ['🦄', 'Prismatic — restore all 7', () => ct[7] >= 7, -1],
 ];
 export const earned = new Array(13).fill(0);
 export const setCond = (i, f) => ACH[i][2] = f; // summit / troll wired from main
@@ -81,7 +82,7 @@ export const save = () => {
     localStorage.n20_save = JSON.stringify({
       s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
       b: [...bloom].map(Math.round), u: slots.map(x => x.built), e: earned,
-      c: [ct.kill, ct.crit, ct.dodge, ct.gather, ct.build, ct.sleep, ct.pass, ct.shard],
+      c: ct,
       v: 3,
     });
   } catch { /* storage may be unavailable */ }
@@ -92,11 +93,11 @@ export const load = () => {
     if (!d || d.v !== 3 || !d.s || d.s.length !== 6) return 0;
     for (let i = 0; i < 6; i++) stats[i] = d.s[i];
     [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch] = d.i;
-    [ct.kill, ct.crit, ct.dodge, ct.gather, ct.build, ct.sleep, ct.pass, ct.shard] = d.c;
+    Object.assign(ct, d.c);
     for (let i = 0; i < 13; i++) earned[i] = d.e[i];
     for (let i = 0; i < 8; i++) if (d.b[i]) setBloom(i, 1);
     slots.forEach((s, i) => s.built = d.u[i]);
-    if (ct.shard) critter = 1;
+    if (ct[7]) critter = 1;
     return 1;
   } catch { return 0; }
 };

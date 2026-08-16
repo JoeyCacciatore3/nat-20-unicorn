@@ -1,8 +1,7 @@
 // dm.js — the Dungeon Master's voice. Shuffle-bag pools, no repeats until a bag empties.
 const POOLS = {
   start: [
-    'Fine. One more scene. But only because you rolled well.',
-    "The table's a mess. Ignore that. Where were we...",
+    'Fine. One more scene. Only because you rolled well.',
   ],
   crit: [
     "NAT TWENTY. Okay. Okay! I'm rewriting this room for you.",
@@ -14,7 +13,6 @@ const POOLS = {
   ],
   fall: [
     "...I'll just put you back.",
-    'Minis do not bounce. Back you go.',
   ],
   kill: [
     'One less doubt on the table.',
@@ -25,25 +23,20 @@ const POOLS = {
     'Ow. I felt that from up here.',
   ],
   dead: [
-    'Aaand the unicorn is down. Lucky for you I never erase anyone.',
-    'Down you go. Back to the last place that felt safe.',
+    'Aaand the unicorn is down. Lucky I never erase anyone.',
   ],
   build: [
     "Huh. I didn't glue that there. I like it.",
-    "The diorama grows. I'm... invested. Slightly.",
   ],
   sleep: ['Rest. Even imaginary legs get tired.'],
   raid: [
-    'The gloom does not like losing chapters. Incoming.',
-    'Doubt marches on your little house. Hold it.',
+    'The gloom hates losing chapters. Incoming.',
   ],
   pass: [
     'That... actually worked. Noted.',
-    'Fine. FINE. It works. Take it.',
   ],
   fail: [
     'The dice have spoken, and they are laughing.',
-    'No. But points for the confident face.',
   ],
 };
 const bags = new Map();

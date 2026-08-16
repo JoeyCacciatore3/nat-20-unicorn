@@ -19,6 +19,8 @@ const res = el('div', 'top:46px;left:16px;font-size:16px;color:#fff;text-shadow:
 const prompt = el('div', 'left:50%;bottom:110px;transform:translateX(-50%);font-size:18px;color:#fff;background:#0009;padding:7px 16px;border-radius:9px;display:none');
 const dmBar = el('div', 'left:50%;bottom:26px;transform:translateX(-50%);max-width:72%;font-size:17px;font-style:italic;color:#e8dcc8;background:#000a;padding:9px 18px;border-radius:10px;transition:opacity .4s;opacity:0;text-align:center');
 const flash = el('div', 'inset:0;background:#f33;opacity:0;pointer-events:none;transition:opacity .3s');
+const obj = el('div', 'top:12px;left:50%;transform:translateX(-50%);font-size:14px;color:#ffec;background:#0007;padding:5px 12px;border-radius:8px;white-space:nowrap');
+export const setObj = (t) => obj.textContent = t;
 let dmT = 0;
 DM.onSay((line) => { dmBar.textContent = line; dmBar.style.opacity = 1; dmT = 4.5; });
 
