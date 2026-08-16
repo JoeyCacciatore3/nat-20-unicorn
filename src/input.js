@@ -2,12 +2,17 @@
 export const keys = {};
 export const cam = { yaw: 2.7, pitch: .52 };
 const stick = { id: -1, sx: 0, sy: 0, x: 0, y: 0 };
-let camId = -1, lx = 0, ly = 0, downT = 0, moved = 0, jump = 0;
+let camId = -1, lx = 0, ly = 0, downT = 0, moved = 0, jump = 0, attack = 0, dodge = 0, interact = 0;
 
 export const initInput = (c) => {
   addEventListener('keydown', (e) => {
     keys[e.code] = 1;
-    if (!e.repeat && e.code === 'Space') jump = 1;
+    if (!e.repeat) {
+      if (e.code === 'Space') jump = 1;
+      if (e.code === 'KeyF' || e.code === 'KeyJ') attack = 1;
+      if (e.code === 'KeyE' || e.code === 'Enter') interact = 1;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') dodge = 1;
+    }
     if (/^(Space|Arrow)/.test(e.code)) e.preventDefault();
   });
   addEventListener('keyup', (e) => keys[e.code] = 0);
@@ -34,7 +39,8 @@ export const initInput = (c) => {
   const up = (e) => {
     if (e.pointerId === stick.id) { stick.id = -1; stick.x = stick.y = 0; }
     if (e.pointerId === camId) {
-      if (e.pointerType === 'touch' && performance.now() - downT < 220 && moved < 12) jump = 1;
+      if (performance.now() - downT < 220 && moved < 12)
+        e.pointerType === 'touch' ? jump = 1 : attack = 1; // tap = jump (touch) / attack (mouse)
       camId = -1;
     }
   };
@@ -52,3 +58,6 @@ export const moveInput = () => {
 };
 
 export const consumeJump = () => { const j = jump; jump = 0; return j; };
+export const consumeAttack = () => { const a = attack; attack = 0; return a; };
+export const consumeDodge = () => { const d = dodge; dodge = 0; return d; };
+export const consumeInteract = () => { const i = interact; interact = 0; return i; };

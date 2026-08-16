@@ -1,13 +1,19 @@
-// NAT 20 UNICORN — js13k 2026 · Phase 1: engine slice
-// WebGL2 heightfield world, third-person camera, sphere-vs-terrain player,
-// primitive unicorn with gallop + rainbow contrail. Locked 60fps sim.
+// NAT 20 UNICORN — js13k 2026 · Phase 3: core gameplay
+// Combat (horn + dodge, hit-stop/shake/flash), gloomlings + drops, gathering,
+// home build slots, Session Zero creation, DM barks. Locked 60fps sim.
 import { mul, perspective, lookAt, compose, makeProgram } from './core.js';
 import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
 import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
 import * as PARTICLES from './particles.js';
-import { initInput, cam, moveInput, consumeJump, keys } from './input.js';
+import { initInput, cam, moveInput, consumeJump, consumeAttack, consumeDodge, consumeInteract, keys } from './input.js';
 import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
 import { buildProps } from './props.js';
+import { S, stats, NAMES, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
+import * as HUD from './hud.js';
+import * as DM from './dm.js';
+import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro } from './enemies.js';
+import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
+import { MODULES, slots, initHome, costText, canAfford, pay, has, towerSlot } from './home.js';
 
 const c = document.getElementById('c');
 const gl = c.getContext('webgl2', { antialias: true });
@@ -114,6 +120,8 @@ const cube = buildCube(gl);
 const cone = buildCone(gl);
 const props = buildProps();
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+initItems();
+initHome();
 
 // shard beacons: one light pillar per un-restored chapter (environment as HUD)
 const beacons = [];
@@ -132,23 +140,99 @@ gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28,
 gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 28, 12);
 gl.bindVertexArray(null);
 
-// ---------- player ----------
+// ---------- player + game state ----------
 initInput(c);
 const pl = { x: 2, y: 0, z: 9, vx: 0, vy: 0, vz: 0, yaw: 0, ground: true, gallop: 0 };
 let time = 0, hueT = 0, sparkleT = 0;
+let hp = 3, atkCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0, zapT = 0, gardenT = 0;
+let vpNow = null; // current frame's view-projection for world->screen text
+
+const burst = (x, y, z, n, hue, spread) => {
+  for (let i = 0; i < n; i++)
+    PARTICLES.spawn(x, y, z,
+      (Math.random() - .5) * spread, Math.random() * spread * .8, (Math.random() - .5) * spread,
+      .5 + Math.random() * .5, hue == null ? Math.random() : hue);
+};
+
+// world -> screen (CSS px) for floating text
+const flyAt = (x, y, z, text, color, big) => {
+  if (!vpNow) return;
+  const m = vpNow;
+  const cx = m[0] * x + m[4] * y + m[8] * z + m[12],
+        cy = m[1] * x + m[5] * y + m[9] * z + m[13],
+        cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+  if (cw <= 0) return;
+  HUD.fly((cx / cw * .5 + .5) * innerWidth, (.5 - cy / cw * .5) * innerHeight, text, color, big);
+};
+
+const juice = (stop, shake) => { hitStop = Math.max(hitStop, stop); shakeT = .1; shakeAmp = shake; };
+
+setOnLevel((s) => {
+  HUD.toast('⬆️ <b>' + NAMES[s] + ' ' + stats[s] + '</b> — leveled by doing');
+  flyAt(pl.x, pl.y + 2.6, pl.z, NAMES[s] + ' UP!', '#ffd75e', 1);
+  burst(pl.x, pl.y + 1.5, pl.z, 24, null, 5);
+  juice(.15, 3);
+  if (s === S.CON) hp = Math.min(hp + 1, maxHearts());
+});
+
+const hurt = (n) => {
+  if (invulnT > 0) return;
+  hp -= n; invulnT = 1;
+  HUD.hurtFlash(); juice(.09, 8);
+  navigator.vibrate && navigator.vibrate(80);
+  nudgeAggro(-.4);               // rubber-band mercy
+  gain(S.CON, 6);
+  if (hp <= 0) {
+    DM.say('dead');
+    hp = maxHearts();
+    pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
+    pl.vx = pl.vy = pl.vz = 0;
+  } else DM.say('hurt');
+  HUD.setHearts(hp, maxHearts());
+};
+
+let firstKill = 0;
+const kill = (f) => {
+  foes.splice(foes.indexOf(f), 1);
+  const hue = regionHue(f.r);
+  burst(f.x, f.y + 1, f.z, 22, hue, 6);
+  const key = ['tf', 'pr', 'ch'][f.k];
+  let n = 1;
+  if (Math.random() < (stats[S.CHA] - 8) * .04) { n = 2; gain(S.CHA, 8); flyAt(f.x, f.y + 2.4, f.z, 'LUCKY +2', '#7df', 0); }
+  inv[key] += n;
+  HUD.setRes(inv);
+  nudgeAggro(.1);
+  if (!firstKill) { firstKill = 1; DM.say('kill'); }
+  else if (Math.random() < .25) DM.say('kill');
+};
 
 const step = (dt) => {
   time += dt;
-  const [ix, iy] = moveInput();
-  // camera-relative wish direction
+  const playing = HUD.playing;
+  const [ix, iy] = playing ? moveInput() : [0, 0];
+  // camera-relative wish direction (DEX scales acceleration)
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   const wx = fx * -iy + -fz * ix, wz = fz * -iy + fx * ix;
-  pl.vx += wx * 40 * dt; pl.vz += wz * 40 * dt;
+  const acc = 40 * mod(S.DEX);
+  pl.vx += wx * acc * dt; pl.vz += wz * acc * dt;
   const fr = 1 / (1 + dt * 6);
   pl.vx *= fr; pl.vz *= fr;
 
+  // dodge — burst + i-frames scaled by DEX
+  if (playing && consumeDodge() && atkCd <= 0) {
+    const l = Math.hypot(wx, wz);
+    const dxn = l ? wx / l : Math.sin(pl.yaw), dzn = l ? wz / l : Math.cos(pl.yaw);
+    pl.vx += dxn * 14; pl.vz += dzn * 14;
+    invulnT = Math.max(invulnT, .32 * mod(S.DEX));
+    burst(pl.x, pl.y + .6, pl.z, 8, .8, 3);
+    let near = 0;
+    for (const b of bolts) if (Math.hypot(pl.x - b.x, pl.z - b.z) < 3) near = 1;
+    for (const f of foes) if (Math.hypot(pl.x - f.x, pl.z - f.z) < 3) near = 1;
+    if (near) { gain(S.DEX, 7); flyAt(pl.x, pl.y + 2.2, pl.z, 'DODGE', '#8ef', 0); }
+  }
+
   // jump + gravity + sphere-on-heightfield (no floor past the table edge)
-  if (consumeJump() && pl.ground) { pl.vy = 7.6; pl.ground = false; }
+  if (playing && consumeJump() && pl.ground) { pl.vy = 7.6; pl.ground = false; }
   pl.vy -= 21 * dt;
   pl.x += pl.vx * dt; pl.z += pl.vz * dt; pl.y += pl.vy * dt;
   const onTable = Math.max(Math.abs(pl.x), Math.abs(pl.z)) <= TABLE;
@@ -162,6 +246,7 @@ const step = (dt) => {
     if (pl.y < -18) { // fell off the table — the DM puts the mini back
       pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
       pl.vx = pl.vy = pl.vz = 0;
+      DM.say('fall');
     }
   }
 
@@ -174,6 +259,96 @@ const step = (dt) => {
     pl.yaw += d * Math.min(1, dt * 12);
   }
   pl.gallop += dt * (2.5 + speed * 1.7);
+
+  // ---- combat: horn attack (visible d20; STR scales damage) ----
+  atkCd -= dt; invulnT -= dt;
+  if (playing && consumeAttack() && atkCd <= 0) {
+    atkCd = .45;
+    pl.vx += Math.sin(pl.yaw) * 5; pl.vz += Math.cos(pl.yaw) * 5;   // lunge
+    const hx = pl.x + Math.sin(pl.yaw) * 1.7, hz = pl.z + Math.cos(pl.yaw) * 1.7;
+    burst(hx, pl.y + 1.4, hz, 6, hueT % 1, 4);
+    for (const f of [...foes]) {
+      if (Math.hypot(f.x - hx, f.z - hz) > 2.1) continue;
+      const roll = d20();
+      if (roll === 1) { DM.say('fumble'); flyAt(f.x, f.y + 2.2, f.z, '1 ...', '#999', 1); continue; }
+      const crit = roll === 20;
+      const dmg = Math.round((crit ? 2 : 1) * mod(S.STR) * 10) / 10;
+      f.hp -= dmg; f.flash = .1;
+      const kb = 7 * mod(S.STR) * (crit ? 1.6 : 1);
+      const dx = f.x - pl.x, dz = f.z - pl.z, dd = Math.hypot(dx, dz) || 1;
+      f.x += dx / dd * kb * .16; f.z += dz / dd * kb * .16;
+      juice(crit ? .12 : .06, crit ? 9 : 3);
+      flyAt(f.x, f.y + 2.2, f.z, crit ? 'NAT 20!' : '' + roll, crit ? '#ffd75e' : '#fff', crit);
+      if (crit) { DM.say('crit'); burst(f.x, f.y + 1.5, f.z, 26, null, 7); }
+      gain(S.STR, 3);
+      if (f.hp <= 0) kill(f);
+    }
+  }
+
+  if (playing) {
+    // enemies + bolts
+    tickSpawns(dt);
+    foeUpdate(pl, dt, {
+      touch: () => hurt(1),
+      boltHit: (b) => { hurt(1); burst(b.x, b.y, b.z, 8, .78, 3); },
+    });
+
+    // gathering (WIS magnet)
+    itemUpdate(pl, dt, 2 + 2.5 * (mod(S.WIS) - 1) * 4 + 1.5, (it) => {
+      gain(S.WIS, 2);
+      burst(it.x, it.y + .5, it.z, 6, it.k ? .55 : .12, 2);
+      HUD.setRes(inv);
+    });
+
+    // ---- home interactions ----
+    let pr = '';
+    for (const sl of slots) {
+      if (Math.hypot(pl.x - sl.x, pl.z - sl.z) > 2.6) continue;
+      if (sl.built < 0) {
+        const M = MODULES[sl.i];
+        const cost = {};
+        for (const k in M[2]) cost[k] = Math.max(1, Math.round(M[2][k] / mod(S.INT))); // INT discounts
+        pr = canAfford(cost)
+          ? 'E — Build ' + M[1] + ' ' + M[0] + '  (' + costText(cost) + ')'
+          : M[1] + ' ' + M[0] + ' needs ' + costText(cost);
+        if (consumeInteract() && canAfford(cost)) {
+          pay(cost); sl.built = sl.i;
+          HUD.setRes(inv);
+          burst(sl.x, sl.y + 1.5, sl.z, 26, null, 6);
+          juice(.1, 4);
+          HUD.toast(M[1] + ' <b>' + M[0] + '</b> built!');
+          DM.say('build');
+          gain(S.INT, 14);
+        }
+      } else if (MODULES[sl.built][0] === 'Bed' && hp < maxHearts()) {
+        pr = 'E — Sleep  (full heal)';
+        if (consumeInteract()) {
+          hp = maxHearts(); HUD.setHearts(hp, maxHearts());
+          burst(sl.x, sl.y + 1.5, sl.z, 16, .1, 3);
+          DM.say('sleep');
+        }
+      }
+    }
+    HUD.setPrompt(pr);
+
+    // module effects: garden regrows flowers; prism tower zaps near-home gloom
+    if (has('Garden') && (gardenT -= dt) <= 0) {
+      gardenT = 7;
+      const a = Math.random() * 6.283;
+      addItem(0, Math.sin(a) * (8 + Math.random() * 5), Math.cos(a) * (8 + Math.random() * 5));
+    }
+    const tw = towerSlot();
+    if (tw && (zapT -= dt) <= 0) {
+      for (const f of foes) {
+        if (Math.hypot(f.x - tw.x, f.z - tw.z) > 13) continue;
+        zapT = 2;
+        f.hp -= 1; f.flash = .1;
+        burst(f.x, f.y + 1.2, f.z, 10, Math.random(), 5);
+        if (f.hp <= 0) kill(f);
+        break;
+      }
+    }
+  }
 
   // rainbow contrail while moving
   hueT += dt * .55;
@@ -202,6 +377,7 @@ const step = (dt) => {
   setBloom(7, sum / 7);
   tickBloom(dt);
 
+  HUD.tick(dt);
   PARTICLES.update(dt);
 };
 
@@ -225,12 +401,17 @@ const render = () => {
   gl.viewport(0, 0, c.width, c.height);
   const asp = c.width / c.height;
 
-  // camera (kept above terrain)
+  // camera (kept above terrain) + shake
+  if (!HUD.playing) cam.yaw += .0012; // slow pre-game orbit
+  const shk = shakeT > 0 ? shakeAmp * shakeT * 10 : 0;
+  shakeT -= 1 / 60;
+  const jx = (Math.random() - .5) * shk * .06, jy = (Math.random() - .5) * shk * .06;
   const cp = Math.cos(cam.pitch), dist = 7.5;
-  const ex = pl.x + Math.sin(cam.yaw) * cp * dist,
+  const ex = pl.x + Math.sin(cam.yaw) * cp * dist + jx,
         ez = pl.z + Math.cos(cam.yaw) * cp * dist;
-  const ey = Math.max(pl.y + Math.sin(cam.pitch) * dist, surfaceHeight(ex, ez) + .6);
+  const ey = Math.max(pl.y + Math.sin(cam.pitch) * dist, surfaceHeight(ex, ez) + .6) + jy;
   const vp = mul(perspective(.95, asp, .1, 320), lookAt(ex, ey, ez, pl.x, pl.y + 1.4, pl.z));
+  vpNow = vp;
 
   gl.disable(gl.DEPTH_TEST);
   gl.useProgram(skyP);
@@ -250,6 +431,49 @@ const render = () => {
   // props (house + tabletop clutter)
   for (const p of props) draw(p.prim ? cone : cube, p.m, p.c[0], p.c[1], p.c[2], 0, p.emis);
 
+  // built home modules
+  for (const sl of slots) {
+    if (sl.built < 0) {
+      // empty slot: faint marker ring
+      draw(cube, compose(sl.x, sl.y + .04, sl.z, 0, time * .4, 0, 0, 0, 1.6, .06, 1.6), .5, .45, .7, 0, .5);
+      continue;
+    }
+    for (const R of MODULES[sl.built][3])
+      draw(R[0] ? cone : cube,
+        compose(sl.x + R[1], sl.y + R[2], sl.z + R[3], 0, R[4], 0, 0, 0, R[5], R[6], R[7]),
+        R[8], R[9], R[10], 0, R[11]);
+  }
+
+  // gatherables: flowers = tiny cone + stem, sparkles = spinning cone
+  for (const it of ITEMS) {
+    const bob = Math.sin(it.t * 3) * .12;
+    if (it.k) draw(cone, compose(it.x, it.y + .55 + bob, it.z, 0, it.t * 2, 0, 0, 0, .3, .55, .3), .6, .85, 1, 0, .8);
+    else {
+      draw(cube, compose(it.x, it.y + .25, it.z, 0, 0, 0, 0, 0, .07, .5, .07), .2, .5, .2, 0);
+      draw(cone, compose(it.x, it.y + .6 + bob * .4, it.z, Math.PI, it.t, 0, 0, 0, .28, .22, .28), 1, .75, .85, 0, .4);
+    }
+  }
+
+  // gloomlings — wobbling dark minis; flash white when hit
+  for (const f of foes) {
+    const wob = Math.sin(f.t * 5) * .12;
+    const fl = f.flash > 0 ? 1 : 0;
+    const cr = fl ? 1 : .16, cg = fl ? 1 : .13, cb = fl ? 1 : .22;
+    if (f.k === 2) { // turret: heavy cone
+      draw(cone, compose(f.x, f.y + .9, f.z, 0, f.t * .7, wob * .5, 0, 0, 1.1, 1.8, 1.1), cr, cg, cb + .06, 0, fl);
+    } else {
+      draw(cube, compose(f.x, f.y + .65, f.z, 0, f.yaw, wob, 0, 0, .85, .9, .85), cr, cg, cb, 0, fl);
+      if (f.k === 1) // shooter: gloom horn
+        draw(cone, compose(f.x, f.y + 1.35, f.z, 0, f.yaw, wob, 0, 0, .3, .6, .3), .45, .2, .6, 0, fl);
+    }
+    // mini base — sells the tabletop fiction
+    draw(cube, compose(f.x, f.y + .06, f.z, 0, 0, 0, 0, 0, 1, .12, 1), .1, .09, .12, 0);
+  }
+
+  // gloom bolts
+  for (const b of bolts)
+    draw(cube, compose(b.x, b.y, b.z, b.life * 7, b.life * 9, 0, 0, 0, .3, .3, .3), .55, .25, .75, 0, 1);
+
   // shard beacons — fade out as their chapter is restored, gentle pulse
   for (const [i, bx, by, bz] of beacons) {
     const s = 1 - bloom[i];
@@ -260,13 +484,15 @@ const render = () => {
       r * s + .1, g * s + .1, b * s + .1, 0, 1);
   }
 
-  // unicorn: unicorn-space × part-space (pivot-aware)
-  const run = Math.min(Math.hypot(pl.vx, pl.vz) / 7, 1);
-  const uni = compose(pl.x, pl.y, pl.z, 0, pl.yaw, 0, 0, 0, .55, .55, .55);
-  for (const P of PARTS) {
-    const [arx, ary, ay] = animPart(P[14], time, pl.gallop, run);
-    const partM = compose(P[1], P[2] + ay, P[3], P[4] + arx, ary, P[5], P[6], P[7], P[8], P[9], P[10]);
-    draw(P[0] ? cone : cube, mul(uni, partM), P[11], P[12], P[13], 0);
+  // unicorn: blink while invulnerable
+  if (invulnT <= 0 || Math.sin(time * 40) > 0) {
+    const run = Math.min(Math.hypot(pl.vx, pl.vz) / 7, 1);
+    const uni = compose(pl.x, pl.y, pl.z, 0, pl.yaw, 0, 0, 0, .55, .55, .55);
+    for (const P of PARTS) {
+      const [arx, ary, ay] = animPart(P[14], time, pl.gallop, run);
+      const partM = compose(P[1], P[2] + ay, P[3], P[4] + arx, ary, P[5], P[6], P[7], P[8], P[9], P[10]);
+      draw(P[0] ? cone : cube, mul(uni, partM), P[11], P[12], P[13], 0);
+    }
   }
 
   // particles (additive, no depth write)
@@ -290,11 +516,20 @@ const render = () => {
 gl.vertexAttrib3f(2, 1, 1, 1);
 gl.clearColor(0, 0, 0, 1);
 
-// locked 60fps sim, render every frame
+// ---------- boot: Session Zero, then play ----------
+HUD.creation(() => {
+  hp = maxHearts();
+  HUD.setHearts(hp, maxHearts());
+  HUD.setRes(inv);
+});
+
+// locked 60fps sim + hit-stop, render every frame
 let acc = 0, last = performance.now();
 const frame = (now) => {
   requestAnimationFrame(frame);
-  acc += Math.min(now - last, 100); last = now;
+  const raw = Math.min(now - last, 100); last = now;
+  if (hitStop > 0) { hitStop -= raw / 1000; render(); return; } // freeze sim, keep drawing
+  acc += raw;
   while (acc >= 16.666) { step(1 / 60); acc -= 16.666; }
   render();
 };
