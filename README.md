@@ -13,11 +13,22 @@ build out your diorama home, and re-ignite the DM's imagination — one chapter 
 - Zero console errors in latest Chrome + Firefox
 - Hand-rolled WebGL2 — no libraries
 
+## Controls
+| | Desktop | Touch |
+|---|---|---|
+| Move | WASD / arrows | left-side virtual stick |
+| Camera | mouse drag | right-side drag |
+| Jump | Space | tap |
+| Attack | click / F / J | (tap-attack lands in polish phase) |
+| Dodge | Shift | — |
+| Interact | E / Enter | — |
+| Badges | B | — |
+
 ## Develop
 ```
 npm install
 npm run dev      # Vite dev server
-npm run build    # esbuild → terser → roadroller → inline → zip → advzip → byte gate
+npm run build    # esbuild → GLSL squeeze → terser (full prop-mangle) → roadroller → inline → zip → ECT → byte gate
 ```
 `build` fails if the zip exceeds 13,312 bytes or ships an external URL / unprefixed localStorage write.
 
