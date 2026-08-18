@@ -10,7 +10,7 @@ import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from '.
 import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
 import { audioInit, sfx, SND } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
-import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, raid, setPackSize } from './enemies.js';
+import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS, bossAt } from './enemies.js';
 import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
 import { S, stats, NAMES, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
 import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
@@ -160,7 +160,7 @@ initInput(c);
 const pl = { x: 2, y: 0, z: 9, vx: 0, vy: 0, vz: 0, yaw: 0, ground: true, gallop: 0 };
 let time = 0, hueT = 0, sparkleT = 0;
 let hp = 3, atkCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0, zapT = 0, gardenT = 0;
-let airJump = 0, achT = 0, prevB = 0;
+let airJump = 0, achT = 0, prevB = 0, bossUp = 0;
 const cr = { x: 3, z: 4, tx: 3, tz: 4, t: 0 }; // companion critter (yard)
 let vpNow = null; // current frame's view-projection for world->screen text
 const maxH = () => maxHearts() + (abil(5) ? 1 : 0); // Gloom Ward
@@ -225,7 +225,9 @@ const kill = (f) => {
   burst(f.x, f.y + 1, f.z, 22, hue, 6);
   let n = 1;
   if (Math.random() < (stats[S.CHA] - 8) * .04) { n = 2; gain(S.CHA, 8); flyAt(f.x, f.y + 2.4, f.z, 'LUCKY +2', '#7df', 0); }
-  if (f.k === 0) inv.tf += n; else if (f.k === 1) inv.pr += n; else inv.ch += n;
+  if (f.el) n++;
+  const di = KINDS[f.k][6];
+  if (di === 0) inv.tf += n; else if (di === 1) inv.pr += n; else inv.ch += n;
   HUD.setRes(inv);
   nudgeAggro(.1);
   if (!firstKill) { firstKill = 1; DM.say(DM.P.kill); }
@@ -326,23 +328,17 @@ const step = (dt) => {
   }
 
   if (playing) {
-    // enemies + bolts (raiders can knock a home module dark)
-    setPackSize(2 + (ct[7] > 2 ? 1 : 0) + (ct[7] > 5 ? 1 : 0)); // 2 -> 3 -> 4 as chapters return
+    // enemies + bolts
+    setDiff(ct[7]); // pack size, roster width, hp scale, elite odds — all from shards freed
+    if (ct[7] === 6 && !bossUp) { // the finale: the Gloom Dragon guards the last chapter
+      bossUp = 1;
+      for (let i = 0; i < 7; i++) if (bloom[i] < .5) bossAt(i);
+      DM.line("...that one's new. I don't remember writing that one.");
+    }
     tickSpawns(dt, pl);
     foeUpdate(pl, dt, {
       touch: () => hurt(1),
       boltHit: (b) => { hurt(1); burst(b.x, b.y, b.z, 8, .78, 3); },
-      march: (f) => {
-        for (const sl of slots) {
-          if (sl.built < 0 || sl.dark || Math.hypot(f.x - sl.x, f.z - sl.z) > 2.2) continue;
-          sl.dark = 1;
-          foes.splice(foes.indexOf(f), 1);
-          burst(sl.x, sl.y + 1, sl.z, 18, .78, 6);
-          juice(.08, 5);
-          HUD.toast('💥 ' + MODULES[sl.built][1] + ' <b>' + MODULES[sl.built][0] + '</b> damaged!');
-          return;
-        }
-      },
     });
 
     // gathering (WIS magnet; Bloom Step widens it)
@@ -361,7 +357,7 @@ const step = (dt) => {
     for (const [i, bx, by, bz] of beacons) {
       if (bloom[i] > .5 || Math.hypot(pl.x - bx, pl.z - bz) > 3) continue;
       let clear = 1;
-      for (const f of foes) if (!f.raid && Math.hypot(f.x - bx, f.z - bz) < 9) clear = 0;
+      for (const f of foes) if (Math.hypot(f.x - bx, f.z - bz) < 9) clear = 0;
       pr = clear ? 'E — Free shard' : 'Clear the gloom first';
       if (clear && consumeInteract()) {
         sfx(SND.shard, 1);
@@ -370,7 +366,6 @@ const step = (dt) => {
         burst(bx, by + 2, bz, 30, regionHue(i), 8);
         juice(.15, 5);
         HUD.setHearts(hp, maxH());
-        if (ct[7] >= 2) { raid(i); DM.say(DM.P.raid); setTimeout(() => sfx(SND.raidal, 1), 900); } // the gloom answers (from 2nd on)
       }
     }
 
@@ -388,17 +383,6 @@ const step = (dt) => {
 
     for (const sl of slots) {
       if (Math.hypot(pl.x - sl.x, pl.z - sl.z) > 2.6) continue;
-      if (sl.built >= 0 && sl.dark) {
-        pr = 'E — Repair ' + MODULES[sl.built][0] + ' (2🌼)';
-        if (consumeInteract() && inv.fl >= 2) {
-          sfx(SND.repair, 1);
-          inv.fl -= 2; sl.dark = 0;
-          HUD.setRes(inv);
-          burst(sl.x, sl.y + 1, sl.z, 14, .3, 4);
-          HUD.toast('🔧 <b>' + MODULES[sl.built][0] + '</b> repaired');
-        }
-        continue;
-      }
       if (sl.built < 0) {
         const M = MODULES[sl.i];
         const cost = {};
@@ -435,14 +419,14 @@ const step = (dt) => {
     HUD.setPrompt(pr);
 
     // module effects (dark modules are offline until repaired)
-    const gd = slots.find(s => s.built === 0 && !s.dark);
+    const gd = slots.find(s => s.built === 0);
     if (gd && (gardenT -= dt) <= 0) {
       gardenT = 7;
       const a = Math.random() * 6.283;
       addItem(0, Math.sin(a) * (8 + Math.random() * 5), Math.cos(a) * (8 + Math.random() * 5));
     }
     const tw = towerSlot();
-    if (tw && !tw.dark && (zapT -= dt) <= 0) {
+    if (tw && (zapT -= dt) <= 0) {
       for (const f of foes) {
         if (Math.hypot(f.x - tw.x, f.z - tw.z) > 13) continue;
         zapT = 2;
@@ -559,11 +543,10 @@ const render = () => {
       draw(cube, compose(sl.x, sl.y + .04, sl.z, 0, time * .4, 0, 0, 0, 1.6, .06, 1.6), .5, .45, .7, 0, .5);
       continue;
     }
-    const dk = sl.dark ? .3 : 1; // damaged modules go dark until repaired
     for (const R of MODULES[sl.built][3])
       draw(R[0] ? cone : cube,
         compose(sl.x + R[1], sl.y + R[2], sl.z + R[3], 0, R[4], 0, 0, 0, R[5], R[6], R[7]),
-        R[8] * dk, R[9] * dk, R[10] * dk, 0, sl.dark ? 0 : R[11]);
+        R[8], R[9], R[10], 0, R[11]);
   }
 
   // open skill-check spots: a little white die hovering, waiting to be rolled
@@ -599,20 +582,21 @@ const render = () => {
     }
   }
 
-  // gloomlings — wobbling dark minis; flash white when hit
+  // gloomlings — wobbling dark minis, sized/horned from their KINDS row; elites glow violet
   for (const f of foes) {
+    const T = KINDS[f.k], sc = T[5] * (f.el ? 1.3 : 1);
     const wob = Math.sin(f.t * 5) * .12;
     const fl = f.flash > 0 ? 1 : 0;
-    const cr = fl ? 1 : .16, cg = fl ? 1 : .13, cb = fl ? 1 : .22;
+    const cr = fl ? 1 : .16, cg = fl ? 1 : .13, cb = fl ? 1 : (f.el ? .40 : .22);
     if (f.k === 2) { // turret: heavy cone
-      draw(cone, compose(f.x, f.y + .9, f.z, 0, f.t * .7, wob * .5, 0, 0, 1.1, 1.8, 1.1), cr, cg, cb + .06, 0, fl);
+      draw(cone, compose(f.x, f.y + .9, f.z, 0, f.t * .7, wob * .5, 0, 0, sc, 1.8, sc), cr, cg, cb + .06, 0, fl);
     } else {
-      draw(cube, compose(f.x, f.y + .65, f.z, 0, f.yaw, wob, 0, 0, .85, .9, .85), cr, cg, cb, 0, fl);
-      if (f.k === 1) // shooter: gloom horn
-        draw(cone, compose(f.x, f.y + 1.35, f.z, 0, f.yaw, wob, 0, 0, .3, .6, .3), .45, .2, .6, 0, fl);
+      draw(cube, compose(f.x, f.y + .75 * sc, f.z, 0, f.yaw, wob, 0, 0, sc, sc * 1.06, sc), cr, cg, cb, 0, fl);
+      if (T[3]) // ranged (and the dragon): gloom horn
+        draw(cone, compose(f.x, f.y + 1.6 * sc, f.z, 0, f.yaw, wob, 0, 0, .35 * sc, .7 * sc, .35 * sc), .45, .2, .6, 0, fl);
     }
     // mini base — sells the tabletop fiction
-    draw(cube, compose(f.x, f.y + .06, f.z, 0, 0, 0, 0, 0, 1, .12, 1), .1, .09, .12, 0);
+    draw(cube, compose(f.x, f.y + .06, f.z, 0, 0, 0, 0, 0, sc + .2, .12, sc + .2), .1, .09, .12, 0);
   }
 
   // gloom bolts
@@ -664,7 +648,7 @@ gl.clearColor(0, 0, 0, 1);
 // ---------- boot: Session Zero (or Continue), then play ----------
 // the always-on objective line — direction at a glance, updated as shards fall
 const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
-  : ct[7] ? '🌈 ' + (7 - ct[7]) + ' shards left · build at home'
+  : ct[7] ? '🌈 ' + (7 - ct[7]) + (ct[7] === 6 ? ' shard left · build at home' : ' shards left · build at home')
   : '🌈 Free 7 shards — follow a light beam';
 const bootHud = (fresh) => {
   audioInit(); // first user gesture — safe to create the AudioContext

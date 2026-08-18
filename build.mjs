@@ -57,7 +57,7 @@ const SHELL = '<meta name=viewport content="width=device-width,initial-scale=1,u
 writeFileSync('dist/min2.js', `document.write('${SHELL.replace(/'/g, "\\'")}');` + readFileSync('dist/min.js', 'utf8'));
 // Pinned flags = deterministic builds (no ±20 B jitter). After big source changes,
 // re-tune: `TUNE=1 node build.mjs` and paste the "use ... to replicate" flags here.
-const ROADFLAGS = process.env.TUNE ? '-D' : '-D -Zab24 -Zlr930 -Zmd12 -Zpr14 -S0,1,2,3,7,13,21,25,42,198,225,338';
+const ROADFLAGS = process.env.TUNE ? '-D' : '-D -Zab25 -Zlr1064 -Zmd14 -Zpr14 -S0,1,2,3,7,10,13,21,42,57,161,284';
 run(`npx roadroller ${ROADFLAGS} dist/min2.js -o dist/packed.js`);
 
 console.log('4/6 inline into template…');

@@ -28,9 +28,6 @@ const POOLS = {
     "Huh. I didn't glue that there. I like it.",
   ],
   sleep: ['Rest. Even imaginary legs get tired.'],
-  raid: [
-    'The gloom hates losing chapters. Incoming.',
-  ],
   pass: [
     'That... actually worked. Noted.',
   ],
