@@ -1,6 +1,6 @@
 // hud.js — all GUI is DOM (≈0 render bytes): hearts, resources, prompt, DM bar,
 // floating text, toasts, and the Session Zero creation screen.
-import { stats, NAMES, roll4d6 } from './stats.js';
+import { stats, NAMES } from './stats.js';
 import * as DM from './dm.js';
 import { sfx, SND } from './audio.js';
 import { isTouch } from './input.js';
@@ -93,31 +93,12 @@ export const creation = (onStart, onContinue) => {
   el('div', 'position:static;font-size:34px;font-weight:800;letter-spacing:2px;color:#fff', ov,
     'NAT <span style="color:#ffd75e">20</span> UNICORN');
   el('div', 'position:static;font-size:15px;font-style:italic;color:#b9a;margin-bottom:8px', ov,
-    'Session Zero — roll your mini');
+    'Session Zero — a level 1 unicorn. Every jump you earn, you keep.');
   const grid = el('div', 'position:static;display:grid;grid-template-columns:repeat(3,86px);gap:8px;font-size:17px', ov);
-  const cells = NAMES.map((n) =>
+  NAMES.map((n) =>
     el('div', 'position:static;background:#ffffff12;border-radius:8px;padding:8px 0', grid, n + '<br><b>10</b>'));
   const btn = (label, css) =>
     el('button', 'position:static;font-size:15px;padding:8px 14px;border-radius:9px;border:0;cursor:pointer;' + css, ov, label);
-  const CLASSES = [
-    ['🛡 Paladicorn', [2, 0, 1, 0, 0, 0]],
-    ['🏹 Rangercorn', [0, 2, 0, 0, 1, 0]],
-    ['🔮 Wizardcorn', [0, 0, 0, 2, 0, 1]],
-  ];
-  let bias = CLASSES[0][1], rolls = [];
-  const row = el('div', 'position:static;display:flex;gap:8px', ov);
-  const cbs = CLASSES.map(([label, b], i) => {
-    const cb = el('button', 'position:static;font-size:14px;padding:7px 10px;border-radius:9px;border:2px solid transparent;cursor:pointer;background:#ffffff1c;color:#fff', row, label);
-    cb.onclick = () => { bias = b; cbs.forEach((x, j) => x.style.borderColor = j === i ? '#ffd75e' : 'transparent'); apply(); };
-    return cb;
-  });
-  cbs[0].style.borderColor = '#ffd75e';
-  const apply = () => {
-    for (let i = 0; i < 6; i++) { stats[i] = rolls[i] + bias[i]; cells[i].innerHTML = NAMES[i] + '<br><b>' + stats[i] + '</b>'; }
-  };
-  const reroll = () => { rolls = NAMES.map(roll4d6); apply(); };
-  reroll();
-  btn('🎲 Reroll', 'background:#ffffff1c;color:#fff').onclick = reroll;
   const start = btn('Roll for it.', 'background:#ffd75e;color:#221;font-weight:700;font-size:18px;margin-top:6px');
   start.onclick = () => { ov.remove(); playing = 1; DM.say(DM.P.start); onStart(); };
   if (onContinue) {

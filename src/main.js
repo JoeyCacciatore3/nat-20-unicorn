@@ -12,7 +12,7 @@ import { audioInit, sfx, SND } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
 import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS, bossAt } from './enemies.js';
 import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
-import { S, stats, NAMES, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
+import { S, stats, NAMES, lvl, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
 import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
 import * as DM from './dm.js';
 import * as HUD from './hud.js';
@@ -266,8 +266,8 @@ const step = (dt) => {
   if (playing && consumeJump()) {
     const jv = abil(4) ? 9.2 : 7.6; // Feather Fall
     if (pl.ground) { pl.vy = jv; pl.ground = false; airJump = 0; }
-    else if (abil(6) && !airJump) { // Double Jump
-      airJump = 1; pl.vy = jv * .9;
+    else if (airJump < lvl.reduce((a, b) => a + b, 0) + (abil(6) ? 1 : 0)) { // air jumps = unicorn level - 1
+      airJump++; pl.vy = jv * .9;
       sfx(SND.jump2);
       burst(pl.x, pl.y + .3, pl.z, 10, hueT % 1, 4);
     }
@@ -278,6 +278,11 @@ const step = (dt) => {
   const sh = surfaceHeight(pl.x, pl.z);
   if (onTable && pl.y <= sh) {
     pl.y = sh; pl.vy = 0; pl.ground = true; airJump = 0;
+    const fr = Math.hypot(pl.x, pl.z);
+    if (Math.abs(fr - 9) < .45 && Math.abs(Math.atan2(pl.x, pl.z)) > .34) {
+      const rTo = fr < 9 ? 8.5 : 9.5; // the paddock fence is solid — use the gate, or jump it
+      pl.x *= rTo / fr; pl.z *= rTo / fr;
+    }
     const n = surfaceNormal(pl.x, pl.z);
     if (n[1] < .62 && !abil(1)) { pl.vx += n[0] * 26 * dt; pl.vz += n[2] * 26 * dt; } // steep -> slide (Sure Hooves negates)
   } else if (!onTable) {
@@ -404,14 +409,14 @@ const step = (dt) => {
         }
       }
     }
-    // the house itself: step to the door to rest — heal, save, count the night
-    if (!pr && Math.hypot(pl.x, pl.z - 2.6) < 2) {
-      pr = '🛏 E — rest inside';
+    // the campfire: rest at the paddock's heart — heal, save, count the night
+    if (!pr && Math.hypot(pl.x, pl.z) < 2.6) {
+      pr = '🛏 E — rest at camp';
       if (consumeInteract()) {
         sfx(SND.sleep, 1);
         hp = maxH(); HUD.setHearts(hp, maxH());
         ct[5]++;
-        burst(0, pl.y + 2, 2.6, 16, .1, 3);
+        burst(0, pl.y + 2, 0, 16, .1, 3);
         DM.say(DM.P.sleep);
         save();
       }

@@ -14,15 +14,11 @@ export const MODULES = [
     [0, 0, 1.1, 0, .6, .7, 2.2, .7, .75, .78, .95, .15],
     [1, 0, 2.6, 0, 0, .55, .9, .55, 1, .7, 1, .9],
   ]],
-  ['Beacon', '🔔', { sp: 3, ch: 2 }, [
-    [1, 0, 1.6, 0, 0, .45, 3.2, .45, 1, .85, .4, .8],
-    [0, 0, .25, 0, .78, 1.1, .5, 1.1, .5, .42, .3, 0],
-  ]],
 ];
 
 export const slots = [];   // {a, x, y, z, built: -1|moduleIdx}
 export const initHome = () => {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const a = 1.1 + i * 1.7, r = 6.5;
     const x = Math.sin(a) * r, z = Math.cos(a) * r;
     slots.push({ x, z, y: surfaceHeight(x, z), built: -1, i });

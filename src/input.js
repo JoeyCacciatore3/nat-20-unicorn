@@ -5,8 +5,8 @@ const stick = { id: -1, sx: 0, sy: 0, x: 0, y: 0 };
 let camId = -1, lx = 0, ly = 0, downT = 0, moved = 0, jump = 0, attack = 0, dodge = 0, interact = 0;
 
 // touch combat buttons — created on first touch so desktop never sees them
-let touchUI = 0;
-export const isTouch = () => touchUI;
+let touchUI = 0, sawTouch = 0;
+export const isTouch = () => sawTouch;
 const mkTouchUI = () => {
   if (touchUI) return;
   touchUI = 1;
@@ -23,6 +23,7 @@ const mkTouchUI = () => {
 };
 
 export const initInput = (c) => {
+  mkTouchUI();
   addEventListener('keydown', (e) => {
     keys[e.code] = 1;
     if (!e.repeat) {
@@ -36,7 +37,7 @@ export const initInput = (c) => {
   addEventListener('keyup', (e) => keys[e.code] = 0);
   c.addEventListener('pointerdown', (e) => {
     try { c.setPointerCapture(e.pointerId); } catch { /* synthetic/stale pointer */ }
-    if (e.pointerType === 'touch') mkTouchUI();
+    if (e.pointerType === 'touch') sawTouch = 1;
     if (e.pointerType === 'touch' && e.clientX < innerWidth * .45) {
       stick.id = e.pointerId; stick.sx = e.clientX; stick.sy = e.clientY;
     } else {
