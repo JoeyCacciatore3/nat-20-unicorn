@@ -114,6 +114,6 @@ export const creation = (onStart, onContinue) => {
   start.onclick = () => { ov.remove(); playing = 1; DM.say(DM.P.start); onStart(); };
   if (onContinue) {
     const c = btn('▶ Continue', 'background:#ffffff1c;color:#fff;font-size:15px');
-    c.onclick = () => { ov.remove(); playing = 1; DM.say(DM.P.start); onContinue(); };
+    c.onclick = () => { ov.remove(); playing = 1; onContinue(); };
   }
 };

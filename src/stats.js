@@ -2,7 +2,7 @@
 export const S = { STR: 0, DEX: 1, CON: 2, INT: 3, WIS: 4, CHA: 5 };
 export const NAMES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 export const stats = [10, 10, 10, 10, 10, 10];
-const xp = [0, 0, 0, 0, 0, 0], lvl = [0, 0, 0, 0, 0, 0];
+export const xp = [0, 0, 0, 0, 0, 0], lvl = [0, 0, 0, 0, 0, 0];
 
 // every derived value in the game is base * mod(stat) — D&D's curve, one line
 export const mod = (s) => 1 + (stats[s] - 10) / 20;

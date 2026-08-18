@@ -1,4 +1,4 @@
-// home.js — 4 build slots on the house hill; every craft is a visible module.
+// home.js — 3 build slots on the house hill; every craft is a visible module.
 // A module = [name, emoji, cost, mesh rows]; mesh row = [prim, dx,dy,dz, ry, sx,sy,sz, r,g,b, emis]
 import { surfaceHeight } from './terrain.js';
 import { inv } from './items.js';

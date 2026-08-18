@@ -1,5 +1,5 @@
 // progress.js — shards + abilities, 13 achievements, story beats, save/load (n20_ prefix).
-import { stats, gain, S } from './stats.js';
+import { stats, xp, lvl, gain, S } from './stats.js';
 import { inv } from './items.js';
 import { slots } from './home.js';
 import { bloom, setBloom } from './zones.js';
@@ -82,7 +82,7 @@ export const save = () => {
     localStorage.n20_save = JSON.stringify({
       s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
       b: [...bloom].map(Math.round), u: slots.map(x => x.built), e: earned,
-      c: ct,
+      c: ct, x: xp, l: lvl,
       v: 3,
     });
   } catch { /* storage may be unavailable */ }
@@ -94,8 +94,9 @@ export const load = () => {
     for (let i = 0; i < 6; i++) stats[i] = d.s[i];
     [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch] = d.i;
     Object.assign(ct, d.c);
+    if (d.x) { Object.assign(xp, d.x); Object.assign(lvl, d.l); } // older saves: fresh curve
     for (let i = 0; i < 13; i++) earned[i] = d.e[i];
-    for (let i = 0; i < 8; i++) if (d.b[i]) setBloom(i, 1);
+    for (let i = 0; i < 8; i++) if (d.b[i]) { setBloom(i, 1); bloom[i] = 1; } // instant — abilities live on load
     slots.forEach((s, i) => s.built = d.u[i]);
     if (ct[7]) critter = 1;
     return 1;

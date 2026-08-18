@@ -661,21 +661,19 @@ gl.clearColor(0, 0, 0, 1);
 const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
   : ct[7] ? '🌈 ' + (7 - ct[7]) + ' shards left · build at home'
   : '🌈 Free 7 shards — follow a light beam';
-const bootHud = () => {
+const bootHud = (fresh) => {
   audioInit(); // first user gesture — safe to create the AudioContext
   hp = maxH();
   HUD.setHearts(hp, maxH());
   HUD.setRes(inv);
-  // controls first, then the standing objective
-  HUD.setObj(navigator.maxTouchPoints ? '👆 stick move · ⚔️ attack · ✋ use'
-    : '⌨️ WASD · F attack · E use · B badges');
-  setTimeout(() => HUD.setObj(objLine()), 13000);
-  if (!ct[7]) { // fresh campaign: the DM sets the quest
+  if (fresh) { // new campaign: controls first, then the DM sets the quest
+    HUD.setObj(navigator.maxTouchPoints ? '👆 stick move · ⚔️ attack · ✋ use'
+      : '⌨️ WASD · F attack · E use · B badges');
     setTimeout(() => DM.line('The gloom ate our colors. Seven shards hold them.'), 6500);
-    setTimeout(() => DM.line('See the light beams? Start there.'), 13000);
-  }
+    setTimeout(() => { DM.line('See the light beams? Start there.'); HUD.setObj(objLine()); }, 13000);
+  } else HUD.setObj(objLine()); // returning player: straight to the standing objective
 };
-HUD.creation(bootHud, hasSave() ? () => { load(); bootHud(); } : null);
+HUD.creation(() => bootHud(1), hasSave() ? () => { load(); bootHud(0); } : null);
 
 // locked 60fps sim + hit-stop, render every frame
 let acc = 0, last = performance.now();
