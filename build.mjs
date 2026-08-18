@@ -63,6 +63,17 @@ const js = readFileSync('dist/packed.js', 'utf8');
 if (js.includes('</script')) throw new Error('packed stream contains </script — would break HTML parsing');
 writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 
+// Wavedash variant: same competition HTML + platform glue (host injects window.Wavedash).
+// init() is REQUIRED to reveal the game behind Wavedash's loading screen; achievement
+// unlocks are mirrored by polling the game's own save (zero bytes added to the compo zip).
+const WD_IDS = 'HOMEBODY,FIRST_LIGHT,GLOOMBUSTER,NATURAL_20,UNTOUCHABLE,GREEN_HOOVES,SUMMIT,SILVER_TONGUE,WELL_RESTED,HOARDER,BELIEVER,ARCHITECT,PRISMATIC';
+const WD_GLUE = `<script>(()=>{const W=window.Wavedash;if(!W)return;W.updateLoadProgressZeroToOne(1);W.init({});
+const A='${WD_IDS}'.split(',');const sent={};
+setInterval(()=>{try{const d=JSON.parse(localStorage.n20_save||'0');
+d&&d.e&&d.e.forEach((v,i)=>{if(v&&!sent[i]){sent[i]=1;W.setAchievement(A[i],true)}})}catch(e){}},3000)})()</scr` + `ipt>`;
+mkdirSync('dist/wavedash', { recursive: true });
+writeFileSync('dist/wavedash/index.html', readFileSync('dist/index.html', 'utf8') + WD_GLUE);
+
 console.log('5/6 zip…');
 run('cd dist && rm -f game.zip && zip -9 -X -q game.zip index.html');
 try { // ECT: strongest zip recompressor, vendored via ect-bin (no system install)
