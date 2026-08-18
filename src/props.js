@@ -14,8 +14,17 @@ export const buildProps = () => {
     [0, 1.5, hy + 4.2, -.9, 0, .3,   .5, 2.4, .5,    .45, .40, .38, 0],  // chimney
     // ---- tabletop clutter, out on the wood past the island ----
     [0,  78, 1.1, -52,  .35, .7,  2.2, 2.2, 2.2,  .90, .88, .82, 0],  // d6 ivory
-    [0,  83, 1.0, -46,  .1, 1.9,  2.0, 2.0, 2.0,  .75, .22, .20, 0],  // d6 red
   ];
+  // ---- paddock fence: posts + two rails around the home hill, gate faces +Z (door side)
+  const N = 14, step = (6.283 - .6) / (N - 1);
+  for (let i = 0; i < N; i++) {
+    const a = .3 + i * step, x = Math.sin(a) * 9, z = Math.cos(a) * 9;
+    rows.push([0, x, surfaceHeight(x, z) + .55, z, 0, a, .22, 1.1, .22, .52, .38, .24, 0]);
+    if (i < N - 1) {
+      const am = a + step / 2, mx = Math.sin(am) * 9, mz = Math.cos(am) * 9, my = surfaceHeight(mx, mz);
+      rows.push([0, mx, my + .8, mz, 0, am, 3.9, .12, .1, .52, .38, .24, 0]);
+    }
+  }
   // precompute static matrices once
   return rows.map(r => ({
     prim: r[0],

@@ -9,7 +9,6 @@ const POOLS = {
   ],
   fumble: [
     'A one. The unicorn trips over nothing. Majestic.',
-    "Nat 1. Let's agree no one saw that.",
   ],
   fall: [
     "...I'll just put you back.",
@@ -36,7 +35,7 @@ const POOLS = {
     'That... actually worked. Noted.',
   ],
   fail: [
-    'The dice have spoken, and they are laughing.',
+    'The dice have spoken. They are laughing.',
   ],
 };
 const bags = new Map();

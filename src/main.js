@@ -2,21 +2,21 @@
 // Combat (horn + dodge, hit-stop/shake/flash), gloomlings + drops, gathering,
 // home build slots, Session Zero creation, DM barks. Locked 60fps sim.
 import { mul, perspective, lookAt, compose, makeProgram } from './core.js';
-import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
-import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
 import * as PARTICLES from './particles.js';
-import { initInput, cam, moveInput, consumeJump, consumeAttack, consumeDodge, consumeInteract, keys } from './input.js';
-import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
+import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
 import { buildProps } from './props.js';
-import { S, stats, NAMES, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
-import * as HUD from './hud.js';
-import * as DM from './dm.js';
-import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, raid, setPackSize } from './enemies.js';
-import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
 import { MODULES, slots, initHome, costText, canAfford, pay, towerSlot } from './home.js';
-import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
-import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
+import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
+import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
 import { audioInit, sfx, SND } from './audio.js';
+import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
+import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, raid, setPackSize } from './enemies.js';
+import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
+import { S, stats, NAMES, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
+import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
+import * as DM from './dm.js';
+import * as HUD from './hud.js';
+import { initInput, cam, moveInput, consumeJump, consumeAttack, consumeDodge, consumeInteract, keys } from './input.js';
 
 const c = document.getElementById('cv');
 const gl = c.getContext('webgl2', { antialias: true });
@@ -205,12 +205,17 @@ const hurt = (n) => {
   gain(S.CON, 6);
   if (hp <= 0) {
     DM.say(DM.P.dead);
-    hp = maxH();
-    pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
-    pl.vx = pl.vy = pl.vz = 0;
+    invulnT = 3;
+    HUD.deathFade(() => {
+      hp = maxH();
+      pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
+      pl.vx = pl.vy = pl.vz = 0;
+      HUD.setHearts(hp, maxH());
+    });
   } else DM.say(DM.P.hurt);
   HUD.setHearts(hp, maxH());
 };
+
 
 let firstKill = 0;
 const kill = (f) => {
@@ -230,7 +235,7 @@ const kill = (f) => {
 const step = (dt) => {
   time += dt;
   shakeT -= dt; // fixed-step so shake length is display-rate independent
-  const playing = HUD.playing;
+  const playing = HUD.playing; // deathFade drops this gate while the fade holds
   const [ix, iy] = playing ? moveInput() : [0, 0];
   // camera-relative wish direction (DEX scales acceleration)
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
@@ -322,7 +327,7 @@ const step = (dt) => {
 
   if (playing) {
     // enemies + bolts (raiders can knock a home module dark)
-    setPackSize(2 + (ct[7] > 1 ? 1 : 0) + (ct[7] > 4 ? 1 : 0)); // 2 -> 3 -> 4 as chapters return
+    setPackSize(2 + (ct[7] > 2 ? 1 : 0) + (ct[7] > 5 ? 1 : 0)); // 2 -> 3 -> 4 as chapters return
     tickSpawns(dt, pl);
     foeUpdate(pl, dt, {
       touch: () => hurt(1),

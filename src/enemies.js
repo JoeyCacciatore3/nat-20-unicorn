@@ -23,7 +23,7 @@ export const tickSpawns = (dt, pl) => { // keep un-restored chapters haunted
     for (const f of foes) if (f.r === i) have++;
     while (have < packSize) {
       const [cx, cz] = regionCenter(i);
-      const a = Math.random() * 6.283, d = 4 + Math.random() * 8;
+      const a = Math.random() * 6.283, d = 5 + Math.random() * 11;
       const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
       have++;
       if (Math.hypot(x, z) < 12) continue;              // never inside the house circle
@@ -67,17 +67,17 @@ export const update = (pl, dt, api) => {
       api.march && api.march(f);
       if (f.cd <= 0) f.cd = .3;
     } else if (f.k === 0) {   // chaser — hunts in a radius that grows with aggro
-      if (d < 7 + 6 * aggro && d > 1.1) {
-        const s = (2 + 2.8 * aggro) * dt / d;
+      if (d < 6 + 5 * aggro && d > 1.1) {
+        const s = (1.7 + 2.4 * aggro) * dt / d;
         f.x += dx * s; f.z += dz * s;
         f.yaw = Math.atan2(dx, dz);
       }
-      if (d < 1.4 && f.cd <= 0) { f.cd = 1.1; api.touch(f); }
+      if (d < 1.4 && f.cd <= 0) { f.cd = 1.4; api.touch(f); }
     } else if (f.k === 1) {   // shooter — keeps range, lobs gloom
-      if (d < 17) {
+      if (d < 15) {
         f.yaw = Math.atan2(dx, dz);
         if (d < 5.5) { const s = 2.2 * dt / Math.max(d, .1); f.x -= dx * s; f.z -= dz * s; }
-        if (f.cd <= 0) { f.cd = 2.8 - 1.5 * aggro; fire(f, pl.x, pl.y, pl.z, 7); }
+        if (f.cd <= 0) { f.cd = 3.4 - 1.5 * aggro; fire(f, pl.x, pl.y, pl.z, 7); }
       }
     } else if (d < 16 && f.cd <= 0) { // turret — slow heavy shots
       f.cd = 3.6 - 1.7 * aggro;

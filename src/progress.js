@@ -25,7 +25,7 @@ export const abil = (i) => bloom[i] > .5;
 // the DM's 7-beat arc: burnout -> joy (order matters, shown per shard freed)
 const BEATS = [
   "Huh. That color... I'd forgotten I mixed that one myself.",
-  "Two chapters back. The table's edge looks less final, doesn't it.",
+  "Two back already. The table's edge looks less final.",
   'You know the troll had a name. Kevin. It was Kevin.',
   "Half the table's awake. We— we're doing this, aren't we.",
   'I found my good pen. Not that it matters. It matters.',

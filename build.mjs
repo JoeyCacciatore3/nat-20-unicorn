@@ -21,6 +21,9 @@ run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
       .replace(/\s+/g, ' ')                  // collapse whitespace
       .replace(/ ?([=+\-*/,;(){}<>.!?:]) ?/g, '$1') // spaces around punctuation
       .trim() + '`');
+  // NOTE (measured, do not "optimize"): aliasing Math.* to 1-char names made the
+  // PACKED zip 45 B BIGGER despite -1KB raw. Roadroller models verbose repetition
+  // nearly free; consistency > brevity. Same law killed the CSS-token experiment.
   writeFileSync('dist/bundle.js', sq);
 }
 
@@ -28,7 +31,7 @@ console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
 // inventory keys used via quoted strings, namespaced localStorage key)
 const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","n20_save"';
-run(`npx terser dist/bundle.js -c passes=3,unsafe=true,drop_console=true -m --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' -o dist/min.js`);
+run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true -m --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 -o dist/min.js`);
 
 // Rules compliance: no external URLs may ship (js13k rule #2)
 const min = readFileSync('dist/min.js', 'utf8');
@@ -54,7 +57,7 @@ const SHELL = '<meta name=viewport content="width=device-width,initial-scale=1,u
 writeFileSync('dist/min2.js', `document.write('${SHELL.replace(/'/g, "\\'")}');` + readFileSync('dist/min.js', 'utf8'));
 // Pinned flags = deterministic builds (no ±20 B jitter). After big source changes,
 // re-tune: `TUNE=1 node build.mjs` and paste the "use ... to replicate" flags here.
-const ROADFLAGS = process.env.TUNE ? '-D' : '-D -Zab8 -Zlr1333 -Zmd14 -Zpr14 -S0,1,2,3,7,13,21,25,42,197,440,450';
+const ROADFLAGS = process.env.TUNE ? '-D' : '-D -Zab24 -Zlr930 -Zmd12 -Zpr14 -S0,1,2,3,7,13,21,25,42,198,225,338';
 run(`npx roadroller ${ROADFLAGS} dist/min2.js -o dist/packed.js`);
 
 console.log('4/6 inline into template…');

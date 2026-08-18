@@ -30,6 +30,14 @@ export const setRes = (inv) => {
   const ICO = { fl: '🌼', sp: '💎', tf: '🌫️', pr: '🖤', ch: '🪨' };
   res.textContent = Object.keys(ICO).filter(k => inv[k]).map(k => ICO[k] + inv[k]).join('  ');
 };
+// death: fade to black, hold, respawn (cb), fade back — makes dying a real moment
+export const deathFade = (cb) => {
+  playing = 0; // reuse the world-freeze gate the creation screen already uses
+  const d = el('div', 'inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .6s;display:flex;align-items:center;justify-content:center;font-size:64px;z-index:9', 0, '💀');
+  requestAnimationFrame(() => d.style.opacity = '1');
+  setTimeout(() => { cb(); playing = 1; d.style.opacity = '0'; setTimeout(() => d.remove(), 700); }, 1600);
+};
+
 export const setPrompt = (t) => {
   prompt.style.display = t ? 'block' : 'none';
   if (t) prompt.textContent = isTouch() ? t.replace('E — ', '✋ ') : t;
