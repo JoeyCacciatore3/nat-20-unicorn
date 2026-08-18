@@ -1,0 +1,5 @@
+# Wavedash CLI config — https://docs.wavedash.com/cli/configuration
+# Push the js13k competition build: node build.mjs && wavedash build push -m "..."
+game_id = "j97697bsqqnzpcxbmpdhfs3hen8cp5yv"
+upload_dir = "./dist/wavedash"
+entrypoint = "index.html"
