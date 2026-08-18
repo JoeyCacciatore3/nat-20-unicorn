@@ -20,6 +20,8 @@ const dmBar = el('div', 'left:50%;bottom:26px;transform:translateX(-50%);max-wid
 const flash = el('div', 'inset:0;background:#f33;opacity:0;pointer-events:none;transition:opacity .3s');
 const lvEl = el('div', 'top:12px;right:14px;font-size:16px;color:#ffd75e;text-shadow:0 1px 3px #000');
 export const setLv = (n) => lvEl.textContent = '🦄 Lv ' + n;
+const abEl = el('div', 'top:34px;right:14px;font-size:14px;letter-spacing:2px');
+export const setAbil = (t) => abEl.textContent = t;
 const obj = el('div', 'top:12px;left:50%;transform:translateX(-50%);font-size:14px;color:#ffec;background:#0007;padding:5px 12px;border-radius:8px;white-space:nowrap');
 export const setObj = (t) => obj.textContent = t;
 let dmT = 0;

@@ -8,10 +8,11 @@ import { buildProps } from './props.js';
 import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
 import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
 import { audioInit, sfx, SND } from './audio.js';
+import { musicTick } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
 import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS, bossAt } from './enemies.js';
 import { S, stats, NAMES, lvl, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
-import { ct, abil, freeShard, achTick, achList, setCond, save, load, hasSave } from './progress.js';
+import { ct, misc, abil, freeShard, achTick, achList, setCond, save, load, hasSave } from './progress.js';
 import * as DM from './dm.js';
 import * as HUD from './hud.js';
 import { initInput, cam, moveInput, consumeJump, consumeAttack, consumeDodge, consumeInteract, keys } from './input.js';
@@ -127,9 +128,11 @@ const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
 initItems();
 
 // highest peak (Summit achievement target)
-let peakH = 0;
-for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2)
-  peakH = Math.max(peakH, surfaceHeight(x, z));
+let peakH = 0, peakX = 0, peakZ = 0;
+for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2) {
+  const h = surfaceHeight(x, z);
+  if (h > peakH) { peakH = h; peakX = x; peakZ = z; }
+}
 let summitFlag = 0, dragonFlag = 0;
 setCond(6, () => summitFlag);
 setCond(11, () => dragonFlag);
@@ -158,7 +161,7 @@ let time = 0, hueT = 0, sparkleT = 0;
 let hp = 3, atkCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0;
 let airJump = 0, achT = 0, prevB = 0, bossUp = 0;
 let vpNow = null; // current frame's view-projection for world->screen text
-const maxH = () => maxHearts() + (abil(5) ? 1 : 0); // Gloom Ward
+const maxH = () => maxHearts() + (abil(5) ? 1 : 0) + misc.o; // Gloom Ward + campfire offerings
 
 const burst = (x, y, z, n, hue, spread) => {
   for (let i = 0; i < n; i++)
@@ -323,6 +326,7 @@ const step = (dt) => {
       if (crit) ct[1]++;
       const dmg = Math.round((crit ? 2 : 1) * mod(S.STR) * (abil(0) ? 1.5 : 1) * 10) / 10; // Ember Horn
       f.hp -= dmg; f.flash = .1;
+      if (f.el && !f.nm) { f.nm = 1; flyAt(f.x, f.y + 2.6, f.z, 'EVOLVED', '#b7f', 0); }
       const kb = 7 * mod(S.STR) * (crit ? 1.6 : 1);
       const dx = f.x - pl.x, dz = f.z - pl.z, dd = Math.hypot(dx, dz) || 1;
       f.x += dx / dd * kb * .16; f.z += dz / dd * kb * .16;
@@ -336,6 +340,7 @@ const step = (dt) => {
 
   if (playing) {
     // enemies + bolts
+    musicTick(dt, ct[7]);
     setDiff(ct[7]); // pack size, roster width, hp scale, elite odds — all from shards freed
     if (ct[7] === 6 && !bossUp) { // the finale: the Gloom Dragon guards the last chapter
       bossUp = 1;
@@ -369,6 +374,7 @@ const step = (dt) => {
       if (clear && consumeInteract()) {
         sfx(SND.shard, 1);
         freeShard(i);
+        abilRow();
         HUD.setObj(objLine());
         burst(bx, by + 2, bz, 30, regionHue(i), 8);
         juice(.15, 5);
@@ -378,14 +384,27 @@ const step = (dt) => {
 
     // the campfire: rest at the paddock's heart — heal, save, count the night
     if (!pr && Math.hypot(pl.x, pl.z) < 2.6) {
-      pr = '🛏 E — rest at camp';
-      if (consumeInteract()) {
-        sfx(SND.sleep, 1);
-        hp = maxH(); HUD.setHearts(hp, maxH());
-        ct[5]++;
-        burst(0, pl.y + 2, 0, 16, .1, 3);
-        DM.say(DM.P.sleep);
-        save();
+      const oc = 10 << misc.o; // offering price doubles each time
+      if (hp >= maxH() && inv.sp >= oc) {
+        pr = '🔥 E — offer ' + oc + '💎 (+1 max ♥)';
+        if (consumeInteract()) {
+          sfx(SND.shard, 1);
+          inv.sp -= oc; misc.o++;
+          hp = maxH(); HUD.setHearts(hp, maxH()); HUD.setRes(inv);
+          burst(0, pl.y + 2, 0, 26, .95, 6);
+          HUD.toast('🔥 <b>Offering accepted</b> — +1 max ♥');
+          save();
+        }
+      } else {
+        pr = '🛏 E — rest at camp';
+        if (consumeInteract()) {
+          sfx(SND.sleep, 1);
+          hp = maxH(); HUD.setHearts(hp, maxH());
+          ct[5]++;
+          burst(0, pl.y + 2, 0, 16, .1, 3);
+          DM.say(DM.P.sleep);
+          save();
+        }
       }
     }
     HUD.setPrompt(pr);
@@ -396,7 +415,7 @@ const step = (dt) => {
   hueT += dt * .55;
   if (speed > 2.5 && pl.ground) {
     const bx = pl.x - Math.sin(pl.yaw) * .9, bz = pl.z - Math.cos(pl.yaw) * .9;
-    for (let i = 0; i < 2; i++)
+    for (let i = 0; i < (abil(6) ? 4 : 2); i++)
       PARTICLES.spawn(
         bx + (Math.random() - .5) * .4, pl.y + 1 + (Math.random() - .5) * .3, bz + (Math.random() - .5) * .4,
         -pl.vx * .15 + (Math.random() - .5), .4 + Math.random() * .8, -pl.vz * .15 + (Math.random() - .5),
@@ -476,6 +495,9 @@ const render = () => {
 
   // props (house + tabletop clutter)
   for (const p of props) draw(p.prim ? cone : cube, p.m, p.c[0], p.c[1], p.c[2], 0, p.emis);
+  // summit flag — marks the Summit achievement peak
+  draw(cube, compose(peakX, peakH + .9, peakZ, 0, 0, 0, 0, 0, .07, 1.8, .07), .85, .85, .85, 0, .2);
+  draw(cone, compose(peakX, peakH + 1.75, peakZ, 0, time * 1.5, 0, 0, 0, .5, .28, .5), 1, .35, .55, 0, .6);
 
   // gatherables: flowers = tiny cone + stem, sparkles = spinning cone
   for (const it of ITEMS) {
@@ -525,7 +547,7 @@ const render = () => {
     for (const P of PARTS) {
       const [arx, ary, ay] = animPart(P[14], time, pl.gallop, run);
       const partM = compose(P[1], P[2] + ay, P[3], P[4] + arx, ary, P[5], P[6], P[7], P[8], P[9], P[10]);
-      draw(P[0] ? cone : cube, mul(uni, partM), P[11], P[12], P[13], 0);
+      draw(P[0] ? cone : cube, mul(uni, partM), P[11], P[12], P[13], 0, abil(0) && P[2] > 1.9 ? .9 : 0);
     }
   }
 
@@ -555,8 +577,11 @@ gl.clearColor(0, 0, 0, 1);
 const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
   : ct[7] ? '🌈 ' + (7 - ct[7]) + (ct[7] === 6 ? ' shard left · follow the beams' : ' shards left · follow the beams')
   : '🌈 Free 7 shards — follow a light beam';
+const AEMO = ['🔥', '🐐', '💨', '🧲', '🪶', '🛡', '🌬'];
+const abilRow = () => HUD.setAbil(AEMO.filter((_, i) => abil(i)).join(''));
 const bootHud = (fresh) => {
   audioInit(); // first user gesture — safe to create the AudioContext
+  abilRow();
   hp = maxH();
   HUD.setHearts(hp, maxH());
   HUD.setRes(inv);

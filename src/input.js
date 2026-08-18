@@ -20,6 +20,10 @@ const mkTouchUI = () => {
   mk('⚔️', 22, () => attack = 1);
   mk('💨', 98, () => dodge = 1);
   mk('✋', 174, () => interact = 1);
+  mk('📜', 250, () => { // badge grid — main polls keys.KeyB, so pulse it
+    dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB' }));
+    setTimeout(() => dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyB' })), 60);
+  });
 };
 
 export const initInput = (c) => {

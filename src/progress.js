@@ -8,6 +8,7 @@ import * as HUD from './hud.js';
 // ---- event counters (feed achievements + saves) ----
 // counters (fixed order): 0 kill · 1 crit · 2 dodge · 3 gather · 4 build · 5 sleep · 6 pass · 7 shard
 export const ct = [0, 0, 0, 0, 0, 0, 0, 0];
+export const misc = { o: 0 }; // campfire offerings -> +max hearts
 
 // ---- shards & abilities (one passive per chapter hue) ----
 export const ABIL = [
@@ -51,7 +52,7 @@ const ACH = [
   ['🧗', 'Summit — top the highest peak', () => 0, S.CON], // set externally
   ['🌓', 'Halfway — free 4 shards', () => ct[7] >= 4, S.WIS],
   ['🛏', 'Well Rested — sleep 3×', () => ct[5] >= 3, S.CON],
-  ['💎', 'Hoarder — hold 12 sparkles', () => inv.sp >= 12, S.INT],
+  ['💎', 'Hoarder — hold 25 sparkles', () => inv.sp >= 25, S.INT],
   ['🕊', 'Skybound — reach Lv 10', () => lvl.reduce((a, b) => a + b, 0) >= 9, S.DEX],
   ['🐉', 'Dragonslayer — fell the Gloom Dragon', () => 0, S.STR], // set externally
   ['🦄', 'Prismatic — restore all 7', () => ct[7] >= 7, -1],
@@ -78,7 +79,7 @@ export const save = () => {
   try {
     localStorage.n20_save = JSON.stringify({
       s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
-      b: [...bloom].map(Math.round), e: earned,
+      b: [...bloom].map(Math.round), e: earned, o: misc.o,
       c: ct, x: xp, l: lvl,
       v: 3,
     });
@@ -91,6 +92,7 @@ export const load = () => {
     for (let i = 0; i < 6; i++) stats[i] = d.s[i];
     [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch] = d.i;
     Object.assign(ct, d.c);
+    misc.o = d.o || 0;
     if (d.x) { Object.assign(xp, d.x); Object.assign(lvl, d.l); } // older saves: fresh curve
     for (let i = 0; i < 13; i++) earned[i] = d.e[i];
     for (let i = 0; i < 8; i++) if (d.b[i]) { setBloom(i, 1); bloom[i] = 1; } // instant — abilities live on load

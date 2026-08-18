@@ -2,6 +2,7 @@
 // (dice, pencil, rulebook) that sells the diorama fiction at the rim.
 import { compose } from './core.js';
 import { surfaceHeight } from './terrain.js';
+import { regionCenter } from './zones.js';
 
 // rows: [prim(0 cube/1 cone), x,y,z, rx,ry, sx,sy,sz, r,g,b, emis]
 export const buildProps = () => {
@@ -21,6 +22,26 @@ export const buildProps = () => {
     if (i < N - 1) {
       const am = a + step / 2, mx = Math.sin(am) * 9, mz = Math.cos(am) * 9, my = surfaceHeight(mx, mz);
       rows.push([0, mx, my + .8, mz, 0, am, 3.9, .12, .1, .52, .38, .24, 0]);
+    }
+  }
+  // region dressing — each chapter gets its own "unpainted minis":
+  // trees (odd regions lean tall/forest, even squat/mushroom) + rocks.
+  for (let i = 0; i < 7; i++) {
+    const [cx, cz] = regionCenter(i);
+    for (let n = 0; n < 7; n++) {
+      const a = i * 2.3 + n * 2.71, d = 5 + ((n * 37 + i * 53) % 90) / 9;
+      const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
+      const y = surfaceHeight(x, z);
+      if (y < .4) continue; // stay off the table/shore
+      if (n < 4) { // tree: trunk + crown (species varies by region parity)
+        const tall = i & 1 ? 1.3 + (n % 3) * .3 : .8;
+        rows.push([0, x, y + tall * .45, z, 0, a, .16, tall, .16, .38, .28, .2, 0]);
+        rows.push([1, x, y + tall * (i & 1 ? 1.05 : .95), z, 0, a * 2,
+          i & 1 ? .8 : 1.15, i & 1 ? 1.5 : .6, i & 1 ? .8 : 1.15, .2, .3, .24, 0]);
+      } else { // rock
+        const rs = .3 + (n % 3) * .22;
+        rows.push([0, x, y + rs * .4, z, .3, a, rs * 1.4, rs, rs, .42, .4, .44, 0]);
+      }
     }
   }
   // precompute static matrices once

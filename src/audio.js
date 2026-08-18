@@ -37,6 +37,19 @@ export const SND = {
   jump2:  [.5,,448,.01,.06,.2,1,1.87,7],
 };
 SND.gem = [...SND.pickup]; SND.gem[2] = 1975; // gem = pickup, higher voice
+// music: pentatonic loop that gains a voice as each chapter's color returns
+const MEL = [0, 3, 2, 4, 0, 2, 3, 1, 0, 3, 4, 2, 3, 4, 1, 0];
+const PENT = [0, 3, 5, 7, 10];
+let mt = 0, beat = 0;
+const nf = (d, o) => 110 * 2 ** ((PENT[d % 5] + 12 * o) / 12);
+export const musicTick = (dt, layers) => {
+  if (!zzfxX || (mt -= dt) > 0) return;
+  mt = .27; const b = ++beat & 15;
+  if (!(b & 3)) zzfx(.22, 0, nf(0, b & 4 ? 1 : 0), .03, .3, .35, 0, 1);            // root drone
+  if (layers > 0 && !(b & 1)) zzfx(.17, .01, nf(MEL[b], 2), .01, .11, .2, 0, 1);   // melody
+  if (layers > 2 && (b & 3) === 2) zzfx(.13, 0, nf(2, 1), .02, .16, .3, 1, 1);     // harmony
+  if (layers > 4) zzfx(.05, .02, 4e3 + 2e3 * (b & 1), .001, .01, .04, 3, 2);       // shimmer
+};
 let lastT = 0;
 export const sfx = (snd, always) => {
   const now = performance.now();
