@@ -1,7 +1,6 @@
 // progress.js — shards + abilities, 13 achievements, story beats, save/load (n20_ prefix).
 import { stats, xp, lvl, gain, S } from './stats.js';
 import { inv } from './items.js';
-import { slots } from './home.js';
 import { bloom, setBloom } from './zones.js';
 import * as DM from './dm.js';
 import * as HUD from './hud.js';
@@ -18,7 +17,7 @@ export const ABIL = [
   ['Bloom Step', 'wider magnet'],
   ['Feather Fall', 'higher jump'],
   ['Gloom Ward', '+1 heart'],
-  ['Double Jump', 'air jump'],
+  ['Wind Mane', '+gallop speed'],
 ];
 export const abil = (i) => bloom[i] > .5;
 
@@ -33,11 +32,9 @@ const BEATS = [
   "NAT TWENTY— sorry. Got ahead of myself. Your turn to tell it. I'll roll.",
 ];
 
-export let critter = 0; // companion appears after the first rescue
 export const freeShard = (i) => {
   setBloom(i, 1);
   ct[7]++;
-  critter = 1;
   HUD.toast('🌈 <b>Shard freed!</b> ' + ABIL[i][0] + ' — ' + ABIL[i][1]);
   DM.line(BEATS[Math.min(ct[7] - 1, 6)]);
   save();
@@ -45,18 +42,18 @@ export const freeShard = (i) => {
 
 // ---- 13 achievements: [emoji, label, condition, stat] ----
 const ACH = [
-  ['🏠', 'Homebody — build a module', () => ct[4] >= 1, S.INT],
+  ['⬆️', 'Ascendant — reach Lv 5', () => lvl.reduce((a, b) => a + b, 0) >= 4, S.CON],
   ['🌈', 'First Light — free a shard', () => ct[7] >= 1, S.WIS],
   ['⚔️', 'Gloombuster — slay 13', () => ct[0] >= 13, S.STR],
   ['🎯', 'Natural 20 — land a crit', () => ct[1] >= 1, S.CHA],
   ['💨', 'Untouchable — dodge 13', () => ct[2] >= 13, S.DEX],
   ['🌼', 'Green Hooves — gather 50', () => ct[3] >= 50, S.WIS],
   ['🧗', 'Summit — top the highest peak', () => 0, S.CON], // set externally
-  ['🗣', 'Silver Tongue — persuade the troll', () => 0, S.CHA], // set externally
+  ['🌓', 'Halfway — free 4 shards', () => ct[7] >= 4, S.WIS],
   ['🛏', 'Well Rested — sleep 3×', () => ct[5] >= 3, S.CON],
   ['💎', 'Hoarder — hold 12 sparkles', () => inv.sp >= 12, S.INT],
-  ['🎲', 'Believer — pass 5 checks', () => ct[6] >= 5, S.INT],
-  ['🏗', 'Architect — fill all slots', () => slots.every(s => s.built >= 0), S.INT],
+  ['🕊', 'Skybound — reach Lv 10', () => lvl.reduce((a, b) => a + b, 0) >= 9, S.DEX],
+  ['🐉', 'Dragonslayer — fell the Gloom Dragon', () => 0, S.STR], // set externally
   ['🦄', 'Prismatic — restore all 7', () => ct[7] >= 7, -1],
 ];
 export const earned = new Array(13).fill(0);
@@ -81,7 +78,7 @@ export const save = () => {
   try {
     localStorage.n20_save = JSON.stringify({
       s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
-      b: [...bloom].map(Math.round), u: slots.map(x => x.built), e: earned,
+      b: [...bloom].map(Math.round), e: earned,
       c: ct, x: xp, l: lvl,
       v: 3,
     });
@@ -97,8 +94,6 @@ export const load = () => {
     if (d.x) { Object.assign(xp, d.x); Object.assign(lvl, d.l); } // older saves: fresh curve
     for (let i = 0; i < 13; i++) earned[i] = d.e[i];
     for (let i = 0; i < 8; i++) if (d.b[i]) { setBloom(i, 1); bloom[i] = 1; } // instant — abilities live on load
-    slots.forEach((s, i) => s.built = d.u[i]);
-    if (ct[7]) critter = 1;
     return 1;
   } catch { return 0; }
 };

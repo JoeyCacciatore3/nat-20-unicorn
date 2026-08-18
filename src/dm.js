@@ -24,16 +24,7 @@ const POOLS = {
   dead: [
     'Aaand the unicorn is down. Lucky I never erase anyone.',
   ],
-  build: [
-    "Huh. I didn't glue that there. I like it.",
-  ],
   sleep: ['Rest. Even imaginary legs get tired.'],
-  pass: [
-    'That... actually worked. Noted.',
-  ],
-  fail: [
-    'The dice have spoken. They are laughing.',
-  ],
 };
 const bags = new Map();
 let show = () => {};

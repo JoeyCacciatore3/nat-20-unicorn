@@ -1,6 +1,5 @@
 // hud.js — all GUI is DOM (≈0 render bytes): hearts, resources, prompt, DM bar,
 // floating text, toasts, and the Session Zero creation screen.
-import { stats, NAMES } from './stats.js';
 import * as DM from './dm.js';
 import { sfx, SND } from './audio.js';
 import { isTouch } from './input.js';
@@ -19,6 +18,8 @@ const res = el('div', 'top:46px;left:16px;font-size:16px;color:#fff;text-shadow:
 const prompt = el('div', 'left:50%;bottom:110px;transform:translateX(-50%);font-size:18px;color:#fff;background:#0009;padding:7px 16px;border-radius:9px;display:none');
 const dmBar = el('div', 'left:50%;bottom:26px;transform:translateX(-50%);max-width:72%;font-size:17px;font-style:italic;color:#e8dcc8;background:#000a;padding:9px 18px;border-radius:10px;transition:opacity .4s;opacity:0;text-align:center');
 const flash = el('div', 'inset:0;background:#f33;opacity:0;pointer-events:none;transition:opacity .3s');
+const lvEl = el('div', 'top:12px;right:14px;font-size:16px;color:#ffd75e;text-shadow:0 1px 3px #000');
+export const setLv = (n) => lvEl.textContent = '🦄 Lv ' + n;
 const obj = el('div', 'top:12px;left:50%;transform:translateX(-50%);font-size:14px;color:#ffec;background:#0007;padding:5px 12px;border-radius:8px;white-space:nowrap');
 export const setObj = (t) => obj.textContent = t;
 let dmT = 0;
@@ -27,7 +28,7 @@ DM.onSay((line) => { dmBar.textContent = line; dmBar.style.opacity = 1; dmT = 4.
 export const setHearts = (hp, max) =>
   hearts.textContent = '❤️'.repeat(hp) + '🖤'.repeat(Math.max(0, max - hp));
 export const setRes = (inv) => {
-  const ICO = { fl: '🌼', sp: '💎', tf: '🌫️', pr: '🖤', ch: '🪨' };
+  const ICO = { fl: '🌼', sp: '💎' };
   res.textContent = Object.keys(ICO).filter(k => inv[k]).map(k => ICO[k] + inv[k]).join('  ');
 };
 // death: fade to black, hold, respawn (cb), fade back — makes dying a real moment
@@ -94,9 +95,7 @@ export const creation = (onStart, onContinue) => {
     'NAT <span style="color:#ffd75e">20</span> UNICORN');
   el('div', 'position:static;font-size:15px;font-style:italic;color:#b9a;margin-bottom:8px', ov,
     'Session Zero — a level 1 unicorn. Every jump you earn, you keep.');
-  const grid = el('div', 'position:static;display:grid;grid-template-columns:repeat(3,86px);gap:8px;font-size:17px', ov);
-  NAMES.map((n) =>
-    el('div', 'position:static;background:#ffffff12;border-radius:8px;padding:8px 0', grid, n + '<br><b>10</b>'));
+  el('div', 'position:static;font-size:15px;color:#cbc;letter-spacing:1px', ov, 'STR · DEX · CON · INT · WIS · CHA — all 10');
   const btn = (label, css) =>
     el('button', 'position:static;font-size:15px;padding:8px 14px;border-radius:9px;border:0;cursor:pointer;' + css, ov, label);
   const start = btn('Roll for it.', 'background:#ffd75e;color:#221;font-weight:700;font-size:18px;margin-top:6px');

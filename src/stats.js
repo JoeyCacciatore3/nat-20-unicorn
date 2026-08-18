@@ -7,10 +7,6 @@ export const xp = [0, 0, 0, 0, 0, 0], lvl = [0, 0, 0, 0, 0, 0];
 // every derived value in the game is base * mod(stat) — D&D's curve, one line
 export const mod = (s) => 1 + (stats[s] - 10) / 20;
 export const d20 = () => 1 + Math.random() * 20 | 0;
-export const roll4d6 = () => {
-  const r = [0, 0, 0, 0].map(() => 1 + Math.random() * 6 | 0).sort((a, b) => a - b);
-  return r[1] + r[2] + r[3];
-};
 
 let onLevel = () => {};
 export const setOnLevel = (f) => onLevel = f;

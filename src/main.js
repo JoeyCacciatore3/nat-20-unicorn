@@ -1,19 +1,17 @@
 // NAT 20 UNICORN — js13k 2026 · Phase 3: core gameplay
 // Combat (horn + dodge, hit-stop/shake/flash), gloomlings + drops, gathering,
-// home build slots, Session Zero creation, DM barks. Locked 60fps sim.
+// Session Zero creation, DM barks. Locked 60fps sim.
 import { mul, perspective, lookAt, compose, makeProgram } from './core.js';
 import * as PARTICLES from './particles.js';
 import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
 import { buildProps } from './props.js';
-import { MODULES, slots, initHome, costText, canAfford, pay, towerSlot } from './home.js';
 import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
 import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
 import { audioInit, sfx, SND } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
 import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS, bossAt } from './enemies.js';
-import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
 import { S, stats, NAMES, lvl, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
-import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, hasSave } from './progress.js';
+import { ct, abil, freeShard, achTick, achList, setCond, save, load, hasSave } from './progress.js';
 import * as DM from './dm.js';
 import * as HUD from './hud.js';
 import { initInput, cam, moveInput, consumeJump, consumeAttack, consumeDodge, consumeInteract, keys } from './input.js';
@@ -127,16 +125,14 @@ const cone = buildCone(gl);
 const props = buildProps();
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 initItems();
-initHome();
-initChecks();
 
 // highest peak (Summit achievement target)
 let peakH = 0;
 for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2)
   peakH = Math.max(peakH, surfaceHeight(x, z));
-let summitFlag = 0, trollFlag = 0;
+let summitFlag = 0, dragonFlag = 0;
 setCond(6, () => summitFlag);
-setCond(7, () => trollFlag);
+setCond(11, () => dragonFlag);
 
 // shard beacons: one light pillar per un-restored chapter (environment as HUD)
 const beacons = [];
@@ -159,9 +155,8 @@ gl.bindVertexArray(null);
 initInput(c);
 const pl = { x: 2, y: 0, z: 9, vx: 0, vy: 0, vz: 0, yaw: 0, ground: true, gallop: 0 };
 let time = 0, hueT = 0, sparkleT = 0;
-let hp = 3, atkCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0, zapT = 0, gardenT = 0;
+let hp = 3, atkCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0;
 let airJump = 0, achT = 0, prevB = 0, bossUp = 0;
-const cr = { x: 3, z: 4, tx: 3, tz: 4, t: 0 }; // companion critter (yard)
 let vpNow = null; // current frame's view-projection for world->screen text
 const maxH = () => maxHearts() + (abil(5) ? 1 : 0); // Gloom Ward
 
@@ -185,8 +180,10 @@ const flyAt = (x, y, z, text, color, big) => {
 
 const juice = (stop, shake) => { hitStop = Math.max(hitStop, stop); shakeT = .1; shakeAmp = shake; };
 
+const uniLv = () => 1 + lvl.reduce((a, b) => a + b, 0);
 setOnLevel((s) => {
   sfx(SND.level, 1);
+  HUD.setLv(uniLv());
   HUD.toast('⬆️ <b>' + NAMES[s] + ' ' + stats[s] + '</b>');
   flyAt(pl.x, pl.y + 2.6, pl.z, NAMES[s] + ' UP!', '#ffd75e', 1);
   burst(pl.x, pl.y + 1.5, pl.z, 24, null, 5);
@@ -221,14 +218,19 @@ let firstKill = 0;
 const kill = (f) => {
   foes.splice(foes.indexOf(f), 1);
   ct[0]++;
+  if (f.k === 5) { // the finale bows out — a real victory beat
+    dragonFlag = 1;
+    for (let i = 0; i < 9; i++) addItem(1, f.x + Math.random() * 5 - 2.5, f.z + Math.random() * 5 - 2.5);
+    burst(f.x, f.y + 2, f.z, 60, null, 12);
+    juice(.25, 12);
+    DM.line("It folds back into doubt. ...Good roll, little horse.");
+  }
   const hue = regionHue(f.r);
   burst(f.x, f.y + 1, f.z, 22, hue, 6);
   let n = 1;
   if (Math.random() < (stats[S.CHA] - 8) * .04) { n = 2; gain(S.CHA, 8); flyAt(f.x, f.y + 2.4, f.z, 'LUCKY +2', '#7df', 0); }
   if (f.el) n++;
-  const di = KINDS[f.k][6];
-  if (di === 0) inv.tf += n; else if (di === 1) inv.pr += n; else inv.ch += n;
-  HUD.setRes(inv);
+  for (let i = 0; i < n; i++) addItem(1, f.x + Math.random() * 2 - 1, f.z + Math.random() * 2 - 1);
   nudgeAggro(.1);
   if (!firstKill) { firstKill = 1; DM.say(DM.P.kill); }
   else if (Math.random() < .25) DM.say(DM.P.kill);
@@ -242,7 +244,7 @@ const step = (dt) => {
   // camera-relative wish direction (DEX scales acceleration)
   const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
   const wx = fx * -iy + -fz * ix, wz = fz * -iy + fx * ix;
-  const acc = 40 * mod(S.DEX);
+  const acc = 40 * mod(S.DEX) * (abil(6) ? 1.25 : 1); // Wind Mane
   pl.vx += wx * acc * dt; pl.vz += wz * acc * dt;
   const fr = 1 / (1 + dt * 6);
   pl.vx *= fr; pl.vz *= fr;
@@ -266,7 +268,7 @@ const step = (dt) => {
   if (playing && consumeJump()) {
     const jv = abil(4) ? 9.2 : 7.6; // Feather Fall
     if (pl.ground) { pl.vy = jv; pl.ground = false; airJump = 0; }
-    else if (airJump < lvl.reduce((a, b) => a + b, 0) + (abil(6) ? 1 : 0)) { // air jumps = unicorn level - 1
+    else if (airJump < lvl.reduce((a, b) => a + b, 0)) { // air jumps = unicorn level - 1
       airJump++; pl.vy = jv * .9;
       sfx(SND.jump2);
       burst(pl.x, pl.y + .3, pl.z, 10, hueT % 1, 4);
@@ -350,12 +352,12 @@ const step = (dt) => {
     itemUpdate(pl, dt, 3 + (stats[S.WIS] - 10) * .25 + (abil(3) ? 2.5 : 0), (it) => {
       sfx(it.k ? SND.gem : SND.pickup);
       ct[3]++;
-      gain(S.WIS, 2);
+      gain(it.k ? S.INT : S.WIS, 2);
       burst(it.x, it.y + .5, it.z, 6, it.k ? .55 : .12, 2);
       HUD.setRes(inv);
     });
 
-    // ---- interactions: shards, skill checks, home ----
+    // ---- interactions: shards, camp ----
     let pr = '';
 
     // free a shard: reach its beacon with no gloom nearby
@@ -374,41 +376,6 @@ const step = (dt) => {
       }
     }
 
-    // skill checks: DM table-talk + the falling d20
-    const ck = checkNear(pl.x, pl.z);
-    if (ck && !pr) {
-      pr = 'E — ' + NAMES[ck.stat] + ' check: ' + ck.label + ' (DC ' + ck.dc + ')';
-      if (consumeInteract()) attempt(ck);
-    }
-    checkTick(dt, {
-      fly: flyAt,
-      burst,
-      onPass: (c2) => { ct[6]++; if (c2.troll) trollFlag = 1; HUD.setRes(inv); },
-    });
-
-    for (const sl of slots) {
-      if (Math.hypot(pl.x - sl.x, pl.z - sl.z) > 2.6) continue;
-      if (sl.built < 0) {
-        const M = MODULES[sl.i];
-        const cost = {};
-        for (const k in M[2]) cost[k] = Math.max(1, Math.round(M[2][k] / mod(S.INT))); // INT discounts
-        pr = canAfford(cost)
-          ? 'E — Build ' + M[1] + ' ' + M[0] + ' (' + costText(cost) + ')'
-          : M[1] + ' ' + M[0] + ' needs ' + costText(cost);
-        if (consumeInteract() && canAfford(cost)) {
-          sfx(SND.crit, 1);
-          pay(cost); sl.built = sl.i;
-          ct[4]++;
-          HUD.setRes(inv);
-          burst(sl.x, sl.y + 1.5, sl.z, 26, null, 6);
-          juice(.1, 4);
-          HUD.toast(M[1] + ' <b>' + M[0] + '</b> built!');
-          DM.say(DM.P.build);
-          gain(S.INT, 14);
-          save();
-        }
-      }
-    }
     // the campfire: rest at the paddock's heart — heal, save, count the night
     if (!pr && Math.hypot(pl.x, pl.z) < 2.6) {
       pr = '🛏 E — rest at camp';
@@ -423,24 +390,6 @@ const step = (dt) => {
     }
     HUD.setPrompt(pr);
 
-    // module effects (dark modules are offline until repaired)
-    const gd = slots.find(s => s.built === 0);
-    if (gd && (gardenT -= dt) <= 0) {
-      gardenT = 7;
-      const a = Math.random() * 6.283;
-      addItem(0, Math.sin(a) * (8 + Math.random() * 5), Math.cos(a) * (8 + Math.random() * 5));
-    }
-    const tw = towerSlot();
-    if (tw && (zapT -= dt) <= 0) {
-      for (const f of foes) {
-        if (Math.hypot(f.x - tw.x, f.z - tw.z) > 13) continue;
-        zapT = 2;
-        f.hp -= 1; f.flash = .1;
-        burst(f.x, f.y + 1.2, f.z, 10, Math.random(), 5);
-        if (f.hp <= 0) kill(f);
-        break;
-      }
-    }
   }
 
   // rainbow contrail while moving
@@ -467,19 +416,6 @@ const step = (dt) => {
   if (pl.ground && pl.y >= peakH - .3) summitFlag = 1;
   if (keys.KeyB && !prevB) HUD.badges(achList());
   prevB = keys.KeyB;
-
-  // companion critter — lives in the yard, hops between spots
-  if (critter) {
-    cr.t -= dt;
-    if (cr.t <= 0) {
-      cr.t = 2 + Math.random() * 3;
-      const a = Math.random() * 6.283;
-      cr.tx = Math.sin(a) * (4 + Math.random() * 4);
-      cr.tz = Math.cos(a) * (4 + Math.random() * 4);
-    }
-    cr.x += (cr.tx - cr.x) * dt * 1.5;
-    cr.z += (cr.tz - cr.z) * dt * 1.5;
-  }
 
   // house circle warms as chapters are restored
   let sum = 0; for (let i = 0; i < 7; i++) sum += bloom[i];
@@ -540,42 +476,6 @@ const render = () => {
 
   // props (house + tabletop clutter)
   for (const p of props) draw(p.prim ? cone : cube, p.m, p.c[0], p.c[1], p.c[2], 0, p.emis);
-
-  // built home modules
-  for (const sl of slots) {
-    if (sl.built < 0) {
-      // empty slot: faint marker ring
-      draw(cube, compose(sl.x, sl.y + .04, sl.z, 0, time * .4, 0, 0, 0, 1.6, .06, 1.6), .5, .45, .7, 0, .5);
-      continue;
-    }
-    for (const R of MODULES[sl.built][3])
-      draw(R[0] ? cone : cube,
-        compose(sl.x + R[1], sl.y + R[2], sl.z + R[3], 0, R[4], 0, 0, 0, R[5], R[6], R[7]),
-        R[8], R[9], R[10], 0, R[11]);
-  }
-
-  // open skill-check spots: a little white die hovering, waiting to be rolled
-  for (const ck of checks) {
-    if (ck.done) continue;
-    const bob = Math.sin(time * 2.5 + ck.x) * .15;
-    draw(cube, compose(ck.x, ck.y + 1.2 + bob, ck.z, time * .8, time * 1.1, 0, 0, 0, .34, .34, .34), 1, 1, 1, 0, .5);
-  }
-
-  // the falling d20 (well, d6-shaped — the DM lost the good dice)
-  if (die.t > 0) {
-    const p = 1 - die.t / .8;
-    draw(cube, compose(die.x, die.y + .5 + (1 - p) * (1 - p) * 11, die.z,
-      die.t * 14, die.t * 19, 0, 0, 0, .55, .55, .55), 1, 1, 1, 0, .6);
-  }
-
-  // companion critter — tiny hopping yard-bunny
-  if (critter) {
-    const hop = Math.abs(Math.sin(cr.t * 4 + time * 6)) * .25;
-    const cy = surfaceHeight(cr.x, cr.z);
-    const cyaw = Math.atan2(cr.tx - cr.x, cr.tz - cr.z);
-    draw(cube, compose(cr.x, cy + .25 + hop, cr.z, 0, cyaw, 0, 0, 0, .38, .34, .48), .95, .8, .85, 0);
-    draw(cube, compose(cr.x, cy + .55 + hop, cr.z, .3, cyaw, 0, 0, 0, .1, .3, .1), .95, .8, .85, 0);
-  }
 
   // gatherables: flowers = tiny cone + stem, sparkles = spinning cone
   for (const it of ITEMS) {
@@ -653,13 +553,14 @@ gl.clearColor(0, 0, 0, 1);
 // ---------- boot: Session Zero (or Continue), then play ----------
 // the always-on objective line — direction at a glance, updated as shards fall
 const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
-  : ct[7] ? '🌈 ' + (7 - ct[7]) + (ct[7] === 6 ? ' shard left · build at home' : ' shards left · build at home')
+  : ct[7] ? '🌈 ' + (7 - ct[7]) + (ct[7] === 6 ? ' shard left · follow the beams' : ' shards left · follow the beams')
   : '🌈 Free 7 shards — follow a light beam';
 const bootHud = (fresh) => {
   audioInit(); // first user gesture — safe to create the AudioContext
   hp = maxH();
   HUD.setHearts(hp, maxH());
   HUD.setRes(inv);
+  HUD.setLv(uniLv());
   if (fresh) { // new campaign: controls first, then the DM sets the quest
     HUD.setObj(navigator.maxTouchPoints ? '👆 stick move · ⚔️ attack · ✋ use'
       : '⌨️ WASD · F attack · E use · B badges');
