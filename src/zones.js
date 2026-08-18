@@ -9,7 +9,7 @@ const TAU = Math.PI * 2;
 export const regionHue = (i) => (i + .5) / 7;
 export const regionCenter = (i) => {
   const a = ((i + .5) / 7 - .5) * TAU;
-  return [Math.sin(a) * 36, Math.cos(a) * 36];
+  return [Math.sin(a) * 24, Math.cos(a) * 24];
 };
 
 // bloom: 0 = drained grey, 1 = fully painted. index 7 = house circle.

@@ -12,7 +12,7 @@ export const initItems = () => {
   for (let i = 0; i < 7; i++) {
     const [cx, cz] = regionCenter(i);
     for (let n = 0; n < 8; n++) {
-      const a = Math.random() * 6.283, d = 3 + Math.random() * 13;
+      const a = Math.random() * 6.283, d = 3 + Math.random() * 15;
       addItem(n < 5 ? 0 : 1, cx + Math.sin(a) * d, cz + Math.cos(a) * d);
     }
   }

@@ -29,7 +29,7 @@ export const buildProps = () => {
   for (let i = 0; i < 7; i++) {
     const [cx, cz] = regionCenter(i);
     for (let n = 0; n < 7; n++) {
-      const a = i * 2.3 + n * 2.71, d = 5 + ((n * 37 + i * 53) % 90) / 9;
+      const a = i * 2.3 + n * 2.71, d = 4 + ((n * 37 + i * 53) % 126) / 9;
       const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
       const y = surfaceHeight(x, z);
       if (y < .4) continue; // stay off the table/shore

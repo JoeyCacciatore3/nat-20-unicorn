@@ -10,6 +10,7 @@ import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from 
 import { audioInit, sfx, SND } from './audio.js';
 import { musicTick } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
+import { POIS, LORE, initPois } from './poi.js';
 import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS, bossAt } from './enemies.js';
 import { S, stats, NAMES, lvl, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
 import { ct, misc, abil, freeShard, achTick, achList, setCond, save, load, hasSave } from './progress.js';
@@ -126,6 +127,7 @@ const cone = buildCone(gl);
 const props = buildProps();
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 initItems();
+initPois();
 
 // highest peak (Summit achievement target)
 let peakH = 0, peakX = 0, peakZ = 0;
@@ -383,6 +385,19 @@ const step = (dt) => {
     }
 
     // the campfire: rest at the paddock's heart — heal, save, count the night
+    for (const o of POIS) {
+      if (o.u || pr || Math.hypot(pl.x - o.x, pl.z - o.z) > 2.4) continue;
+      pr = o.k ? '🗿 E — read the stone' : '💎 E — crack the geode';
+      if (consumeInteract()) {
+        o.u = 1;
+        if (o.k) { DM.line(LORE[o.i]); gain(S.WIS, 6); sfx(SND.toast, 1); }
+        else {
+          sfx(SND.crit, 1);
+          burst(o.x, o.y + 1, o.z, 20, .55, 5);
+          for (let n = 0; n < 3; n++) addItem(1, o.x + Math.random() * 2 - 1, o.z + Math.random() * 2 - 1);
+        }
+      }
+    }
     if (!pr && Math.hypot(pl.x, pl.z) < 2.6) {
       const oc = 10 << misc.o; // offering price doubles each time
       if (hp >= maxH() && inv.sp >= oc) {
@@ -495,6 +510,15 @@ const render = () => {
 
   // props (house + tabletop clutter)
   for (const p of props) draw(p.prim ? cone : cube, p.m, p.c[0], p.c[1], p.c[2], 0, p.emis);
+  // POIs: lore stones (dim once read) + uncracked geodes
+  for (const o of POIS) {
+    if (o.k) draw(cube, compose(o.x, o.y + .8, o.z, 0, o.i, .08, 0, 0, .34, 1.5, .5), .5, .5, .58, 0, o.u ? 0 : .35);
+    else if (!o.u) {
+      draw(cube, compose(o.x, o.y + .3, o.z, .3, o.i * 2, 0, 0, 0, .55, .5, .55), .45, .42, .5, 0);
+      draw(cone, compose(o.x, o.y + .78, o.z, 0, time * 2, 0, 0, 0, .2, .28, .2), .6, .85, 1, 0, .6);
+    }
+  }
+
   // summit flag — marks the Summit achievement peak
   draw(cube, compose(peakX, peakH + .9, peakZ, 0, 0, 0, 0, 0, .07, 1.8, .07), .85, .85, .85, 0, .2);
   draw(cone, compose(peakX, peakH + 1.75, peakZ, 0, time * 1.5, 0, 0, 0, .5, .28, .5), 1, .35, .55, 0, .6);

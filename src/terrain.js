@@ -27,7 +27,7 @@ const vnoise = (x, y) => {
 // so editor deltas are always diffs against exactly what the game generates.
 export const baselineHeight = (x, z) => {
   const r = Math.hypot(x, z);
-  const mask = 1 - sm(Math.min(Math.max((r - 40) / 20, 0), 1));
+  const mask = 1 - sm(Math.min(Math.max((r - 28) / 14, 0), 1));
   const n = vnoise(x * .035 + 9, z * .035 + 7) * 5.2 + vnoise(x * .09, z * .09) * 1.6 + vnoise(x * .28, z * .28) * .35;
   const hill = 3.2 * Math.exp(-r * r / 130); // the house hill
   return (n + hill) * mask;
