@@ -43,14 +43,24 @@ if (/localStorage\.(setItem|clear)/.test(min) && !/n20_/.test(min)) {
 }
 
 console.log('3/6 pack (roadroller)…');
+// HTML shell rides INSIDE the packed stream (document.write) so roadroller models
+// it with the code — measured −69 B vs plain-deflated template. Only doctype +
+// charset stay literal (encoding must be declared before the high-byte payload).
+// -D (dirty decoder) is safe: canvas id is 2 chars (cv), no single-letter DOM globals.
+const SHELL = '<meta name=viewport content="width=device-width,initial-scale=1,user-scalable=no">'
+  + '<title>NAT 20 UNICORN</title>'
+  + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{width:100%;height:100%;display:block;touch-action:none}</style>'
+  + '<canvas id=cv></canvas>';
+writeFileSync('dist/min2.js', `document.write('${SHELL.replace(/'/g, "\\'")}');` + readFileSync('dist/min.js', 'utf8'));
 // Pinned flags = deterministic builds (no ±20 B jitter). After big source changes,
-// re-tune: `npx roadroller dist/min.js -o /dev/null` and paste the "use ... to replicate" flags here.
-const ROADFLAGS = process.env.TUNE ? '' : '-Zab16 -Zlr1000 -Zmd10 -Zpr14 -S0,1,2,3,6,7,13,21,25,42,198,281';
-run(`npx roadroller ${ROADFLAGS} dist/min.js -o dist/packed.js`);
+// re-tune: `TUNE=1 node build.mjs` and paste the "use ... to replicate" flags here.
+const ROADFLAGS = process.env.TUNE ? '-D' : '-D -Zab8 -Zlr1333 -Zmd14 -Zpr14 -S0,1,2,3,7,13,21,25,42,197,440,450';
+run(`npx roadroller ${ROADFLAGS} dist/min2.js -o dist/packed.js`);
 
 console.log('4/6 inline into template…');
 const tpl = readFileSync('index.template.html', 'utf8');
 const js = readFileSync('dist/packed.js', 'utf8');
+if (js.includes('</script')) throw new Error('packed stream contains </script — would break HTML parsing');
 writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 
 console.log('5/6 zip…');

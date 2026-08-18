@@ -18,7 +18,7 @@ import { ct, abil, freeShard, critter, achTick, achList, setCond, save, load, ha
 import { initChecks, checks, near as checkNear, attempt, tick as checkTick, die } from './checks.js'; // eslint-disable-line
 import { audioInit, sfx, SND } from './audio.js';
 
-const c = document.getElementById('c');
+const c = document.getElementById('cv');
 const gl = c.getContext('webgl2', { antialias: true });
 
 const DPR = Math.min(devicePixelRatio || 1, 1.75);
