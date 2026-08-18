@@ -21,7 +21,7 @@ build out your diorama home, and re-ignite the DM's imagination — one chapter 
 | Jump | Space | tap |
 | Attack | click / F / J | ⚔️ button |
 | Dodge | Shift | 💨 button |
-| Interact | E / Enter | — |
+| Interact | E / Enter | ✋ button |
 | Badges | B | — |
 
 ## Develop
