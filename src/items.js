@@ -1,7 +1,7 @@
 // items.js — gatherables: flowers + sparkles, WIS-scaled magnet, inventory.
 import { surfaceHeight } from './terrain.js';
 
-export const inv = { fl: 0, sp: 0, tf: 0, pr: 0, ch: 0 }; // flowers sparkles tufts pearls chips
+export const inv = { fl: 0, sp: 0 }; // flowers, sparkles
 export const items = []; // {k:0 flower |1 sparkle, x,y,z,t}
 
 export const addItem = (k, x, z) =>

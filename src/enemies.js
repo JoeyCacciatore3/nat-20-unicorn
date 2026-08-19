@@ -5,14 +5,14 @@
 import { surfaceHeight } from './terrain.js';
 import { bloomTarget, regionCenter } from './zones.js';
 
-// KINDS rows: [speed, detect, atkCd, boltSpd(0=melee), hp, scale, drop]
+// KINDS rows: [speed, detect, atkCd, boltSpd(0=melee), hp, scale]
 export const KINDS = [
-  [1.7, 6, 1.4, 0, 2, .85, 0],    // 0 minion — chaser
-  [2.2, 15, 3.4, 7, 3, .85, 1],   // 1 mage — keeps range, lobs gloom
-  [0, 16, 3.6, 5.5, 3, 1.3, 2],   // 2 turret — slow heavy shots
-  [2.6, 8, 1.1, 0, 1, .6, 0],     // 3 rogue — fast, fragile (after 2 shards)
-  [1.1, 5, 1.8, 0, 5, 1.2, 2],    // 4 warrior — slow tank (after 4 shards)
-  [1.5, 99, 2.4, 6, 12, 2.6, 1],  // 5 GLOOM DRAGON — the finale
+  [1.7, 6, 1.4, 0, 2, .85],    // 0 minion — chaser
+  [2.2, 15, 3.4, 7, 3, .85],   // 1 mage — keeps range, lobs gloom
+  [0, 16, 3.6, 5.5, 3, 1.3],   // 2 turret — slow heavy shots
+  [2.6, 8, 1.1, 0, 1, .6],     // 3 rogue — fast, fragile (after 2 shards)
+  [1.1, 5, 1.8, 0, 5, 1.2],    // 4 warrior — slow tank (after 4 shards)
+  [1.5, 99, 2.4, 6, 12, 2.6],  // 5 GLOOM DRAGON — the finale
 ];
 
 export const foes = [];   // {k,r,x,y,z,yaw,hp,t,cd,flash,el?}

@@ -36,14 +36,6 @@ export const baselineHeight = (x, z) => {
 for (let j = 0; j < V; j++) for (let i = 0; i < V; i++)
   H[j * V + i] = baselineHeight(i * STEP - WORLD / 2, j * STEP - WORLD / 2);
 
-// editor deltas: repeating [u16 vertex index LE, i8 height*8] triplets
-export const applyDeltas = (bytes) => {
-  for (let i = 0; i + 2 < bytes.length; i += 3) {
-    const k = bytes[i] | (bytes[i + 1] << 8);
-    H[k] += ((bytes[i + 2] << 24) >> 24) / 8;
-  }
-};
-
 export const surfaceHeight = (x, z) => {
   const gx = (x + WORLD / 2) / STEP, gz = (z + WORLD / 2) / STEP;
   if (gx < 0 || gz < 0 || gx >= G || gz >= G) return 0;
@@ -79,14 +71,3 @@ export const buildTerrain = (gl) => {
   return makeVao(gl, verts, idx, true);
 };
 
-// the wooden table the island sits on (finite — you can fall off the edge)
-export const buildTable = (gl) => {
-  const s = TABLE, y = -.02, c = [.30, .21, .13];
-  const verts = new Float32Array([
-    -s, y, -s, 0, 1, 0, ...c,
-     s, y, -s, 0, 1, 0, ...c,
-    -s, y,  s, 0, 1, 0, ...c,
-     s, y,  s, 0, 1, 0, ...c,
-  ]);
-  return makeVao(gl, verts, new Uint16Array([0, 2, 1, 1, 2, 3]), true);
-};

@@ -79,7 +79,7 @@ export const achTick = () => {
 export const save = () => {
   try {
     localStorage.n20_save = JSON.stringify({
-      s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
+      s: stats, i: [inv.fl, inv.sp],
       b: [...bloomTarget].map(Math.round), e: earned, o: misc.o,
       c: ct, x: xp, l: lvl,
       p: POIS.reduce((a, o, i) => a | o.u << i, 0), // lore stones + geodes used (bitmask)
@@ -92,7 +92,7 @@ export const load = () => {
     const d = JSON.parse(localStorage.n20_save || '0');
     if (!d || d.v !== 3 || !d.s || d.s.length !== 6) return 0;
     for (let i = 0; i < 6; i++) stats[i] = d.s[i];
-    [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch] = d.i;
+    [inv.fl, inv.sp] = d.i; // older saves carry 3 extra dead slots — ignored
     Object.assign(ct, d.c);
     misc.o = d.o || 0;
     if (d.x) { Object.assign(xp, d.x); Object.assign(lvl, d.l); } // older saves: fresh curve

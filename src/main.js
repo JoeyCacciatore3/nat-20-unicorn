@@ -3,10 +3,11 @@
 // Session Zero creation, DM barks. Locked 60fps sim.
 import { mul, perspective, lookAt, compose, makeProgram } from './core.js';
 import * as PARTICLES from './particles.js';
+import { hue2 } from './particles.js';
 import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
 import { buildProps } from './props.js';
-import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
-import { applyZones, regionHue, regionCenter, bloom, bloomTarget, setBloom, tickBloom } from './zones.js';
+import { buildTerrain, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
+import { regionHue, regionCenter, bloom, bloomTarget, setBloom, tickBloom } from './zones.js';
 import { audioInit, sfx, SND } from './audio.js';
 import { musicTick } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
@@ -112,14 +113,13 @@ const uVP = U(meshP, 'uVP'), uM = U(meshP, 'uM'), uTint = U(meshP, 'uTint'),
 const uAsp = U(skyP, 'uAsp'), uRb = U(skyP, 'uRb');
 const uVPp = U(ptP, 'uVP');
 
-// ---------- geometry (zone deltas patch the heightfield BEFORE meshing) ----------
-applyZones();
+// ---------- geometry ----------
 const terrain = buildTerrain(gl);
-const table = buildTable(gl);
 const cube = buildCube(gl);
 const cone = buildCone(gl);
 const props = buildProps();
 const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+const tableM = compose(0, -1.17, 0, 0, 0, 0, 0, 0, TABLE * 2, 2.3, TABLE * 2); // top face at y=-.02
 initItems();
 initPois();
 
@@ -476,12 +476,6 @@ const draw = (geo, model, r, g, b, grid, emis) => {
   gl.drawElements(gl.TRIANGLES, geo.n, gl.UNSIGNED_SHORT, 0);
 };
 
-const hue2 = (h) => [
-  Math.min(Math.max(Math.abs(h * 6 - 3) - 1, 0), 1),
-  Math.min(Math.max(2 - Math.abs(h * 6 - 2), 0), 1),
-  Math.min(Math.max(2 - Math.abs(h * 6 - 4), 0), 1),
-];
-
 const render = () => {
   gl.viewport(0, 0, c.width, c.height);
   const asp = c.width / c.height;
@@ -511,7 +505,8 @@ const render = () => {
   gl.uniformMatrix4fv(uVP, false, vp);
   gl.uniform3f(uEye, ex, ey, ez);
   gl.uniform1fv(uB, bloom);
-  draw(table, IDENT, 1, 1, 1, 0);
+  // the wooden table: one scaled cube — a real slab, thickness visible at the edge
+  draw(cube, tableM, .30, .21, .13, 0);
   draw(terrain, IDENT, 1, 1, 1, 1);
 
   // props (campfire, paddock fence, region dressing, tabletop clutter)

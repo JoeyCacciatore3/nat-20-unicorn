@@ -19,7 +19,7 @@ export const update = (dt) => {
   }
 };
 
-const hue2 = (h) => [
+export const hue2 = (h) => [ // shared JS twin of the GLSL hue() rainbow
   Math.min(Math.max(Math.abs(h * 6 - 3) - 1, 0), 1),
   Math.min(Math.max(2 - Math.abs(h * 6 - 2), 0), 1),
   Math.min(Math.max(2 - Math.abs(h * 6 - 4), 0), 1),
