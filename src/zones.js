@@ -13,11 +13,14 @@ export const regionCenter = (i) => {
 };
 
 // bloom: 0 = drained grey, 1 = fully painted. index 7 = house circle.
+// bloomTarget is the AUTHORITATIVE game state; bloom is the visual lerp toward it.
+// Logic (saves, abilities, boss trigger, spawn gates) must read bloomTarget —
+// reading bloom during the ~0.8s lerp caused save desync + double-boss bugs.
 export const bloom = new Float32Array(8);
-const target = new Float32Array(8);
-export const setBloom = (i, v) => target[i] = v;
+export const bloomTarget = new Float32Array(8);
+export const setBloom = (i, v) => bloomTarget[i] = v;
 export const tickBloom = (dt) => {
-  for (let i = 0; i < 8; i++) bloom[i] += (target[i] - bloom[i]) * Math.min(1, dt * .9);
+  for (let i = 0; i < 8; i++) bloom[i] += (bloomTarget[i] - bloom[i]) * Math.min(1, dt * .9);
 };
 
 // editor-authored height deltas vs the procedural baseline.

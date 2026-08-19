@@ -1,6 +1,6 @@
 // audio.js — ZzFXMicro v1.3.2 by Frank Force (MIT), adapted: ES module + lazy
 // AudioContext (created on first user gesture — no autoplay warning) + named
-// sound table with pitch variance and a global rate cap (juice spec: <=5/sec).
+// sound table with pitch variance and a global rate cap (~11/sec — juice fatigue).
 /* eslint-disable */
 let zzfxV = .3, zzfxX = null;
 export const audioInit = () => { zzfxX = zzfxX || new AudioContext(); };
@@ -34,7 +34,8 @@ export const SND = {
   dodge:  [.4,.1,247,.01,,.08,,1.5,-8],
   toast:  [.6,,1318,,.04,.18,1,1.6,,,330,.04],
   sleep:  [.6,,392,.05,.2,.5,1,1.2,,,-98,.15],
-  jump2:  [.5,,448,.01,.06,.2,1,1.87,7],
+  jump:   [.35,,240,.01,.04,.13,1,1.9,5],   // soft ground hop
+  jump2:  [.5,,448,.01,.06,.2,1,1.87,7],    // brighter air jump
 };
 SND.gem = [...SND.pickup]; SND.gem[2] = 1975; // gem = pickup, higher voice
 // music: pentatonic loop that gains a voice as each chapter's color returns

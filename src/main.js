@@ -6,7 +6,7 @@ import * as PARTICLES from './particles.js';
 import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
 import { buildProps } from './props.js';
 import { buildTerrain, buildTable, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
-import { applyZones, regionHue, regionCenter, bloom, setBloom, tickBloom } from './zones.js';
+import { applyZones, regionHue, regionCenter, bloom, bloomTarget, setBloom, tickBloom } from './zones.js';
 import { audioInit, sfx, SND } from './audio.js';
 import { musicTick } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
@@ -160,7 +160,7 @@ gl.bindVertexArray(null);
 initInput(c);
 const pl = { x: 2, y: 0, z: 9, vx: 0, vy: 0, vz: 0, yaw: 0, ground: true, gallop: 0 };
 let time = 0, hueT = 0, sparkleT = 0;
-let hp = 3, atkCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0;
+let hp = 3, atkCd = 0, dodgeCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0;
 let airJump = 0, achT = 0, prevB = 0, bossUp = 0;
 let vpNow = null; // current frame's view-projection for world->screen text
 const maxH = () => maxHearts() + (abil(5) ? 1 : 0) + misc.o; // Gloom Ward + campfire offerings
@@ -229,6 +229,7 @@ const kill = (f) => {
     burst(f.x, f.y + 2, f.z, 60, null, 12);
     juice(.25, 12);
     DM.line("It folds back into doubt. ...Good roll, little horse.");
+    HUD.setObj(objLine()); // dragon down — objective flips back to the last shard
   }
   const hue = regionHue(f.r);
   burst(f.x, f.y + 1, f.z, 22, hue, 6);
@@ -254,8 +255,9 @@ const step = (dt) => {
   const fr = 1 / (1 + dt * 6);
   pl.vx *= fr; pl.vz *= fr;
 
-  // dodge — burst + i-frames scaled by DEX
-  if (playing && consumeDodge() && atkCd <= 0) {
+  // dodge — burst + i-frames scaled by DEX, own cooldown (independent of attack)
+  if (playing && consumeDodge() && dodgeCd <= 0) {
+    dodgeCd = .6; // no i-frame chaining, no near-miss DEX farming
     const l = Math.hypot(wx, wz);
     const dxn = l ? wx / l : Math.sin(pl.yaw), dzn = l ? wz / l : Math.cos(pl.yaw);
     const dash = abil(2) ? 24 : 14; // Sun Dash
@@ -272,7 +274,7 @@ const step = (dt) => {
   // jump + gravity + sphere-on-heightfield (no floor past the table edge)
   if (playing && consumeJump()) {
     const jv = abil(4) ? 9.2 : 7.6; // Feather Fall
-    if (pl.ground) { pl.vy = jv; pl.ground = false; airJump = 0; }
+    if (pl.ground) { pl.vy = jv; pl.ground = false; airJump = 0; sfx(SND.jump); }
     else if (airJump < lvl.reduce((a, b) => a + b, 0)) { // air jumps = unicorn level - 1
       airJump++; pl.vy = jv * .9;
       sfx(SND.jump2);
@@ -311,9 +313,13 @@ const step = (dt) => {
   }
   pl.gallop += dt * (2.5 + speed * 1.7);
 
+  // campfire offering — computed here because F is shared: offering wins over attack at the fire
+  const oc = Math.max(4, (10 << misc.o) - (stats[S.INT] - 10)); // price doubles; INT talks it down
+  const offerable = Math.hypot(pl.x, pl.z) < 2.6 && hp >= maxH() && inv.sp >= oc;
+
   // ---- combat: horn attack (visible d20; STR scales damage) ----
-  atkCd -= dt; invulnT -= dt;
-  if (playing && consumeAttack() && atkCd <= 0) {
+  atkCd -= dt; dodgeCd -= dt; invulnT -= dt;
+  if (playing && !offerable && consumeAttack() && atkCd <= 0) {
     atkCd = .45;
     sfx(SND.swing);
     pl.vx += Math.sin(pl.yaw) * 5; pl.vz += Math.cos(pl.yaw) * 5;   // lunge
@@ -322,7 +328,7 @@ const step = (dt) => {
     for (const f of [...foes]) {
       if (Math.hypot(f.x - hx, f.z - hz) > 2.1) continue;
       const roll = d20();
-      if (roll === 1) { sfx(SND.fumble, 1); DM.say(DM.P.fumble); flyAt(f.x, f.y + 2.2, f.z, '1 ...', '#999', 1); continue; }
+      if (roll === 1) { sfx(SND.fumble, 1); DM.say(DM.P.fumble); flyAt(f.x, f.y + 2.2, f.z, '🎲1 ...', '#999', 1); continue; }
       const crit = roll === 20;
       sfx(crit ? SND.crit : SND.thud, 1);
       if (crit) ct[1]++;
@@ -333,8 +339,8 @@ const step = (dt) => {
       const dx = f.x - pl.x, dz = f.z - pl.z, dd = Math.hypot(dx, dz) || 1;
       f.x += dx / dd * kb * .16; f.z += dz / dd * kb * .16;
       juice(crit ? .12 : .06, crit ? 9 : 3);
-      flyAt(f.x, f.y + 2.2, f.z, crit ? 'NAT 20!' : '' + roll, crit ? '#ffd75e' : '#fff', crit);
-      if (crit) { DM.say(DM.P.crit); burst(f.x, f.y + 1.5, f.z, 26, null, 7); }
+      flyAt(f.x, f.y + 2.2, f.z, crit ? 'NAT 20!' : '🎲' + roll, crit ? '#ffd75e' : '#fff', crit);
+      if (crit) { DM.say(DM.P.crit); burst(f.x, f.y + 1.5, f.z, 26, null, 7); gain(S.CHA, 6); } // the dice remember you
       gain(S.STR, 3);
       if (f.hp <= 0) kill(f);
     }
@@ -345,8 +351,8 @@ const step = (dt) => {
     musicTick(dt, ct[7]);
     setDiff(ct[7]); // pack size, roster width, hp scale, elite odds — all from shards freed
     if (ct[7] === 6 && !bossUp) { // the finale: the Gloom Dragon guards the last chapter
-      bossUp = 1;
-      for (let i = 0; i < 7; i++) if (bloom[i] < .5) bossAt(i);
+      bossUp = 1; // bloomTarget, not bloom: the just-freed chapter is still lerping — one dragon, not two
+      for (let i = 0; i < 7; i++) if (bloomTarget[i] < .5) bossAt(i);
       DM.line("...that one's new. I don't remember writing that one.");
     }
     tickSpawns(dt, pl);
@@ -369,7 +375,8 @@ const step = (dt) => {
 
     // free a shard: reach its beacon with no gloom nearby
     for (const [i, bx, by, bz] of beacons) {
-      if (bloom[i] > .5 || Math.hypot(pl.x - bx, pl.z - bz) > 3) continue;
+      // bloomTarget: a freed shard is done instantly — no double-free window during the lerp
+      if (bloomTarget[i] > .5 || Math.hypot(pl.x - bx, pl.z - bz) > 3) continue;
       let clear = 1;
       for (const f of foes) if (Math.hypot(f.x - bx, f.z - bz) < 9) clear = 0;
       pr = clear ? 'E — Free shard' : 'Clear the gloom first';
@@ -396,30 +403,26 @@ const step = (dt) => {
           burst(o.x, o.y + 1, o.z, 20, .55, 5);
           for (let n = 0; n < 3; n++) addItem(1, o.x + Math.random() * 2 - 1, o.z + Math.random() * 2 - 1);
         }
+        save(); // POI use persists — no re-farming geodes/lore across Continues
       }
     }
     if (!pr && Math.hypot(pl.x, pl.z) < 2.6) {
-      const oc = 10 << misc.o; // offering price doubles each time
-      if (hp >= maxH() && inv.sp >= oc) {
-        pr = '🔥 E — offer ' + oc + '💎 (+1 max ♥)';
-        if (consumeInteract()) {
-          sfx(SND.shard, 1);
-          inv.sp -= oc; misc.o++;
-          hp = maxH(); HUD.setHearts(hp, maxH()); HUD.setRes(inv);
-          burst(0, pl.y + 2, 0, 26, .95, 6);
-          HUD.toast('🔥 <b>Offering accepted</b> — +1 max ♥');
-          save();
-        }
-      } else {
-        pr = '🛏 E — rest at camp';
-        if (consumeInteract()) {
-          sfx(SND.sleep, 1);
-          hp = maxH(); HUD.setHearts(hp, maxH());
-          ct[5]++;
-          burst(0, pl.y + 2, 0, 16, .1, 3);
-          DM.say(DM.P.sleep);
-          save();
-        }
+      // rest is ALWAYS on E (heal + save + count the night); the offering rides F when affordable
+      pr = '🛏 E — rest' + (offerable ? ' · 🔥 F — offer ' + oc + '💎 (+1 max ♥)' : '');
+      if (consumeInteract()) {
+        sfx(SND.sleep, 1);
+        hp = maxH(); HUD.setHearts(hp, maxH());
+        ct[5]++;
+        burst(0, pl.y + 2, 0, 16, .1, 3);
+        DM.say(DM.P.sleep);
+        save();
+      } else if (offerable && consumeAttack()) {
+        sfx(SND.shard, 1);
+        inv.sp -= oc; misc.o++;
+        hp = maxH(); HUD.setHearts(hp, maxH()); HUD.setRes(inv);
+        burst(0, pl.y + 2, 0, 26, .95, 6);
+        HUD.toast('🔥 <b>Offering accepted</b> — +1 max ♥');
+        save();
       }
     }
     HUD.setPrompt(pr);
@@ -508,7 +511,7 @@ const render = () => {
   draw(table, IDENT, 1, 1, 1, 0);
   draw(terrain, IDENT, 1, 1, 1, 1);
 
-  // props (house + tabletop clutter)
+  // props (campfire, paddock fence, region dressing, tabletop clutter)
   for (const p of props) draw(p.prim ? cone : cube, p.m, p.c[0], p.c[1], p.c[2], 0, p.emis);
   // POIs: lore stones (dim once read) + uncracked geodes
   for (const o of POIS) {
@@ -599,7 +602,8 @@ gl.clearColor(0, 0, 0, 1);
 // ---------- boot: Session Zero (or Continue), then play ----------
 // the always-on objective line — direction at a glance, updated as shards fall
 const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
-  : ct[7] ? '🌈 ' + (7 - ct[7]) + (ct[7] === 6 ? ' shard left · follow the beams' : ' shards left · follow the beams')
+  : ct[7] === 6 ? (dragonFlag ? '🌈 1 shard left · free it' : '🐉 A dragon guards the last chapter')
+  : ct[7] ? '🌈 ' + (7 - ct[7]) + ' shards left · follow the beams'
   : '🌈 Free 7 shards — follow a light beam';
 const AEMO = ['🔥', '🐐', '💨', '🧲', '🪶', '🛡', '🌬'];
 const abilRow = () => HUD.setAbil(AEMO.filter((_, i) => abil(i)).join(''));

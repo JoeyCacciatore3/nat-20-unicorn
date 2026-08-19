@@ -1,7 +1,8 @@
 // progress.js — shards + abilities, 13 achievements, story beats, save/load (n20_ prefix).
 import { stats, xp, lvl, gain, S } from './stats.js';
 import { inv } from './items.js';
-import { bloom, setBloom } from './zones.js';
+import { bloom, bloomTarget, setBloom } from './zones.js';
+import { POIS } from './poi.js';
 import * as DM from './dm.js';
 import * as HUD from './hud.js';
 
@@ -20,7 +21,7 @@ export const ABIL = [
   ['Gloom Ward', '+1 heart'],
   ['Wind Mane', '+gallop speed'],
 ];
-export const abil = (i) => bloom[i] > .5;
+export const abil = (i) => bloomTarget[i] > .5; // authoritative — active the instant the shard frees
 
 // the DM's 7-beat arc: burnout -> joy (order matters, shown per shard freed)
 const BEATS = [
@@ -79,8 +80,9 @@ export const save = () => {
   try {
     localStorage.n20_save = JSON.stringify({
       s: stats, i: [inv.fl, inv.sp, inv.tf, inv.pr, inv.ch],
-      b: [...bloom].map(Math.round), e: earned, o: misc.o,
+      b: [...bloomTarget].map(Math.round), e: earned, o: misc.o,
       c: ct, x: xp, l: lvl,
+      p: POIS.reduce((a, o, i) => a | o.u << i, 0), // lore stones + geodes used (bitmask)
       v: 3,
     });
   } catch { /* storage may be unavailable */ }
@@ -96,6 +98,7 @@ export const load = () => {
     if (d.x) { Object.assign(xp, d.x); Object.assign(lvl, d.l); } // older saves: fresh curve
     for (let i = 0; i < 13; i++) earned[i] = d.e[i];
     for (let i = 0; i < 8; i++) if (d.b[i]) { setBloom(i, 1); bloom[i] = 1; } // instant — abilities live on load
+    if (d.p) POIS.forEach((o, i) => o.u = d.p >> i & 1); // older saves: POIs fresh
     return 1;
   } catch { return 0; }
 };

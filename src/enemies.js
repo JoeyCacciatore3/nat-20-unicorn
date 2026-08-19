@@ -3,7 +3,7 @@
 // Roster taxonomy mined from the game-asset-library (KayKit skeleton roles,
 // Quaternius "Evolved" variants) — data ships, models never could.
 import { surfaceHeight } from './terrain.js';
-import { bloom, regionCenter } from './zones.js';
+import { bloomTarget, regionCenter } from './zones.js';
 
 // KINDS rows: [speed, detect, atkCd, boltSpd(0=melee), hp, scale, drop]
 export const KINDS = [
@@ -44,7 +44,7 @@ export const tickSpawns = (dt, pl) => { // keep un-restored chapters haunted
   if (waveT > 0) return;
   waveT = 4;
   for (let i = 0; i < 7; i++) {
-    if (bloom[i] > .5) continue;
+    if (bloomTarget[i] > .5) continue; // authoritative — no pack spawns into a just-freed chapter
     let have = 0;
     for (const f of foes) if (f.r === i) have++;
     while (have < packSize) {
@@ -54,6 +54,7 @@ export const tickSpawns = (dt, pl) => { // keep un-restored chapters haunted
       have++;
       if (Math.hypot(x, z) < 12) continue;              // never inside the house circle
       if (Math.hypot(x - pl.x, z - pl.z) < 13) continue; // never ambush-spawn on the player
+      if (surfaceHeight(x, z) < .4) continue;            // never on the gray shore fringe / bare table
       spawn((have - 1) % kindN, i, x, z);
     }
   }

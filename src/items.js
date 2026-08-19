@@ -13,7 +13,8 @@ export const initItems = () => {
     const [cx, cz] = regionCenter(i);
     for (let n = 0; n < 8; n++) {
       const a = Math.random() * 6.283, d = 3 + Math.random() * 15;
-      addItem(n < 5 ? 0 : 1, cx + Math.sin(a) * d, cz + Math.cos(a) * d);
+      const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
+      if (surfaceHeight(x, z) > .4) addItem(n < 5 ? 0 : 1, x, z); // stay on the island (same guard as trees)
     }
   }
 };

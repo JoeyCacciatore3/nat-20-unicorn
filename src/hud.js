@@ -43,7 +43,7 @@ export const deathFade = (cb) => {
 
 export const setPrompt = (t) => {
   prompt.style.display = t ? 'block' : 'none';
-  if (t) prompt.textContent = isTouch() ? t.replace('E — ', '✋ ') : t;
+  if (t) prompt.textContent = isTouch() ? t.replace('E — ', '✋ ').replace('F — ', '⚔️ ') : t;
 };
 export const hurtFlash = () => {
   flash.style.transition = 'none'; flash.style.opacity = .32;
@@ -79,9 +79,13 @@ export const tick = (dt) => {
 };
 
 // --- badge grid (B toggles; grayscale until earned = visible goals) ---
+// Opening pauses the world (reuses the playing gate); refuses to open while
+// already paused (Session Zero, death fade) so overlays never stack.
 let badgeOv = null;
 export const badges = (list) => {
-  if (badgeOv) { badgeOv.remove(); badgeOv = null; return; }
+  if (badgeOv) { badgeOv.remove(); badgeOv = null; playing = 1; return; }
+  if (!playing) return;
+  playing = 0;
   badgeOv = el('div', 'inset:0;background:#0e0b16cc;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:10px;padding:8vw');
   for (const [emoji, label, got] of list)
     el('div', `position:static;width:150px;font-size:13px;color:#fff;background:#ffffff12;border-radius:10px;padding:10px;text-align:center;${got ? '' : 'filter:grayscale(1);opacity:.45'}`,

@@ -1,5 +1,5 @@
-// props.js — static world dressing: the house on its hill + tabletop clutter
-// (dice, pencil, rulebook) that sells the diorama fiction at the rim.
+// props.js — static world dressing: the campfire paddock (fence + gate), per-region
+// trees/rocks, and a d6 on the wood past the island that sells the tabletop fiction.
 import { compose } from './core.js';
 import { surfaceHeight } from './terrain.js';
 import { regionCenter } from './zones.js';
@@ -12,7 +12,7 @@ export const buildProps = () => {
     [0, 0, hy + .18, 0,   0, .5,  1.4, .34, 1.4,  .35, .24, .16, 0],  // log ring
     [1, 0, hy + .62, 0,   0, 0,   .5, .95, .5,    1, .55, .15, .9],   // flame
     // ---- tabletop clutter, out on the wood past the island ----
-    [0,  78, 1.1, -52,  .35, .7,  2.2, 2.2, 2.2,  .90, .88, .82, 0],  // d6 ivory
+    [0,  36, 1.1, -30,  .35, .7,  2.2, 2.2, 2.2,  .90, .88, .82, 0],  // d6 ivory — just past the island rim, inside fog range
   ];
   // ---- paddock fence: posts + two rails around the home hill, gate faces +Z
   const N = 14, step = (6.283 - .6) / (N - 1);
