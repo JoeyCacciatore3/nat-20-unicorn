@@ -55,11 +55,11 @@ const ACH = [
   ['🛏', 'Well Rested — sleep 3×', () => ct[5] >= 3, S.CON],
   ['💎', 'Hoarder — hold 25 sparkles', () => inv.sp >= 25, S.INT],
   ['🕊', 'Skybound — reach Lv 10', () => lvl.reduce((a, b) => a + b, 0) >= 9, S.DEX],
-  ['🐉', 'Dragonslayer — fell the Gloom Dragon', () => 0, S.STR], // set externally
+  ['🗿', 'Historian — read all 7 lore stones', () => POIS.length && !POIS.some(o => o.k && !o.u), S.WIS],
   ['🦄', 'Prismatic — restore all 7', () => ct[7] >= 7, -1],
 ];
 export const earned = new Array(13).fill(0);
-export const setCond = (i, f) => ACH[i][2] = f; // summit / troll wired from main
+export const setCond = (i, f) => ACH[i][2] = f; // summit wired from main
 export const achList = () => ACH.map((a, i) => [a[0], a[1], earned[i]]);
 
 export const achTick = () => {

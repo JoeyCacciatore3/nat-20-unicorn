@@ -12,7 +12,7 @@ import { audioInit, sfx, SND } from './audio.js';
 import { musicTick } from './audio.js';
 import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
 import { POIS, LORE, initPois } from './poi.js';
-import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS, bossAt } from './enemies.js';
+import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS } from './enemies.js';
 import { S, stats, NAMES, lvl, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
 import { ct, misc, abil, freeShard, achTick, achList, setCond, save, load, hasSave } from './progress.js';
 import * as DM from './dm.js';
@@ -129,9 +129,8 @@ for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2) {
   const h = surfaceHeight(x, z);
   if (h > peakH) { peakH = h; peakX = x; peakZ = z; }
 }
-let summitFlag = 0, dragonFlag = 0;
+let summitFlag = 0;
 setCond(6, () => summitFlag);
-setCond(11, () => dragonFlag);
 
 // shard beacons: one light pillar per un-restored chapter (environment as HUD)
 const beacons = [];
@@ -155,7 +154,7 @@ initInput(c);
 const pl = { x: 2, y: 0, z: 9, vx: 0, vy: 0, vz: 0, yaw: 0, ground: true, gallop: 0 };
 let time = 0, hueT = 0, sparkleT = 0;
 let hp = 3, atkCd = 0, dodgeCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0;
-let airJump = 0, achT = 0, prevB = 0, bossUp = 0;
+let airJump = 0, achT = 0, prevB = 0;
 let vpNow = null; // current frame's view-projection for world->screen text
 const maxH = () => maxHearts() + (abil(5) ? 1 : 0) + misc.o; // Gloom Ward + campfire offerings
 
@@ -217,14 +216,6 @@ let firstKill = 0;
 const kill = (f) => {
   foes.splice(foes.indexOf(f), 1);
   ct[0]++;
-  if (f.k === 5) { // the finale bows out — a real victory beat
-    dragonFlag = 1;
-    for (let i = 0; i < 9; i++) addItem(1, f.x + Math.random() * 5 - 2.5, f.z + Math.random() * 5 - 2.5);
-    burst(f.x, f.y + 2, f.z, 60, null, 12);
-    juice(.25, 12);
-    DM.line("It folds back into doubt. ...Good roll, little horse.");
-    HUD.setObj(objLine()); // dragon down — objective flips back to the last shard
-  }
   const hue = regionHue(f.r);
   burst(f.x, f.y + 1, f.z, 22, hue, 6);
   let n = 1;
@@ -353,11 +344,6 @@ const step = (dt) => {
     // enemies + bolts
     musicTick(dt, ct[7]);
     setDiff(ct[7]); // pack size, roster width, hp scale, elite odds — all from shards freed
-    if (ct[7] === 6 && !bossUp) { // the finale: the Gloom Dragon guards the last chapter
-      bossUp = 1; // bloomTarget, not bloom: the just-freed chapter is still lerping — one dragon, not two
-      for (let i = 0; i < 7; i++) if (bloomTarget[i] < .5) bossAt(i);
-      DM.line("...that one's new. I don't remember writing that one.");
-    }
     tickSpawns(dt, pl);
     foeUpdate(pl, dt, {
       touch: () => hurt(1),
@@ -534,19 +520,19 @@ const render = () => {
     }
   }
 
-  // gloomlings — wobbling dark minis, sized/horned from their KINDS row; elites glow violet
+  // gloomlings — bit-packed 1-bit standee sprites (space-invader technique):
+  // each set bit in the KINDS pattern is a tiny cube; foes read as the DM's
+  // cardboard cutout minis. Kind color + scale telegraph power; elites glow.
   for (const f of foes) {
     const T = KINDS[f.k], sc = T[5] * (f.el ? 1.3 : 1);
     const wob = Math.sin(f.t * 5) * .12;
     const fl = f.flash > 0 ? 1 : 0;
-    const cr = fl ? 1 : .16, cg = fl ? 1 : .13, cb = fl ? 1 : (f.el ? .40 : .22);
-    if (f.k === 2) { // turret: heavy cone
-      draw(cone, compose(f.x, f.y + .9, f.z, 0, f.t * .7, wob * .5, 0, 0, sc, 1.8, sc), cr, cg, cb + .06, 0, fl);
-    } else {
-      draw(cube, compose(f.x, f.y + .75 * sc, f.z, 0, f.yaw, wob, 0, 0, sc, sc * 1.06, sc), cr, cg, cb, 0, fl);
-      if (T[3]) // ranged (and the dragon): gloom horn
-        draw(cone, compose(f.x, f.y + 1.6 * sc, f.z, 0, f.yaw, wob, 0, 0, .35 * sc, .7 * sc, .35 * sc), .45, .2, .6, 0, fl);
-    }
+    const [kr, kg, kb] = T[6];
+    const cr = fl ? 1 : kr, cg = fl ? 1 : kg, cb = fl ? 1 : (f.el ? kb + .22 : kb);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++)
+      if (T[7] >> (r * 5 + c) & 1)
+        draw(cube, compose(f.x, f.y + (r * .32 + .3) * sc, f.z, 0, f.yaw, (c - 2) * .32 * sc + wob, 0, 0, .3 * sc, .3 * sc, .16 * sc),
+          cr, cg, cb, 0, fl || (f.el ? .3 : 0));
     // mini base — sells the tabletop fiction
     draw(cube, compose(f.x, f.y + .06, f.z, 0, 0, 0, 0, 0, sc + .2, .12, sc + .2), .1, .09, .12, 0);
   }
@@ -607,7 +593,7 @@ gl.clearColor(0, 0, 0, 1);
 // ---------- boot: Session Zero (or Continue), then play ----------
 // the always-on objective line — direction at a glance, updated as shards fall
 const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
-  : ct[7] === 6 ? (dragonFlag ? '🌈 1 shard left · free it' : '🐉 A dragon guards the last chapter')
+  : ct[7] === 6 ? '🌈 1 shard left — its guard has Evolved'
   : ct[7] ? '🌈 ' + (7 - ct[7]) + ' shards left · follow the beams'
   : '🌈 Free 7 shards — follow a light beam';
 const AEMO = ['🔥', '🐐', '💨', '🧲', '🪶', '🛡', '🌬'];

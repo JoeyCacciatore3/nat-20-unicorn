@@ -5,14 +5,15 @@
 import { surfaceHeight } from './terrain.js';
 import { bloomTarget, regionCenter } from './zones.js';
 
-// KINDS rows: [speed, detect, atkCd, boltSpd(0=melee), hp, scale]
+// KINDS rows: [speed, detect, atkCd, boltSpd(0=melee), hp, scale, color, sprite]
+// sprite = bit-packed 5x4 1-bit pattern (space-invader technique), rows written
+// top→bottom in the literal, decoded bottom-up; color + scale read as power.
 export const KINDS = [
-  [1.7, 6, 1.4, 0, 2, .85],    // 0 minion — chaser
-  [2.2, 15, 3.4, 7, 3, .85],   // 1 mage — keeps range, lobs gloom
-  [0, 16, 3.6, 5.5, 3, 1.3],   // 2 turret — slow heavy shots
-  [2.6, 8, 1.1, 0, 1, .6],     // 3 rogue — fast, fragile (after 2 shards)
-  [1.1, 5, 1.8, 0, 5, 1.2],    // 4 warrior — slow tank (after 4 shards)
-  [1.5, 99, 2.4, 6, 12, 2.6],  // 5 GLOOM DRAGON — the finale
+  [1.7, 6, 1.4, 0, 2, .85, [.24, .2, .3], 0b01110_11111_10101_01010],   // 0 minion — pale blob
+  [2.2, 15, 3.4, 7, 3, .85, [.18, .16, .38], 0b00100_01110_01110_11111], // 1 mage — hatted robe
+  [0, 16, 3.6, 5.5, 3, 1.3, [.32, .14, .32], 0b00100_01110_11111_11111], // 2 turret — pyramid
+  [2.6, 8, 1.1, 0, 1, .6, [.18, .26, .22], 0b00100_01110_00100_01010],   // 3 rogue — small scout
+  [1.1, 5, 1.8, 0, 5, 1.2, [.34, .1, .12], 0b11111_11111_11011_11011],   // 4 warrior — red hulk
 ];
 
 export const foes = [];   // {k,r,x,y,z,yaw,hp,t,cd,flash,el?}
@@ -26,12 +27,12 @@ export const setDiff = (sh) => {
   packSize = 2 + (sh > 2 ? 1 : 0) + (sh > 5 ? 1 : 0);
   kindN = 3 + (sh > 2 ? 1 : 0) + (sh > 4 ? 1 : 0);
   hpScale = 1 + sh * .12;
-  eliteP = sh > 3 ? .2 : 0;
+  eliteP = sh > 5 ? .5 : sh > 3 ? .2 : 0; // the last chapter is defended by Evolved elites
 };
 
 const spawn = (k, r, x, z, extra) => {
   const f = { k, r, x, z, y: surfaceHeight(x, z), yaw: 0,
-    hp: Math.round(KINDS[k][4] * (k === 5 ? 1 : hpScale)),
+    hp: Math.round(KINDS[k][4] * hpScale),
     t: Math.random() * 9, cd: 1 + Math.random(), flash: 0 };
   if (extra) Object.assign(f, extra);
   if (!extra && Math.random() < eliteP) { f.el = 1; f.hp *= 2; } // Evolved variant
@@ -61,12 +62,6 @@ export const tickSpawns = (dt, pl) => { // keep un-restored chapters haunted
 };
 
 
-// the finale: the Gloom Dragon guards the last shard (rescue needs the area clear)
-export const bossAt = (i) => {
-  const [cx, cz] = regionCenter(i);
-  spawn(5, i, cx + 3, cz + 3, {});
-};
-
 const fire = (f, px, py, pz, spd) => {
   const dx = px - f.x, dy = py + 1 - f.y - 1.2, dz = pz - f.z;
   const d = Math.hypot(dx, dy, dz) || 1;
@@ -80,7 +75,7 @@ export const update = (pl, dt, api) => {
     const T = KINDS[f.k];
     f.t += dt; f.cd -= dt; if (f.flash > 0) f.flash -= dt;
     const dx = pl.x - f.x, dz = pl.z - f.z, d = Math.hypot(dx, dz);
-    if (T[3] && f.k !== 5) { // ranged — keeps range, lobs gloom
+    if (T[3]) { // ranged — keeps range, lobs gloom
       if (d < T[1]) {
         f.yaw = Math.atan2(dx, dz);
         if (T[0] && d < 5.5) { const s = T[0] * dt / Math.max(d, .1); f.x -= dx * s; f.z -= dz * s; }
@@ -93,10 +88,6 @@ export const update = (pl, dt, api) => {
         f.yaw = Math.atan2(dx, dz);
       }
       if (d < T[5] + .55 && f.cd <= 0) { f.cd = T[2]; api.touch(f); }
-      if (f.k === 5) { // the dragon also breathes gloom while it hunts
-        f.b = (f.b || 0) - dt;
-        if (f.b <= 0) { f.b = 2.2; fire(f, pl.x, pl.y, pl.z, T[3]); }
-      }
     }
     f.y = surfaceHeight(f.x, f.z);
   }
