@@ -313,6 +313,14 @@ const step = (dt) => {
   }
   pl.gallop += dt * (2.5 + speed * 1.7);
 
+  // follow-cam: ease in behind the unicorn while it gallops, but yield for 1.2s
+  // after any manual aim so the player can still look around mid-run
+  if (speed > 2 && performance.now() - cam.t > 1200) {
+    let cy = pl.yaw + Math.PI - cam.yaw;
+    cy -= Math.round(cy / 6.283) * 6.283;
+    cam.yaw += cy * Math.min(1, dt * 1.5);
+  }
+
   // campfire offering — computed here because F is shared: offering wins over attack at the fire
   const oc = Math.max(4, (10 << misc.o) - (stats[S.INT] - 10)); // price doubles; INT talks it down
   const offerable = Math.hypot(pl.x, pl.z) < 2.6 && hp >= maxH() && inv.sp >= oc;

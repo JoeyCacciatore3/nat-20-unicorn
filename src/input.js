@@ -1,6 +1,6 @@
 // input.js — unified keyboard + pointer/touch (left = stick, right = camera, tap = jump)
 export const keys = {};
-export const cam = { yaw: 2.7, pitch: .52 };
+export const cam = { yaw: 2.7, pitch: .52, t: 0 }; // t = last manual aim (follow-cam yields to the player)
 const stick = { id: -1, sx: 0, sy: 0, x: 0, y: 0 };
 let camId = -1, lx = 0, ly = 0, downT = 0, moved = 0, jump = 0, attack = 0, dodge = 0, interact = 0;
 
@@ -55,6 +55,7 @@ export const initInput = (c) => {
       if (l > 1) { stick.x /= l; stick.y /= l; }
     } else if (e.pointerId === camId) {
       moved += Math.abs(e.clientX - lx) + Math.abs(e.clientY - ly);
+      cam.t = performance.now();
       cam.yaw -= (e.clientX - lx) * .006;
       cam.pitch = Math.min(1.25, Math.max(.12, cam.pitch + (e.clientY - ly) * .004));
       lx = e.clientX; ly = e.clientY;
