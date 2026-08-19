@@ -32,7 +32,7 @@ const MESH_VS = `#version 300 es
 layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec3 aC;
 uniform mat4 uVP, uM; uniform vec3 uTint;
 uniform float uGrid; uniform float uEmis; uniform float uB[8];
-out vec3 vC; out vec3 vW; out float vB;
+out vec3 vC; out vec3 vW;
 ${HUE}
 void main(){
   vec4 w = uM * vec4(aP, 1.);
@@ -41,33 +41,25 @@ void main(){
   float l = max(dot(n, normalize(vec3(.5, .8, .35))), 0.) * .75 + .38;
   l = mix(l, 1.25, uEmis);
   vec3 base = aC;
-  vB = 0.;
   if (uGrid > 0.) { // terrain: gray -> chapter color as its region blooms
     float r = length(w.xz);
     int i = r < 10. ? 7 : clamp(int((atan(w.x, w.z) / 6.28318 + .5) * 7.), 0, 6);
-    vB = uB[i];
     vec3 hc = hue((float(i) + .5) / 7.);
     if (i == 7) hc = vec3(1., .85, .55); // house circle warms gold
     vec3 painted = (hc * .72 + .28) * (aC.g * 1.5 + .2);
-    base = mix(aC, painted, vB);
+    base = mix(aC, painted, uB[i]);
   }
   vC = base * uTint * l;
   gl_Position = uVP * w;
 }`;
 const MESH_FS = `#version 300 es
 precision highp float;
-in vec3 vC; in vec3 vW; in float vB;
-uniform vec3 uEye; uniform float uGrid;
+in vec3 vC; in vec3 vW;
+uniform vec3 uEye;
 out vec4 o;
 void main(){
-  vec3 col = vC;
-  if (uGrid > 0.) { // graph paper fades as the diorama gets painted
-    vec2 g = abs(fract(vW.xz / 4.) - .5);
-    col *= 1. - smoothstep(.44, .5, max(g.x, g.y)) * .12 * (1. - vB * .85);
-  }
   float d = length(vW - uEye);
-  col = mix(col, vec3(.075, .07, .09), smoothstep(38., 135., d));
-  o = vec4(col, 1.);
+  o = vec4(mix(vC, vec3(.075, .07, .09), smoothstep(38., 135., d)), 1.);
 }`;
 const SKY_VS = `#version 300 es
 out vec2 v;
@@ -286,6 +278,7 @@ const step = (dt) => {
   const onTable = Math.max(Math.abs(pl.x), Math.abs(pl.z)) <= TABLE;
   const sh = surfaceHeight(pl.x, pl.z);
   if (onTable && pl.y <= sh) {
+    if (!pl.ground && pl.vy < -7) burst(pl.x, sh + .2, pl.z, 8, .1, 3); // landing dust
     pl.y = sh; pl.vy = 0; pl.ground = true; airJump = 0;
     const fr = Math.hypot(pl.x, pl.z);
     if (Math.abs(fr - 9) < .45 && Math.abs(Math.atan2(pl.x, pl.z)) > .34) {
@@ -573,6 +566,13 @@ const render = () => {
     const pulse = 1 + Math.sin(time * 2 + i) * .08;
     draw(cone, compose(bx, by, bz, 0, 0, 0, 0, 0, 1.1 * pulse * s, 15 * s, 1.1 * pulse * s),
       r * s + .1, g * s + .1, b * s + .1, 0, 1);
+  }
+
+  // contact shadow — grounds the unicorn, sells jump height
+  if (Math.max(Math.abs(pl.x), Math.abs(pl.z)) <= TABLE) {
+    const gy = surfaceHeight(pl.x, pl.z);
+    const ss = Math.max(.2, .75 - (pl.y - gy) * .07);
+    draw(cube, compose(pl.x, gy + .07, pl.z, 0, 0, 0, 0, 0, ss, .04, ss), .05, .045, .07, 0);
   }
 
   // unicorn: blink while invulnerable
