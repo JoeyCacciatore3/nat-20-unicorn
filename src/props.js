@@ -12,10 +12,10 @@ export const buildProps = () => {
     [0, 0, hy + .18, 0,   0, .5,  1.4, .34, 1.4,  .35, .24, .16, 0],  // log ring
     [1, 0, hy + .62, 0,   0, 0,   .5, .95, .5,    1, .55, .15, .9],   // flame
     // ---- tabletop clutter, out on the wood past the island (worth the walk) ----
-    [0,  36, 1.1, -30,  .35, .7,  2.2, 2.2, 2.2,  .90, .88, .82, 0],  // d6 ivory
-    [0,  27, .12, -40,  0, 1.1,  6, .22, .22,     .95, .72, .2, 0],   // pencil
-    [0,  44, .3, -16,   0, .35,  4.2, .55, 5.6,   .5, .22, .26, 0],   // rulebook cover
-    [0,  44, .62, -16,  0, .35,  3.8, .12, 5.1,   .92, .88, .8, 0],   // rulebook pages
+    [0,  58, 1.1, -48,  .35, .7,  2.2, 2.2, 2.2,  .90, .88, .82, 0],  // d6 ivory
+    [0,  46, .12, -62,  0, 1.1,  6, .22, .22,     .95, .72, .2, 0],   // pencil
+    [0,  72, .3, -28,   0, .35,  4.2, .55, 5.6,   .5, .22, .26, 0],   // rulebook cover
+    [0,  72, .62, -28,  0, .35,  3.8, .12, 5.1,   .92, .88, .8, 0],   // rulebook pages
   ];
   // ---- paddock fence: posts + two rails around the home hill, gate faces +Z
   const N = 14, step = (6.283 - .6) / (N - 1);
@@ -31,8 +31,8 @@ export const buildProps = () => {
   // trees (odd regions lean tall/forest, even squat/mushroom) + rocks.
   for (let i = 0; i < 7; i++) {
     const [cx, cz] = regionCenter(i);
-    for (let n = 0; n < 7; n++) {
-      const a = i * 2.3 + n * 2.71, d = 4 + ((n * 37 + i * 53) % 126) / 9;
+    for (let n = 0; n < 10; n++) {
+      const a = i * 2.3 + n * 2.71, d = 4 + ((n * 37 + i * 53) % 200) / 8;
       const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
       const y = surfaceHeight(x, z);
       if (y < .4) continue; // stay off the table/shore
@@ -49,8 +49,8 @@ export const buildProps = () => {
   }
   // ground detail — tufts + pebbles on a golden-angle spiral across the whole
   // island (deterministic, no RNG) so the clay reads alive between the chapters
-  for (let n = 0; n < 64; n++) {
-    const a = n * 2.399, d = 3 + (n * 97 % 250) / 10;
+  for (let n = 0; n < 170; n++) {
+    const a = n * 2.399, d = 3 + (n * 97 % 560) / 10;
     const x = Math.sin(a) * d, z = Math.cos(a) * d, y = surfaceHeight(x, z);
     if (y < .4) continue;
     if (n & 1) rows.push([1, x, y + .16, z, 0, a, .13, .34, .13, .24, .38, .22, 0]); // grass tuft

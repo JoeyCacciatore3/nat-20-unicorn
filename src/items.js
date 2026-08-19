@@ -9,14 +9,14 @@ export const addItem = (k, x, z) =>
 
 export const initItems = () => {
   // whole-island scatter (shore guard keeps every item on grass)
-  for (let n = 0; n < 68; n++) {
-    const a = Math.random() * 6.283, d = 4 + Math.random() * 24;
+  for (let n = 0; n < 120; n++) {
+    const a = Math.random() * 6.283, d = 4 + Math.random() * 54;
     const x = Math.sin(a) * d, z = Math.cos(a) * d;
     if (surfaceHeight(x, z) > .4) addItem(n % 3 ? 0 : 1, x, z);
   }
   // spilled sparkles out on the wood near the d6 — the table edge rewards explorers
   for (let n = 0; n < 6; n++)
-    addItem(1, 28 + Math.random() * 14, -22 - Math.random() * 14);
+    addItem(1, 52 + Math.random() * 14, -42 - Math.random() * 14);
 };
 
 // onPick(item) fires per collected item

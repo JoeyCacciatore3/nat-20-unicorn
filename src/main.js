@@ -62,7 +62,7 @@ uniform vec3 uEye;
 out vec4 o;
 void main(){
   float d = length(vW - uEye);
-  o = vec4(mix(vC, vec3(.075, .07, .09), smoothstep(38., 135., d)), 1.);
+  o = vec4(mix(vC, vec3(.075, .07, .09), smoothstep(52., 165., d)), 1.);
 }`;
 const SKY_VS = `#version 300 es
 out vec2 v;
