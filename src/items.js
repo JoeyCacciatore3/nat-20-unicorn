@@ -1,6 +1,5 @@
 // items.js — gatherables: flowers + sparkles, WIS-scaled magnet, inventory.
 import { surfaceHeight } from './terrain.js';
-import { regionCenter } from './zones.js';
 
 export const inv = { fl: 0, sp: 0, tf: 0, pr: 0, ch: 0 }; // flowers sparkles tufts pearls chips
 export const items = []; // {k:0 flower |1 sparkle, x,y,z,t}
@@ -9,14 +8,15 @@ export const addItem = (k, x, z) =>
   items.push({ k, x, z, y: surfaceHeight(x, z), t: Math.random() * 9 });
 
 export const initItems = () => {
-  for (let i = 0; i < 7; i++) {
-    const [cx, cz] = regionCenter(i);
-    for (let n = 0; n < 8; n++) {
-      const a = Math.random() * 6.283, d = 3 + Math.random() * 15;
-      const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
-      if (surfaceHeight(x, z) > .4) addItem(n < 5 ? 0 : 1, x, z); // stay on the island (same guard as trees)
-    }
+  // whole-island scatter (shore guard keeps every item on grass)
+  for (let n = 0; n < 68; n++) {
+    const a = Math.random() * 6.283, d = 4 + Math.random() * 24;
+    const x = Math.sin(a) * d, z = Math.cos(a) * d;
+    if (surfaceHeight(x, z) > .4) addItem(n % 3 ? 0 : 1, x, z);
   }
+  // spilled sparkles out on the wood near the d6 — the table edge rewards explorers
+  for (let n = 0; n < 6; n++)
+    addItem(1, 28 + Math.random() * 14, -22 - Math.random() * 14);
 };
 
 // onPick(item) fires per collected item

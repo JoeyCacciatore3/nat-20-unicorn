@@ -48,6 +48,8 @@ void main(){
     if (i == 7) hc = vec3(1., .85, .55); // house circle warms gold
     vec3 painted = (hc * .72 + .28) * (aC.g * 1.5 + .2);
     base = mix(aC, painted, uB[i]);
+    // mottle: soft per-cell value noise keeps the ground from reading flat
+    base *= .93 + .14 * fract(sin(dot(floor(w.xz * 1.5), vec2(12.9898, 78.233))) * 43758.5);
   }
   vC = base * uTint * l;
   gl_Position = uVP * w;

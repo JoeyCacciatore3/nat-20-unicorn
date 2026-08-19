@@ -49,7 +49,7 @@ export const tickSpawns = (dt, pl) => { // keep un-restored chapters haunted
     for (const f of foes) if (f.r === i) have++;
     while (have < packSize) {
       const [cx, cz] = regionCenter(i);
-      const a = Math.random() * 6.283, d = 5 + Math.random() * 11;
+      const a = Math.random() * 6.283, d = 5 + Math.random() * 16; // spread packs across the whole wedge
       const x = cx + Math.sin(a) * d, z = cz + Math.cos(a) * d;
       have++;
       if (Math.hypot(x, z) < 12) continue;              // never inside the house circle
