@@ -9,6 +9,9 @@ const run = (cmd) => execSync(cmd, { stdio: ['ignore', 'pipe', 'inherit'] }).toS
 
 mkdirSync('dist', { recursive: true });
 
+console.log('0/6 map audit (Return Law)…');
+run('node tools/map-audit.mjs');   // FAILS the build if any reachable spot cannot return to a campfire
+
 console.log('1/6 bundle (esbuild)…');
 run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
 
