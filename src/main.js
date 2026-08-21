@@ -34,14 +34,14 @@ const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('TBtnH');
 // ---------- touch overlay (auto-shown; fixed dpad left, verb cluster right) ----------
 const btns = () => {
   const b = [
-    { x: 34, y: VH - 32, r: 26, l: '◀', c: 'TBtnL' }, { x: 92, y: VH - 32, r: 26, l: '▶', c: 'TBtnR' },
-    { x: VW - 36, y: VH - 34, r: 28, l: '▲', c: 'TBtnJ' },        // JUMP — biggest, thumb rest
-    { x: VW - 94, y: VH - 28, r: 22, l: '⚔', c: 'TBtnM' },        // melee
+    { x: 34, y: VH - 32, r: 26, l: '◀', h: 'A', c: 'TBtnL' }, { x: 92, y: VH - 32, r: 26, l: '▶', h: 'D', c: 'TBtnR' },
+    { x: VW - 36, y: VH - 34, r: 28, l: '▲', h: 'SPACE', c: 'TBtnJ' },  // JUMP — biggest, thumb rest
+    { x: VW - 94, y: VH - 28, r: 22, l: '⚔', h: 'J', c: 'TBtnM' },      // melee
   ];
-  if (abil & 4) b.push({ x: VW - 86, y: VH - 74, r: 19, l: '✦', c: 'TBtnS' });
-  if (abil & 2) b.push({ x: VW - 34, y: VH - 86, r: 17, l: '＋', c: 'TBtnH' });
-  if (abil & 8) b.push({ x: VW - 138, y: VH - 62, r: 19, l: '»', c: 'TBtnD' });
-  if (nearFire || nearLore) b.push({ x: VW / 2, y: VH - 28, r: 18, l: 'E', c: 'KeyE' }); // center-bottom — was overlapping the dash button
+  if (abil & 4) b.push({ x: VW - 86, y: VH - 74, r: 19, l: '✦', h: 'L', c: 'TBtnS' });
+  if (abil & 2) b.push({ x: VW - 34, y: VH - 86, r: 17, l: '＋', h: 'S', c: 'TBtnH' });
+  if (abil & 8) b.push({ x: VW - 138, y: VH - 62, r: 19, l: '»', h: 'SHIFT', c: 'TBtnD' });
+  if (nearFire || nearLore) b.push({ x: VW / 2, y: VH - 28, r: 18, l: 'E', h: '', c: 'KeyE' });
   return b;
 };
 const ptrs = new Map();
@@ -595,13 +595,16 @@ const draw = () => {
   }
   if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
 
-  // touch overlay
-  if (touch && started && !choosing) {
-    ctx.font = '14px monospace';
+  // action buttons — always visible, clickable with mouse OR touch
+  if (started && !choosing) {
     for (const b of btns()) {
-      ctx.globalAlpha = keys.has(b.c) ? .7 : .35;
+      ctx.globalAlpha = keys.has(b.c) ? .7 : (touch ? .35 : .22);
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
-      ctx.globalAlpha = .9; ctx.fillStyle = '#111'; ctx.fillText(b.l, b.x, b.y + 5);
+      ctx.globalAlpha = .9; ctx.fillStyle = '#111'; ctx.font = '14px monospace'; ctx.fillText(b.l, b.x, b.y + 5);
+      if (!touch && b.h) {                                       // key hint for mouse users — above the button (bottom edge clips)
+        ctx.globalAlpha = .7; ctx.fillStyle = '#fff'; ctx.font = '6px monospace';
+        ctx.fillText(b.h, b.x, b.y - b.r - 3);
+      }
     }
     ctx.globalAlpha = 1;
   }
