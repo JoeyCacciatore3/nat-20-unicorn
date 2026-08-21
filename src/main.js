@@ -1,627 +1,394 @@
-// NAT 20 UNICORN — js13k 2026 · Phase 3: core gameplay
-// Combat (horn + dodge, hit-stop/shake/flash), gloomlings + drops, gathering,
-// Session Zero creation, DM barks. Locked 60fps sim.
-import { mul, perspective, lookAt, compose, makeProgram } from './core.js';
-import * as PARTICLES from './particles.js';
-import { hue2 } from './particles.js';
-import { buildCube, buildCone, PARTS, animPart } from './unicorn.js';
-import { buildProps } from './props.js';
-import { buildTerrain, surfaceHeight, surfaceNormal, TABLE } from './terrain.js';
-import { regionHue, regionCenter, bloom, bloomTarget, setBloom, tickBloom } from './zones.js';
-import { audioInit, sfx, SND } from './audio.js';
-import { musicTick } from './audio.js';
-import { inv, items as ITEMS, initItems, addItem, update as itemUpdate } from './items.js';
-import { POIS, LORE, initPois } from './poi.js';
-import { foes, bolts, tickSpawns, update as foeUpdate, nudgeAggro, setDiff, KINDS } from './enemies.js';
-import { S, stats, NAMES, lvl, mod, d20, gain, setOnLevel, maxHearts } from './stats.js';
-import { ct, misc, abil, freeShard, achTick, achList, setCond, save, load, hasSave } from './progress.js';
-import * as DM from './dm.js';
-import * as HUD from './hud.js';
-import { initInput, cam, moveInput, consumeJump, consumeAttack, consumeDodge, consumeInteract, keys } from './input.js';
+// NAT 20 UNICORN v2 — 2D metroidvania platformer. Canvas 2D, no WebGL.
+// The DM's diorama seen from the side: a gray world, one painted mini.
+// Free the shards; every shard is a movement ability that re-opens the map.
+import { T, W, H, tile, regions, regionAt, seeds } from './world.js';
 
-const c = document.getElementById('cv');
-const gl = c.getContext('webgl2', { antialias: true });
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const VW = 480, VH = 270;                       // internal view (letterboxed)
+const fit = () => { cv.width = innerWidth; cv.height = innerHeight; };
+addEventListener('resize', fit); fit();
 
-const DPR = Math.min(devicePixelRatio || 1, 1.75);
-const resize = () => { c.width = innerWidth * DPR; c.height = innerHeight * DPR; };
-addEventListener('resize', resize); resize();
-
-// ---------- shaders ----------
-// shared GLSL: piecewise rainbow (hue 0..1 -> rgb)
-const HUE = `vec3 hue(float h){return clamp(vec3(abs(h*6.-3.)-1.,2.-abs(h*6.-2.),2.-abs(h*6.-4.)),0.,1.);}`;
-const MESH_VS = `#version 300 es
-layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec3 aC;
-uniform mat4 uVP, uM; uniform vec3 uTint;
-uniform float uGrid; uniform float uEmis; uniform float uB[8];
-out vec3 vC; out vec3 vW;
-${HUE}
-void main(){
-  vec4 w = uM * vec4(aP, 1.);
-  vW = w.xyz;
-  vec3 n = normalize(mat3(uM) * aN);
-  float l = max(dot(n, normalize(vec3(.5, .8, .35))), 0.) * .75 + .38;
-  l = mix(l, 1.25, uEmis);
-  vec3 base = aC;
-  if (uGrid > 0.) { // terrain: gray -> chapter color as its region blooms
-    float r = length(w.xz);
-    int i = r < 10. ? 7 : clamp(int((atan(w.x, w.z) / 6.28318 + .5) * 7.), 0, 6);
-    vec3 hc = hue((float(i) + .5) / 7.);
-    if (i == 7) hc = vec3(1., .85, .55); // house circle warms gold
-    vec3 painted = (hc * .72 + .28) * (aC.g * 1.5 + .2);
-    base = mix(aC, painted, uB[i]);
-    // mottle: soft per-cell value noise keeps the ground from reading flat
-    base *= .93 + .14 * fract(sin(dot(floor(w.xz * 1.5), vec2(12.9898, 78.233))) * 43758.5);
-  }
-  vC = base * uTint * l;
-  gl_Position = uVP * w;
-}`;
-const MESH_FS = `#version 300 es
-precision highp float;
-in vec3 vC; in vec3 vW;
-uniform vec3 uEye;
-out vec4 o;
-void main(){
-  float d = length(vW - uEye);
-  o = vec4(mix(vC, vec3(.075, .07, .09), smoothstep(52., 165., d)), 1.);
-}`;
-const SKY_VS = `#version 300 es
-out vec2 v;
-void main(){
-  vec2 p = vec2(float(gl_VertexID << 1 & 2), float(gl_VertexID & 2));
-  v = p; gl_Position = vec4(p * 2. - 1., 0., 1.);
-}`;
-const SKY_FS = `#version 300 es
-precision mediump float;
-in vec2 v; uniform float uAsp; uniform float uRb; out vec4 o;
-${HUE}
-void main(){
-  // the room warms as the campaign comes back
-  vec3 col = mix(mix(vec3(.10, .085, .08), vec3(.16, .12, .09), uRb),
-                 mix(vec3(.045, .04, .07), vec3(.09, .06, .10), uRb), v.y);
-  vec2 q = (v - vec2(.5, -.12)) * vec2(uAsp, 1.);
-  float r = length(q);
-  if (r > .55 && r < .8) { // rainbow: withheld teaser -> full arc at restoration
-    col += hue((r - .55) / .25) * (.05 + uRb * .4) * smoothstep(.55, .6, r) * smoothstep(.8, .75, r);
-  }
-  col *= 1.05 - .4 * length(v - vec2(.5));
-  o = vec4(col, 1.);
-}`;
-const PT_VS = `#version 300 es
-layout(location=0) in vec3 aP; layout(location=1) in vec4 aC;
-uniform mat4 uVP;
-out vec4 vC;
-void main(){
-  gl_Position = uVP * vec4(aP, 1.);
-  gl_PointSize = aC.w * 260. / max(gl_Position.w, 1.);
-  vC = aC;
-}`;
-const PT_FS = `#version 300 es
-precision mediump float;
-in vec4 vC; out vec4 o;
-void main(){
-  float a = smoothstep(1., .35, length(gl_PointCoord * 2. - 1.)) * vC.w;
-  o = vec4(vC.rgb * a, a);
-}`;
-
-const meshP = makeProgram(gl, MESH_VS, MESH_FS);
-const skyP = makeProgram(gl, SKY_VS, SKY_FS);
-const ptP = makeProgram(gl, PT_VS, PT_FS);
-const U = (p, n) => gl.getUniformLocation(p, n);
-const uVP = U(meshP, 'uVP'), uM = U(meshP, 'uM'), uTint = U(meshP, 'uTint'),
-      uEye = U(meshP, 'uEye'), uGrid = U(meshP, 'uGrid'),
-      uEmis = U(meshP, 'uEmis'), uB = U(meshP, 'uB');
-const uAsp = U(skyP, 'uAsp'), uRb = U(skyP, 'uRb');
-const uVPp = U(ptP, 'uVP');
-
-// ---------- geometry ----------
-const terrain = buildTerrain(gl);
-const cube = buildCube(gl);
-const cone = buildCone(gl);
-const props = buildProps();
-const IDENT = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
-const tableM = compose(0, -1.17, 0, 0, 0, 0, 0, 0, TABLE * 2, 2.3, TABLE * 2); // top face at y=-.02
-initItems();
-initPois();
-
-// highest peak (Summit achievement target)
-let peakH = 0, peakX = 0, peakZ = 0;
-for (let x = -60; x <= 60; x += 2) for (let z = -60; z <= 60; z += 2) {
-  const h = surfaceHeight(x, z);
-  if (h > peakH) { peakH = h; peakX = x; peakZ = z; }
-}
-let summitFlag = 0;
-setCond(6, () => summitFlag);
-
-// shard beacons: one light pillar per un-restored chapter (environment as HUD)
-const beacons = [];
-for (let i = 0; i < 7; i++) {
-  const [bx, bz] = regionCenter(i);
-  beacons.push([i, bx, surfaceHeight(bx, bz), bz]);
-}
-
-// dynamic particle buffer
-const ptVao = gl.createVertexArray();
-const ptBuf = gl.createBuffer();
-gl.bindVertexArray(ptVao);
-gl.bindBuffer(gl.ARRAY_BUFFER, ptBuf);
-gl.bufferData(gl.ARRAY_BUFFER, 320 * 7 * 4, gl.DYNAMIC_DRAW);
-gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 28, 12);
-gl.bindVertexArray(null);
-
-// ---------- player + game state ----------
-initInput(c);
-const pl = { x: 2, y: 0, z: 9, vx: 0, vy: 0, vz: 0, yaw: 0, ground: true, gallop: 0 };
-let time = 0, hueT = 0, sparkleT = 0;
-let hp = 3, atkCd = 0, dodgeCd = 0, invulnT = 0, hitStop = 0, shakeT = 0, shakeAmp = 0;
-let airJump = 0, achT = 0, prevB = 0;
-let vpNow = null; // current frame's view-projection for world->screen text
-const maxH = () => maxHearts() + (abil(5) ? 1 : 0) + misc.o; // Gloom Ward + campfire offerings
-
-const burst = (x, y, z, n, hue, spread) => {
-  for (let i = 0; i < n; i++)
-    PARTICLES.spawn(x, y, z,
-      (Math.random() - .5) * spread, Math.random() * spread * .8, (Math.random() - .5) * spread,
-      .5 + Math.random() * .5, hue == null ? Math.random() : hue);
-};
-
-// world -> screen (CSS px) for floating text
-const flyAt = (x, y, z, text, color, big) => {
-  if (!vpNow) return;
-  const m = vpNow;
-  const cx = m[0] * x + m[4] * y + m[8] * z + m[12],
-        cy = m[1] * x + m[5] * y + m[9] * z + m[13],
-        cw = m[3] * x + m[7] * y + m[11] * z + m[15];
-  if (cw <= 0) return;
-  HUD.fly((cx / cw * .5 + .5) * innerWidth, (.5 - cy / cw * .5) * innerHeight, text, color, big);
-};
-
-const juice = (stop, shake) => { hitStop = Math.max(hitStop, stop); shakeT = .1; shakeAmp = shake; };
-
-const uniLv = () => 1 + lvl.reduce((a, b) => a + b, 0);
-setOnLevel((s) => {
-  sfx(SND.level, 1);
-  HUD.setLv(uniLv());
-  HUD.toast('⬆️ <b>' + NAMES[s] + ' ' + stats[s] + '</b>');
-  flyAt(pl.x, pl.y + 2.6, pl.z, NAMES[s] + ' UP!', '#ffd75e', 1);
-  burst(pl.x, pl.y + 1.5, pl.z, 24, null, 5);
-  juice(.15, 3);
-  if (s === S.CON) hp = Math.min(hp + 1, maxH());
-  HUD.setHearts(hp, maxH());
+// ---------- input (Set of e.code — immune to property mangling) ----------
+const keys = new Set();
+let jbuf = 0, started = 0;
+addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  keys.add(e.code);
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') jbuf = .12;
+  boot();
 });
+addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('pointerdown', boot);
+const held = (...c) => c.some(k => keys.has(k));
+const jumpHeld = () => held('Space', 'ArrowUp', 'KeyW');
 
-const hurt = (n) => {
-  if (invulnT > 0) return;
-  hp -= n; invulnT = 1;
-  sfx(hp <= 0 ? SND.death : SND.hurt, 1);
-  HUD.hurtFlash(); juice(.09, 8);
-  navigator.vibrate && navigator.vibrate(80);
-  nudgeAggro(-.4);               // rubber-band mercy
-  gain(S.CON, 6);
-  if (hp <= 0) {
-    DM.say(DM.P.dead);
-    invulnT = 3;
-    HUD.deathFade(() => {
-      hp = maxH();
-      pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
-      pl.vx = pl.vy = pl.vz = 0;
-      HUD.setHearts(hp, maxH());
-    });
-  } else DM.say(DM.P.hurt);
-  HUD.setHearts(hp, maxH());
+// ---------- audio (tiny synth; ZzFX-class sounds return later) ----------
+let AC;
+function boot() { started = 1; if (!AC) AC = new AudioContext(); AC.resume(); }
+const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
+  if (!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime + dl;
+  o.type = type; o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+  o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d);
+};
+const S_JUMP = () => sfx(280, 520, .12), S_AIR = () => sfx(390, 760, .12, 'triangle');
+const S_STOMP = () => sfx(200, 55, .1, 'square', .2), S_HURT = () => sfx(140, 55, .25, 'sawtooth', .2);
+const S_PICK = () => sfx(880, 1500, .07, 'triangle', .09);
+const S_SHARD = () => { sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24); };
+const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 * (1 + i * .25), .1, 'square', .12, i * .07); };
+
+// ---------- DM voice ----------
+let dmTxt = '', dmT = 0;
+const say = (t) => { dmTxt = t; dmT = 4.5; };
+const LORE = 'Before the doubt, every tile of this table was painted. I remember the brush.';
+
+// ---------- RPG state ----------
+let hp = 3, maxHp = 3, xp = 0, lvl = 1, sp = 0, abil = 0; // abil bit0 = double jump
+const earned = Array(13).fill(0);                          // achievement slots (Wavedash-shaped)
+const need = () => 8 + lvl * 6;
+const gainXp = (n, x, y) => {
+  xp += n; fly(x, y, '+' + n + ' XP', '#9f9');
+  while (xp >= need()) {
+    xp -= need(); lvl++;
+    if (lvl % 3 === 0) maxHp++;
+    hp = Math.min(hp + 1, maxHp);
+    fly(pl.x, pl.y - 14, 'LEVEL ' + lvl + '!', '#ffd75e', 1); S_NAT();
+    say('Level ' + lvl + '. The dice are starting to like you.');
+  }
 };
 
-
-let firstKill = 0;
-const kill = (f) => {
-  foes.splice(foes.indexOf(f), 1);
-  ct[0]++;
-  const hue = regionHue(f.r);
-  burst(f.x, f.y + 1, f.z, 22, hue, 6);
-  let n = 1;
-  if (Math.random() < (stats[S.CHA] - 8) * .04) { n = 2; gain(S.CHA, 8); flyAt(f.x, f.y + 2.4, f.z, 'LUCKY +2', '#7df', 0); }
-  if (f.el) n++;
-  for (let i = 0; i < n; i++) addItem(1, f.x + Math.random() * 2 - 1, f.z + Math.random() * 2 - 1);
-  nudgeAggro(.1);
-  if (!firstKill) { firstKill = 1; DM.say(DM.P.kill); }
-  else if (Math.random() < .25) DM.say(DM.P.kill);
+// ---------- save (single-char keys — terser mangle-props law) ----------
+const save = () => {
+  localStorage.n20_save = JSON.stringify({
+    e: earned, h: hp, m: maxHp, x: xp, l: lvl, s: sp, a: abil,
+    c: [cp[0], cp[1]], b: regions.map(r => r.t),
+  });
+};
+const load = () => {
+  try {
+    const d = JSON.parse(localStorage.n20_save || '0');
+    if (!d) return;
+    d.e.forEach((v, i) => earned[i] = v);
+    hp = d.h; maxHp = d.m; xp = d.x; lvl = d.l; sp = d.s; abil = d.a;
+    cp = d.c; pl.x = cp[0]; pl.y = cp[1];
+    d.b.forEach((v, i) => { regions[i].t = v; regions[i].b = v; });
+    if (abil & 1) shardGot = 1;
+  } catch (e) { /* fresh oath */ }
 };
 
+// ---------- player ----------
+const PW = 10, PH = 14;
+const pl = { x: 46 * T, y: 24 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
+let cp = [46 * T, 24 * T], lastSafe = [46 * T, 24 * T], deathT = 0, shardGot = 0;
+
+// physics constants (the full feel recipe)
+const RUN = 115, G_RISE = 750, G_FALL = 1500, V0 = 250, VAIR = 225, FALLCAP = 400;
+
+const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
+const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
+
+// ---------- entities ----------
+const sparks = seeds.sparks.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
+const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
+const PAT = [0b01110, 0b11111, 0b11011, 0b11111]; // gloomling: blob with eye-gaps
+const foes = seeds.foes.map(([x, y, k]) => ({ x: x * T, y: y * T, vx: (18 + 26 / k) * (Math.random() < .5 ? 1 : -1), k, hp: k, fl: 0, t: Math.random() * 7 }));
+const flies = [], parts = [];
+const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
+const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
+
+const hurt = (n, safe) => {
+  if (pl.inv > 0 || deathT > 0) return;
+  hp -= n; pl.inv = 1.2; S_HURT(); burst(pl.x, pl.y + 7, 10, '#e05555');
+  if (hp <= 0) { deathT = 1.6; say('The mini falls over. ...We do not stop rolling. Back to the fire.'); return; }
+  if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
+  else pl.vy = -180;
+};
+
+// ---------- update ----------
+let last = performance.now(), time = 0, resting = 0;
 const step = (dt) => {
-  time += dt;
-  shakeT -= dt; // fixed-step so shake length is display-rate independent
-  const playing = HUD.playing; // deathFade drops this gate while the fade holds
-  const [ix, iy] = playing ? moveInput() : [0, 0];
-  // camera-relative wish direction (DEX scales acceleration)
-  const fx = -Math.sin(cam.yaw), fz = -Math.cos(cam.yaw);
-  const wx = fx * -iy + -fz * ix, wz = fz * -iy + fx * ix;
-  const acc = 40 * mod(S.DEX) * (abil(6) ? 1.25 : 1); // Wind Mane
-  pl.vx += wx * acc * dt; pl.vz += wz * acc * dt;
-  const fr = 1 / (1 + dt * 6);
-  pl.vx *= fr; pl.vz *= fr;
+  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt;
+  regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
+  pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
-  // dodge — burst + i-frames scaled by DEX, own cooldown (independent of attack)
-  if (playing && consumeDodge() && dodgeCd <= 0) {
-    dodgeCd = .6; // no i-frame chaining, no near-miss DEX farming
-    const l = Math.hypot(wx, wz);
-    const dxn = l ? wx / l : Math.sin(pl.yaw), dzn = l ? wz / l : Math.cos(pl.yaw);
-    const dash = abil(2) ? 24 : 14; // Sun Dash
-    sfx(SND.dodge);
-    pl.vx += dxn * dash; pl.vz += dzn * dash;
-    invulnT = Math.max(invulnT, .32 * mod(S.DEX));
-    burst(pl.x, pl.y + .6, pl.z, 8, .8, 3);
-    let near = 0;
-    for (const b of bolts) if (Math.hypot(pl.x - b.x, pl.z - b.z) < 3) near = 1;
-    for (const f of foes) if (Math.hypot(pl.x - f.x, pl.z - f.z) < 3) near = 1;
-    if (near) { ct[2]++; gain(S.DEX, 7); flyAt(pl.x, pl.y + 2.2, pl.z, 'DODGE', '#8ef', 0); }
+  if (deathT > 0) {
+    deathT -= dt;
+    if (deathT <= 0) { hp = maxHp; pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; }
+    return;
   }
+  if (!started) return;
 
-  // jump + gravity + sphere-on-heightfield (no floor past the table edge)
-  if (playing && consumeJump()) {
-    const jv = abil(4) ? 9.2 : 7.6; // Feather Fall
-    if (pl.ground) { pl.vy = jv; pl.ground = false; airJump = 0; sfx(SND.jump); }
-    else if (airJump < lvl.reduce((a, b) => a + b, 0)) { // air jumps = unicorn level - 1
-      airJump++; pl.vy = jv * .9;
-      sfx(SND.jump2);
-      burst(pl.x, pl.y + .3, pl.z, 10, hueT % 1, 4);
-    }
+  // -- run --
+  const dir = (held('KeyD', 'ArrowRight') ? 1 : 0) - (held('KeyA', 'ArrowLeft') ? 1 : 0);
+  const ctl = pl.ground ? 1 : .65;
+  pl.vx += (dir * RUN - pl.vx) * Math.min(1, dt * 12 * ctl);
+  if (dir) pl.face = dir;
+
+  // -- jump: buffer + coyote + variable height + double jump --
+  pl.coyote = pl.ground ? .1 : pl.coyote - dt;
+  if (jbuf > 0) {
+    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; S_JUMP(); burst(pl.x, pl.y + PH, 4, '#ccc'); }
+    else if ((abil & 1) && pl.air < 1) { pl.vy = -VAIR; pl.air++; jbuf = 0; pl.sq = .7; S_AIR(); burst(pl.x, pl.y + PH, 6, '#f9c'); }
   }
-  pl.vy -= 21 * dt;
-  pl.x += pl.vx * dt; pl.z += pl.vz * dt; pl.y += pl.vy * dt;
-  const onTable = Math.max(Math.abs(pl.x), Math.abs(pl.z)) <= TABLE;
-  const sh = surfaceHeight(pl.x, pl.z);
-  if (onTable && pl.y <= sh) {
-    if (!pl.ground && pl.vy < -7) burst(pl.x, sh + .2, pl.z, 8, .1, 3); // landing dust
-    pl.y = sh; pl.vy = 0; pl.ground = true; airJump = 0;
-    const fr = Math.hypot(pl.x, pl.z);
-    if (Math.abs(fr - 9) < .45 && Math.abs(Math.atan2(pl.x, pl.z)) > .34) {
-      const rTo = fr < 9 ? 8.5 : 9.5; // the paddock fence is solid — use the gate, or jump it
-      pl.x *= rTo / fr; pl.z *= rTo / fr;
-    }
-    const n = surfaceNormal(pl.x, pl.z);
-    if (n[1] < .62 && !abil(1)) { pl.vx += n[0] * 26 * dt; pl.vz += n[2] * 26 * dt; } // steep -> slide (Sure Hooves negates)
-  } else if (!onTable) {
-    pl.ground = false;
-    if (pl.y < -18) { // fell off the table — the DM puts the mini back
-      pl.x = 2; pl.z = 9; pl.y = surfaceHeight(2, 9) + .5;
-      pl.vx = pl.vy = pl.vz = 0;
-      DM.say(DM.P.fall);
-    }
+  if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;                       // variable height
+  const g = pl.vy < 0 ? G_RISE : G_FALL;                            // 2x fall gravity
+  pl.vy += g * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;                // apex hang
+  pl.vy = Math.min(pl.vy, FALLCAP);
+
+  // -- move + collide (per axis, corner samples) --
+  const px = pl.x, py = pl.y;
+  pl.x += pl.vx * dt;
+  for (const oy of [1, PH / 2, PH - 1]) {
+    if (pl.vx > 0 && solid(pl.x + PW, py + oy)) { pl.x = ((pl.x + PW) / T | 0) * T - PW - .01; pl.vx = 0; }
+    if (pl.vx < 0 && solid(pl.x, py + oy)) { pl.x = ((pl.x / T | 0) + 1) * T + .01; pl.vx = 0; }
   }
-
-  // facing + gallop phase
-  const speed = Math.hypot(pl.vx, pl.vz);
-  if (speed > .6) {
-    const target = Math.atan2(pl.vx, pl.vz);
-    let d = target - pl.yaw;
-    d -= Math.round(d / (Math.PI * 2)) * Math.PI * 2;
-    pl.yaw += d * Math.min(1, dt * 12);
-  }
-  pl.gallop += dt * (2.5 + speed * 1.7);
-
-  // follow-cam: ease in behind the unicorn while it gallops, but yield for 1.2s
-  // after any manual aim so the player can still look around mid-run
-  if (speed > 2 && performance.now() - cam.t > 1200) {
-    let cy = pl.yaw + Math.PI - cam.yaw;
-    cy -= Math.round(cy / 6.283) * 6.283;
-    cam.yaw += cy * Math.min(1, dt * 1.5);
-  }
-
-  // campfire offering — computed here because F is shared: offering wins over attack at the fire
-  const oc = Math.max(4, (10 << misc.o) - (stats[S.INT] - 10)); // price doubles; INT talks it down
-  const offerable = Math.hypot(pl.x, pl.z) < 2.6 && hp >= maxH() && inv.sp >= oc;
-
-  // ---- combat: horn attack (visible d20; STR scales damage) ----
-  atkCd -= dt; dodgeCd -= dt; invulnT -= dt;
-  if (playing && !offerable && consumeAttack() && atkCd <= 0) {
-    atkCd = .45;
-    sfx(SND.swing);
-    pl.vx += Math.sin(pl.yaw) * 5; pl.vz += Math.cos(pl.yaw) * 5;   // lunge
-    const hx = pl.x + Math.sin(pl.yaw) * 1.7, hz = pl.z + Math.cos(pl.yaw) * 1.7;
-    burst(hx, pl.y + 1.4, hz, 6, hueT % 1, 4);
-    for (const f of [...foes]) {
-      if (Math.hypot(f.x - hx, f.z - hz) > 2.1) continue;
-      const roll = d20();
-      if (roll === 1) { sfx(SND.fumble, 1); DM.say(DM.P.fumble); flyAt(f.x, f.y + 2.2, f.z, '🎲1 ...', '#999', 1); continue; }
-      const crit = roll === 20;
-      sfx(crit ? SND.crit : SND.thud, 1);
-      if (crit) ct[1]++;
-      const dmg = Math.round((crit ? 2 : 1) * mod(S.STR) * (abil(0) ? 1.5 : 1) * 10) / 10; // Ember Horn
-      f.hp -= dmg; f.flash = .1;
-      if (f.el && !f.nm) { f.nm = 1; flyAt(f.x, f.y + 2.6, f.z, 'EVOLVED', '#b7f', 0); }
-      const kb = 7 * mod(S.STR) * (crit ? 1.6 : 1);
-      const dx = f.x - pl.x, dz = f.z - pl.z, dd = Math.hypot(dx, dz) || 1;
-      f.x += dx / dd * kb * .16; f.z += dz / dd * kb * .16;
-      juice(crit ? .12 : .06, crit ? 9 : 3);
-      flyAt(f.x, f.y + 2.2, f.z, crit ? 'NAT 20!' : '🎲' + roll, crit ? '#ffd75e' : '#fff', crit);
-      if (crit) { DM.say(DM.P.crit); burst(f.x, f.y + 1.5, f.z, 26, null, 7); gain(S.CHA, 6); } // the dice remember you
-      gain(S.STR, 3);
-      if (f.hp <= 0) kill(f);
-    }
-  }
-
-  if (playing) {
-    // enemies + bolts
-    musicTick(dt, ct[7]);
-    setDiff(ct[7]); // pack size, roster width, hp scale, elite odds — all from shards freed
-    tickSpawns(dt, pl);
-    foeUpdate(pl, dt, {
-      touch: () => hurt(1),
-      boltHit: (b) => { hurt(1); burst(b.x, b.y, b.z, 8, .78, 3); },
-    });
-
-    // gathering (WIS magnet; Bloom Step widens it)
-    itemUpdate(pl, dt, 3 + (stats[S.WIS] - 10) * .25 + (abil(3) ? 2.5 : 0), (it) => {
-      sfx(it.k ? SND.gem : SND.pickup);
-      ct[3]++;
-      gain(it.k ? S.INT : S.WIS, 2);
-      burst(it.x, it.y + .5, it.z, 6, it.k ? .55 : .12, 2);
-      HUD.setRes(inv);
-    });
-
-    // ---- interactions: shards, camp ----
-    let pr = '';
-
-    // free a shard: reach its beacon with no gloom nearby
-    for (const [i, bx, by, bz] of beacons) {
-      // bloomTarget: a freed shard is done instantly — no double-free window during the lerp
-      if (bloomTarget[i] > .5 || Math.hypot(pl.x - bx, pl.z - bz) > 3) continue;
-      let clear = 1;
-      for (const f of foes) if (Math.hypot(f.x - bx, f.z - bz) < 9) clear = 0;
-      pr = clear ? 'E — Free shard' : 'Clear the gloom first';
-      if (clear && consumeInteract()) {
-        sfx(SND.shard, 1);
-        freeShard(i);
-        abilRow();
-        HUD.setObj(objLine());
-        burst(bx, by + 2, bz, 30, regionHue(i), 8);
-        juice(.15, 5);
-        HUD.setHearts(hp, maxH());
+  const wasGround = pl.ground; pl.ground = 0;
+  pl.y += pl.vy * dt;
+  if (pl.vy >= 0) {
+    const feet = pl.y + PH, ty = feet / T | 0, top = ty * T;
+    for (const ox of [1, PW - 1]) {
+      const tv = tile((pl.x + ox) / T | 0, ty);
+      if (tv === 1 || (tv === 2 && py + PH <= top + 4)) {
+        pl.y = top - PH; if (!wasGround && pl.vy > 250) { pl.sq = 1.35; burst(pl.x + PW / 2, feet, 5, '#bbb'); sfx(150, 70, .06, 'square', .07); }
+        pl.vy = 0; pl.ground = 1; pl.air = 0; break;
       }
     }
+  } else {
+    for (const ox of [1, PW - 1]) if (solid(pl.x + ox, pl.y)) { pl.y = ((pl.y / T | 0) + 1) * T + .01; pl.vy = 0; break; }
+  }
+  if (pl.ground && !spike(pl.x + PW / 2, pl.y + PH + 4)) { lastSafe = [pl.x, pl.y]; }
 
-    // the campfire: rest at the paddock's heart — heal, save, count the night
-    for (const o of POIS) {
-      if (o.u || pr || Math.hypot(pl.x - o.x, pl.z - o.z) > 2.4) continue;
-      pr = o.k ? '🗿 E — read the stone' : '💎 E — crack the geode';
-      if (consumeInteract()) {
-        o.u = 1;
-        if (o.k) { DM.line(LORE[o.i]); gain(S.WIS, 6); sfx(SND.toast, 1); }
-        else {
-          sfx(SND.crit, 1);
-          burst(o.x, o.y + 1, o.z, 20, .55, 5);
-          for (let n = 0; n < 3; n++) addItem(1, o.x + Math.random() * 2 - 1, o.z + Math.random() * 2 - 1);
+  // hazards
+  for (const [ox, oy] of [[1, PH - 1], [PW - 1, PH - 1], [PW / 2, PH]])
+    if (spike(pl.x + ox, pl.y + oy)) { hurt(1, 1); break; }
+  if (pl.y > H * T) hurt(1, 1);
+
+  // -- sparks --
+  for (const s of sparks) {
+    if (s.got) continue;
+    if (Math.hypot(pl.x + PW / 2 - s.x, pl.y + PH / 2 - s.y) < 13) {
+      s.got = 1; sp++; S_PICK(); burst(s.x, s.y, 5, '#fe9');
+    }
+  }
+
+  // -- shard --
+  if (!shardGot) {
+    const [sx, sy] = seeds.shard;
+    if (Math.hypot(pl.x - sx * T, pl.y - sy * T) < 16) {
+      shardGot = 1; abil |= 1; earned[1] = 1;
+      regions[1].t = 1; S_SHARD(); burst(sx * T, sy * T, 30, '#fff');
+      say('The meadow remembers its color. And you — you remember the sky. DOUBLE JUMP.');
+      save();
+    }
+  }
+
+  // -- foes --
+  for (const f of foes) {
+    f.t += dt; f.fl -= dt;
+    f.vy = (f.vy || 0) + 900 * dt;
+    f.y += f.vy * dt;
+    const fs = 6 + 4 * f.k, feet = f.y + fs, ty = feet / T | 0;
+    const tv = tile((f.x + fs / 2) / T | 0, ty);
+    if (f.vy > 0 && (tv === 1 || tv === 2)) { f.y = ty * T - fs; f.vy = 0; }
+    f.x += f.vx * dt;
+    const ahead = f.x + fs / 2 + Math.sign(f.vx) * fs * .7;
+    if (solid(ahead, f.y + fs / 2) || tile(ahead / T | 0, (f.y + fs + 6) / T | 0) === 0) f.vx *= -1;
+    // player contact
+    if (pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y) {
+      if (pl.vy > 40 && pl.y + PH - f.y < 10) {              // STOMP — roll the d20
+        const roll = 1 + (Math.random() * 20 | 0), crit = roll === 20;
+        const dmg = crit ? 99 : 1 + (lvl / 4 | 0);
+        f.hp -= dmg; f.fl = .15;
+        fly(f.x, f.y - 8, crit ? 'NAT 20!' : '🎲' + roll, crit ? '#ffd75e' : '#fff', crit);
+        pl.vy = jumpHeld() ? -290 : -220; pl.air = 0; pl.sq = .75; S_STOMP();
+        if (crit) { S_NAT(); earned[3] = 1; burst(f.x, f.y, 24, '#ffd75e'); }
+        if (f.hp <= 0) {
+          foes.splice(foes.indexOf(f), 1);
+          burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 3 + (crit ? 5 : 0), f.x, f.y - 16);
+          if (!earned[2]) { earned[2] = 1; say('First gloom, popped. That is how doubt dies: under hooves.'); }
         }
-        save(); // POI use persists — no re-farming geodes/lore across Continues
-      }
+      } else hurt(1, 0);
     }
-    if (!pr && Math.hypot(pl.x, pl.z) < 2.6) {
-      // rest is ALWAYS on E (heal + save + count the night); the offering rides F when affordable
-      pr = '🛏 E — rest' + (offerable ? ' · 🔥 F — offer ' + oc + '💎 (+1 max ♥)' : '');
-      if (consumeInteract()) {
-        sfx(SND.sleep, 1);
-        hp = maxH(); HUD.setHearts(hp, maxH());
-        ct[5]++;
-        burst(0, pl.y + 2, 0, 16, .1, 3);
-        DM.say(DM.P.sleep);
-        save();
-      } else if (offerable && consumeAttack()) {
-        sfx(SND.shard, 1);
-        inv.sp -= oc; misc.o++;
-        hp = maxH(); HUD.setHearts(hp, maxH()); HUD.setRes(inv);
-        burst(0, pl.y + 2, 0, 26, .95, 6);
-        HUD.toast('🔥 <b>Offering accepted</b> — +1 max ♥');
-        save();
-      }
+  }
+
+  // -- campfire + lore --
+  resting = 0;
+  const [fx, fy] = seeds.fire;
+  if (Math.hypot(pl.x - fx * T, pl.y - fy * T) < 26) {
+    resting = 1;
+    if (keys.has('KeyE')) {
+      keys.delete('KeyE');
+      hp = maxHp; cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
+      burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
+      say('Rest. Saved. The fire keeps what you earned.');
     }
-    HUD.setPrompt(pr);
-
+  }
+  const [lx, ly] = seeds.lore;
+  if (Math.hypot(pl.x - lx * T, pl.y - ly * T) < 22 && keys.has('KeyE')) {
+    keys.delete('KeyE'); say(LORE); gainXp(4, pl.x, pl.y - 12);
   }
 
-  // rainbow contrail while moving
-  hueT += dt * .55;
-  if (speed > 2.5 && pl.ground) {
-    const bx = pl.x - Math.sin(pl.yaw) * .9, bz = pl.z - Math.cos(pl.yaw) * .9;
-    for (let i = 0; i < (abil(6) ? 4 : 2); i++)
-      PARTICLES.spawn(
-        bx + (Math.random() - .5) * .4, pl.y + 1 + (Math.random() - .5) * .3, bz + (Math.random() - .5) * .4,
-        -pl.vx * .15 + (Math.random() - .5), .4 + Math.random() * .8, -pl.vz * .15 + (Math.random() - .5),
-        .8 + Math.random() * .3, hueT + i * .04);
-  }
-  // horn sparkle
-  sparkleT -= dt;
-  if (sparkleT <= 0) {
-    sparkleT = .1;
-    PARTICLES.spawn(
-      pl.x + Math.sin(pl.yaw) * 1.0, pl.y + 2.25, pl.z + Math.cos(pl.yaw) * 1.0,
-      (Math.random() - .5) * 1.2, .6 + Math.random(), (Math.random() - .5) * 1.2,
-      .5, Math.random());
-  }
-  // achievements + summit + badge grid toggle
-  if ((achT -= dt) <= 0) { achT = .5; achTick(); }
-  if (pl.ground && pl.y >= peakH - .3) summitFlag = 1;
-  if (keys.KeyB && !prevB) HUD.badges(achList());
-  prevB = keys.KeyB;
-
-  // house circle warms as chapters are restored
-  let sum = 0; for (let i = 0; i < 7; i++) sum += bloom[i];
-  setBloom(7, sum / 7);
-  tickBloom(dt);
-
-  HUD.tick(dt);
-  PARTICLES.update(dt);
+  // fx
+  for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
+  for (let i = parts.length; i--;) if (parts[i].t <= 0) parts.splice(i, 1);
+  for (const f of flies) { f.t -= dt; f.y -= 28 * dt; }
+  for (let i = flies.length; i--;) if (flies[i].t <= 0) flies.splice(i, 1);
 };
 
 // ---------- render ----------
-const draw = (geo, model, r, g, b, grid, emis) => {
-  gl.uniformMatrix4fv(uM, false, model);
-  gl.uniform3f(uTint, r, g, b);
-  gl.uniform1f(uGrid, grid || 0);
-  gl.uniform1f(uEmis, emis || 0);
-  gl.bindVertexArray(geo.vao);
-  gl.drawElements(gl.TRIANGLES, geo.n, gl.UNSIGNED_SHORT, 0);
-};
+const cam = { x: 0, y: 0 };
+const draw = () => {
+  const s = Math.min(cv.width / VW, cv.height / VH);
+  const ox = (cv.width - VW * s) / 2, oy = (cv.height - VH * s) / 2;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(s, 0, 0, s, ox, oy);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
 
-const render = () => {
-  gl.viewport(0, 0, c.width, c.height);
-  const asp = c.width / c.height;
+  // camera: lookahead toward facing, clamped to world
+  const tx = pl.x + PW / 2 + pl.face * 40 - VW / 2, ty = pl.y - VH / 2 + 30;
+  cam.x += (tx - cam.x) * .08; cam.y += (ty - cam.y) * .1;
+  cam.x = Math.max(0, Math.min(W * T - VW, cam.x));
+  cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
 
-  // camera (kept above terrain) + shake
-  if (!HUD.playing) cam.yaw += .0012; // slow pre-game orbit
-  const shk = shakeT > 0 ? shakeAmp * shakeT * 10 : 0;
-  const jx = (Math.random() - .5) * shk * .06, jy = (Math.random() - .5) * shk * .06;
-  const cp = Math.cos(cam.pitch), dist = 7.5;
-  const ex = pl.x + Math.sin(cam.yaw) * cp * dist + jx,
-        ez = pl.z + Math.cos(cam.yaw) * cp * dist;
-  const ey = Math.max(pl.y + Math.sin(cam.pitch) * dist, surfaceHeight(ex, ez) + .6) + jy;
-  const vp = mul(perspective(.95, asp, .1, 320), lookAt(ex, ey, ez, pl.x, pl.y + 1.4, pl.z));
-  vpNow = vp;
+  // sky: region-tinted, grays when unbloomed
+  const rg = regionAt(pl.x + PW / 2);
+  const sat = 22 * rg.b, lit = 12 + 6 * rg.b;
+  ctx.fillStyle = `hsl(${rg.h * 360} ${sat}% ${lit}%)`; ctx.fillRect(0, 0, VW, VH);
 
-  gl.disable(gl.DEPTH_TEST);
-  gl.useProgram(skyP);
-  gl.uniform1f(uAsp, asp);
-  let rb = 0; for (let i = 0; i < 7; i++) rb += bloom[i];
-  gl.uniform1f(uRb, rb / 7);
-  gl.bindVertexArray(null);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-  gl.enable(gl.DEPTH_TEST);
-  gl.clear(gl.DEPTH_BUFFER_BIT);
-  gl.useProgram(meshP);
-  gl.uniformMatrix4fv(uVP, false, vp);
-  gl.uniform3f(uEye, ex, ey, ez);
-  gl.uniform1fv(uB, bloom);
-  // the wooden table: one scaled cube — a real slab, thickness visible at the edge
-  draw(cube, tableM, .30, .21, .13, 0);
-  draw(terrain, IDENT, 1, 1, 1, 1);
-
-  // props (campfire, paddock fence, region dressing, tabletop clutter)
-  for (const p of props) draw(p.prim ? cone : cube, p.m, p.c[0], p.c[1], p.c[2], 0, p.emis);
-  // POIs: lore stones (dim once read) + uncracked geodes
-  for (const o of POIS) {
-    if (o.k) draw(cube, compose(o.x, o.y + .8, o.z, 0, o.i, .08, 0, 0, .34, 1.5, .5), .5, .5, .58, 0, o.u ? 0 : .35);
-    else if (!o.u) {
-      draw(cube, compose(o.x, o.y + .3, o.z, .3, o.i * 2, 0, 0, 0, .55, .5, .55), .45, .42, .5, 0);
-      draw(cone, compose(o.x, o.y + .78, o.z, 0, time * 2, 0, 0, 0, .2, .28, .2), .6, .85, 1, 0, .6);
+  // parallax hills (two depths)
+  for (const [par, base, amp, l] of [[.25, 90, 22, 8], [.5, 60, 16, 11]]) {
+    ctx.fillStyle = `hsl(${rg.h * 360} ${sat * .8}% ${l}%)`;
+    for (let x = 0; x < VW; x += 8) {
+      const wx = x + cam.x * par;
+      const h = base + Math.sin(wx * .011) * amp + Math.sin(wx * .027 + 5) * amp * .5;
+      ctx.fillRect(x, VH - h, 8, h);
     }
   }
 
-  // summit flag — marks the Summit achievement peak
-  draw(cube, compose(peakX, peakH + .9, peakZ, 0, 0, 0, 0, 0, .07, 1.8, .07), .85, .85, .85, 0, .2);
-  draw(cone, compose(peakX, peakH + 1.75, peakZ, 0, time * 1.5, 0, 0, 0, .5, .28, .5), 1, .35, .55, 0, .6);
+  ctx.translate(-cam.x | 0, -cam.y | 0);
 
-  // gatherables: flowers = tiny cone + stem, sparkles = spinning cone
-  for (const it of ITEMS) {
-    const bob = Math.sin(it.t * 3) * .12;
-    if (it.k) draw(cone, compose(it.x, it.y + .55 + bob, it.z, 0, it.t * 2, 0, 0, 0, .3, .55, .3), .6, .85, 1, 0, .8);
-    else {
-      draw(cube, compose(it.x, it.y + .25, it.z, 0, 0, 0, 0, 0, .07, .5, .07), .2, .5, .2, 0);
-      draw(cone, compose(it.x, it.y + .6 + bob * .4, it.z, Math.PI, it.t, 0, 0, 0, .28, .22, .28), 1, .75, .85, 0, .4);
+  // tiles
+  const x0 = cam.x / T | 0, x1 = Math.min(W, x0 + VW / T + 2), y0 = Math.max(0, cam.y / T | 0), y1 = Math.min(H, y0 + VH / T + 2);
+  for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
+    const v = tile(i, j); if (!v) continue;
+    const r = regionAt(i * T + 8), hue = r.h * 360, b = r.b;
+    if (v === 1) {
+      ctx.fillStyle = `hsl(${hue} ${40 * b}% ${26 + 6 * b}%)`;
+      ctx.fillRect(i * T, j * T, T, T);
+      if (tile(i, j - 1) !== 1) { ctx.fillStyle = `hsl(${hue} ${55 * b}% ${42 + 12 * b}%)`; ctx.fillRect(i * T, j * T, T, 4); }
+    } else if (v === 2) {
+      ctx.fillStyle = `hsl(${hue} ${50 * b}% ${45 + 8 * b}%)`; ctx.fillRect(i * T, j * T, T, 4);
+    } else {
+      ctx.fillStyle = `hsl(${280} ${20 + 30 * b}% 40%)`;
+      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(i * T + k * 4, j * T + T); ctx.lineTo(i * T + k * 4 + 2, j * T + 8); ctx.lineTo(i * T + k * 4 + 4, j * T + T); ctx.fill(); }
     }
   }
 
-  // gloomlings — bit-packed 1-bit standee sprites (space-invader technique):
-  // each set bit in the KINDS pattern is a tiny cube; foes read as the DM's
-  // cardboard cutout minis. Kind color + scale telegraph power; elites glow.
+  // campfire
+  const [fx, fy] = seeds.fire, cxp = fx * T, cyp = fy * T;
+  ctx.fillStyle = '#6b4a2b'; ctx.fillRect(cxp - 8, cyp + 4, 16, 4);
+  const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
+  ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
+  ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
+  if (resting) { ctx.fillStyle = '#fff'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.fillText('E — rest & save', cxp, cyp - 18); }
+
+  // lore stone
+  const [lx, ly] = seeds.lore;
+  ctx.fillStyle = '#7a7a85'; ctx.fillRect(lx * T - 5, ly * T - 6, 10, 15);
+  ctx.fillStyle = '#aee'; ctx.fillRect(lx * T - 1, ly * T - 2, 2, 6);
+
+  // shard + tease
+  const gem = (gx, gy, a, lock) => {
+    ctx.save(); ctx.translate(gx * T, gy * T + Math.sin(time * 2.4) * 3); ctx.rotate(time * 1.5);
+    ctx.globalAlpha = a; ctx.fillStyle = lock ? '#889' : `hsl(${(time * 40) % 360} 80% 70%)`;
+    ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 8); ctx.lineTo(-6, 0); ctx.fill();
+    ctx.restore(); ctx.globalAlpha = 1;
+  };
+  if (!shardGot) gem(seeds.shard[0], seeds.shard[1], .9 + Math.sin(time * 4) * .1, 0);
+  gem(seeds.tease[0], seeds.tease[1], .35, 1);
+
+  // sparks
+  for (const sk of sparks) {
+    if (sk.got) continue;
+    const b = Math.sin(time * 3 + sk.ph) * 2;
+    ctx.fillStyle = '#ffe28a';
+    ctx.fillRect(sk.x - 1, sk.y - 4 + b, 2, 8); ctx.fillRect(sk.x - 4, sk.y - 1 + b, 8, 2);
+  }
+
+  // foes: bit-pattern standees, size + color = power
   for (const f of foes) {
-    const T = KINDS[f.k], sc = T[5] * (f.el ? 1.3 : 1);
-    const wob = Math.sin(f.t * 5) * .12;
-    const fl = f.flash > 0 ? 1 : 0;
-    const [kr, kg, kb] = T[6];
-    const cr = fl ? 1 : kr, cg = fl ? 1 : kg, cb = fl ? 1 : (f.el ? kb + .22 : kb);
+    const cell = 1 + f.k, wob = Math.sin(f.t * 6) * 1.5;
+    ctx.fillStyle = f.fl > 0 ? '#fff' : FOECOL[f.k];
     for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++)
-      if (T[7] >> (r * 5 + c) & 1)
-        draw(cube, compose(f.x, f.y + (r * .32 + .3) * sc, f.z, 0, f.yaw, (c - 2) * .32 * sc + wob, 0, 0, .3 * sc, .3 * sc, .16 * sc),
-          cr, cg, cb, 0, fl || (f.el ? .3 : 0));
-    // mini base — sells the tabletop fiction
-    draw(cube, compose(f.x, f.y + .06, f.z, 0, 0, 0, 0, 0, sc + .2, .12, sc + .2), .1, .09, .12, 0);
+      if (PAT[r] >> (4 - c) & 1) ctx.fillRect(f.x + c * cell, f.y + r * cell + wob, cell, cell);
   }
 
-  // gloom bolts
-  for (const b of bolts)
-    draw(cube, compose(b.x, b.y, b.z, b.life * 7, b.life * 9, 0, 0, 0, .3, .3, .3), .55, .25, .75, 0, 1);
-
-  // shard beacons — fade out as their chapter is restored, gentle pulse
-  for (const [i, bx, by, bz] of beacons) {
-    const s = 1 - bloom[i];
-    if (s < .02) continue;
-    const [r, g, b] = hue2(regionHue(i));
-    const pulse = 1 + Math.sin(time * 2 + i) * .08;
-    draw(cone, compose(bx, by, bz, 0, 0, 0, 0, 0, 1.1 * pulse * s, 15 * s, 1.1 * pulse * s),
-      r * s + .1, g * s + .1, b * s + .1, 0, 1);
+  // unicorn
+  if (pl.inv <= 0 || Math.sin(time * 40) > 0) {
+    ctx.save();
+    const cx2 = pl.x + PW / 2, feet = pl.y + PH;
+    ctx.translate(cx2, feet); ctx.scale((2 - pl.sq) * pl.face, pl.sq); ctx.translate(-PW / 2, -PH);
+    const ph = pl.ground && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.ground ? 0 : 2);
+    ctx.fillStyle = '#f5f1f4';
+    ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3); ctx.fillRect(7, 12 - ph * .3, 2, 4 + ph * .3); // legs
+    ctx.fillRect(0, 5, 10, 7);                                            // body
+    ctx.fillRect(7, 0, 5, 6);                                             // head
+    ctx.fillStyle = '#ffd75e'; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill(); // horn
+    const MANE = ['#ff6b6b', '#ffd75e', '#6bc5ff'];
+    MANE.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });
+    ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                // eye
+    ctx.restore();
   }
 
-  // contact shadow — grounds the unicorn, sells jump height
-  if (Math.max(Math.abs(pl.x), Math.abs(pl.z)) <= TABLE) {
-    const gy = surfaceHeight(pl.x, pl.z);
-    const ss = Math.max(.2, .75 - (pl.y - gy) * .07);
-    draw(cube, compose(pl.x, gy + .07, pl.z, 0, 0, 0, 0, 0, ss, .04, ss), .05, .045, .07, 0);
+  // particles + flytext
+  for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
+  ctx.globalAlpha = 1; ctx.textAlign = 'center';
+  for (const f of flies) {
+    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = (f.big ? 'bold 12px' : '9px') + ' monospace';
+    ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x, f.y);
   }
+  ctx.globalAlpha = 1;
+  ctx.translate(cam.x | 0, cam.y | 0);
 
-  // unicorn: blink while invulnerable
-  if (invulnT <= 0 || Math.sin(time * 40) > 0) {
-    const run = Math.min(Math.hypot(pl.vx, pl.vz) / 7, 1);
-    const uni = compose(pl.x, pl.y, pl.z, 0, pl.yaw, 0, 0, 0, .55, .55, .55);
-    for (const P of PARTS) {
-      const [arx, ary, ay] = animPart(P[14], time, pl.gallop, run);
-      const partM = compose(P[1], P[2] + ay, P[3], P[4] + arx, ary, P[5], P[6], P[7], P[8], P[9], P[10]);
-      draw(P[0] ? cone : cube, mul(uni, partM), P[11], P[12], P[13], 0, abil(0) && P[2] > 1.9 ? .9 : 0);
-    }
+  // ---------- HUD ----------
+  ctx.font = '12px monospace'; ctx.textAlign = 'left';
+  for (let i = 0; i < maxHp; i++) { ctx.fillStyle = i < hp ? '#ff5d6c' : '#3a3a44'; ctx.fillText('♥', 8 + i * 13, 16); }
+  ctx.fillStyle = '#ffe28a'; ctx.fillText('✦ ' + sp, 8, 32);
+  ctx.fillStyle = '#9f9'; ctx.font = '9px monospace'; ctx.fillText('LV ' + lvl, 8, 45);
+  ctx.fillStyle = '#2a2a33'; ctx.fillRect(34, 39, 40, 5);
+  ctx.fillStyle = '#6bc56b'; ctx.fillRect(34, 39, 40 * xp / need(), 5);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
+  ctx.fillText(!shardGot ? '✧ Find the First Shard — east, through the gloom ➜'
+    : rg.n === 'West Cliffs' ? '✧ Climb. Something glitters above the cliffs.'
+      : '⬅ The west gate will yield to your new jump', VW / 2, 14);
+  if (dmT > 0) {
+    ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
+    ctx.fillRect(VW / 2 - 190, VH - 34, 380, 24);
+    ctx.fillStyle = '#e8d9b0'; ctx.font = 'italic 9px monospace';
+    ctx.fillText('DM — ' + dmTxt, VW / 2, VH - 19); ctx.globalAlpha = 1;
   }
+  if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
 
-  // particles (additive, no depth write)
-  const { data, count } = PARTICLES.fill();
-  if (count) {
-    gl.depthMask(false);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.useProgram(ptP);
-    gl.uniformMatrix4fv(uVPp, false, vp);
-    gl.bindVertexArray(ptVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, ptBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, count * 7);
-    gl.drawArrays(gl.POINTS, 0, count);
-    gl.disable(gl.BLEND);
-    gl.depthMask(true);
+  // title
+  if (!started) {
+    ctx.fillStyle = 'rgba(8,6,12,.75)'; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px monospace'; ctx.fillText('NAT 20 UNICORN', VW / 2, 108);
+    ctx.fillStyle = '#ffd75e'; ctx.font = '10px monospace'; ctx.fillText('the diorama has gone gray — paint it back', VW / 2, 128);
+    ctx.fillStyle = '#aaa'; ctx.fillText('A/D move · SPACE jump · E interact · stomp the gloom', VW / 2, 152);
+    ctx.fillStyle = '#fff'; ctx.fillText(Math.sin(time * 3) > 0 ? '— press any key —' : '', VW / 2, 176);
   }
+  ctx.restore();
 };
 
-// generic white for meshes without a color attribute
-gl.vertexAttrib3f(2, 1, 1, 1);
-gl.clearColor(0, 0, 0, 1);
-
-// ---------- boot: Session Zero (or Continue), then play ----------
-// the always-on objective line — direction at a glance, updated as shards fall
-const objLine = () => ct[7] >= 7 ? '🌈 The rainbow is whole'
-  : ct[7] === 6 ? '🌈 1 shard left — its guard has Evolved'
-  : ct[7] ? '🌈 ' + (7 - ct[7]) + ' shards left · follow the beams'
-  : '🌈 Free 7 shards — follow a light beam';
-const AEMO = ['🔥', '🐐', '💨', '🧲', '🪶', '🛡', '🌬'];
-const abilRow = () => HUD.setAbil(AEMO.filter((_, i) => abil(i)).join(''));
-const bootHud = (fresh) => {
-  audioInit(); // first user gesture — safe to create the AudioContext
-  abilRow();
-  hp = maxH();
-  HUD.setHearts(hp, maxH());
-  HUD.setRes(inv);
-  HUD.setLv(uniLv());
-  if (fresh) { // new campaign: controls first, then the DM sets the quest
-    HUD.setObj(navigator.maxTouchPoints ? '👆 stick move · ⚔️ attack · ✋ use'
-      : '⌨️ WASD · F attack · E use · B badges');
-    setTimeout(() => DM.line('The gloom ate our colors. Seven shards hold them.'), 6500);
-    setTimeout(() => { DM.line('See the light beams? Start there.'); HUD.setObj(objLine()); }, 13000);
-  } else HUD.setObj(objLine()); // returning player: straight to the standing objective
+// ---------- loop ----------
+load();
+say('Ah. The last painted mini wakes. Shall we finish the campaign, little horse?');
+const loop = () => {
+  const now = performance.now(), dt = Math.min(.033, (now - last) / 1000); last = now;
+  step(dt); draw();
+  requestAnimationFrame(loop);
 };
-HUD.creation(() => bootHud(1), hasSave() ? () => { load(); bootHud(0); } : null);
-
-// locked 60fps sim + hit-stop, render every frame
-let acc = 0, last = performance.now();
-const frame = (now) => {
-  requestAnimationFrame(frame);
-  const raw = Math.min(now - last, 100); last = now;
-  if (hitStop > 0) { hitStop -= raw / 1000; render(); return; } // freeze sim, keep drawing
-  acc += raw;
-  while (acc >= 16.666) { step(1 / 60); acc -= 16.666; }
-  render();
-};
-requestAnimationFrame(frame);
+loop();
