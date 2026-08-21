@@ -2,7 +2,7 @@
 // Phase 1 (bible-approved): dual-convention controls + touch overlay,
 // verb economy (stomp free · melee GENERATES mana · shot/heal SPEND it),
 // 4 stats chosen at level-up (HORN/HOOF/HEART/SPARK), contextual prompts.
-import { T, W, H, tile, regions, regionAt, seeds } from './world.js';
+import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -22,6 +22,7 @@ addEventListener('keydown', (e) => {
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) swing();
   if (SH_KEYS.includes(e.code)) shoot();
+  if (['ShiftLeft', 'ShiftRight', 'KeyO'].includes(e.code)) dash();
   if (choosing) { const n = '1234'.indexOf(e.key); if (n >= 0) pick(n); }
   boot();
 });
@@ -39,6 +40,7 @@ const btns = () => {
   ];
   if (abil & 4) b.push({ x: VW - 86, y: VH - 74, r: 19, l: '✦', c: 'TBtnS' });
   if (abil & 2) b.push({ x: VW - 34, y: VH - 86, r: 17, l: '＋', c: 'TBtnH' });
+  if (abil & 8) b.push({ x: VW - 138, y: VH - 62, r: 19, l: '»', c: 'TBtnD' });
   if (nearFire || nearLore) b.push({ x: VW - 140, y: VH - 66, r: 17, l: 'E', c: 'KeyE' });
   return b;
 };
@@ -54,6 +56,7 @@ addEventListener('pointerdown', (e) => {
     if (b.c === 'TBtnJ') jbuf = .12;
     if (b.c === 'TBtnM') swing();
     if (b.c === 'TBtnS') shoot();
+    if (b.c === 'TBtnD') dash();
   }
 });
 addEventListener('pointerup', (e) => { const c = ptrs.get(e.pointerId); if (c) { keys.delete(c); ptrs.delete(e.pointerId); } });
@@ -76,7 +79,10 @@ const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 *
 // ---------- DM voice ----------
 let dmTxt = '', dmT = 0;
 const say = (t) => { dmTxt = t; dmT = 4.5; };
-const LORE = 'Before the doubt, every tile of this table was painted. I remember the brush.';
+const LORE = [
+  'Before the doubt, every tile of this table was painted. I remember the brush.',
+  'The roots drink what the sky forgets. Even doubt has an underside.',
+];
 
 // ---------- RPG: 4 stats, chosen at level-up ----------
 let ho = 1, hf = 1, he = 1, sp = 1;               // HORN HOOF HEART SPARK
@@ -108,14 +114,14 @@ const pick = (n) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn,
+    v: 3, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn,
     t: [ho, hf, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d) return;
+    if (!d || d.v !== 3) return;                                // world changed — old saves start fresh
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n || 5;
     if (d.t) [ho, hf, he, sp] = d.t;
@@ -126,17 +132,20 @@ const load = () => {
 
 // ---------- player ----------
 const PW = 10, PH = 14;
-const pl = { x: 46 * T, y: 24 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
-let cp = [46 * T, 24 * T], lastSafe = [46 * T, 24 * T], deathT = 0;
+const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
+let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
 let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0;
+let dashT = 0, dashCd = 0, adash = 0;
+const loreRead = [0, 0];
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = () => 105 + 10 * hf, V0 = () => 240 + 8 * hf;
 
-const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
+const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // gloom crystal is solid until shot
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
 const sparks = seeds.sparks.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
+const motes = seeds.motes.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
 const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
 const PAT = [0b01110, 0b11111, 0b11011, 0b11111];
 const foes = seeds.foes.map(([x, y, k]) => ({ x: x * T, y: y * T, vx: (18 + 26 / k) * (Math.random() < .5 ? 1 : -1), k, hp: k, fl: 0, t: Math.random() * 7 }));
@@ -175,6 +184,11 @@ function shoot() {                                              // rainbow shot:
   mn -= 3; sfx(700, 1300, .12, 'sawtooth', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: 1.1 });
 }
+function dash() {                                               // air dash: burst, resets on landing
+  if (!started || choosing || deathT > 0 || !(abil & 8) || dashCd > 0) return;
+  if (!pl.ground) { if (adash) return; adash = 1; }
+  dashT = .15; dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12);
+}
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
@@ -188,7 +202,7 @@ const hurt = (n, safe) => {
 // ---------- update ----------
 let last = performance.now(), time = 0;
 const step = (dt) => {
-  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt;
+  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt;
   regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
@@ -219,8 +233,13 @@ const step = (dt) => {
     else if ((abil & 1) && pl.air < 1) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
-  pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
-  pl.vy = Math.min(pl.vy, FALLCAP);
+  if (dashT > 0) {                                              // dash overrides physics: flat burst
+    pl.vx = pl.face * 400; pl.vy = 0;
+    parts.push({ x: pl.x + PW / 2, y: pl.y + 8, vx: 0, vy: 0, t: .3, c: `hsl(${(time * 500) % 360} 80% 65%)` });
+  } else {
+    pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
+    pl.vy = Math.min(pl.vy, FALLCAP);
+  }
 
   // -- move + collide --
   const py = pl.y;
@@ -244,7 +263,15 @@ const step = (dt) => {
   } else {
     for (const ox of [1, PW - 1]) if (solid(pl.x + ox, pl.y)) { pl.y = ((pl.y / T | 0) + 1) * T + .01; pl.vy = 0; break; }
   }
-  if (pl.ground && !spike(pl.x + PW / 2, pl.y + PH + 4)) lastSafe = [pl.x, pl.y];
+  if (pl.ground) {
+    adash = 0;                                                  // air dash recharges on landing
+    // NO-SOFTLOCK: only record lastSafe when NO spike exists in the 3x3 tiles
+    // around the feet — a pit floor beside spikes can never become "safe"
+    let ok = 1;
+    const fc = (pl.x + PW / 2) / T | 0, fr = (pl.y + PH) / T | 0;
+    for (let j = fr - 1; j <= fr + 1; j++) for (let i = fc - 1; i <= fc + 1; i++) if (tile(i, j) === 3) ok = 0;
+    if (ok) lastSafe = [pl.x, pl.y];
+  }
 
   for (const [ox, oy] of [[1, PH - 1], [PW - 1, PH - 1], [PW / 2, PH]])
     if (spike(pl.x + ox, pl.y + oy)) { hurt(1, 1); break; }
@@ -262,17 +289,30 @@ const step = (dt) => {
     if (Math.hypot(pl.x - sx * T, pl.y - sy * T) < 16) {
       abil |= bit; earned[1] = 1; S_SHARD(); burst(sx * T, sy * T, 30, '#fff');
       if (bit === 1) { regions[1].t = 1; say('The meadow remembers its color. And you remember the sky. DOUBLE JUMP.'); }
-      if (bit === 2) { say('RAINBOW HEAL. Hold S, stand still, mend. Mercy costs mana — swing that horn to earn it.'); }
-      if (bit === 4) { regions[2].t = 1; say('RAINBOW SHOT. Press L. Some doubts you cannot reach with hooves.'); }
+      if (bit === 2) { regions[2].t = 1; say('RAINBOW HEAL. Hold S, stand still, mend. Mercy costs mana — swing that horn to earn it.'); }
+      if (bit === 4) { regions[5].t = 1; regions[6].t = 1; say('RAINBOW SHOT. Press L. Gloom crystal shatters before it — the summit is open.'); }
+      if (bit === 8) { regions[4].t = 1; say('AIR DASH. The space between platforms was always a suggestion.'); }
+      if (bit === 16) { regions.forEach(r => r.t = 1); earned[12] = 1; say('The heart of the doubt, gone soft and bright. The diorama breathes. ...To be continued.'); }
       save();
     }
+  }
+
+  // -- stardust motes: exploration XP (worth a small pack of kills) --
+  for (const m of motes) {
+    if (m.got) continue;
+    if (Math.hypot(pl.x + PW / 2 - m.x, pl.y + PH / 2 - m.y) < 13) { m.got = 1; sfx(660, 1100, .1, 'triangle', .1); burst(m.x, m.y, 8, '#8cf'); gainXp(8, m.x, m.y - 10); }
   }
 
   // -- shots --
   for (const s of shots) {
     s.t -= dt; s.x += s.vx * dt;
     parts.push({ x: s.x, y: s.y + Math.sin(time * 30) * 2, vx: 0, vy: 0, t: .25, c: `hsl(${(time * 500) % 360} 80% 65%)` });
-    if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
+    const tc = s.x / T | 0, tr = s.y / T | 0;
+    if (tile(tc, tr) === 4) {                                   // shatter gloom crystal (3x3)
+      for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++)
+        if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 5, '#c9f'); }
+      s.t = 0; sfx(900, 200, .2, 'square', .15);
+    } else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
     for (const f of foes) {
       const fs = 6 + 4 * f.k;
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, roll(), 1, 0); break; }
@@ -298,17 +338,26 @@ const step = (dt) => {
     }
   }
 
-  // -- campfire + lore --
-  const [fx, fy] = seeds.fire, [lx, ly] = seeds.lore;
-  nearFire = Math.hypot(pl.x - fx * T, pl.y - fy * T) < 26;
-  nearLore = Math.hypot(pl.x - lx * T, pl.y - ly * T) < 22;
-  if (nearFire && keys.has('KeyE')) {
-    keys.delete('KeyE');
-    hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
-    burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
-    say('Rest. Saved. The fire keeps what you earned.');
+  // -- campfires + lore stones --
+  nearFire = 0; nearLore = 0;
+  for (const [fx, fy] of seeds.fires) {
+    if (Math.hypot(pl.x - fx * T, pl.y - fy * T) > 26) continue;
+    nearFire = 1;
+    if (keys.has('KeyE')) {
+      keys.delete('KeyE');
+      hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
+      burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
+      say('Rest. Saved. The fire keeps what you earned.');
+    }
   }
-  if (nearLore && keys.has('KeyE')) { keys.delete('KeyE'); say(LORE); gainXp(4, pl.x, pl.y - 12); }
+  seeds.lores.forEach(([lx, ly], i) => {
+    if (Math.hypot(pl.x - lx * T, pl.y - ly * T) > 22) return;
+    nearLore = 1;
+    if (keys.has('KeyE')) {
+      keys.delete('KeyE'); say(LORE[i]);
+      if (!loreRead[i]) { loreRead[i] = 1; gainXp(6, pl.x, pl.y - 12); }
+    }
+  });
 
   // fx
   for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
@@ -331,7 +380,7 @@ const draw = () => {
   cam.x = Math.max(0, Math.min(W * T - VW, cam.x));
   cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
 
-  const rg = regionAt(pl.x + PW / 2);
+  const rg = regionAt(pl.x + PW / 2, pl.y + 7);
   const sat = 22 * rg.b, lit = 12 + 6 * rg.b;
   ctx.fillStyle = `hsl(${rg.h * 360} ${sat}% ${lit}%)`; ctx.fillRect(0, 0, VW, VH);
   for (const [par, base, amp, l] of [[.25, 90, 22, 8], [.5, 60, 16, 11]]) {
@@ -346,29 +395,43 @@ const draw = () => {
   const x0 = cam.x / T | 0, x1 = Math.min(W, x0 + VW / T + 2), y0 = Math.max(0, cam.y / T | 0), y1 = Math.min(H, y0 + VH / T + 2);
   for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
     const v = tile(i, j); if (!v) continue;
-    const r = regionAt(i * T + 8), hue = r.h * 360, b = r.b;
+    const r = regionAt(i * T + 8, j * T + 8), hue = r.h * 360, b = r.b;
     if (v === 1) {
       ctx.fillStyle = `hsl(${hue} ${40 * b}% ${26 + 6 * b}%)`; ctx.fillRect(i * T, j * T, T + .5, T + .5);
       if (tile(i, j - 1) !== 1) { ctx.fillStyle = `hsl(${hue} ${55 * b}% ${42 + 12 * b}%)`; ctx.fillRect(i * T, j * T, T + .5, 4); }
     } else if (v === 2) {
       ctx.fillStyle = `hsl(${hue} ${50 * b}% ${45 + 8 * b}%)`; ctx.fillRect(i * T, j * T, T + .5, 4);
+    } else if (v === 4) {                                       // gloom crystal — pulses, begs to be shot
+      ctx.fillStyle = `hsl(280 60% ${26 + Math.sin(time * 4 + i + j) * 8}%)`;
+      ctx.fillRect(i * T, j * T, T + .5, T + .5);
+      ctx.fillStyle = 'hsl(290 80% 60%)'; ctx.fillRect(i * T + 5, j * T + 5, 6, 6);
     } else {
       ctx.fillStyle = 'hsl(280 40% 40%)';
       for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(i * T + k * 4, j * T + T); ctx.lineTo(i * T + k * 4 + 2, j * T + 8); ctx.lineTo(i * T + k * 4 + 4, j * T + T); ctx.fill(); }
     }
   }
 
-  // campfire + lore
-  const [fx, fy] = seeds.fire, cxp = fx * T, cyp = fy * T;
-  ctx.fillStyle = '#6b4a2b'; ctx.fillRect(cxp - 8, cyp + 4, 16, 4);
-  const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
-  ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
-  ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-  ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  if (nearFire) ctx.fillText('E — rest & save', cxp, cyp - 18);
-  const [lx, ly] = seeds.lore;
-  ctx.fillStyle = '#7a7a85'; ctx.fillRect(lx * T - 5, ly * T - 6, 10, 15);
-  ctx.fillStyle = '#aee'; ctx.fillRect(lx * T - 1, ly * T - 2, 2, 6);
+  // campfires + lore stones
+  ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  for (const [fx, fy] of seeds.fires) {
+    const cxp = fx * T, cyp = fy * T;
+    ctx.fillStyle = '#6b4a2b'; ctx.fillRect(cxp - 8, cyp + 4, 16, 4);
+    const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
+    ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
+    ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
+    if (nearFire && Math.hypot(pl.x - cxp, pl.y - cyp) < 26) { ctx.fillStyle = '#fff'; ctx.fillText('E — rest & save', cxp, cyp - 18); }
+  }
+  for (const [lx, ly] of seeds.lores) {
+    ctx.fillStyle = '#7a7a85'; ctx.fillRect(lx * T - 5, ly * T - 6, 10, 15);
+    ctx.fillStyle = '#aee'; ctx.fillRect(lx * T - 1, ly * T - 2, 2, 6);
+  }
+  // stardust motes (blue — exploration XP)
+  for (const m of motes) {
+    if (m.got) continue;
+    const b = Math.sin(time * 2.5 + m.ph) * 2;
+    ctx.fillStyle = '#8cf';
+    ctx.fillRect(m.x - 1.5, m.y - 5 + b, 3, 10); ctx.fillRect(m.x - 5, m.y - 1.5 + b, 10, 3);
+  }
 
   // shards + tease
   const gem = (gx, gy, a, lock) => {
@@ -378,7 +441,6 @@ const draw = () => {
     ctx.restore(); ctx.globalAlpha = 1;
   };
   for (const [sx, sy, bit] of seeds.shards) if (!(abil & bit)) gem(sx, sy, .9, 0);
-  gem(seeds.tease[0], seeds.tease[1], .35, 1);
 
   for (const sk of sparks) {
     if (sk.got) continue;
@@ -442,9 +504,11 @@ const draw = () => {
   ctx.fillStyle = '#6bc56b'; ctx.fillRect(70, 48, 40 * Math.min(1, xp / need()), 5);
   ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
   ctx.fillText(!(abil & 1) ? '✧ Find the First Shard — east, through the gloom ➜'
-    : !(abil & 2) ? '⬅ The west gate yields to your new jump — climb'
-      : !(abil & 4) ? '✧ Higher. The last light waits on the plateau'
-        : '✧ End of the slice — the world grows from here', VW / 2, 14);
+    : !(abil & 2) ? '✧ Something glows beneath the meadow — find the way down'
+      : !(abil & 4) ? '✧ West and UP — the cliffs, then the treetops'
+        : !(abil & 8) ? '✧ Shoot the gloom crystal — the summit is past it'
+          : !(abil & 16) ? '✧ A shaft west of home leads down. End the doubt.'
+            : '🌈 The diorama breathes — you have every shard', VW / 2, 14);
   if (dmT > 0) {
     ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
     ctx.fillRect(VW / 2 - 190, VH - 60, 380, 24);
