@@ -97,8 +97,9 @@ export const regionAt = (px, py) => regions.find(r => px >= r.x0 * T && px < r.x
 
 // ---- entity seeds ----
 export const seeds = {
-  // campfire bases — one per major zone (hub, treetop ledge, meadow, caves, gloom heart)
-  fires: [[132.5, 59.5], [57.5, 25.4], [244, 59.4], [180, 69.4], [120, 69.4]],
+  // ONE home campfire (Joe): the Paddock hearth is the only rest/save/respawn.
+  // The Return Law auditor proves every reachable cell can get back to it.
+  fires: [[132.5, 59.5]],
   lores: [[141.5, 59.4], [232, 68.4]],
   shards: [
     [272.5, 54.3, 1],    // DOUBLE JUMP — meadow tower (base kit)
