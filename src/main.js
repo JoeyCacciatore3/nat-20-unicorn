@@ -38,7 +38,9 @@ const btns = () => {
     { x: VW - 94, y: VH - 28, r: 22, l: '⚔', h: 'J', c: 'TBtnM' },      // melee
   ];
   if (touch) b.unshift(                                                 // dpad is touch-only — keyboard moves on desktop
-    { x: 34, y: VH - 32, r: 26, l: '◀', h: '', c: 'TBtnL' }, { x: 92, y: VH - 32, r: 26, l: '▶', h: '', c: 'TBtnR' });
+    { x: 28, y: VH - 30, r: 22, l: '◀', h: '', c: 'TBtnL' },
+    { x: 76, y: VH - 30, r: 22, l: '▼', h: '', c: 'TBtnDn' },            // drop through platforms
+    { x: 124, y: VH - 30, r: 22, l: '▶', h: '', c: 'TBtnR' });
   if (abil & 4) b.push({ x: VW - 86, y: VH - 74, r: 19, l: '✦', h: 'L', c: 'TBtnS' });
   if (abil & 2) b.push({ x: VW - 34, y: VH - 86, r: 17, l: '＋', h: 'S', c: 'TBtnH' });
   if (abil & 8) b.push({ x: VW - 138, y: VH - 62, r: 19, l: '»', h: 'SHIFT', c: 'TBtnD' });
@@ -165,7 +167,7 @@ const PW = 10, PH = 14;
 const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
 let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0;
-let dashT = 0, dashCd = 0, adash = 0;
+let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 const loreRead = [0, 0];
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = () => 105 + 10 * hf, V0 = () => 240 + 8 * hf;
@@ -254,7 +256,7 @@ const hurt = (n, safe) => {
 // ---------- update ----------
 let last = performance.now(), time = 0;
 const step = (dt) => {
-  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt;
+  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt;
   regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
@@ -265,8 +267,13 @@ const step = (dt) => {
   }
   if (!started || choosing) return;
 
+  // -- drop-through: DOWN on a one-way platform falls through it (S doubles as
+  // down here — movement wins over heal on platforms; heal works on solid ground) --
+  const onPlat = pl.ground && tile((pl.x + PW / 2) / T | 0, (pl.y + PH + 1) / T | 0) === 2;
+  if (onPlat && held('ArrowDown', 'KeyS', 'TBtnDn')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
+
   // -- heal channel: rooted, costs 5, restores 1 (faster with HEART) --
-  const canHeal = (abil & 2) && mn >= 5 && hp < mHP() && pl.ground;
+  const canHeal = (abil & 2) && mn >= 5 && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
     if (chT > 1.3 - .1 * he) { chT = 0; mn -= 5; hp++; burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+♥', '#9fe8a0', 1); }
@@ -306,7 +313,7 @@ const step = (dt) => {
     const feet = pl.y + PH, ty = feet / T | 0, top = ty * T;
     for (const ox of [1, PW - 1]) {
       const tv = tile((pl.x + ox) / T | 0, ty);
-      if (tv === 1 || (tv === 2 && py + PH <= top + 4)) {
+      if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
         pl.y = top - PH;
         if (!wasGround && pl.vy > 250) { pl.sq = 1.35; burst(pl.x + PW / 2, feet, 5, '#bbb'); sfx(150, 70, .06, 'square', .07); }
         pl.vy = 0; pl.ground = 1; pl.air = 0; break;
