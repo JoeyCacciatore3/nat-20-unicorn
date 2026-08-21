@@ -41,7 +41,7 @@ const btns = () => {
   if (abil & 4) b.push({ x: VW - 86, y: VH - 74, r: 19, l: '✦', c: 'TBtnS' });
   if (abil & 2) b.push({ x: VW - 34, y: VH - 86, r: 17, l: '＋', c: 'TBtnH' });
   if (abil & 8) b.push({ x: VW - 138, y: VH - 62, r: 19, l: '»', c: 'TBtnD' });
-  if (nearFire || nearLore) b.push({ x: VW - 140, y: VH - 66, r: 17, l: 'E', c: 'KeyE' });
+  if (nearFire || nearLore) b.push({ x: VW / 2, y: VH - 28, r: 18, l: 'E', c: 'KeyE' }); // center-bottom — was overlapping the dash button
   return b;
 };
 const ptrs = new Map();
@@ -237,6 +237,7 @@ function shoot() {                                              // rainbow shot:
 function dash() {                                               // air dash: burst, resets on landing
   if (!started || choosing || deathT > 0 || !(abil & 8) || dashCd > 0) return;
   if (!pl.ground) { if (adash) return; adash = 1; }
+  chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
   dashT = .15; dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12);
 }
 
@@ -376,7 +377,7 @@ const step = (dt) => {
         if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 5, '#c9f'); }
       s.t = 0; sfx(900, 200, .2, 'square', .15);
     } else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
-    for (const f of foes) {
+    if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, roll(), 1, 0); break; }
     }
@@ -630,7 +631,7 @@ const draw = () => {
     ctx.fillStyle = '#ffd75e'; ctx.font = '10px monospace'; ctx.fillText('the diorama has gone gray — paint it back', VW / 2, 124);
     ctx.fillStyle = '#aaa';
     ctx.fillText('A/D or ←→ move · SPACE/Z jump · J/X swipe', VW / 2, 148);
-    ctx.fillText('L/C shot · hold S heal · E interact', VW / 2, 162);
+    ctx.fillText('L/C shot · hold S heal · SHIFT dash · E interact', VW / 2, 162);
     ctx.fillStyle = '#fff'; ctx.fillText(Math.sin(time * 3) > 0 ? '— press any key or tap —' : '', VW / 2, 186);
   }
   ctx.restore();
