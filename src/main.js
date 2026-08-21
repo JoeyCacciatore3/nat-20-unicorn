@@ -24,6 +24,10 @@ addEventListener('keydown', (e) => {
   if (SH_KEYS.includes(e.code)) shoot();
   if (['ShiftLeft', 'ShiftRight', 'KeyO'].includes(e.code)) dash();
   if (choosing) { const n = '123456'.indexOf(e.key); if (n >= 0) pick(n); }
+  else if (shopping) {
+    const n = '12345'.indexOf(e.key); if (n >= 0) buy(n);
+    if (e.code === 'KeyB' || e.code === 'KeyE') { shopping = 0; keys.delete('KeyE'); }
+  } else if (e.code === 'KeyB' && nearFire) shopping = 1;
   boot();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -54,8 +58,14 @@ addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
   if (choosing) {
-    const list = choices(), pitch = 82, sx0 = VW / 2 - (list.length * pitch - 6) / 2;
-    if (vy > 100 && vy < 196) { const n = (vx - sx0) / pitch | 0; if (n >= 0 && n < list.length) pick(n); }
+    const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
+    if (vy > 100 && vy < 196) { const n = (vx - sx0) / pitch | 0; if (n >= 0 && n < menu.length) pick(n); }
+    return;
+  }
+  if (shopping) {
+    const n = (vy - 92) / 26 | 0;
+    if (vy >= 92 && n < SHOP.length && vx > VW / 2 - 130 && vx < VW / 2 + 130) buy(n);
+    else shopping = 0;
     return;
   }
   for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
@@ -91,30 +101,45 @@ const LORE = [
   'The roots drink what the sky forgets. Even doubt has an underside.',
 ];
 
-// ---------- RPG: 4 stats, chosen at level-up ----------
-let ho = 1, hf = 1, he = 1, sp = 1;               // HORN HOOF HEART SPARK
+// ---------- RPG 2.0 (researched): milestone dice, modifier stats, D&D perks ----------
+let ho = 1, he = 1, sp = 1;                       // HORN (+dmg) HEART (+♥) SPARK (+✦) — HOOF cut (useless + broke gate proofs)
 let hp = 3, xp = 0, lvl = 1, spk = 0;
-let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD; abil = skills LEARNED (at level-up); bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
-let mn = 5, choosing = 0, pending = 0;
+let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD; abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
+let mn = 5, choosing = 0, pending = 0, pk = 0, edg = 0, shp = 0, shopB = 0, shopping = 0;
 const bossLive = [0, 0, 0, 0, 0];
-const mHP = () => 2 + he, mMN = () => 3 + sp * 2;
-const DIE = () => [0, 4, 6, 8, 10, 12][Math.min(ho, 5)];
-const roll = () => 1 + (Math.random() * DIE() | 0);
+const mHP = () => 2 + he + shp, mMN = () => 3 + sp * 2;
+const DIE = () => lvl >= 12 ? 12 : lvl >= 9 ? 10 : lvl >= 6 ? 8 : lvl >= 3 ? 6 : 4; // die = LEVEL MILESTONE (Zelda-heart law)
+const MOD = () => ho - 1 + edg;                   // flat damage modifier — the +N in "d8+N"
+const roll = (adv) => {                           // adv: ADVANTAGE perk (melee only) rolls 2d keep best
+  let r = 1 + (Math.random() * DIE() | 0);
+  if (adv && (pk & 2)) r = Math.max(r, 1 + (Math.random() * DIE() | 0));
+  if ((pk & 4) && r === 1) r = 1 + (Math.random() * DIE() | 0);   // REROLL 1s
+  return r;
+};
+const isCrit = (r) => r >= DIE() - ((pk & 1) ? 1 : 0);            // KEEN HORN widens crit range
 const earned = Array(13).fill(0);
 const need = () => 8 + lvl * 6;
 const gainXp = (n, x, y) => {
+  if (pk & 16) n = Math.round(n * 1.25);          // SCHOLAR
   xp += n; fly(x, y, '+' + n + ' XP', '#9f9');
   while (xp >= need()) { xp -= need(); pending++; }
-  if (pending && !choosing) { choosing = 1; S_NAT(); }
+  if (pending && !choosing) { choosing = 1; openMenu(); S_NAT(); }
 };
 const STATS = [
-  ['HORN', '🎲 bigger damage die', () => ho++],
-  ['HOOF', '🐎 faster · higher jump', () => hf++],
-  ['HEART', '♥ +1 max · stronger heal', () => { he++; hp++; }],
-  ['SPARK', '✦ +2 max mana', () => { sp++; mn += 2; }],
+  ['HORN', '+1 damage mod', '#ffd75e', () => ho++],
+  ['HEART', '+1 max ♥ · faster heal', '#ff5d6c', () => { he++; hp++; }],
+  ['SPARK', '+2 max mana', '#e08ae0', () => { sp++; mn += 2; }],
 ];
-const SCOL = ['#ffd75e', '#6bc5ff', '#ff5d6c', '#e08ae0'];
-// skills enter the level-up pool once their shard is HELD — learning is a choice (RPG law)
+const PERKS = [                                   // even levels: pick 1 of 3 — real table rules, zero movement physics
+  { b: 1, n: 'KEEN HORN', d: 'crit on top 2 rolls' },
+  { b: 2, n: 'ADVANTAGE', d: 'melee rolls 2d, keeps best' },
+  { b: 4, n: 'REROLL 1s', d: 'a rolled 1 rerolls once' },
+  { b: 8, n: 'MANA FONT', d: '+1 ✦ every kill' },
+  { b: 16, n: 'SCHOLAR', d: '+25% XP' },
+  { b: 32, n: 'THICK MANE', d: 'longer grace after hits' },
+  { b: 64, n: 'PIERCE', d: 'bolts pass through foes' },
+  { b: 128, n: 'STOMP SPARK', d: '+2 ✦ on stomp kills' },
+];
 const SKILLS = {
   1: ['DBL JUMP', 'jump again in air', '#6bc5ff'],
   2: ['R. HEAL', 'hold S · mend 1♥', '#9fe8a0'],
@@ -127,36 +152,61 @@ const LEARN = {
   4: 'RAINBOW SHOT. Press L. Gloom crystal shatters before it.',
   8: 'AIR DASH. The space between platforms was always a suggestion.',
 };
-const choices = () => {
-  const list = [];
-  for (const bit of [1, 2, 4, 8]) if ((sh & bit) && !(abil & bit)) list.push({ k: bit, n: SKILLS[bit][0], d: SKILLS[bit][1], col: SKILLS[bit][2] });
-  STATS.forEach((s, i) => list.push({ i, n: s[0], d: s[1], col: SCOL[i] }));
-  return list.slice(0, 6);
+let menu = [];                                    // cached per screen — random perk offers must not reshuffle each frame
+const openMenu = () => {
+  menu = [];
+  for (const bit of [1, 2, 4, 8]) if ((sh & bit) && !(abil & bit)) menu.push({ k: bit, n: SKILLS[bit][0], d: SKILLS[bit][1], col: SKILLS[bit][2] });
+  const un = PERKS.filter(p => !(pk & p.b));
+  if ((lvl + 1) % 2 === 0 && un.length) {         // even level -> perk offer
+    for (let i = 0; i < 3 && un.length; i++) { const j = Math.random() * un.length | 0; const p = un[j]; un.splice(j, 1); menu.push({ p, n: p.n, d: p.d, col: '#c9a6f7' }); }
+  } else STATS.forEach((s, i) => menu.push({ i, n: s[0], d: s[1], col: s[2] }));
+  menu = menu.slice(0, 6);
 };
 const pick = (n) => {
-  const c = choices()[n]; if (!c) return;
-  if (c.k) { abil |= c.k; say(LEARN[c.k]); } else STATS[c.i][2]();
+  const c = menu[n]; if (!c) return;
+  if (c.k) { abil |= c.k; say(LEARN[c.k]); }
+  else if (c.p) pk |= c.p.b;
+  else STATS[c.i][3]();
   lvl++; pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
-  if (!pending) { choosing = 0; save(); }
+  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, '🎲 → d' + DIE(), '#fff', 1); say('The die grows. A d' + DIE() + ' now. The table approves.'); }
+  if (!pending) { choosing = 0; save(); } else openMenu();
   if (lvl === 3) say('Choosing who you become. That is the whole game, little horse.');
+};
+
+// ---------- campfire shop (the ONE fire is where sparkles become power) ----------
+const SHOP = [
+  { c: 6, n: 'Kindled Horn', d: '+1 damage', f: () => edg++ },
+  { c: 10, n: 'Warm Heart', d: '+1 max ♥', f: () => { shp++; hp++; } },
+  { c: 12, n: 'Kindled Horn II', d: '+1 damage', f: () => edg++ },
+  { c: 15, n: 'Sparkstone', d: '+1 max ♥', f: () => { shp++; hp++; } },
+  { c: 18, n: 'Ember Edge', d: '+1 damage', f: () => edg++ },
+];
+const buy = (i) => {
+  const it = SHOP[i]; if (!it || (shopB & (1 << i)) || spk < it.c) { if (it) sfx(160, 90, .1, 'square', .08); return; }
+  spk -= it.c; shopB |= 1 << i; it.f(); save();
+  sfx(700, 1400, .18, 'triangle', .12); burst(pl.x + PW / 2, pl.y, 12, '#ffd75e');
+  fly(pl.x, pl.y - 14, it.n + '!', '#ffd75e', 1);
 };
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 3, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
-    t: [ho, hf, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
+    v: 4, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    p: pk, w: shopB, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 3) return;                                // world changed — old saves start fresh
+    if (!d || d.v !== 4) return;                                // RPG 2.0 — old saves start fresh
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n || 5;
-    sh = d.q || abil; bossDead = d.g || sh;                     // older v3 saves: treat learned skills as held shards + dead bosses
-    if (d.t) [ho, hf, he, sp] = d.t;
+    sh = d.q || abil; bossDead = d.g || sh;
+    pk = d.p || 0; shopB = d.w || 0;
+    edg = ((shopB >> 0) & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
+    shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
+    if (d.t) [ho, he, sp] = d.t;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     d.b.forEach((v, i) => { regions[i].t = v; regions[i].b = v; });
   } catch (e) { /* fresh oath */ }
@@ -169,8 +219,9 @@ let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
 let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0;
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 const loreRead = [0, 0];
+// FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
-const RUN = () => 105 + 10 * hf, V0 = () => 240 + 8 * hf;
+const RUN = () => 115, V0 = () => 250;
 
 const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // gloom crystal is solid until shot
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -180,7 +231,7 @@ const sparks = seeds.sparks.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: M
 const motes = seeds.motes.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
 const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
 const PAT = [0b01110, 0b11111, 0b11011, 0b11111];
-const foes = seeds.foes.map(([x, y, k]) => ({ x: x * T, y: y * T, vx: (18 + 26 / k) * (Math.random() < .5 ? 1 : -1), k, hp: k, fl: 0, t: Math.random() * 7 }));
+const foes = seeds.foes.map(([x, y, k]) => ({ x: x * T, y: y * T, vx: (18 + 26 / k) * (Math.random() < .5 ? 1 : -1), k, hp: k * 4, fl: 0, t: Math.random() * 7 })); // HP scaled for the d+MOD damage line
 const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
 const shots = [], flies = [], parts = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
@@ -201,16 +252,19 @@ const BOSS_DEAD = [
   'The doubt... surrenders.',
 ];
 
-// damage a foe with a visible die roll; returns true if it died
-const strike = (f, r, mult, gen) => {
-  const crit = r === DIE(), dmg = (1 + ((r - 1) / 4 | 0)) * (crit ? 2 : 1) * mult;
+// damage a foe: dmg = die + MOD, crit doubles. Full D&D damage line, visible.
+const strike = (f, r, gen, viaStomp) => {
+  const crit = isCrit(r), dmg = (r + MOD()) * (crit ? 2 : 1);
   f.hp -= dmg; f.fl = .15;
-  fly(f.x, f.y - 8, crit ? 'NAT ' + r + '!' : '🎲' + r, crit ? '#ffd75e' : '#fff', crit);
+  fly(f.x, f.y - 8, crit ? 'NAT ' + r + '! ' + dmg : MOD() ? r + '+' + MOD() : '🎲' + r, crit ? '#ffd75e' : '#fff', crit);
   if (crit) { S_NAT(); earned[3] = 1; burst(f.x, f.y, 24, '#ffd75e'); }
   if (gen) { mn = Math.min(mMN(), mn + 1); }                    // melee GENERATES mana
   if (f.hp <= 0) {
     foes.splice(foes.indexOf(f), 1);
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 3 + (crit ? 4 : 0), f.x, f.y - 16);
+    spk += f.bit ? 5 : 1;                                       // kills drop sparkles — the shop economy's income
+    if (pk & 8) mn = Math.min(mMN(), mn + 1);                   // MANA FONT
+    if (viaStomp && (pk & 128)) mn = Math.min(mMN(), mn + 2);   // STOMP SPARK
     if (f.bit) {                                                // GUARDIAN falls — shard unlocks
       bossDead |= f.bit; bossLive[f.bi] = 0;
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
@@ -223,22 +277,22 @@ const strike = (f, r, mult, gen) => {
 
 // ---------- verbs ----------
 function swing() {                                              // melee: horn swipe
-  if (!started || choosing || deathT > 0 || atkCd > 0) return;
+  if (!started || choosing || shopping || deathT > 0 || atkCd > 0) return;
   atkCd = .28; swT = .14; seenM = 1; sfx(340, 90, .07, 'square', .1);
   const hx = pl.x + (pl.face > 0 ? PW : -16), hy = pl.y - 2;
   for (const f of [...foes]) {
     const fs = fsz(f);
-    if (f.x + fs > hx && f.x < hx + 16 && f.y + fs > hy && f.y < hy + PH + 4) strike(f, roll(), 1, 1);
+    if (f.x + fs > hx && f.x < hx + 16 && f.y + fs > hy && f.y < hy + PH + 4) strike(f, roll(1), 1, 0);
   }
 }
 function shoot() {                                              // rainbow shot: 3 mana
-  if (!started || choosing || deathT > 0 || !(abil & 4)) return;
+  if (!started || choosing || shopping || deathT > 0 || !(abil & 4)) return;
   if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#f9c'); return; }
   mn -= 3; sfx(700, 1300, .12, 'sawtooth', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: 1.1 });
 }
 function dash() {                                               // air dash: burst, resets on landing
-  if (!started || choosing || deathT > 0 || !(abil & 8) || dashCd > 0) return;
+  if (!started || choosing || shopping || deathT > 0 || !(abil & 8) || dashCd > 0) return;
   if (!pl.ground) { if (adash) return; adash = 1; }
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
   dashT = .15; dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12);
@@ -246,7 +300,7 @@ function dash() {                                               // air dash: bur
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
-  hp -= n; pl.inv = 1.2; chT = 0; sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555');
+  hp -= n; pl.inv = (pk & 32) ? 1.8 : 1.2; chT = 0; sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE
   if ((abil & 2) && !seenH) { seenH = 1; say('Hurt? Hold S. Channel the rainbow — but stand STILL to do it.'); }
   if (hp <= 0) { deathT = 1.6; say('The mini falls over. ...We do not stop rolling. Back to the fire.'); return; }
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
@@ -265,7 +319,7 @@ const step = (dt) => {
     if (deathT <= 0) { hp = mHP(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; }
     return;
   }
-  if (!started || choosing) return;
+  if (!started || choosing || shopping) return;
 
   // -- drop-through: DOWN on a one-way platform falls through it (S doubles as
   // down here — movement wins over heal on platforms; heal works on solid ground) --
@@ -348,7 +402,7 @@ const step = (dt) => {
     if ((bossDead & bit) || bossLive[i]) return;
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       bossLive[i] = 1;
-      foes.push({ x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, hp: 8 + 3 * i, mx: 8 + 3 * i, bi: i, bit, cz: 4, fl: 0, t: 0, hop: 1 });
+      foes.push({ x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, hp: 24 + 10 * i, mx: 24 + 10 * i, bi: i, bit, cz: 4, fl: 0, t: 0, hop: 1 });
       say(BOSS_INTRO[i]); sfx(110, 55, .5, 'sawtooth', .18);
     }
   });
@@ -364,7 +418,7 @@ const step = (dt) => {
       if (bit === 8) regions[4].t = 1;
       if (bit === 16) { abil |= 16; regions.forEach(r => r.t = 1); earned[12] = 1; say('The heart of the doubt, gone soft and bright. The diorama breathes. ...To be continued.'); }
       else say('The shard is yours — the world remembers. Its gift waits at your LEVEL UP.');
-      pending++; choosing = 1; S_NAT();                         // the RPG moment, guaranteed
+      pending++; choosing = 1; openMenu(); S_NAT();             // the RPG moment, guaranteed
       save();
     }
   }
@@ -387,7 +441,7 @@ const step = (dt) => {
     } else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
-      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, roll(), 1, 0); break; }
+      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { if (!(pk & 64)) s.t = 0; strike(f, roll(0), 0, 0); break; } // PIERCE keeps flying
     }
   }
   for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
@@ -412,7 +466,7 @@ const step = (dt) => {
     if (blockedAhead) { if (f.bit) f.vx = 0; else f.vx *= -1; } // bosses hold their ground at edges — never lost off-arena
     if (pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y) {
       if (pl.vy > 40 && pl.y + PH - f.y < 10) {                 // stomp (free, mobility)
-        strike(f, roll(), 1, 0);
+        strike(f, roll(0), 0, 1);
         pl.vy = jumpHeld() ? -290 : -220; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .2);
       } else hurt(1, 0);
     }
@@ -499,7 +553,7 @@ const draw = () => {
     const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-    if (nearFire && Math.hypot(pl.x - cxp, pl.y - cyp) < 26) { ctx.fillStyle = '#fff'; ctx.fillText('E — rest & save', cxp, cyp - 18); }
+    if (nearFire && Math.hypot(pl.x - cxp, pl.y - cyp) < 26) { ctx.fillStyle = '#fff'; ctx.fillText('E — rest & save · B — shop', cxp, cyp - 18); }
   }
   for (const [lx, ly] of seeds.lores) {
     ctx.fillStyle = '#7a7a85'; ctx.fillRect(lx * T - 5, ly * T - 6, 10, 15);
@@ -584,7 +638,7 @@ const draw = () => {
   ctx.fillStyle = '#e08ae0'; ctx.fillRect(8, 22, 52 * mn / mMN(), 5);
   ctx.fillStyle = '#e08ae0'; ctx.font = '9px monospace'; ctx.fillText('✦' + mn, 64, 28);
   ctx.fillStyle = '#ffe28a'; ctx.fillText('💎' + spk, 8, 41);
-  ctx.fillStyle = '#9f9'; ctx.fillText('LV' + lvl + ' 🎲d' + DIE(), 8, 54);
+  ctx.fillStyle = '#9f9'; ctx.fillText('LV' + lvl + ' 🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), 8, 54); // the damage line, always visible
   ctx.fillStyle = '#2a2a33'; ctx.fillRect(70, 48, 40, 5);
   ctx.fillStyle = '#6bc56b'; ctx.fillRect(70, 48, 40 * Math.min(1, xp / need()), 5);
   ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
@@ -622,17 +676,34 @@ const draw = () => {
     ctx.fillStyle = 'rgba(8,6,12,.8)'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 14px monospace';
     ctx.fillText('LEVEL ' + (lvl + 1) + ' — choose your growth', VW / 2, 80);
-    const list = choices(), pitch = 82, sx0 = VW / 2 - (list.length * pitch - 6) / 2;
-    list.forEach((c, i) => {
+    const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
+    menu.forEach((c, i) => {
       const bx = sx0 + i * pitch;
       ctx.fillStyle = c.k ? 'rgba(255,215,94,.16)' : 'rgba(255,255,255,.08)';   // new skills glow
       ctx.fillRect(bx, 100, 76, 92);
-      if (c.k) { ctx.fillStyle = '#ffd75e'; ctx.font = '8px monospace'; ctx.fillText('NEW SKILL', bx + 38, 111); }
+      if (c.k || c.p) { ctx.fillStyle = c.k ? '#ffd75e' : '#c9a6f7'; ctx.font = '8px monospace'; ctx.fillText(c.k ? 'NEW SKILL' : 'PERK', bx + 38, 111); }
       ctx.fillStyle = c.col; ctx.font = 'bold 10px monospace'; ctx.fillText((i + 1) + ' ' + c.n, bx + 38, 126);
       ctx.fillStyle = '#ccc'; ctx.font = '8px monospace';
       c.d.split(' ').forEach((w, k) => ctx.fillText(w, bx + 38, 140 + k * 10));
     });
-    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.fillText('press 1–' + list.length + ' or tap', VW / 2, 214);
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.fillText('press 1–' + menu.length + ' or tap', VW / 2, 214);
+  }
+
+  // campfire shop
+  if (shopping) {
+    ctx.fillStyle = 'rgba(8,6,12,.85)'; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = '#ff9d3c'; ctx.font = 'bold 13px monospace'; ctx.fillText('🔥 THE HEARTH — 💎' + spk, VW / 2, 70);
+    ctx.font = '9px monospace';
+    SHOP.forEach((it, i) => {
+      const y = 100 + i * 26, own = shopB & (1 << i), can = spk >= it.c;
+      ctx.fillStyle = own ? 'rgba(155,232,160,.1)' : 'rgba(255,255,255,.07)';
+      ctx.fillRect(VW / 2 - 130, y - 8, 260, 22);
+      ctx.textAlign = 'left'; ctx.fillStyle = own ? '#9fe8a0' : can ? '#fff' : '#777';
+      ctx.fillText((i + 1) + '  ' + it.n + ' — ' + it.d, VW / 2 - 122, y + 6);
+      ctx.textAlign = 'right'; ctx.fillText(own ? '✓' : '💎' + it.c, VW / 2 + 122, y + 6);
+      ctx.textAlign = 'center';
+    });
+    ctx.fillStyle = '#888'; ctx.fillText('1–5 buy · B close', VW / 2, 240);
   }
 
   // title
