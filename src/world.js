@@ -6,6 +6,9 @@
 //   single jump: rise ~2.6 tiles, reach ~4 tiles  → pre-shard routes use ≤2-tile
 //   rises and ≤3-tile gaps (80% rule: never demand max capability).
 //   double jump: rise ~4.7 tiles → gates are 4-tile walls / 3-tile terrace steps.
+// NO-SOFTLOCK LAW (Joe, 2026-08-21): every low point must have an exit route OR
+//   a damaging hazard (spikes / void) that returns the player to lastSafe.
+//   Never a pit you can stand in with no way up and no way to die.
 export const T = 16, W = 140, H = 30;
 export const grid = new Uint8Array(W * H);
 export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 : grid[ty * W + tx];
@@ -50,8 +53,13 @@ export const regionAt = (px) => regions.find(r => px >= r.x0 * T && px < r.x1 * 
 export const seeds = {
   fire: [50.5, 25.5],
   lore: [57.5, 25.4],
-  shard: [132.5, 21.3],   // shard 1: DOUBLE JUMP
-  tease: [6.8, 6.4],      // ghost shard on the island (locked — wall kick, someday)
+  // shards: [x, y, ability bit] — DESIGN LAW: unlock order == natural route order
+  shards: [
+    [132.5, 21.3, 1],   // DOUBLE JUMP — east tower
+    [17, 15.3, 2],      // RAINBOW HEAL — mid cliff terrace (needs double jump)
+    [8.5, 12.3, 4],     // RAINBOW SHOT — plateau top
+  ],
+  tease: [6.8, 6.4],      // ghost shard on the island (locked — AIR DASH, next phase)
   sparks: [
     [76, 25.2], [81, 24.6], [86, 23.2], [88, 23.2], [91, 21.2], [93, 21.2],
     [96.5, 23.9], [101, 23.2], [104, 21.2], [106, 21.2], [111, 19.2], [113, 19.2],
