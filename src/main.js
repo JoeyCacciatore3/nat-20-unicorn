@@ -23,7 +23,7 @@ addEventListener('keydown', (e) => {
   if (M_KEYS.includes(e.code)) swing();
   if (SH_KEYS.includes(e.code)) shoot();
   if (['ShiftLeft', 'ShiftRight', 'KeyO'].includes(e.code)) dash();
-  if (choosing) { const n = '1234'.indexOf(e.key); if (n >= 0) pick(n); }
+  if (choosing) { const n = '123456'.indexOf(e.key); if (n >= 0) pick(n); }
   boot();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -50,7 +50,11 @@ addEventListener('pointerdown', (e) => {
   boot();
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
-  if (choosing) { const n = (vy > 100 && vy < 200) ? ((vx - VW / 2 + 172) / 88 | 0) : -1; if (n >= 0 && n < 4) pick(n); return; }
+  if (choosing) {
+    const list = choices(), pitch = 82, sx0 = VW / 2 - (list.length * pitch - 6) / 2;
+    if (vy > 100 && vy < 196) { const n = (vx - sx0) / pitch | 0; if (n >= 0 && n < list.length) pick(n); }
+    return;
+  }
   for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
     ptrs.set(e.pointerId, b.c); keys.add(b.c);
     if (b.c === 'TBtnJ') jbuf = .12;
@@ -86,8 +90,10 @@ const LORE = [
 
 // ---------- RPG: 4 stats, chosen at level-up ----------
 let ho = 1, hf = 1, he = 1, sp = 1;               // HORN HOOF HEART SPARK
-let hp = 3, xp = 0, lvl = 1, spk = 0, abil = 0;   // abil bits: 1 DJ, 2 heal, 4 shot
+let hp = 3, xp = 0, lvl = 1, spk = 0;
+let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD; abil = skills LEARNED (at level-up); bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
 let mn = 5, choosing = 0, pending = 0;
+const bossLive = [0, 0, 0, 0, 0];
 const mHP = () => 2 + he, mMN = () => 3 + sp * 2;
 const DIE = () => [0, 4, 6, 8, 10, 12][Math.min(ho, 5)];
 const roll = () => 1 + (Math.random() * DIE() | 0);
@@ -104,9 +110,31 @@ const STATS = [
   ['HEART', '♥ +1 max · stronger heal', () => { he++; hp++; }],
   ['SPARK', '✦ +2 max mana', () => { sp++; mn += 2; }],
 ];
+const SCOL = ['#ffd75e', '#6bc5ff', '#ff5d6c', '#e08ae0'];
+// skills enter the level-up pool once their shard is HELD — learning is a choice (RPG law)
+const SKILLS = {
+  1: ['DBL JUMP', 'jump again in air', '#6bc5ff'],
+  2: ['R. HEAL', 'hold S · mend 1♥', '#9fe8a0'],
+  4: ['R. SHOT', 'press L · ✦3 bolt', '#e08ae0'],
+  8: ['AIR DASH', 'Shift · burst fwd', '#ffd75e'],
+};
+const LEARN = {
+  1: 'DOUBLE JUMP. You remember the sky.',
+  2: 'RAINBOW HEAL. Hold S, stand still, mend. Mercy costs mana — swing that horn to earn it.',
+  4: 'RAINBOW SHOT. Press L. Gloom crystal shatters before it.',
+  8: 'AIR DASH. The space between platforms was always a suggestion.',
+};
+const choices = () => {
+  const list = [];
+  for (const bit of [1, 2, 4, 8]) if ((sh & bit) && !(abil & bit)) list.push({ k: bit, n: SKILLS[bit][0], d: SKILLS[bit][1], col: SKILLS[bit][2] });
+  STATS.forEach((s, i) => list.push({ i, n: s[0], d: s[1], col: SCOL[i] }));
+  return list.slice(0, 6);
+};
 const pick = (n) => {
-  STATS[n][2](); lvl++; pending--;
-  fly(pl.x, pl.y - 14, STATS[n][0] + ' UP!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
+  const c = choices()[n]; if (!c) return;
+  if (c.k) { abil |= c.k; say(LEARN[c.k]); } else STATS[c.i][2]();
+  lvl++; pending--;
+  fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
   if (!pending) { choosing = 0; save(); }
   if (lvl === 3) say('Choosing who you become. That is the whole game, little horse.');
 };
@@ -114,7 +142,7 @@ const pick = (n) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 3, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn,
+    v: 3, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
     t: [ho, hf, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
   });
 };
@@ -124,6 +152,7 @@ const load = () => {
     if (!d || d.v !== 3) return;                                // world changed — old saves start fresh
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n || 5;
+    sh = d.q || abil; bossDead = d.g || sh;                     // older v3 saves: treat learned skills as held shards + dead bosses
     if (d.t) [ho, hf, he, sp] = d.t;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     d.b.forEach((v, i) => { regions[i].t = v; regions[i].b = v; });
@@ -149,9 +178,25 @@ const motes = seeds.motes.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Mat
 const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
 const PAT = [0b01110, 0b11111, 0b11011, 0b11111];
 const foes = seeds.foes.map(([x, y, k]) => ({ x: x * T, y: y * T, vx: (18 + 26 / k) * (Math.random() < .5 ? 1 : -1), k, hp: k, fl: 0, t: Math.random() * 7 }));
+const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
 const shots = [], flies = [], parts = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
+
+const BOSS_INTRO = [
+  "A guardian rises. The meadow's doubt has a body. ROLL INITIATIVE.",
+  'The roots kept their worst below. Guardian of the caves!',
+  'The canopy shakes — this one has watched you climb.',
+  'The summit wind carries a giant. Peak guardian!',
+  'The Heart itself stands up. Everything gray began here.',
+];
+const BOSS_DEAD = [
+  'Guardian down. The shard is loose — take it.',
+  'It folds. The caves exhale. Claim it.',
+  'Timber. Take your prize, little horse.',
+  'The peak is yours.',
+  'The doubt... surrenders.',
+];
 
 // damage a foe with a visible die roll; returns true if it died
 const strike = (f, r, mult, gen) => {
@@ -163,6 +208,11 @@ const strike = (f, r, mult, gen) => {
   if (f.hp <= 0) {
     foes.splice(foes.indexOf(f), 1);
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 3 + (crit ? 4 : 0), f.x, f.y - 16);
+    if (f.bit) {                                                // GUARDIAN falls — shard unlocks
+      bossDead |= f.bit; bossLive[f.bi] = 0;
+      gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
+      say(BOSS_DEAD[f.bi]); save();
+    }
     if (!earned[2]) { earned[2] = 1; say('First gloom, popped. That is how doubt dies: under hooves.'); }
     return 1;
   }
@@ -174,7 +224,7 @@ function swing() {                                              // melee: horn s
   atkCd = .28; swT = .14; seenM = 1; sfx(340, 90, .07, 'square', .1);
   const hx = pl.x + (pl.face > 0 ? PW : -16), hy = pl.y - 2;
   for (const f of [...foes]) {
-    const fs = 6 + 4 * f.k;
+    const fs = fsz(f);
     if (f.x + fs > hx && f.x < hx + 16 && f.y + fs > hy && f.y < hy + PH + 4) strike(f, roll(), 1, 1);
   }
 }
@@ -283,16 +333,29 @@ const step = (dt) => {
     if (Math.hypot(pl.x + PW / 2 - s.x, pl.y + PH / 2 - s.y) < 13) { s.got = 1; spk++; mn = Math.min(mMN(), mn + 1); sfx(880, 1500, .07, 'triangle', .09); burst(s.x, s.y, 5, '#fe9'); }
   }
 
-  // -- shards --
+  // -- guardians: each shard is boss-gated --
+  seeds.bosses.forEach(([bx, by], i) => {
+    const bit = seeds.shards[i][2];
+    if ((bossDead & bit) || bossLive[i]) return;
+    if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
+      bossLive[i] = 1;
+      foes.push({ x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, hp: 8 + 3 * i, mx: 8 + 3 * i, bi: i, bit, cz: 4, fl: 0, t: 0, hop: 1 });
+      say(BOSS_INTRO[i]); sfx(110, 55, .5, 'sawtooth', .18);
+    }
+  });
+
+  // -- shards: locked (ghost) until the guardian falls; pickup = a level moment --
   for (const [sx, sy, bit] of seeds.shards) {
-    if (abil & bit) continue;
+    if ((sh & bit) || !(bossDead & bit)) continue;
     if (Math.hypot(pl.x - sx * T, pl.y - sy * T) < 16) {
-      abil |= bit; earned[1] = 1; S_SHARD(); burst(sx * T, sy * T, 30, '#fff');
-      if (bit === 1) { regions[1].t = 1; say('The meadow remembers its color. And you remember the sky. DOUBLE JUMP.'); }
-      if (bit === 2) { regions[2].t = 1; say('RAINBOW HEAL. Hold S, stand still, mend. Mercy costs mana — swing that horn to earn it.'); }
-      if (bit === 4) { regions[5].t = 1; regions[6].t = 1; say('RAINBOW SHOT. Press L. Gloom crystal shatters before it — the summit is open.'); }
-      if (bit === 8) { regions[4].t = 1; say('AIR DASH. The space between platforms was always a suggestion.'); }
-      if (bit === 16) { regions.forEach(r => r.t = 1); earned[12] = 1; say('The heart of the doubt, gone soft and bright. The diorama breathes. ...To be continued.'); }
+      sh |= bit; earned[1] = 1; S_SHARD(); burst(sx * T, sy * T, 30, '#fff');
+      if (bit === 1) regions[1].t = 1;
+      if (bit === 2) regions[2].t = 1;
+      if (bit === 4) { regions[5].t = 1; regions[6].t = 1; }
+      if (bit === 8) regions[4].t = 1;
+      if (bit === 16) { abil |= 16; regions.forEach(r => r.t = 1); earned[12] = 1; say('The heart of the doubt, gone soft and bright. The diorama breathes. ...To be continued.'); }
+      else say('The shard is yours — the world remembers. Its gift waits at your LEVEL UP.');
+      pending++; choosing = 1; S_NAT();                         // the RPG moment, guaranteed
       save();
     }
   }
@@ -314,7 +377,7 @@ const step = (dt) => {
       s.t = 0; sfx(900, 200, .2, 'square', .15);
     } else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
     for (const f of foes) {
-      const fs = 6 + 4 * f.k;
+      const fs = fsz(f);
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, roll(), 1, 0); break; }
     }
   }
@@ -323,13 +386,21 @@ const step = (dt) => {
   // -- foes --
   for (const f of [...foes]) {
     f.t += dt; f.fl -= dt;
+    const fs = fsz(f);
+    if (f.bit) {                                                // GUARDIAN AI: chase + hop, leashed to its arena
+      if (Math.hypot(pl.x - f.x, pl.y - f.y) > 220) { foes.splice(foes.indexOf(f), 1); bossLive[f.bi] = 0; continue; }
+      f.hop -= dt;
+      f.vx = Math.sign(pl.x + PW / 2 - f.x - fs / 2) * (28 + f.bi * 5);
+      if (f.gr && f.hop <= 0) { f.vy = -240; f.hop = 2.4; f.gr = 0; }
+    }
     f.vy = (f.vy || 0) + 900 * dt; f.y += f.vy * dt;
-    const fs = 6 + 4 * f.k, ty = (f.y + fs) / T | 0;
+    const ty = (f.y + fs) / T | 0;
     const tv = tile((f.x + fs / 2) / T | 0, ty);
-    if (f.vy > 0 && (tv === 1 || tv === 2)) { f.y = ty * T - fs; f.vy = 0; }
+    if (f.vy > 0 && (tv === 1 || tv === 2 || tv === 4)) { f.y = ty * T - fs; f.vy = 0; f.gr = 1; }
     f.x += f.vx * dt;
     const ahead = f.x + fs / 2 + Math.sign(f.vx) * fs * .7;
-    if (solid(ahead, f.y + fs / 2) || tile(ahead / T | 0, (f.y + fs + 6) / T | 0) === 0) f.vx *= -1;
+    const blockedAhead = solid(ahead, f.y + fs / 2) || tile(ahead / T | 0, (f.y + fs + 6) / T | 0) === 0;
+    if (blockedAhead) { if (f.bit) f.vx = 0; else f.vx *= -1; } // bosses hold their ground at edges — never lost off-arena
     if (pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y) {
       if (pl.vy > 40 && pl.y + PH - f.y < 10) {                 // stomp (free, mobility)
         strike(f, roll(), 1, 0);
@@ -440,7 +511,7 @@ const draw = () => {
     ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 8); ctx.lineTo(-6, 0); ctx.fill();
     ctx.restore(); ctx.globalAlpha = 1;
   };
-  for (const [sx, sy, bit] of seeds.shards) if (!(abil & bit)) gem(sx, sy, .9, 0);
+  for (const [sx, sy, bit] of seeds.shards) if (!(sh & bit)) gem(sx, sy, (bossDead & bit) ? .95 : .3, !(bossDead & bit));
 
   for (const sk of sparks) {
     if (sk.got) continue;
@@ -449,10 +520,15 @@ const draw = () => {
     ctx.fillRect(sk.x - 1, sk.y - 4 + b, 2, 8); ctx.fillRect(sk.x - 4, sk.y - 1 + b, 8, 2);
   }
   for (const f of foes) {
-    const cell = 1 + f.k, wob = Math.sin(f.t * 6) * 1.5;
+    const cell = f.cz || 1 + f.k, wob = Math.sin(f.t * 6) * 1.5;
     ctx.fillStyle = f.fl > 0 ? '#fff' : FOECOL[f.k];
     for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++)
       if (PAT[r] >> (4 - c) & 1) ctx.fillRect(f.x + c * cell, f.y + r * cell + wob, cell, cell);
+    if (f.bit) {                                                // guardian HP bar
+      const fs = fsz(f);
+      ctx.fillStyle = '#2a2a33'; ctx.fillRect(f.x, f.y - 8, fs, 3);
+      ctx.fillStyle = '#e05555'; ctx.fillRect(f.x, f.y - 8, fs * f.hp / f.mx, 3);
+    }
   }
   for (const s of shots) { ctx.fillStyle = `hsl(${(time * 500) % 360} 85% 65%)`; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }
 
@@ -503,12 +579,13 @@ const draw = () => {
   ctx.fillStyle = '#2a2a33'; ctx.fillRect(70, 48, 40, 5);
   ctx.fillStyle = '#6bc56b'; ctx.fillRect(70, 48, 40 * Math.min(1, xp / need()), 5);
   ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
-  ctx.fillText(!(abil & 1) ? '✧ Find the First Shard — east, through the gloom ➜'
-    : !(abil & 2) ? '✧ Something glows beneath the meadow — find the way down'
-      : !(abil & 4) ? '✧ West and UP — the cliffs, then the treetops'
-        : !(abil & 8) ? '✧ Shoot the gloom crystal — the summit is past it'
-          : !(abil & 16) ? '✧ A shaft west of home leads down. End the doubt.'
-            : '🌈 The diorama breathes — you have every shard', VW / 2, 14);
+  ctx.fillText((sh & ~abil & 15) ? '⬆ A shard gift waits — take it at your next LEVEL UP'
+    : !(abil & 1) ? '✧ East, through the gloom — a guardian holds the First Shard ➜'
+      : !(abil & 2) ? '✧ Something glows beneath the meadow — find the way down'
+        : !(abil & 4) ? '✧ West and UP — the cliffs, then the treetops'
+          : !(abil & 8) ? '✧ Shoot the gloom crystal — the summit is past it'
+            : !(abil & 16) ? '✧ A shaft west of home leads down. End the doubt.'
+              : '🌈 The diorama breathes — you have every shard', VW / 2, 14);
   if (dmT > 0) {
     ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
     ctx.fillRect(VW / 2 - 190, VH - 60, 380, 24);
@@ -533,16 +610,17 @@ const draw = () => {
     ctx.fillStyle = 'rgba(8,6,12,.8)'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 14px monospace';
     ctx.fillText('LEVEL ' + (lvl + 1) + ' — choose your growth', VW / 2, 80);
-    const NAMES = ['HORN', 'HOOF', 'HEART', 'SPARK'], COLS = ['#ffd75e', '#6bc5ff', '#ff5d6c', '#e08ae0'];
-    STATS.forEach((s, i) => {
-      const bx = VW / 2 - 172 + i * 88;
-      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(bx, 100, 80, 92);
-      ctx.fillStyle = COLS[i]; ctx.font = 'bold 11px monospace'; ctx.fillText((i + 1) + ' ' + NAMES[i], bx + 40, 122);
+    const list = choices(), pitch = 82, sx0 = VW / 2 - (list.length * pitch - 6) / 2;
+    list.forEach((c, i) => {
+      const bx = sx0 + i * pitch;
+      ctx.fillStyle = c.k ? 'rgba(255,215,94,.16)' : 'rgba(255,255,255,.08)';   // new skills glow
+      ctx.fillRect(bx, 100, 76, 92);
+      if (c.k) { ctx.fillStyle = '#ffd75e'; ctx.font = '8px monospace'; ctx.fillText('NEW SKILL', bx + 38, 111); }
+      ctx.fillStyle = c.col; ctx.font = 'bold 10px monospace'; ctx.fillText((i + 1) + ' ' + c.n, bx + 38, 126);
       ctx.fillStyle = '#ccc'; ctx.font = '8px monospace';
-      const words = s[1].split(' ');
-      words.forEach((w, k) => ctx.fillText(w, bx + 40, 140 + k * 11));
+      c.d.split(' ').forEach((w, k) => ctx.fillText(w, bx + 38, 140 + k * 10));
     });
-    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.fillText('press 1–4 or tap', VW / 2, 214);
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.fillText('press 1–' + list.length + ' or tap', VW / 2, 214);
   }
 
   // title
@@ -560,6 +638,8 @@ const draw = () => {
 
 // ---------- loop ----------
 load();
+cam.x = Math.max(0, Math.min(W * T - VW, pl.x - VW / 2));      // camera starts ON the player (was: panned in from world origin)
+cam.y = Math.max(0, Math.min(H * T - VH, pl.y - VH / 2 + 30));
 say('Ah. The last painted mini wakes. Shall we finish the campaign, little horse?');
 const loop = () => {
   const now = performance.now(), dt = Math.min(.033, (now - last) / 1000); last = now;
