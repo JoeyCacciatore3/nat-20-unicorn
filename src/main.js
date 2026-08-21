@@ -193,7 +193,7 @@ const buy = (i) => {
 const save = () => {
   localStorage.n20_save = JSON.stringify({
     v: 4, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
-    p: pk, w: shopB, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
+    p: pk, w: shopB, r: loreRead, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
   });
 };
 const load = () => {
@@ -204,6 +204,7 @@ const load = () => {
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n || 5;
     sh = d.q || abil; bossDead = d.g || sh;
     pk = d.p || 0; shopB = d.w || 0;
+    if (d.r) d.r.forEach((v, i) => loreRead[i] = v);
     edg = ((shopB >> 0) & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
     if (d.t) [ho, he, sp] = d.t;
@@ -267,6 +268,7 @@ const strike = (f, r, gen, viaStomp) => {
     if (viaStomp && (pk & 128)) mn = Math.min(mMN(), mn + 2);   // STOMP SPARK
     if (f.bit) {                                                // GUARDIAN falls — shard unlocks
       bossDead |= f.bit; bossLive[f.bi] = 0;
+      if (hp === f.h0) earned[4] = 1;                           // UNTOUCHABLE — flawless guardian kill
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
       say(BOSS_DEAD[f.bi]); save();
     }
@@ -402,7 +404,7 @@ const step = (dt) => {
     if ((bossDead & bit) || bossLive[i]) return;
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       bossLive[i] = 1;
-      foes.push({ x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, hp: 24 + 10 * i, mx: 24 + 10 * i, bi: i, bit, cz: 4, fl: 0, t: 0, hop: 1 });
+      foes.push({ x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, hp: 24 + 10 * i, mx: 24 + 10 * i, bi: i, bit, cz: 4, fl: 0, t: 0, hop: 1, h0: hp });
       say(BOSS_INTRO[i]); sfx(110, 55, .5, 'sawtooth', .18);
     }
   });
@@ -479,6 +481,7 @@ const step = (dt) => {
     nearFire = 1;
     if (keys.has('KeyE')) {
       keys.delete('KeyE');
+      if (hp === mHP()) earned[8] = 1;                          // WELL_RESTED — rest without needing it
       hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
       burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
       say('Rest. Saved. The fire keeps what you earned.');
@@ -492,6 +495,14 @@ const step = (dt) => {
       if (!loreRead[i]) { loreRead[i] = 1; gainXp(6, pl.x, pl.y - 12); }
     }
   });
+
+  // -- achievement watchers (all 13 Wavedash slots now live) --
+  if (spk >= 30) earned[9] = 1;                                 // HOARDER
+  if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
+  if (shopB === 31) earned[11] = 1;                             // ARCHITECT — the hearth fully built
+  if (loreRead[0] && loreRead[1]) earned[7] = 1;                // SILVER_TONGUE — every stone read
+  if (regionAt(pl.x + PW / 2, pl.y + 7) === regions[4]) earned[6] = 1; // SUMMIT
+  if (regions.slice(1, 7).reduce((a, r) => a + r.t, 0) >= 2) earned[5] = 1; // GREEN_HOOVES — 2 zones rebloomed
 
   // fx
   for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
