@@ -28,16 +28,17 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
-const jumpHeld = () => J_KEYS.some(k => keys.has(k));
+const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('TBtnJ'); // button jump gets full hold-height too
 const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('TBtnH');
 
 // ---------- touch overlay (auto-shown; fixed dpad left, verb cluster right) ----------
 const btns = () => {
   const b = [
-    { x: 34, y: VH - 32, r: 26, l: '◀', h: 'A', c: 'TBtnL' }, { x: 92, y: VH - 32, r: 26, l: '▶', h: 'D', c: 'TBtnR' },
     { x: VW - 36, y: VH - 34, r: 28, l: '▲', h: 'SPACE', c: 'TBtnJ' },  // JUMP — biggest, thumb rest
     { x: VW - 94, y: VH - 28, r: 22, l: '⚔', h: 'J', c: 'TBtnM' },      // melee
   ];
+  if (touch) b.unshift(                                                 // dpad is touch-only — keyboard moves on desktop
+    { x: 34, y: VH - 32, r: 26, l: '◀', h: '', c: 'TBtnL' }, { x: 92, y: VH - 32, r: 26, l: '▶', h: '', c: 'TBtnR' });
   if (abil & 4) b.push({ x: VW - 86, y: VH - 74, r: 19, l: '✦', h: 'L', c: 'TBtnS' });
   if (abil & 2) b.push({ x: VW - 34, y: VH - 86, r: 17, l: '＋', h: 'S', c: 'TBtnH' });
   if (abil & 8) b.push({ x: VW - 138, y: VH - 62, r: 19, l: '»', h: 'SHIFT', c: 'TBtnD' });
