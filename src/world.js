@@ -39,7 +39,7 @@ const MAP = [
 [205, 56, 4, 1, 2], [212, 54, 4, 1, 2], [220, 57, 6, 1, 2],
 [240, 56, 4, 1, 2], [247, 54, 4, 1, 2],
 [210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route (motes)
-[262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4], // shard tower
+[262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4], // stepped tower
 [274, 58, 3, 1, 2],                    // rung behind the tower (audit: stuck corner)
 
 // ---- ROOT CAVES (x150-256, carved) ----
@@ -68,7 +68,7 @@ const MAP = [
 // ---- TREETOPS (x40-118): L3-compliant zig-zag, rises 3 / gaps <=5 ----
 [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
 [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
-[52, 26, 8, 2],                        // shot-shard ledge + summit campfire
+[52, 26, 8, 2],                        // summit ledge + campfire
 // descent-only mote detour (fall east off the climb; always exits to the surface)
 [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
 
@@ -109,7 +109,7 @@ export const seeds = {
     [186, 68.3],    // 1 — Root Caves W tall room
     [252, 67.3],    // 2 — Root Caves E loop
     [83, 50.3],     // 3 — West Cliffs terrace
-    [56, 25.3],     // 4 — Treetops crest (SHOT-gated shard nearby)
+    [56, 25.3],     // 4 — Treetops crest (SHOT-gated area)
     [12, 11.3],     // 5 — Summit peak (post-DASH)
   ],
   foes: [

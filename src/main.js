@@ -482,9 +482,10 @@ const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites 
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
-// ITEM DROPS — physical pickups from kills/chests. Replaces the removed spark currency.
-// Types: 0 heart (+3 HP), 1 mana crystal (+2 ✦), 2 XP gem (+lvl XP), 3 rainbow (full heal, rare).
-// LUCK adds +1 drop per pip — making it one of the best stats in the game.
+// ITEM DROPS — physical pickups from kills/chests.
+// Types: 0 heart (+3 HP), 1 mana (+2 MP), 2 XP gem, 3 rainbow (3% rare full heal).
+// Type 4 = GOLDEN RAINBOW SHARD (boss first-kill ONLY — game objective, 5 total).
+// LUCK adds +1 drop per pip.
 
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
 const spr = (d, x, y, w, c) => { ctx.fillStyle = c; for (let r = 0; r < d.length; r++) for (let b = w; b--;) d[r] >> b & 1 && ctx.fillRect(x + w - 1 - b, y + r, 1, 1); };
@@ -502,7 +503,7 @@ const I_BT = [0b01100, 0b01110, 0b11111, 0b11110, 0b01100]; // boot (FINESSE)
 const sprC = (s, x, y, w, p) => { for (let i = 0; i < s.length; i++) { const c = +s[i]; if (c) { ctx.fillStyle = p[c]; ctx.fillRect(x + i % w, y + (i / w | 0), 1, 1); } } };
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
-    const r = Math.random(), t = r < .03 ? 3 : r < .33 ? 0 : r < .58 ? 1 : 2;
+    const r = Math.random(), t = r < .03 ? 3 : r < .35 ? 0 : r < .63 ? 1 : 2; // 3% rainbow, 32% heart, 28% mana, 37% XP
     drops.push({ x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t, life: 6 });
   }
 };
@@ -826,8 +827,9 @@ sfx(110, 55, .5, 'sawtooth', .18);
       if (d.t === 0) { hp = Math.min(mHP(), hp + 3); fly(d.x, d.y, '+3 HP', '#ff5d6c'); }
       else if (d.t === 1) { mn = Math.min(mMN(), mn + 2); fly(d.x, d.y, '+2 MP', '#c9a6f7'); }
       else if (d.t === 2) gainXp(2 + lvl, d.x, d.y);
-      else if (d.t === 4) { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'RAINBOW SHARD!', '#ffd75e', 1); }
-      else { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'HEAL!', '#ffd75e', 1); }
+      else if (d.t === 3) { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'FULL HEAL!', '#ffd75e', 1); burst(d.x, d.y, 12, '#ffd75e'); }
+      else if (d.t === 4) { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'RAINBOW SHARD!', '#ffd75e', 1); burst(d.x, d.y, 20, '#ffd75e'); sfx(523, 523, .14, 'triangle', .15); sfx(784, 1568, .3, 'triangle', .15, .24); }
+      else { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'RAINBOW SHARD!', '#ffd75e', 1); } // type 4 — boss only
       sfx(520, 1040, .06, 'triangle', .08);
     }
   }
@@ -1089,9 +1091,9 @@ const draw = () => {
     if (d.t === 0) spr(I_HP, dx, ddy, 6, '#ff5d6c');
     else if (d.t === 1) { spr(I_MP, dx, ddy, 6, '#c9a6f7'); ctx.fillStyle = '#a72'; ctx.fillRect(dx + 2, ddy, 2, 1); }
     else if (d.t === 2) { spr(I_XP, dx, ddy, 6, '#9fe89a'); ctx.fillStyle = '#d4a24e'; ctx.fillRect(dx + 2, ddy + 4, 2, 2); }
-    else if (d.t === 4) { // GOLDEN RAINBOW SHARD — bigger, golden glow
-      for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(d.x, d.y + 5 + dy, 3 + i, Math.PI, 0); ctx.stroke(); }
-    } else for (let i = 4; i--;) { ctx.beginPath(); ctx.strokeStyle = ['#f44','#f80','#0f0','#44f'][i]; ctx.lineWidth = 1; ctx.arc(d.x, d.y + 4 + dy, 2 + i, Math.PI, 0); ctx.stroke(); }
+    else if (d.t === 3) for (let i = 4; i--;) { ctx.beginPath(); ctx.strokeStyle = ['#f44','#f80','#0f0','#44f'][i]; ctx.lineWidth = 1; ctx.arc(dx + 3, ddy + 4 + dy, 2 + i, Math.PI, 0); ctx.stroke(); }
+    else if (d.t === 4) for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(dx + 3, ddy + 4 + dy, 3 + i, Math.PI, 0); ctx.stroke(); }
+    else for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(d.x, d.y + 5 + dy, 3 + i, Math.PI, 0); ctx.stroke(); } // rainbow shard (boss only)
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
   ctx.globalAlpha = 1;
