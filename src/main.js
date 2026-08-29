@@ -210,7 +210,7 @@ const createKey = (e) => {
   else if (cRow === 0 && ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
   else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 1) bod = (bod + 4) % 5; else if (cRow === 2) man = (man + 4) % 5; else if (cRow === 3) hrn = (hrn + 4) % 5; }
   else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 1) bod = (bod + 1) % 5; else if (cRow === 2) man = (man + 1) % 5; else if (cRow === 3) hrn = (hrn + 1) % 5; }
-  else if (e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); }
+  else if ((e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) && ent.length > 0) { pName = ent; phase = 2; started = 1; save(); opener(); }
 };
 const titleKey = (e) => {
   const opts = hasSave() ? 2 : 1;
@@ -284,7 +284,13 @@ addEventListener('pointerdown', (e) => {
   // TITLE: tap top half = New Game (skips name — touch users can't type), bottom = Continue
   if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; opener(); } else { phase = 2; started = 1; save(); opener(); } return; }
   // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
-  if (phase === 1) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); return; }  // touch tap during create = accept
+  // CHARACTER CREATE: tap the BEGIN NEW GAME button (bottom-center) to start. Name required.
+  if (phase === 1) {
+    if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= VH - 42 && vy <= VH - 16 && ent.length > 0) {
+      pName = ent; phase = 2; started = 1; save(); opener();
+    }
+    return;
+  }
   // PAUSE overlay — top-right corner icon opens it (48px tap zone); tap anywhere to close
   if (paused) { paused = 0; return; }
   if (started && !choosing && !shopping && !dialog && vx > VW - 40 && vy < 40) { paused = 1; return; }
@@ -377,11 +383,12 @@ const portraitPanel = (title, isCreate) => {
   ctx.save(); ctx.translate(85, 92); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(Math.sin(time * 1.4) * .8);
   ctx.restore();
-  // Name (bold) + class subtitle inside the box
-  ctx.textAlign = 'center';
-  const nm = isCreate ? (ent + (cRow === 0 && Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : ' ')) : pName;
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; T2(nm || 'HORSE', 85, 124);
-  if (!isCreate && cls) { ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace'; T2('the ' + CLASS_TITLE[cls], 85, 136); }
+  // Name (bold) + class subtitle inside the box — only in PAUSE (creation has its own NAME row)
+  if (!isCreate) {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; T2(pName, 85, 124);
+    if (cls) { ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace'; T2('the ' + CLASS_TITLE[cls], 85, 136); }
+  }
 };
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
 // scale sets pixel scale. All colors come from current bod/man/hrn palette picks.
@@ -1337,8 +1344,16 @@ const draw = () => {
       // color swatch on right for color rows
       if (i > 0) { ctx.fillStyle = col; ctx.fillRect(340, y - 8, 10, 10); }
     });
-    ctx.fillStyle = '#666'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('↑↓ row · A–Z name · ←→ color · ENTER begin', VW / 2, VH - 8);
+    // BEGIN NEW GAME button — bottom-center, clickable (tap area matches BEGIN_BTN below)
+    const canBegin = ent.length > 0;
+    const bx = VW / 2 - 70, by = VH - 42;
+    ctx.strokeStyle = canBegin ? '#ffd75e' : '#3a3a44'; ctx.lineWidth = 1;
+    ctx.fillStyle = canBegin ? 'rgba(255,215,94,.14)' : 'rgba(255,255,255,.03)';
+    ctx.fillRect(bx, by, 140, 26); ctx.strokeRect(bx, by, 140, 26);
+    ctx.fillStyle = canBegin ? '#ffd75e' : '#666'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+    T2('▶ BEGIN NEW GAME', VW / 2, by + 17);
+    ctx.fillStyle = '#666'; ctx.font = '7px monospace';
+    ctx.fillText('↑↓ row · A–Z name · ←→ color · ENTER or tap BEGIN', VW / 2, VH - 6);
   }
   ctx.restore();
 };
