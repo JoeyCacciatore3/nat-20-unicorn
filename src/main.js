@@ -322,7 +322,7 @@ const drawU = (bob) => {
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
 };
 let hp = 10, xp = 0, lvl = 1;
-let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
+let abil = 0, bossDead = 0;                        // abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash
 let mn = 5, choosing = 0, pending = 0;
 const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +2 max HP); post-cap XP ignored
 // Skills are ALL player-chosen via the 3-branch tree — no auto-learn milestones
@@ -372,7 +372,7 @@ const TREE = [
 ];
 const BCOL = ['#ffd75e','#9fe8a0','#6bc5ff'], BNAME = ['FURY','VIGOR','FINESSE'];
 let spts = 0; const su = Array(19).fill(0);
-const abilSync = () => { abil = (su[13]?1:0)|(su[7]?2:0)|(su[1]?4:0)|(su[15]?8:0)|(abil&16); };
+const abilSync = () => { abil = (su[13]?1:0)|(su[7]?2:0)|(su[1]?4:0)|(su[15]?8:0); };
 let regT = 0;
 let aRow = 0;
 const picks = () => STATS.map((s, i) => ({ i, n: s[0], col: s[2] }));
@@ -386,20 +386,20 @@ const allocate = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 18, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, q: sh, g: bossDead,
+    v: 19, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bossDead,
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
-    m: pName, f: seenT, o: oc,
+    m: pName, o: oc,
     u: [bod, man, hrn, hof],                                       // v13 — 4-slot palette (added hooves)
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 18) return;                               // v18 — perks folded into skill tree.
+    if (!d || d.v !== 19) return;                               // v19 — shards merged into boss kills.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
-    sh = d.q; bossDead = d.g; pName = d.m; oc = d.o;
-    seenT = d.f & 1;                                                 // v15+: f is just seenT (0/1); old bitmask bits ignored
+    bossDead = d.g; pName = d.m; oc = d.o;
+    // seenT removed — earned[7] carries the SILVER_TONGUE flag directly
     [ho, he, sp, df, lk] = d.t;
     [bod, man, hrn, hof] = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
@@ -412,7 +412,7 @@ const load = () => {
 const PW = 10, PH = 14;
 const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
-let atkCd = 0, swT = 0, chT = 0, nearFire = 0, seenT = 0;
+let atkCd = 0, swT = 0, chT = 0, nearFire = 0;
 let paused = 0;                                   // pause overlay open — freezes sim, character sheet renders
 // hearth dialog: 0 = closed, 1 = TALK, 2 = REST.
 // JUMP button is the universal interact/confirm; MELEE button is back. No separate dialogue buttons.
@@ -420,7 +420,7 @@ let paused = 0;                                   // pause overlay open — free
 let dialog = 0;
 const dialogDo = () => {
   if (dialog === 1) {                             // TALK — first talk grants +10 XP boon
-    if (!seenT) { seenT = 1; gainXp(10, pl.x, pl.y - 14); fly(pl.x, pl.y - 16, '+10 XP · WELCOME', '#9fe89a', 1); save(); }
+    if (!earned[7]) { earned[7] = 1; gainXp(10, pl.x, pl.y - 14); fly(pl.x, pl.y - 16, '+10 XP · WELCOME', '#9fe89a', 1); save(); }
     else fly(pl.x, pl.y - 16, 'the sage nods', '#c9a6f7', 1);
   } else {                                        // REST + save
     const [fx, fy] = seeds.fires[0];
@@ -456,9 +456,9 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 // FULL progression reset — NEW GAME must NOT inherit a boot-loaded save's state
 // (boot load() fills globals; without this, "new" characters kept old lvl/stats/bosses)
 const fresh = () => {
-  hp = 10; xp = 0; lvl = 1; sh = 0; abil = 0; bossDead = 0; mn = 5;
+  hp = 10; xp = 0; lvl = 1; abil = 0; bossDead = 0; mn = 5;
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
-  seenT = 0; oc = 0; pName = 'HORSE'; earned.fill(0); bossLive.fill(0);
+  oc = 0; pName = 'HORSE'; earned.fill(0); bossLive.fill(0);
   spts = 0; su.fill(0); regT = 0; abilSync();
   cp = [126 * T, 57 * T]; lastSafe = [126 * T, 57 * T]; pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0;
 };
@@ -529,13 +529,15 @@ const strike = (f, r, gen, viaStomp) => {
     spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 7 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
-    if (f.bit) {                                                // GUARDIAN falls — shard unlocks
+    if (f.bit) {                                                // GUARDIAN falls — shard reward integrated
       bossDead |= f.bit; bossLive[f.bi] = 0;
-      // clean up the boss's summoned minions/twins tagged with the same bit
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
-      if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE — no damage during the fight (not healed-over)
-      gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
-save();
+      if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE
+      earned[1] = 1;                                            // CRYSTAL CLEAR (was shard pickup)
+      if (bossDead === 31) earned[12] = 1;                      // ALL 5 guardians slain
+      pending++; choosing = 1; aRow = 0;                        // +1 bonus stat point (was shard reward)
+      S_SHARD(); gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
+      save();
     }
     earned[2] = 1;                                                  // GLOOMBUSTER — first kill
     return 1;
@@ -610,7 +612,7 @@ const step = (dt) => {
   const onPlat = pl.ground && tile((pl.x + PW / 2) / T | 0, (pl.y + PH + 1) / T | 0) === 2;
   if (onPlat && held('ArrowDown', 'KeyS', 'TBtnDn')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
 
-  // -- heal channel: rooted, costs 5, restores 1 (faster with HEART) --
+  // -- heal channel: rooted, costs 5 mana, restores 3+MEND rank HP --
   const canHeal = (abil & 2) && mn >= 5 && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
@@ -683,9 +685,9 @@ const step = (dt) => {
   nearChest = -1;
   for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
-  // -- guardians: each shard is boss-gated --
+  // -- guardians: each guards a region, drops +1 stat pt on kill --
   seeds.bosses.forEach(([bx, by], i) => {
-    const bit = seeds.shards[i][2];
+    const bit = 1 << i;
     // bossLive[i]: 0 = never spawned, 1 = currently on-screen, {hp,ph,spd,rc} = leash-out stash
     if ((bossDead & bit) || bossLive[i] === 1) return;
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
@@ -703,16 +705,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
     }
   });
 
-  // -- shards: locked (ghost) until the guardian falls; pickup = a level moment --
-  for (const [sx, sy, bit] of seeds.shards) {
-    if ((sh & bit) || !(bossDead & bit)) continue;
-    if (Math.hypot(pl.x - sx * T, pl.y - sy * T) < 16) {
-      sh |= bit; earned[1] = 1; S_SHARD(); burst(sx * T, sy * T, 30, '#fff');
-      if (bit === 16) { abil |= 16; earned[12] = 1; }           // HEART shard — endgame flag
-      pending++; choosing = 1; aRow = 0; S_NAT();               // the RPG moment, guaranteed
-      save();
-    }
-  }
+
 
   // -- shots --
   for (const s of shots) {
@@ -805,7 +798,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
   // -- achievement watchers (all 13 Wavedash slots live) --
   if (lvl >= 10) earned[9] = 1;                                  // HOARDER — reach LV10
   if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
-  if (seenT) earned[7] = 1;                                     // SILVER_TONGUE — spoke with the DM at least once
+  // earned[7] = SILVER_TONGUE — set directly in dialogDo() on first talk
   if (regionAt(pl.x + PW / 2, pl.y + 7) === regions[4]) earned[6] = 1; // SUMMIT
   if (hof === 4) earned[5] = 1;                                 // GREEN_HOOVES — MINT hooves picked (repurposed from region-rebloom)
   if (bod && man && hrn && hof) earned[11] = 1;                 // ARCHITECT — all 4 body parts customized off default
@@ -934,14 +927,7 @@ const draw = () => {
     }
   }
 
-  // shards + tease
-  const gem = (gx, gy, a, lock) => {
-    ctx.save(); ctx.translate(gx * T, gy * T + Math.sin(time * 2.4) * 3); ctx.rotate(time * 1.5);
-    ctx.globalAlpha = a; ctx.fillStyle = lock ? '#889' : `hsl(${(time * 40) % 360} 80% 70%)`;
-    ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(6, 0); ctx.lineTo(0, 8); ctx.lineTo(-6, 0); ctx.fill();
-    ctx.restore(); ctx.globalAlpha = 1;
-  };
-  for (const [sx, sy, bit] of seeds.shards) if (!(sh & bit)) gem(sx, sy, (bossDead & bit) ? .95 : .3, !(bossDead & bit));
+
 
   // ARTICULATED ENEMY SPRITES — unicorn-quality (legs step, antennae bob,
   // hoods, glowing rune-eyes, robe folds). One draw fn per tier, boss shares
@@ -1150,7 +1136,7 @@ const draw = () => {
     });
     // Footer
     ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = '#ffd75e'; T2('RAINBOW · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 250);
+    ctx.fillStyle = '#ffd75e'; T2('GUARDIANS · ' + [1, 2, 4, 8, 16].filter(b => bossDead & b).length + ' / 5', VW / 2, 250);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';
     T2(alloc ? '↑↓ pick · → allocate' : 'tap skill to buy · P close', VW / 2, VH - 4);
   }

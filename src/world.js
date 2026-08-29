@@ -110,14 +110,7 @@ export const seeds = {
   // ONE home campfire (Joe): the Paddock hearth is the only rest/save/respawn.
   // The Return Law auditor proves every reachable cell can get back to it.
   fires: [[132.5, 59.5]],
-  shards: [
-    [272.5, 54.3, 1],    // DOUBLE JUMP — meadow tower (base kit)
-    [226, 61.7, 2],      // RAINBOW HEAL — caves alcove, behind the DJ step
-    [54, 24.3, 4],       // RAINBOW SHOT — treetops ledge (DJ)
-    [13, 10.3, 8],       // AIR DASH — summit peak (shot + DJ)
-    [16, 67.5, 16],      // HEART SHARD — gloom heart (dash)
-  ],
-  // boss arenas: index-aligned with shards — the guardian stands here until slain
+  // boss arenas: guardian index → bit is 1<<i (5 bosses, bits 1/2/4/8/16)
   bosses: [[258, 57], [226, 67], [56, 23], [14, 10], [22, 67]],
   // Chests — hand-placed exploration rewards. All drops come from enemies +
   // these 6 chests; no scattered map currency (design pivot v9). Contents

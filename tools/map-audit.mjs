@@ -2,7 +2,7 @@
 // map-audit.mjs — RETURN LAW (L6) enforcer. Simulates conservative player
 // movement over the tile grid at each ability tier and FAILS (exit 1) if any
 // standable cell you can reach cannot get back to a campfire with the same
-// moveset. Also reports which tier first reaches each shard (GATE LAW check).
+// moveset. Also reports which tier first reaches each boss arena (GATE LAW).
 //
 // Movement model (conservative, in tiles):
 //   base:        jump rise <=2, jump/fall drift <=4
@@ -22,8 +22,13 @@ const TIERS = [
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
 const idx = (c, r) => r * W + c;
 
+// Boss arenas (from seeds.bosses) — each at its world-tile coordinate
+const BOSS_POS = seeds.bosses;
+const NAMES = ['MEADOW', 'CAVES', 'TREETOP', 'SUMMIT', 'HEART'];
+const EXPECT = ['base', '+doublejump', '+doublejump', '+shot', '+dash'];
+
 let fail = 0;
-const shardTier = seeds.shards.map(() => null);
+const bossTier = BOSS_POS.map(() => null);
 
 for (const tr of TIERS) {
   const solidV = (v) => v === 1 || (v === 4 && !tr.gloom);
@@ -74,10 +79,10 @@ for (const tr of TIERS) {
   const B = bfs(fireCells.filter(k => F.has(k)), (k) => rev.get(k) || []);
 
   const stuck = [...F].filter(k => !B.has(k));
-  seeds.shards.forEach(([sx, sy], i) => {
-    if (shardTier[i] !== null) return;
-    for (let dc = -1; dc <= 1; dc++) for (let dr = -1; dr <= 2; dr++)
-      if (F.has(idx((sx | 0) + dc, (sy | 0) + dr))) { shardTier[i] = tr.name.trim(); return; }
+  BOSS_POS.forEach(([bx, by], i) => {
+    if (bossTier[i] !== null) return;
+    for (let dc = -2; dc <= 2; dc++) for (let dr = -2; dr <= 2; dr++)
+      if (F.has(idx((bx | 0) + dc, (by | 0) + dr))) { bossTier[i] = tr.name.trim(); return; }
   });
 
   console.log(`tier ${tr.name}  standable in reach: ${F.size}  stuck: ${stuck.length}`);
@@ -87,13 +92,11 @@ for (const tr of TIERS) {
   }
 }
 
-console.log('shard gating (first tier that reaches each):');
-const NAMES = ['DOUBLE JUMP', 'HEAL', 'SHOT', 'DASH', 'HEART'];
-seeds.shards.forEach((s, i) => console.log(`   ${NAMES[i].padEnd(12)} -> ${shardTier[i] || '❌ UNREACHABLE AT ANY TIER'}`));
-const EXPECT = ['base', '+doublejump', '+doublejump', '+shot', '+dash'];
-seeds.shards.forEach((s, i) => {
-  if (!shardTier[i]) { fail = 1; return; }
-  if (shardTier[i] !== EXPECT[i]) console.log(`   ⚠ GATE: ${NAMES[i]} expected ${EXPECT[i]}, got ${shardTier[i]}`);
+console.log('boss gating (first tier that reaches each arena):');
+BOSS_POS.forEach((s, i) => console.log(`   ${NAMES[i].padEnd(12)} -> ${bossTier[i] || '❌ UNREACHABLE AT ANY TIER'}`));
+BOSS_POS.forEach((s, i) => {
+  if (!bossTier[i]) { fail = 1; return; }
+  if (bossTier[i] !== EXPECT[i]) console.log(`   ⚠ GATE: ${NAMES[i]} expected ${EXPECT[i]}, got ${bossTier[i]}`);
 });
 
 if (fail) { console.error('❌ MAP AUDIT FAILED — Return Law violated.'); process.exit(1); }
