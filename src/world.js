@@ -1,4 +1,4 @@
-// world.js — NAT 20 UNICORN v2: the full connected map (Phase 2.1 — audited).
+// world.js — UNI-CORN, the last savior: the full connected map (audited).
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes, 4 gloom crystal (shot breaks).
 //
 // ============================ MAP LAWS (Joe, locked) ============================

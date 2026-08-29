@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// NAT 20 UNICORN build pipeline:
+// UNI-CORN, the last savior — build pipeline:
 // esbuild → terser (full prop-mangle) → roadroller (pinned flags) → inline → zip → ECT → 13,312-byte gate
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, statSync, appendFileSync } from 'node:fs';
@@ -44,7 +44,7 @@ console.log('3/6 pack (roadroller)…');
 // charset stay literal (encoding must be declared before the high-byte payload).
 // -D (dirty decoder) is safe: canvas id is 2 chars (cv), no single-letter DOM globals.
 const SHELL = '<meta name=viewport content="width=device-width,initial-scale=1,user-scalable=no">'
-  + '<title>NAT 20 UNICORN</title>'
+  + '<title>UNI-CORN</title>'
   // viewport-fit=cover extends the canvas edge-to-edge on notched devices;
   // JS reads visualViewport to size correctly and HUD positions include ~8px safe margin
   + '<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">'

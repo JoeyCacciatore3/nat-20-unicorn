@@ -1,24 +1,24 @@
-# NAT 20 UNICORN
+# UNI-CORN
+### the last savior
 
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
 
-A 2D **metroidvania platformer-RPG** on a Dungeon Master's tabletop gone gray.
-Name your unicorn, pick a class, and become the last painted mini. Explore one
-connected map, defeat five shard Guardians to repaint the world, and grow through
-15 levels of D&D-flavored progression — every damage number is a visible die
-roll (`d8+3`, crits are `NAT 20!`), stats and perks are picked at level-up, and
-movement skills unlock as you gain levels, re-opening the world Metroid-style.
+A 2D pixel-art platformer-RPG. Name your unicorn, pick a class, and grow through
+15 levels while exploring one connected map. Every damage number is a visible die
+roll (`d8+3`, crits fire `NAT n!` on natural max), stats and perks are picked at level-up, and
+movement skills — double jump, rainbow heal, rainbow shot, air dash — unlock as
+you gain levels, re-opening the world Metroid-style.
 
 **Categories:** Desktop · Mobile · Wavedash
 
-## Title & character creation
-A proper title screen: procedural unicorn silhouette (rainbow mane + gold horn)
-bobs above a breathing-scale "NAT 20 UNICORN", subtitle "· a D&D metroidvania
-fable ·", the permanent tagline, and a rotating flavor line from the DM pool
-(5s cycle). 22 stardust particles fall behind the title layer; a purple horizon
-glow sits at the bottom. The selected menu item slides +6 px right in addition
-to the ▶ prefix + gold color (two feedback channels). All procedural — zero
-external assets, per js13k rule.
+## Title screen
+Four elements, procedural, zero shipped assets: a **pure black** night sky, a
+field of **22 small stardust stars** falling slowly, a **7-band rainbow arc**
+(ROYGBIV, drawn via `ctx.arc` from π to 0) curving over the scene, and a
+**centered unicorn silhouette** (white body, rainbow mane, gold horn) bobbing
+gently. Below: breathing-scale rainbow-shimmer "UNI-CORN" title, gold italic
+"the last savior" subtitle, menu. The selected menu item slides +6 px right
+in addition to the ▶ prefix + gold color (two feedback channels).
 
 On boot: **NEW GAME** or **CONTINUE** (if a save exists). Name up to 8 letters
 (default `HORSE` if you tap through on mobile). At **LV3** the die grows and you

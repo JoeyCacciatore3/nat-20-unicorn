@@ -1,4 +1,4 @@
-// NAT 20 UNICORN v2 — 2D metroidvania platformer. Canvas 2D, no WebGL.
+// UNI-CORN, the last savior — 2D pixel-art platformer. Canvas 2D, no WebGL.
 //
 // Design spine (locked):
 //   - Dual-convention controls + touch overlay
@@ -53,11 +53,34 @@
 //      falling behind title, purple horizon glow, breathing title scale
 //      (sin *.015 x/y, GMTK juice). Protagonist read: procedural unicorn
 //      silhouette (body + head + gold horn + rainbow mane + eye) bobbing
-//      above title. New subtitle "· a D&D metroidvania fable ·" between
-//      title and tagline. Rotating DM_LINES quote below tagline (5s cycle,
+//      above title. Rotating DM_LINES quote below tagline (5s cycle,
 //      breathing alpha, reuses existing data). Selected menu item slides
 //      +6 px right (2nd feedback channel beside gold color + ▶ prefix).
-//      Layout ys shifted down to make room. Zero new dependencies.
+//  15  Narrative de-framing — stripped overpromise language. "· a D&D
+//      metroidvania fable ·" subtitle removed. Tagline "diorama has gone
+//      gray — paint it back" → "world has gone gray — bring back its color"
+//      (drops the tabletop-diorama meta). "THE DM" NPC label → "THE SAGE";
+//      "WHAT SHALL THE DM CALL YOU?" → "WHAT SHALL THE SAGE CALL YOU?".
+//      DM_LINES scrubbed of "brave d20" / "DM screen" / "boon"; kept the
+//      shards/guardians/doubt world-terms since those are actual game
+//      entities. "Table remembers/approves" → "world remembers/watches".
+//      Class-pick prompt "WHO ARE YOU AT THE TABLE?" → "WHO WILL YOU
+//      BECOME?". Opener "last painted mini" → "last unicorn". Dice
+//      display + class/perk names retained — they ARE the RPG mechanic,
+//      not decorative D&D lore.
+//  16  Rebrand + simplified title — game renamed to "UNI-CORN, the last
+//      savior". Title screen stripped to the four requested elements:
+//      (1) pure black bg (dropped purple horizon glow), (2) small stardust
+//      stars (kept 22 particle field), (3) procedural rainbow arc — 7
+//      ROYGBIV bands curving over the unicorn via ctx.arc(π, 0), (4)
+//      centered protagonist unicorn at 2.4x scale with gentle bob.
+//      Removed: rotating DM_LINES quote (still available for in-game
+//      wizard dialog), double control-hint line (collapsed to one).
+//      Title text "NAT 20 UNICORN" → "UNI-CORN" (bold 30px, breathing).
+//      Tagline "the world has gone gray..." → "the last savior" (gold
+//      italic). Menu ys shifted down for the taller title area.
+//      HTML <title>, README, build-pipeline header, world.js header,
+//      main.js header all updated to the new brand.
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -230,8 +253,8 @@ const dmQ = [];
 const say = (t) => { if (dmT > 0) dmQ.push(t); else { dmTxt = t; dmT = 3.2; } };
 // DM dialogue pool — first-talk grants a small XP boon (+10), later talks rotate lore/encouragement
 const DM_LINES = [
-  'Welcome, little hero. The table remembers a brave d20. Take this — a boon of experience.',
-  'Every roll counts. Even the ones that vanish behind the DM screen.',
+  'Welcome, little hero. The world has been waiting. Take this — a spark to begin.',
+  'Every step matters. Even the ones no one sees.',
   'The shards want to be free. Their guardians want otherwise.',
   'Rest well. Doubt is patient — so are we.',
 ];
@@ -327,13 +350,13 @@ const pick = (n) => {
     if (cls === 1) { pk |= 1; he++; hp++; }       // RAMPART: KEEN HORN + HEART pip
     else if (cls === 2) { pk |= 16; sp++; mn += 2; } // PRISM: SCHOLAR + SPARK pip
     else { pk |= 4; ho++; }                       // ROGUE: REROLL 1s + HORN pip
-    say('You are ' + pName + ' the ' + CLASS_TITLE[cls] + '. The table remembers.');
+    say('You are ' + pName + ' the ' + CLASS_TITLE[cls] + '. The world remembers.');
   } else if (c.k) { abil |= c.k; say(LEARN[c.k]); }
   else if (c.p) pk |= c.p.b;
   else STATS[c.i][3]();
   lvl++; pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
-  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, '🎲 → d' + DIE(), '#fff', 1); say('The die grows. A d' + DIE() + ' now. The table approves.'); }
+  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, '🎲 → d' + DIE(), '#fff', 1); say('The die grows. A d' + DIE() + ' now. The world watches.'); }
   if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); say('APOTHEOSIS. You are the die now, ' + pName + '. The doubt is not enough.'); }
   if (!pending) { choosing = 0; save(); } else openMenu();
 };
@@ -823,7 +846,7 @@ const draw = () => {
     }
   }
 
-  // Hearth: campfire + DUNGEON MASTER wizard NPC (the shopkeeper — dialogue on approach)
+  // Hearth: campfire + SAGE wizard NPC (the shopkeeper — dialogue on approach)
   ctx.font = '9px monospace'; ctx.textAlign = 'center';
   for (const [fx, fy] of seeds.fires) {
     const cxp = fx * T, cyp = fy * T;
@@ -1026,7 +1049,7 @@ const draw = () => {
       ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
       ctx.fillRect(VW / 2 - 190, VH - 108, 380, 24);
       ctx.textAlign = 'center'; ctx.fillStyle = '#e8d9b0'; ctx.font = 'italic 9px monospace';
-      ctx.fillText('DM — ' + dmTxt, VW / 2, VH - 93); ctx.globalAlpha = 1;
+      ctx.fillText('SAGE — ' + dmTxt, VW / 2, VH - 93); ctx.globalAlpha = 1;
     }
     if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
   }
@@ -1037,7 +1060,7 @@ const draw = () => {
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(20,15,30,.95)'; ctx.fillRect(VW / 2 - 70, 44, 140, 60);
     ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 70, 44, 140, 60);
-    ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 9px monospace'; ctx.fillText('THE DM', VW / 2, 54);
+    ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 9px monospace'; ctx.fillText('THE SAGE', VW / 2, 54);
     ctx.font = 'bold 8px monospace';
     for (let i = 0; i < 3; i++) {
       if (dialog === i + 1) { ctx.fillStyle = 'rgba(255,215,94,.18)'; ctx.fillRect(VW / 2 - 60, 58 + i * 14, 120, 12); }
@@ -1110,7 +1133,7 @@ const draw = () => {
     ctx.fillStyle = 'rgba(8,6,12,.8)'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 14px monospace';
     const isClassPick = menu[0] && menu[0].cl;
-    ctx.fillText(isClassPick ? 'LEVEL 3 — WHO ARE YOU AT THE TABLE?' : 'LEVEL ' + (lvl + 1) + ' — choose your growth', VW / 2, 80);
+    ctx.fillText(isClassPick ? 'LEVEL 3 — WHO WILL YOU BECOME?' : 'LEVEL ' + (lvl + 1) + ' — choose your growth', VW / 2, 80);
     const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
     menu.forEach((c, i) => {
       const bx = sx0 + i * pitch;
@@ -1144,70 +1167,69 @@ const draw = () => {
 
   // title + name-entry screens (HUD is gated separately on `started`)
   if (phase < 2) {
-    // -- BASE: deep-purple gradient overlay (was flat black — sells "curtain lifted") --
-    ctx.fillStyle = '#08060c'; ctx.fillRect(0, 0, VW, VH);
-    ctx.fillStyle = 'rgba(74,58,124,.15)'; ctx.fillRect(0, VH * .55, VW, VH * .45);   // purple horizon glow
+    // -- Pure BLACK background (per brand: night sky over the unicorn) --
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, VH);
 
-    // -- STARDUST layer (procedural falling motes) — atmospheric depth --
+    // -- Little STARS layer (procedural falling motes, unchanged behavior) --
     for (const p of stars) {
       const y = (p.y + time * p.v) % (VH + 4);
       ctx.fillStyle = 'rgba(220,225,255,' + p.a + ')';
       ctx.fillRect(p.x | 0, y | 0, p.s, p.s);
     }
 
-    // -- UNICORN silhouette (protagonist read; procedural fillRect only) --
-    // Small, centered above title text. Rainbow tail behind body, gold horn, dark eye.
-    const ux = VW / 2, uy = 34, bob = Math.sin(time * 1.6) * 1;
+    // -- RAINBOW ARC (7 concentric ROYGBIV bands curving over the unicorn) --
+    ctx.lineWidth = 3;
+    ['#ff5d6c', '#ff9d3c', '#ffd75e', '#9fe8a0', '#8cf', '#7a8cff', '#c9a6f7'].forEach((c, i) => {
+      ctx.strokeStyle = c;
+      ctx.beginPath(); ctx.arc(VW / 2, 130, 78 - i * 3, Math.PI, 0); ctx.stroke();
+    });
+
+    // -- Centered UNICORN silhouette (2.4x scale, gentle bob) --
+    const bob = Math.sin(time * 1.6) * 1;
+    ctx.save(); ctx.translate(VW / 2, 108); ctx.scale(2.4, 2.4);
     ctx.fillStyle = '#f5f1f4';                              // body
-    ctx.fillRect(ux - 6, uy + bob, 12, 7);
-    ctx.fillRect(ux + 2, uy - 4 + bob, 5, 5);               // head
+    ctx.fillRect(-6, bob, 12, 7);
+    ctx.fillRect(2, bob - 4, 5, 5);                          // head
     ctx.fillStyle = '#ffd75e';                              // horn
     ctx.beginPath();
-    ctx.moveTo(ux + 5, uy - 4 + bob); ctx.lineTo(ux + 9, uy - 10 + bob); ctx.lineTo(ux + 6, uy - 3 + bob);
-    ctx.fill();
+    ctx.moveTo(5, bob - 4); ctx.lineTo(9, bob - 10); ctx.lineTo(6, bob - 3); ctx.fill();
     ['#ff6b6b', '#ffd75e', '#6bc5ff'].forEach((c, i) => {   // rainbow mane/tail sweep
-      ctx.fillStyle = c; ctx.fillRect(ux - 8 - i * 2, uy + i + bob, 2, 4);
+      ctx.fillStyle = c; ctx.fillRect(-8 - i * 2, bob + i, 2, 4);
     });
-    ctx.fillStyle = '#333'; ctx.fillRect(ux + 4, uy - 2 + bob, 1, 1);   // eye
-
-    // -- TITLE: rainbow-shimmer + subtle breathing scale (GMTK juice) --
-    const hue = (time * 30) % 360, br = 1 + Math.sin(time * 2) * .015;
-    ctx.save(); ctx.translate(VW / 2, 68); ctx.scale(br, br);
-    ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 26px monospace';
-    ctx.fillText('NAT 20 UNICORN', 0, 0);
+    ctx.fillStyle = '#333'; ctx.fillRect(4, bob - 2, 1, 1);  // eye
     ctx.restore();
-    ctx.fillStyle = '#c9a6f7'; ctx.font = 'italic 8px monospace';                     // NEW subtitle — genre + tone
-    ctx.fillText('· a D&D metroidvania fable ·', VW / 2, 82);
-    ctx.fillStyle = '#ffd75e'; ctx.font = '9px monospace';                            // permanent tagline (existing)
-    ctx.fillText('the diorama has gone gray — paint it back', VW / 2, 96);
-    // rotating flavor line from DM_LINES pool — sets tone before the player commits
-    const q = DM_LINES[(time / 5 | 0) % DM_LINES.length];
-    const qa = .35 + Math.sin(time * .6) * .25;                                       // slow breathing alpha
-    ctx.fillStyle = 'rgba(232,217,176,' + qa + ')'; ctx.font = 'italic 7px monospace';
-    ctx.fillText('"' + q + '"', VW / 2, 106);
+
+    // -- TITLE "UNI-CORN" — rainbow-shimmer hue + subtle breathing scale --
+    const hue = (time * 30) % 360, br = 1 + Math.sin(time * 2) * .02;
+    ctx.save(); ctx.translate(VW / 2, 168); ctx.scale(br, br);
+    ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 30px monospace';
+    ctx.fillText('UNI-CORN', 0, 0);
+    ctx.restore();
+    // -- SUBTITLE "the last savior" --
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'italic 10px monospace';
+    ctx.fillText('the last savior', VW / 2, 188);
 
     if (phase === 0) {
-      // menu — New Game / Continue. Selected item slides +6 px right for a 2nd feedback channel.
+      // menu — New Game / Continue. Selected item slides +6 px right (2nd feedback channel).
       const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
       opts.forEach((o, i) => {
-        const y = 138 + i * 22, on = mSel === i;
+        const y = 212 + i * 20, on = mSel === i;
         ctx.fillStyle = on ? '#ffd75e' : '#aaa'; ctx.font = 'bold 12px monospace';
         ctx.fillText((on ? '▶ ' : '  ') + (i + 1) + '. ' + o, VW / 2 + (on ? 6 : 0), y);
       });
-      if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 190); }
-      ctx.fillStyle = '#666'; ctx.font = '8px monospace';
-      ctx.fillText('↑↓ select · ENTER/SPACE accept · or press 1/2 · tap to advance', VW / 2, 216);
-      ctx.fillText('A/D ←→ move · SPACE/Z jump · J/X swipe · L/C shot · S heal · SHIFT dash · E interact', VW / 2, 230);
+      if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 252); }
+      ctx.fillStyle = '#666'; ctx.font = '7px monospace';                             // single condensed hint line
+      ctx.fillText('↑↓ select · ENTER accept · A/D move · SPACE jump · J swipe · L shot · S heal', VW / 2, 266);
     } else {                                                                          // phase === 1: name entry
       ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
-      ctx.fillText('WHAT SHALL THE DM CALL YOU?', VW / 2, 138);
-      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(VW / 2 - 80, 150, 160, 26);
-      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 80, 150, 160, 26);
+      ctx.fillText('WHAT SHALL THE SAGE CALL YOU?', VW / 2, 208);
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(VW / 2 - 80, 218, 160, 24);
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 80, 218, 160, 24);
       ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
       const cur = Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : ' ';
-      ctx.fillText(ent + cur, VW / 2, 169);
-      ctx.fillStyle = '#888'; ctx.font = '8px monospace';
-      ctx.fillText('A–Z type · BACKSPACE delete · ENTER accept · tap for default (HORSE)', VW / 2, 198);
+      ctx.fillText(ent + cur, VW / 2, 235);
+      ctx.fillStyle = '#888'; ctx.font = '7px monospace';
+      ctx.fillText('A–Z type · BACKSPACE delete · ENTER accept · tap for default (HORSE)', VW / 2, 260);
     }
   }
   ctx.restore();
@@ -1218,7 +1240,7 @@ load();
 cam.x = Math.max(0, Math.min(W * T - VW, pl.x - VW / 2));      // camera starts ON the player (was: panned in from world origin)
 cam.y = Math.max(0, Math.min(H * T - VH, pl.y - VH / 2 + 30));
 // opening line fires when the player picks a name / picks Continue (see title-menu accept)
-const opener = () => say('Ah. The last painted mini wakes. Shall we finish the campaign, ' + pName + '?');
+const opener = () => say('Ah. The last unicorn wakes. Shall we begin, ' + pName + '?');
 const loop = () => {
   const now = performance.now(), dt = Math.min(.033, (now - last) / 1000); last = now;
   step(dt); draw();
