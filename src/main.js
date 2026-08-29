@@ -4,7 +4,7 @@
 //   - D&D-style stat allocation (STR/HP/MAG/DEF/LUCK), no classes
 //   - 4-slot palette customization (BODY/MANE/HORN/HOOVES)
 //   - Metroidvania skill gating by LEVEL only (LV3/5/7/9)
-//   - Rainbow shards = collection goal (5 guardian bosses)
+//   - Rainbow shards = collection goal (5 bosses)
 //   - Unified character sheet: pause + level-up + creation share layout
 //   - No overlay narrator — feedback via fly() and NPC dialog only
 //   - Fixed world palette (no rebloom)
@@ -322,12 +322,14 @@ const drawU = (bob) => {
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
 };
 let hp = 10, xp = 0, lvl = 1;
-let abil = 0, bossDead = 0;                        // abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash
+let abil = 0;                                      // skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash
 let mn = 5, choosing = 0, pending = 0;
 const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +2 max HP); post-cap XP ignored
 // Skills are ALL player-chosen via the 3-branch tree — no auto-learn milestones
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
-const bossLive = [0, 0, 0, 0, 0];
+// Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
+const bs = [0, 0, 0, 0, 0];
+const shards = () => bs.filter(v => v === 2).length;
 const mHP = () => 8 + he * 2 + su[9] * 3 + (lvl >= CAP ? 2 : 0); // 10 base · +2/HP · TOUGH +3/rank · APOTHEOSIS +2
 const mMN = () => 3 + sp * 2;
 const DIE = () => [4,4,6,6,6,8,8,8,10,10,10,12,12,12,12][lvl - 1] || 4; // die = LEVEL MILESTONE (Zelda-heart law)
@@ -386,7 +388,7 @@ const allocate = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 19, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bossDead,
+    v: 20, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     u: [bod, man, hrn, hof],                                       // v13 — 4-slot palette (added hooves)
@@ -395,10 +397,10 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 19) return;                               // v19 — shards merged into boss kills.
+    if (!d || d.v !== 20) return;                               // v20 — unified boss state array.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
-    bossDead = d.g; pName = d.m; oc = d.o;
+    (d.g || []).forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     // seenT removed — earned[7] carries the SILVER_TONGUE flag directly
     [ho, he, sp, df, lk] = d.t;
     [bod, man, hrn, hof] = d.u;
@@ -456,9 +458,9 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 // FULL progression reset — NEW GAME must NOT inherit a boot-loaded save's state
 // (boot load() fills globals; without this, "new" characters kept old lvl/stats/bosses)
 const fresh = () => {
-  hp = 10; xp = 0; lvl = 1; abil = 0; bossDead = 0; mn = 5;
+  hp = 10; xp = 0; lvl = 1; abil = 0; mn = 5; bs.fill(0);
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
-  oc = 0; pName = 'HORSE'; earned.fill(0); bossLive.fill(0);
+  oc = 0; pName = 'HORSE'; earned.fill(0);
   spts = 0; su.fill(0); regT = 0; abilSync();
   cp = [126 * T, 57 * T]; lastSafe = [126 * T, 57 * T]; pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0;
 };
@@ -534,17 +536,17 @@ const strike = (f, r, gen, viaStomp) => {
     spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 7 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
-    if (f.bit) {                                                // GUARDIAN falls
-      bossLive[f.bi] = 0;
+    if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE
-      if (!(bossDead & f.bit)) {                                // FIRST KILL — golden rainbow shard
-        bossDead |= f.bit; earned[1] = 1;
-        if (bossDead === 31) earned[12] = 1;                    // ALL 5 guardians
+      if (bs[f.bi] !== 2) {                                     // FIRST KILL — golden rainbow shard
+        bs[f.bi] = 2; earned[1] = 1;
+        if (shards() === 5) earned[12] = 1;                     // ALL 5
         drops.push({ x: f.x, y: f.y - 12, vx: 0, vy: -130, t: 4, life: 15 });
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
+      if (bs[f.bi] !== 2) bs[f.bi] = 0;             // re-kill: reset to unvisited (can respawn)
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
     }
     earned[2] = 1;                                                  // GLOOMBUSTER — first kill
@@ -693,16 +695,14 @@ const step = (dt) => {
   nearChest = -1;
   for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
-  // -- guardians: each guards a region, drops +1 stat pt on kill --
+  // -- bosses: each drops a golden rainbow shard on first kill --
   seeds.bosses.forEach(([bx, by], i) => {
     const bit = 1 << i;
-    // bossLive[i]: 0 = never spawned, 1 = currently on-screen, {hp,ph,spd,rc} = leash-out stash
-    if (bossLive[i] === 1) return;                               // bosses respawn (shard only drops first kill)
+    // bs[i]: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,...}=leash stash
+    if (bs[i] === 1) return;                                     // already on screen
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
-      // LEASH RESTORE — if the boss was in-fight and player walked out of leash,
-      // resume with the saved hp/phase/spd/rc (no free heal). Fresh spawn otherwise.
-      const st = bossLive[i], fresh = !st;
-      bossLive[i] = 1;
+      const st = bs[i], fresh = !st || st === 2;               // 0=new, 2=killed before → fresh spawn
+      bs[i] = 1;
       foes.push({
         x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi: i, bit, cz: 4, dm: 4 + i,
         fl: 0, t: 0, hop: 1, hit: 0, mx: 24 + 10 * i,
@@ -754,9 +754,9 @@ sfx(110, 55, .5, 'sawtooth', .18);
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire
       }
     }
-    if (f.bit) {                                                // GUARDIAN AI: chase + hop, leashed to its arena
+    if (f.bit) {                                                // BOSS AI: chase + hop, leashed to arena
       if (Math.hypot(pl.x - f.x, pl.y - f.y) > 220) {           // walk-out: stash hp/phase so re-trigger resumes, no free heal
-        bossLive[f.bi] = { hp: f.hp, ph: f.ph || 0, spd: f.spd || 0, rc: f.rc };
+        bs[f.bi] = { hp: f.hp, ph: f.ph || 0, spd: f.spd || 0, rc: f.rc };
         foes.splice(foes.indexOf(f), 1); continue;
       }
       f.hop -= dt;
@@ -1023,7 +1023,7 @@ const draw = () => {
       }
     }
     ctx.restore();
-    if (f.bit) {                                                // guardian HP bar
+    if (f.bit) {                                                // boss HP bar
       ctx.fillStyle = '#2a2a33'; ctx.fillRect(f.x, f.y - 8, fs, 3);
       ctx.fillStyle = f.ph ? '#ffd75e' : '#e05555'; ctx.fillRect(f.x, f.y - 8, fs * f.hp / f.mx, 3);
     } else if (f.el && f.hp < f.mx) {                           // elite HP tick (mini-boss read, hidden until first hit)
@@ -1158,7 +1158,7 @@ const draw = () => {
     });
     // Footer
     ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + [1, 2, 4, 8, 16].filter(b => bossDead & b).length + ' / 5', VW / 2, 250);
+    ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + shards() + ' / 5', VW / 2, 250);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';
     T2(alloc ? '↑↓ pick · → allocate' : 'tap skill to buy · P close', VW / 2, VH - 4);
   }
