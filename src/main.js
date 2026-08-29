@@ -20,7 +20,7 @@
 //
 // Save: version-gated JSON to localStorage. Version bumps discard prior saves.
 
-import { T, W, H, grid, tile, regions, regionAt, seeds, DECO } from './world.js';
+import { T, W, H, grid, tile, seeds, DECO } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -813,7 +813,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
   if (lvl >= 10) earned[9] = 1;                                  // HOARDER — reach LV10
   if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
   // earned[7] = SILVER_TONGUE — set directly in dialogDo() on first talk
-  if (regionAt(pl.x + PW / 2, pl.y + 7) === regions[4]) earned[6] = 1; // SUMMIT
+  if (pl.x < 64 * T && pl.y < 30 * T) earned[6] = 1;                  // SUMMIT — reached the peak area
   if (hof === 4) earned[5] = 1;                                 // GREEN_HOOVES — MINT hooves picked (repurposed from region-rebloom)
   if (bod && man && hrn && hof) earned[11] = 1;                 // ARCHITECT — all 4 body parts customized off default
 
@@ -853,11 +853,19 @@ const draw = () => {
   cam.x = Math.max(0, Math.min(W * T - VW, cam.x));
   cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
 
-  // Sky + parallax — fixed 22%/12% palette per zone (rebloom removed)
-  const rg = regionAt(pl.x + PW / 2, pl.y + 7);
-  ctx.fillStyle = `hsl(${rg.h * 360} 22% 12%)`; ctx.fillRect(0, 0, VW, VH);
-  for (const [par, base, amp, l] of [[.25, 90, 22, 8], [.5, 60, 16, 11]]) {
-    ctx.fillStyle = `hsl(${rg.h * 360} 18% ${l}%)`;
+  // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
+  ctx.fillStyle = '#4a90d9'; ctx.fillRect(0, 0, VW, VH);                    // upper sky
+  ctx.fillStyle = '#6bb3e8'; ctx.fillRect(0, VH * .4, VW, VH * .3);         // mid sky (lighter)
+  ctx.fillStyle = '#a0d4f0'; ctx.fillRect(0, VH * .7, VW, VH * .3);         // horizon glow
+  // CLOUDS — 5 soft white puffs, parallax scroll
+  for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
+    const sx = ((cx - cam.x * .15) % (VW + 100)) - 50;
+    ctx.fillStyle = 'rgba(255,255,255,.6)';
+    ctx.fillRect(sx, cy, cw, 8); ctx.fillRect(sx + 4, cy - 4, cw - 8, 6); ctx.fillRect(sx + 8, cy + 6, cw - 16, 5);
+  }
+  // Distant hills (parallax, green)
+  for (const [par, base, amp, l] of [[.2, 80, 18, 35], [.4, 55, 14, 28]]) {
+    ctx.fillStyle = `hsl(120 40% ${l}%)`;
     for (let x = 0; x < VW; x += 8) {
       const wx = x + cam.x * par;
       ctx.fillRect(x, VH - (base + Math.sin(wx * .011) * amp + Math.sin(wx * .027 + 5) * amp * .5), 8, VH);
@@ -870,21 +878,20 @@ const draw = () => {
   const x0 = cam.x / T | 0, x1 = Math.min(W, x0 + VW / T + 2), y0 = Math.max(0, cam.y / T | 0), y1 = Math.min(H, y0 + VH / T + 2);
   for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
     const v = tile(i, j); if (!v) continue;
-    const r = regionAt(i * T + 8, j * T + 8), hue = r.h * 360;
     if (v === 1) {
-      // SOLID GROUND — brown earth body, green grass top layer when exposed to air
-      ctx.fillStyle = `hsl(${hue} 30% 22%)`; ctx.fillRect(i * T, j * T, T + .5, T + .5);
-      if (tile(i, j - 1) !== 1) { ctx.fillStyle = `hsl(${hue} 50% 42%)`; ctx.fillRect(i * T, j * T, T + .5, 5); }
+      // SOLID GROUND — brown earth, bright green grass top when exposed to air
+      ctx.fillStyle = '#5a3a1e'; ctx.fillRect(i * T, j * T, T + .5, T + .5);
+      if (tile(i, j - 1) !== 1) { ctx.fillStyle = '#4a9a3a'; ctx.fillRect(i * T, j * T, T + .5, 5); }
     } else if (v === 2) {
-      // PLATFORM — thicker: green grass top + brown dirt underside (not just a thin line)
-      ctx.fillStyle = `hsl(${hue} 30% 22%)`; ctx.fillRect(i * T, j * T + 3, T + .5, 5);
-      ctx.fillStyle = `hsl(${hue} 50% 42%)`; ctx.fillRect(i * T, j * T, T + .5, 4);
+      // PLATFORM — chunky: green grass top + brown dirt underside
+      ctx.fillStyle = '#5a3a1e'; ctx.fillRect(i * T, j * T + 2, T + .5, 7);
+      ctx.fillStyle = '#4a9a3a'; ctx.fillRect(i * T, j * T, T + .5, 4);
     } else if (v === 4) {                                       // gloom crystal — pulses
       ctx.fillStyle = `hsl(280 60% ${26 + Math.sin(time * 4 + i + j) * 8}%)`;
       ctx.fillRect(i * T, j * T, T + .5, T + .5);
       ctx.fillStyle = 'hsl(290 80% 60%)'; ctx.fillRect(i * T + 5, j * T + 5, 6, 6);
     } else {
-      // SPIKES — always same danger color (red-purple), universal across all zones
+      // SPIKES — universal danger color
       ctx.fillStyle = '#8a3060';
       for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(i * T + k * 4, j * T + T); ctx.lineTo(i * T + k * 4 + 2, j * T + 8); ctx.lineTo(i * T + k * 4 + 4, j * T + T); ctx.fill(); }
     }
@@ -945,18 +952,27 @@ const draw = () => {
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
-    const rg = regionAt(px, py), hue = rg.h * 360;
-    if (dt === 0) { // TREE — trunk rooted on ground, canopy above
-      ctx.fillStyle = `hsl(${hue} 25% 18%)`; ctx.fillRect(px + 6, py - 12, 4, 12);
-      ctx.fillStyle = `hsl(${hue} 45% 32%)`; ctx.fillRect(px + 1, py - 20, 14, 9);
-      ctx.fillStyle = `hsl(${hue} 50% 40%)`; ctx.fillRect(px + 3, py - 23, 10, 5);
-    } else if (dt === 1) { // GRASS — 3 blades rooted at ground
+    if (dt === 0) { // TREE — brown trunk, green canopy
+      ctx.fillStyle = '#4a2a10'; ctx.fillRect(px + 6, py - 12, 4, 12);
+      ctx.fillStyle = '#3a8a30'; ctx.fillRect(px + 1, py - 20, 14, 9);
+      ctx.fillStyle = '#4aaa40'; ctx.fillRect(px + 3, py - 23, 10, 5);
+    } else if (dt === 1) { // GRASS — green blades swaying
       const sw = Math.sin(time * 2.5 + dx) * 1.5;
-      ctx.fillStyle = `hsl(${hue} 45% 38%)`;
+      ctx.fillStyle = '#4a9a3a';
       ctx.fillRect(px + 3 + sw, py - 5, 1, 5); ctx.fillRect(px + 7 + sw * .7, py - 7, 1, 7); ctx.fillRect(px + 11 + sw * .4, py - 4, 1, 4);
-    } else { // ROCK — sits on ground surface
-      ctx.fillStyle = `hsl(${hue} 12% 28%)`; ctx.fillRect(px + 3, py - 4, 10, 4);
-      ctx.fillStyle = `hsl(${hue} 10% 35%)`; ctx.fillRect(px + 4, py - 6, 8, 3);
+    } else if (dt === 2) { // ROCK — gray boulder
+      ctx.fillStyle = '#6a6a6a'; ctx.fillRect(px + 3, py - 4, 10, 4);
+      ctx.fillStyle = '#888'; ctx.fillRect(px + 4, py - 6, 8, 3);
+    } else if (dt === 3) { // FLOWER — colorful petals on a green stem
+      const fc = ['#ff5d6c', '#ffd75e', '#c9a6f7', '#ff9d3c'][(dx * 7 | 0) % 4];
+      ctx.fillStyle = '#3a8a30'; ctx.fillRect(px + 7, py - 5, 1, 5);
+      ctx.fillStyle = fc; ctx.fillRect(px + 5, py - 7, 2, 2); ctx.fillRect(px + 8, py - 7, 2, 2);
+      ctx.fillRect(px + 6, py - 9, 3, 2); ctx.fillRect(px + 6, py - 6, 3, 2);
+      ctx.fillStyle = '#ffd75e'; ctx.fillRect(px + 7, py - 7, 1, 1); // center
+    } else { // MUSHROOM (dt=4) — red cap with white dots on tan stem
+      ctx.fillStyle = '#c8a070'; ctx.fillRect(px + 6, py - 4, 3, 4);
+      ctx.fillStyle = '#d03030'; ctx.fillRect(px + 3, py - 8, 9, 4);
+      ctx.fillStyle = '#fff'; ctx.fillRect(px + 5, py - 7, 1, 1); ctx.fillRect(px + 9, py - 6, 1, 1);
     }
   }
 

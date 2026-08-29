@@ -92,18 +92,7 @@ for (const m of MAP) box(...m);
 
 // ---- regions ----
 // Static regions — hue only defines zone tint. Rebloom system removed:
-// world palette is fixed at boot, no per-boss color change.
-export const regions = [
-  { x0: 118, x1: 158, y0: 40, y1: 64, h: .12 },
-  { x0: 158, x1: 280, y0: 0, y1: 64, h: .33 },
-  { x0: 140, x1: 280, y0: 64, y1: 72, h: .08 },
-  { x0: 0, x1: 140, y0: 64, y1: 72, h: .78 },
-  { x0: 0, x1: 64, y0: 0, y1: 30, h: .62 },
-  { x0: 40, x1: 118, y0: 0, y1: 48, h: .45 },
-  { x0: 0, x1: 118, y0: 0, y1: 64, h: .55 },
-  { x0: 0, x1: 280, y0: 0, y1: 72, h: .12 },
-];
-export const regionAt = (px, py) => regions.find(r => px >= r.x0 * T && px < r.x1 * T && py >= r.y0 * T && py < r.y1 * T) || regions[7];
+// Zone 1 — single vibrant world (future zones will have different palettes)
 
 // ---- entity seeds ----
 export const seeds = {
@@ -132,22 +121,23 @@ export const seeds = {
     [60, 68, 3], [40, 68, 3], [22, 68, 2],
   ],
 };
-// DECORATIONS — [x, y, type]. type: 0=tree, 1=grass, 2=rock. Placed on verified solid ground.
-// y = the air tile ABOVE ground (tile(x,y)=0, tile(x,y+1)=1). No decorations near spikes.
+// DECORATIONS — [x, y, type]. 0=tree, 1=grass, 2=rock, 3=flower, 4=mushroom.
+// y = air tile ABOVE ground (tile(x,y)=0, tile(x,y+1)=1). No decos near spikes.
 export const DECO = [
-  // Meadow (main platform, y=59 verified ground)
-  [142, 59, 0], [155, 59, 0], [182, 59, 1], [190, 59, 1], [202, 59, 2],
-  [212, 59, 0], [228, 59, 1], [238, 59, 0], [250, 59, 1], [255, 59, 2],
-  [145, 59, 1], [152, 59, 1], [220, 59, 1], [243, 59, 2],
-  // Upper meadow platforms
-  [206, 55, 1], [241, 55, 1], [176, 56, 0], [266, 57, 1],
-  // Caves (y=69 verified ground)
-  [20, 69, 2], [35, 69, 1], [50, 69, 2], [100, 69, 1], [120, 69, 2],
-  [160, 69, 1], [190, 69, 2], [210, 69, 1], [240, 69, 2], [170, 69, 1],
-  // West cliffs (verified: 84-95 at y=53, 72-83 at y=50)
-  [86, 53, 0], [92, 53, 1], [73, 50, 0], [78, 50, 1],
-  // Treetops (verified: 52-59 at y=25, 46-47 at y=23)
-  [53, 25, 0], [57, 25, 1], [46, 23, 1],
-  // Summit (verified: 10-18 at y=11)
+  // Meadow (y=59) — vibrant, fun, lots of flowers and life
+  [142, 59, 0], [155, 59, 0], [212, 59, 0], [238, 59, 0],
+  [145, 59, 3], [150, 59, 1], [160, 59, 4], [175, 59, 3], [183, 59, 1],
+  [192, 59, 3], [202, 59, 4], [218, 59, 3], [225, 59, 1], [232, 59, 3],
+  [243, 59, 4], [250, 59, 3], [255, 59, 1], [260, 59, 3],
+  // Upper platforms
+  [206, 55, 1], [241, 55, 3], [176, 56, 0], [266, 57, 1],
+  // Caves (y=69) — more rocks, mushrooms (underground feel)
+  [20, 69, 2], [35, 69, 4], [50, 69, 2], [100, 69, 4], [120, 69, 2],
+  [160, 69, 4], [190, 69, 2], [210, 69, 4], [240, 69, 2], [170, 69, 4],
+  // West cliffs
+  [86, 53, 0], [92, 53, 3], [73, 50, 0], [78, 50, 1],
+  // Treetops
+  [53, 25, 0], [57, 25, 3], [46, 23, 1],
+  // Summit
   [12, 11, 2], [16, 11, 1],
 ];
