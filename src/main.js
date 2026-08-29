@@ -68,6 +68,27 @@
 //      BECOME?". Opener "last painted mini" → "last unicorn". Dice
 //      display + class/perk names retained — they ARE the RPG mechanic,
 //      not decorative D&D lore.
+//  19  Unicorn customization + classic RPG pause overlay + currency rename.
+//      (A) COLORS: 3 palettes (PALB body 5 · PALM mane 5 as 3-color sweeps ·
+//      PALH horn 5). New state bod/man/hrn (indices). drawU(bob) helper
+//      extracts player unicorn geometry — used by in-game player render AND
+//      the pause portrait (both auto-inherit customization). Save v10→v11
+//      adds u: [bod, man, hrn]. (B) FLOW: new phase=2 "customize" screen
+//      between name entry and gameplay. Live preview at 3× scale + 3-row
+//      cycler (BODY/MANE/HORN) — ↑↓ picks row, ←→ cycles color, ENTER
+//      begins. Touch-tap on customize accepts current picks. CONTINUE path
+//      skips customize (colors loaded from save). Existing phase gate
+//      `phase < 2` widened to `phase < 3` so overlay stays through
+//      customize. (C) PAUSE REDESIGN: classic split-panel RPG layout.
+//      Left = gold-bordered 130×108 portrait box with drawU() at 3.4×.
+//      Right-top = pName (bold), "the CLASS" subtitle, LEVEL + ♥ hp/mHP,
+//      thin XP bar with atCap fallback. Right-column = 5 stats in
+//      traditional order HP/STR/DEF/MAG/LUCK, label-left + value-right
+//      aligned. Bottom-left = PERKS row of 20×20 icon squares (first
+//      letter as glyph + 6-char name below). Bottom-right = SKILLS row
+//      with colored ring per skill (lit if owned, gray if not). Footer =
+//      RAINBOW N/5 (left) + SPARKS N (right). (D) RENAME: pause overlay
+//      currency `SHARDS · N` → `SPARKS · N` (game data unchanged).
 //  18  Design pivot 2 — 5-stat system (STR/HP/MAG/DEF/LUCK), overlay narrator
 //      removed, region rebloom killed. (A) STATS: HORN→STR, HEART→HP,
 //      SPARK→MAG; ADDED df (DEF: subtracts pips from every damage instance,
@@ -153,8 +174,8 @@ const M_KEYS = ['KeyJ', 'KeyX'], SH_KEYS = ['KeyL', 'KeyC'], HE_KEYS = ['KeyS', 
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
-// phase 0 = title menu, 1 = name entry, 2 = playing (started=1)
-let phase = 0, ent = '', pName = 'HORSE', mSel = 0;
+// phase 0 = title menu, 1 = name entry, 2 = customize (unicorn colors), 3 = playing (started=1)
+let phase = 0, ent = '', pName = 'HORSE', mSel = 0, cRow = 0;   // cRow: 0 body · 1 mane · 2 horn (customize screen row)
 // Stardust particles for the title screen — 22 dots falling at varied speeds, wrap
 // at bottom, procedural (no assets). Ambient motion = "living world," the single
 // cheapest first-impression polish (Celeste snow / Hollow Knight rain pattern).
@@ -165,15 +186,23 @@ const stars = Array.from({ length: 22 }, () => ({
 const hasSave = () => !!localStorage.n20_save;
 const nameKey = (e) => {
   if (e.code === 'Backspace') ent = ent.slice(0, -1);
-  else if (e.code === 'Enter' && ent.length) { pName = ent; phase = 2; started = 1; save(); opener(); }
+  else if (e.code === 'Enter' && ent.length) { pName = ent; phase = 2; cRow = 0; }
   else if (ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
+};
+// Customize screen: UP/DOWN pick row (body/mane/horn), LEFT/RIGHT cycle color, ENTER accept
+const customKey = (e) => {
+  if (e.code === 'ArrowUp' || e.code === 'KeyW')        cRow = (cRow + 2) % 3;
+  else if (e.code === 'ArrowDown' || e.code === 'KeyS') cRow = (cRow + 1) % 3;
+  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 0) bod = (bod + 4) % 5; else if (cRow === 1) man = (man + 4) % 5; else hrn = (hrn + 4) % 5; }
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 0) bod = (bod + 1) % 5; else if (cRow === 1) man = (man + 1) % 5; else hrn = (hrn + 1) % 5; }
+  else if (e.code === 'Enter' || e.code === 'Space') { phase = 3; started = 1; save(); opener(); }
 };
 const titleKey = (e) => {
   const opts = hasSave() ? 2 : 1;
   if (e.code === 'ArrowUp' || e.code === 'KeyW') mSel = (mSel + opts - 1) % opts;
   else if (e.code === 'ArrowDown' || e.code === 'KeyS') mSel = (mSel + 1) % opts;
   else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) { phase = 1; ent = ''; }
-  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 2; started = 1; opener(); }
+  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 3; started = 1; opener(); }
 };
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -181,6 +210,7 @@ addEventListener('keydown', (e) => {
   boot();                                                    // resume audio on any key (autoplay policy)
   if (phase === 0) return titleKey(e);
   if (phase === 1) return nameKey(e);
+  if (phase === 2) return customKey(e);
   // DIALOG owns input — arrow keys navigate, JUMP confirms, MELEE cancels
   if (dialog) {
     if (e.code === 'ArrowUp')        dialog = ((dialog - 2 + 3) % 3) + 1;
@@ -238,9 +268,10 @@ addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
   // TITLE: tap top half = New Game (skips name — touch users can't type), bottom = Continue
-  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; opener(); } else { phase = 2; started = 1; save(); opener(); } return; }
+  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 3; started = 1; opener(); } else { phase = 3; started = 1; save(); opener(); } return; }
   // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
-  if (phase === 1) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); return; }
+  if (phase === 1) { pName = ent || 'HORSE'; phase = 2; cRow = 0; return; }
+  if (phase === 2) { phase = 3; started = 1; save(); opener(); return; }  // touch tap during customize = accept
   // PAUSE overlay — top-right corner icon opens it (48px tap zone); tap anywhere to close
   if (paused) { paused = 0; return; }
   if (started && !choosing && !shopping && !dialog && vx > VW - 40 && vy < 40) { paused = 1; return; }
@@ -300,6 +331,29 @@ const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 *
 // ---------- RPG 2.0 (researched): milestone dice, modifier stats, D&D perks ----------
 // 5-stat system: STR (dmg) HP (max ♥) MAG (max ✦) DEF (dmg reduction) LUCK (drop bonus)
 let ho = 1, he = 1, sp = 1, df = 0, lk = 0;
+// Unicorn customization — palette indices picked at character creation
+let bod = 0, man = 0, hrn = 0;
+// Palettes (body / mane 3-color sweep / horn) — 5 options each. Names shown in the customize screen.
+const PALB = [['#f5f1f4','SNOW'],['#f7d9c0','CREAM'],['#c6c8d1','SILVER'],['#f7bcd9','ROSE'],['#c8f0d3','MINT']];
+const PALM = [
+  [['#ff6b6b','#ffd75e','#6bc5ff'],'RAINBOW'],
+  [['#ff5a3a','#ff9d4a','#ffd75e'],'EMBER'],
+  [['#3ac4ff','#6bc5ff','#a0e0ff'],'OCEAN'],
+  [['#5ac878','#8fd88f','#c8f0a0'],'FOREST'],
+  [['#c07af0','#8f5ad0','#e08ae0'],'VOID'],
+];
+const PALH = [['#ffd75e','GOLD'],['#e0e0e6','SILVER'],['#6bc5ff','CYAN'],['#ff9dc8','ROSE'],['#ffffff','WHITE']];
+// draw the player unicorn geometry — used by in-game player render + pause portrait.
+// scale sets pixel scale. All colors come from current bod/man/hrn palette picks.
+const drawU = (bob) => {
+  const [bc] = PALB[bod], [mc] = PALM[man], [hc] = PALH[hrn];
+  ctx.fillStyle = bc;
+  ctx.fillRect(1, 12 + bob * .3, 2, 4 - bob * .3); ctx.fillRect(7, 12 - bob * .3, 2, 4 + bob * .3); // legs
+  ctx.fillRect(0, 5, 10, 7); ctx.fillRect(7, 0, 5, 6);                                              // body + head
+  ctx.fillStyle = hc; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill(); // horn
+  mc.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });           // mane 3-color
+  ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
+};
 let hp = 3, xp = 0, lvl = 1, spk = 0, cls = 0;    // cls: 0 unpicked · 1 RAMPART · 2 PRISM · 3 ROGUE (D&D-style identity, chosen at L3)
 let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
 let mn = 5, choosing = 0, pending = 0, pk = 0, edg = 0, shp = 0, shopB = 0, shopping = 0;
@@ -422,16 +476,16 @@ const buy = (i) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 10, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    v: 11, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
     p: pk, w: shopB, t: [ho, he, sp, df, lk], c: [cp[0], cp[1]],
-    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), o: oc, // v10 — 5-stat DEF+LUCK added, region rebloom system removed (b field dropped)
+    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), o: oc,
+    u: [bod, man, hrn],                                            // v11 — unicorn color customization triple
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 10) return;                               // v10 — 5-stat DEF/LUCK + region rebloom removed. v9 saves start fresh.
-    // v10 pin: every field guaranteed present, no legacy || fallbacks
+    if (!d || d.v !== 11) return;                               // v11 — unicorn color triple added. v10 saves start fresh.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
     sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k; oc = d.o;
@@ -439,6 +493,7 @@ const load = () => {
     edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
     [ho, he, sp, df, lk] = d.t;
+    [bod, man, hrn] = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
   } catch (e) { /* fresh oath */ }
 };
@@ -1022,13 +1077,7 @@ const draw = () => {
   if (pl.inv <= 0 || Math.sin(time * 40) > 0) {
     ctx.save();
     ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale((2 - pl.sq) * pl.face, pl.sq); ctx.translate(-PW / 2, -PH);
-    const ph = pl.ground && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.ground ? 0 : 2);
-    ctx.fillStyle = '#f5f1f4';
-    ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3); ctx.fillRect(7, 12 - ph * .3, 2, 4 + ph * .3);
-    ctx.fillRect(0, 5, 10, 7); ctx.fillRect(7, 0, 5, 6);
-    ctx.fillStyle = '#ffd75e'; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill();
-    ['#ff6b6b', '#ffd75e', '#6bc5ff'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });
-    ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);
+    drawU(pl.ground && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.ground ? 0 : 2));
     if (swT > 0) {                                               // swipe arc
       ctx.fillStyle = 'rgba(255,255,255,.75)';
       ctx.fillRect(10, -2, 13 * (swT / .14), 16);
@@ -1088,34 +1137,68 @@ const draw = () => {
 
   // PAUSE OVERLAY — full character sheet (identity chrome moved out of gameplay HUD)
   if (paused && started) {
-    ctx.fillStyle = 'rgba(8,6,12,.94)'; ctx.fillRect(0, 0, VW, VH);
+    // -- Classic RPG split panel: portrait LEFT, identity+stats RIGHT, perks/skills BOTTOM --
+    ctx.fillStyle = 'rgba(8,6,12,.96)'; ctx.fillRect(0, 0, VW, VH);
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 16px monospace'; T2('CHARACTER', VW / 2, 42);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace';
-    T2(pName + (cls ? ' the ' + CLASS_TITLE[cls] : ''), VW / 2, 66);
-    ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 11px monospace';
-    T2('LEVEL ' + lvl, VW / 2, 84);
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('CHARACTER', VW / 2, 20);
+
+    // Portrait panel (left) — bordered box with the unicorn drawn at 4× scale
+    ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(20, 32, 130, 108); ctx.strokeRect(20, 32, 130, 108);
+    ctx.save(); ctx.translate(85, 108); ctx.scale(3.4, 3.4); ctx.translate(-6, -8);
+    drawU(Math.sin(time * 1.4) * .8);
+    ctx.restore();
+
+    // Identity panel (right) — name, class, LV, hearts
+    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
+    ctx.fillText(pName, 164, 46);
+    if (cls) { ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace'; ctx.fillText('the ' + CLASS_TITLE[cls], 164, 58); }
+    ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 9px monospace';
+    ctx.fillText('LEVEL ' + lvl, 164, 74);
+    ctx.fillStyle = '#ff5d6c'; ctx.fillText('♥ ' + hp + ' / ' + mHP(), 244, 74);
+    // XP bar (thin, top-right of identity)
     const nx = need(), atCap = lvl >= CAP;
-    ctx.fillStyle = '#3a3a44'; ctx.fillRect(VW / 2 - 70, 94, 140, 6);
-    ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(VW / 2 - 70, 94, atCap ? 140 : 140 * xp / nx, 6);
-    ctx.fillStyle = '#aaa'; ctx.font = '8px monospace';
-    T2(atCap ? 'APOTHEOSIS — XP → 💎 1:1' : xp + ' / ' + nx + ' XP', VW / 2, 110);
-    ctx.fillStyle = '#fff'; ctx.font = '10px monospace';
-    T2('STR ' + ho + '  HP ' + he + '  MAG ' + sp + '  DEF ' + df + '  LUCK ' + lk, VW / 2, 130);
-    // Owned perks — one long line, wrap gracefully by joining with · dividers
-    ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace';
-    const owned = PERKS.filter(p => pk & p.b).map(p => p.n);
-    T2('PERKS · ' + (owned.length ? owned.join(' · ') : 'none yet'), VW / 2, 150);
-    // Skills owned
-    const skl = [(abil & 1) && 'DBL JUMP', (abil & 2) && 'HEAL', (abil & 4) && 'SHOT', (abil & 8) && 'DASH'].filter(Boolean).join(' · ') || 'none yet';
-    ctx.fillStyle = '#8cf'; T2('SKILLS · ' + skl, VW / 2, 166);
-    // Shards / regions rebloomed
-    ctx.fillStyle = '#ffd75e';
-    T2('RAINBOW · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 182);
-    // HEARTH gems — the shop currency (moved out of gameplay HUD to eliminate dual-currency confusion)
-    ctx.fillStyle = '#ffe28a'; T2('SHARDS · ' + spk, VW / 2, 198);
-    ctx.fillStyle = '#888'; ctx.font = '8px monospace';
-    T2('press P / ESC / tap to close', VW / 2, VH - 24);
+    ctx.fillStyle = '#3a3a44'; ctx.fillRect(164, 80, 180, 3);
+    ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(164, 80, atCap ? 180 : 180 * xp / nx, 3);
+    ctx.fillStyle = '#666'; ctx.font = '7px monospace';
+    ctx.fillText(atCap ? 'APOTHEOSIS · XP→SPK' : xp + ' / ' + nx + ' XP', 164, 90);
+    // Stats column: label left, value right — HP / STR / DEF / MAG / LUCK in classic order
+    const stat = [['HP', he, '#ff5d6c'], ['STR', ho, '#ffd75e'], ['DEF', df, '#8cf'], ['MAG', sp, '#e08ae0'], ['LUCK', lk, '#9fe89a']];
+    ctx.font = 'bold 9px monospace';
+    stat.forEach(([lbl, v, c], i) => {
+      const y = 104 + i * 10;
+      ctx.fillStyle = c; ctx.fillText(lbl, 164, y);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText(String(v), 340, y); ctx.textAlign = 'left';
+    });
+
+    // Perks — owned only, one icon square per perk (glyph + short name below)
+    ctx.textAlign = 'center'; ctx.fillStyle = '#c9a6f7'; ctx.font = 'bold 8px monospace';
+    ctx.textAlign = 'left'; ctx.fillText('PERKS', 20, 156);
+    const own = PERKS.filter(p => pk & p.b);
+    own.forEach((p, i) => {
+      const x = 20 + (i % 6) * 34, y = 162 + Math.floor(i / 6) * 26;
+      ctx.strokeStyle = '#c9a6f7'; ctx.strokeRect(x, y, 20, 20);
+      ctx.fillStyle = '#c9a6f7'; ctx.textAlign = 'center'; ctx.font = 'bold 11px monospace';
+      ctx.fillText(p.n[0], x + 10, y + 14);                                        // first letter as glyph
+      ctx.font = '6px monospace'; ctx.fillText(p.n.slice(0, 6), x + 10, y + 26);
+    });
+    // Skills — bottom-right cluster, colored squares
+    ctx.textAlign = 'left'; ctx.fillStyle = '#8cf'; ctx.font = 'bold 8px monospace';
+    ctx.fillText('SKILLS', 260, 156);
+    const sks = [[1, '▲', 'JUMP', '#6bc5ff'], [2, '+', 'HEAL', '#9fe8a0'], [4, '✦', 'SHOT', '#c9a6f7'], [8, '»', 'DASH', '#ffd75e']];
+    sks.forEach(([bit, g, nm, col], i) => {
+      const x = 260 + i * 34, y = 162, on = abil & bit;
+      ctx.strokeStyle = on ? col : '#333'; ctx.strokeRect(x, y, 20, 20);
+      ctx.fillStyle = on ? col : '#333'; ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center'; ctx.fillText(g, x + 10, y + 14);
+      ctx.font = '6px monospace'; ctx.fillText(nm, x + 10, y + 26);
+    });
+
+    // Footer: rainbow shard progress + spark currency
+    ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = '#ffd75e'; T2('RAINBOW · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', 130, 254);
+    ctx.fillStyle = '#ffe28a'; T2('SPARKS · ' + spk, 350, 254);
+    ctx.fillStyle = '#666'; ctx.font = '7px monospace'; T2('P / ESC / tap · close', VW / 2, VH - 4);
   }
 
   // action buttons — hidden during pause / level-up / shop (dedicated overlays own the input)
@@ -1181,7 +1264,7 @@ const draw = () => {
   }
 
   // title + name-entry screens (HUD is gated separately on `started`)
-  if (phase < 2) {
+  if (phase < 3) {
     // -- Pure BLACK background (per brand: night sky over the unicorn) --
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, VH);
 
@@ -1235,7 +1318,7 @@ const draw = () => {
       if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 252); }
       ctx.fillStyle = '#666'; ctx.font = '7px monospace';                             // single condensed hint line
       ctx.fillText('↑↓ select · ENTER accept · A/D move · SPACE jump · J swipe · L shot · S heal', VW / 2, 266);
-    } else {                                                                          // phase === 1: name entry
+    } else if (phase === 1) {                                                         // NAME ENTRY
       ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
       ctx.fillText('WHAT SHALL THE SAGE CALL YOU?', VW / 2, 208);
       ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(VW / 2 - 80, 218, 160, 24);
@@ -1245,6 +1328,22 @@ const draw = () => {
       ctx.fillText(ent + cur, VW / 2, 235);
       ctx.fillStyle = '#888'; ctx.font = '7px monospace';
       ctx.fillText('A–Z type · BACKSPACE delete · ENTER accept · tap for default (HORSE)', VW / 2, 260);
+    } else {                                                                          // phase === 2: CUSTOMIZE
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px monospace';
+      ctx.fillText('CUSTOMIZE ' + pName, VW / 2, 202);
+      // Live preview (large, gentle bob, current picks applied)
+      ctx.save(); ctx.translate(VW / 2, 226); ctx.scale(3, 3); ctx.translate(-6, -8);
+      drawU(Math.sin(time * 2) * 1);
+      ctx.restore();
+      // 3-row cycler
+      const rows = [['BODY', PALB[bod][1]], ['MANE', PALM[man][1]], ['HORN', PALH[hrn][1]]];
+      rows.forEach(([label, val], i) => {
+        const y = 246 + i * 8, on = cRow === i;
+        ctx.fillStyle = on ? '#ffd75e' : '#888'; ctx.font = 'bold 7px monospace';
+        ctx.fillText((on ? '‹ ' : '  ') + label + '  ' + val + (on ? ' ›' : ''), VW / 2, y);
+      });
+      ctx.fillStyle = '#666'; ctx.font = '7px monospace';
+      ctx.fillText('↑↓ row · ←→ color · ENTER begin', VW / 2, VH - 4);
     }
   }
   ctx.restore();

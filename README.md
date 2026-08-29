@@ -173,12 +173,22 @@ Toggle via `P` / `Esc` / tap top-right icon; tap anywhere to close.
 
 ## Save format
 Key: `localStorage.n20_save`. Version pinned in-file (`d.v !== N` → discard).
-Current version: **v10** — 5-stat pip array `t: [STR, HP, MAG, DEF, LUCK]`,
-region rebloom `b` field dropped (world palette is fixed at boot now).
-Prior fields: `o` (opened-chest bitfield, v9), `f` (seen-flags bitfield),
-`k` (class), `m` (player name). Version bumps discard prior saves rather
-than migrating; the game is early enough that mid-run states can't survive
-a rules change intact.
+Current version: **v11** — unicorn color triple `u: [body, mane, horn]`
+(indices into PALB/PALM/PALH palettes, picked at character creation).
+Prior fields: `t: [STR, HP, MAG, DEF, LUCK]` (v10), `o` (opened-chest
+bitfield, v9), `f` (seen-flags bitfield), `k` (class), `m` (player name).
+Version bumps discard prior saves rather than migrating.
+
+## Character creation
+Three screens: **name entry** (A–Z, max 8 chars) → **customize** (unicorn
+colors) → gameplay. Customize offers 3 palettes of 5 options each:
+- **BODY** — SNOW · CREAM · SILVER · ROSE · MINT
+- **MANE** — RAINBOW · EMBER · OCEAN · FOREST · VOID (3-color sweeps)
+- **HORN** — GOLD · SILVER · CYAN · ROSE · WHITE
+
+Live preview updates as you cycle. Colors persist in save and propagate
+to the in-game player render + pause overlay portrait via one shared
+`drawU()` helper.
 
 ## Stats
 Five pips picked at odd level-ups (choose 1 of 3 offered):
