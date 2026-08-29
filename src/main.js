@@ -73,8 +73,8 @@ const createKey = (e) => {
   else if (e.code === 'ArrowDown' || e.code === 'KeyS') cRow = (cRow + 1) % 5;
   else if (cRow === 0 && e.code === 'Backspace')        ent = ent.slice(0, -1);
   else if (cRow === 0 && ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
-  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 1) bod = (bod + PC - 1) % PC; else if (cRow === 2) man = (man + PC - 1) % PC; else if (cRow === 3) hrn = (hrn + PC - 1) % PC; else if (cRow === 4) hof = (hof + PC - 1) % PC; }
-  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 1) bod = (bod + 1) % PC; else if (cRow === 2) man = (man + 1) % PC; else if (cRow === 3) hrn = (hrn + 1) % PC; else if (cRow === 4) hof = (hof + 1) % PC; }
+  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { const n = STARTER.length; if (cRow === 1) bod = STARTER[(STARTER.indexOf(bod) + n - 1) % n]; else if (cRow === 2) man = STARTER[(STARTER.indexOf(man) + n - 1) % n]; else if (cRow === 3) hrn = STARTER[(STARTER.indexOf(hrn) + n - 1) % n]; else if (cRow === 4) hof = STARTER[(STARTER.indexOf(hof) + n - 1) % n]; }
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { const n = STARTER.length; if (cRow === 1) bod = STARTER[(STARTER.indexOf(bod) + 1) % n]; else if (cRow === 2) man = STARTER[(STARTER.indexOf(man) + 1) % n]; else if (cRow === 3) hrn = STARTER[(STARTER.indexOf(hrn) + 1) % n]; else if (cRow === 4) hof = STARTER[(STARTER.indexOf(hof) + 1) % n]; }
   else if (e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); }
 };
 const titleKey = (e) => {
@@ -185,8 +185,8 @@ addEventListener('pointerdown', (e) => {
       cRow = row;
       if (row === 0) { NI.value = ent; NI.focus(); }               // NAME row: summon OS keyboard (in-gesture)
       else { NI.blur();
-        if (row === 1) bod = (bod + 1) % PC; else if (row === 2) man = (man + 1) % PC;
-        else if (row === 3) hrn = (hrn + 1) % PC; else hof = (hof + 1) % PC; }
+        const n = STARTER.length; if (row === 1) bod = STARTER[(STARTER.indexOf(bod) + 1) % n]; else if (row === 2) man = STARTER[(STARTER.indexOf(man) + 1) % n];
+        else if (row === 3) hrn = STARTER[(STARTER.indexOf(hrn) + 1) % n]; else hof = STARTER[(STARTER.indexOf(hof) + 1) % n]; }
     }
     return;
   }
@@ -273,6 +273,27 @@ let ho = 1, he = 1, sp = 1, df = 1, lk = 1;       // every stat starts at 1 — 
 // Unicorn customization — palette indices picked at character creation. Four body types:
 // bod (skin/body), man (mane sweep), hrn (horn tip), hof (hooves/legs).
 let bod = 0, man = 0, hrn = 0, hof = 0;
+// EQUIPMENT — 4 equipped slots + inventory bag. Items = {s:slot, c:color, b:bonus}.
+// Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF). Bonus 0=cosmetic.
+const eq = [null, null, null, null];               // equipped items (4 slots)
+const inv = [];                                    // inventory bag (max invMax)
+let invMax = 5;                                    // upgradeable to 10
+const SLOT_STAT = [1, 2, 0, 3];                    // slot→stat index: HP, MAG, STR, DEF
+const SLOT_LBL = ['BODY', 'MANE', 'HORN', 'HOOVES'];
+const STAT_LBL = ['STR', 'HP', 'MAG', 'DEF'];
+// Starting palette — the 5 neutral colors available at creation (indices into PAL)
+const STARTER = [0, 1, 13, 15, 14];               // SNOW, CREAM, SILVER, ONYX, WHITE
+// Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
+const equip = (item) => {
+  const old = eq[item.s];
+  if (old && old.b > 0 && inv.length < invMax) inv.push(old);  // stash old if it had stats
+  eq[item.s] = item;
+  [bod, man, hrn, hof][item.s] = item.c;          // update unicorn color
+  recalcEq();
+};
+// Recalc equipment stat bonuses (additive on top of base stats)
+let eqB = [0, 0, 0, 0];                           // cached bonus per slot
+const recalcEq = () => { eqB = eq.map(e => e ? e.b : 0); };
 // UNIFIED PALETTE — 18 colors, same for all 4 body parts.
 // Mane gradient auto-derived: base → 85% → 70% brightness (no stored triples).
 const PAL = [
@@ -333,10 +354,10 @@ let hs = 0, shk = 0;                              // combat feel: hitstop freeze
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
 const bs = [0, 0, 0, 0, 0];
 const shards = () => bs.filter(v => v === 2).length;
-const mHP = () => 8 + he * 2 + su[9] * 3 + (lvl >= CAP ? 2 : 0); // 10 base · +2/HP · TOUGH +3/rank · APOTHEOSIS +2
-const mMN = () => 3 + sp * 2;
+const mHP = () => 8 + (he + eqB[0]) * 2 + su[9] * 3 + (lvl >= CAP ? 2 : 0); // body eq boosts HP
+const mMN = () => 3 + (sp + eqB[1]) * 2;                                    // mane eq boosts MAG
 const DIE = () => [4,4,6,6,6,8,8,8,10,10,10,12,12,12,12][lvl - 1] || 4; // die = LEVEL MILESTONE (Zelda-heart law)
-const MOD = () => ho - 1 + (lvl >= CAP ? 2 : 0) + (su[6] ? (mHP() - hp) >> 1 : 0); // BLEED: +1/2 missing HP
+const MOD = () => ho + eqB[2] - 1 + (lvl >= CAP ? 2 : 0) + (su[6] ? (mHP() - hp) >> 1 : 0); // horn eq boosts STR
 const roll = (adv) => {                           // adv: PRECISE rank 2+ (melee advantage)
   let r = 1 + (Math.random() * DIE() | 0);
   if (adv && su[4] >= 2) r = Math.max(r, 1 + (Math.random() * DIE() | 0)); // PRECISE r2: advantage
@@ -391,16 +412,17 @@ const allocate = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 20, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 21, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
-    u: [bod, man, hrn, hof],                                       // v13 — 4-slot palette (added hooves)
+    u: [bod, man, hrn, hof],
+    q: eq, i: inv, im: invMax,
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 20) return;                               // v20 — unified boss state array.
+    if (!d || d.v !== 21) return;                               // v21 — equipment + inventory.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
     (d.g || []).forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
@@ -409,7 +431,10 @@ const load = () => {
     [bod, man, hrn, hof] = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     pending = d.d || 0; if (pending) { choosing = 1; aRow = 0; }    // unspent stat points survive reload
-    spts = d.k || 0; (d.y || []).forEach((v, i) => su[i] = v); abilSync();  // skill points + ranks → derive abil bits
+    spts = d.k || 0; (d.y || []).forEach((v, i) => su[i] = v); abilSync();
+    if (d.q) d.q.forEach((v, i) => eq[i] = v);
+    if (d.i) { inv.length = 0; d.i.forEach(v => inv.push(v)); }
+    invMax = d.im || 5; recalcEq();
   } catch (e) { /* fresh oath */ }
 };
 
@@ -463,6 +488,7 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 // (boot load() fills globals; without this, "new" characters kept old lvl/stats/bosses)
 const fresh = () => {
   hp = 10; xp = 0; lvl = 1; abil = 0; mn = 5; bs.fill(0);
+  eq.fill(null); inv.length = 0; invMax = 5; eqB = [0, 0, 0, 0];
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
   oc = 0; pName = 'HORSE'; earned.fill(0);
   spts = 0; su.fill(0); regT = 0; abilSync();
@@ -508,9 +534,13 @@ const I_SH = [0b01110, 0b11111, 0b11111, 0b01110, 0b00100]; // shield (VIGOR)
 const I_BT = [0b01100, 0b01110, 0b11111, 0b11110, 0b01100]; // boot (FINESSE)
 // Multi-color string sprite decoder: each char = palette index (0=transparent)
 const sprC = (s, x, y, w, p) => { for (let i = 0; i < s.length; i++) { const c = +s[i]; if (c) { ctx.fillStyle = p[c]; ctx.fillRect(x + i % w, y + (i / w | 0), 1, 1); } } };
+const spawnGear = (x, y, slot, bonus) => {
+  const c = (5 + Math.random() * (PC - 5)) | 0;
+  drops.push({ x, y: y - 8, vx: (Math.random() - .5) * 40, vy: -110, t: 5, life: 10, s: slot, c: c, b: bonus });
+};
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
-    const r = Math.random(), t = r < .03 ? 3 : r < .35 ? 0 : r < .63 ? 1 : 2; // 3% rainbow, 32% heart, 28% mana, 37% XP
+    const r = Math.random(), t = r < .03 ? 3 : r < .35 ? 0 : r < .63 ? 1 : 2;
     drops.push({ x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t, life: 6 });
   }
 };
@@ -542,7 +572,7 @@ const strike = (f, r, gen, viaStomp) => {
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16);
     spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 7 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
-    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
+    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); spawnGear(f.x, f.y, Math.random() * 4 | 0, 1); }
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE
@@ -553,7 +583,8 @@ const strike = (f, r, gen, viaStomp) => {
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
-      if (bs[f.bi] !== 2) bs[f.bi] = 0;             // re-kill: reset to unvisited (can respawn)
+      spawnGear(f.x, f.y, Math.random() * 4 | 0, bs[f.bi] === 2 ? 1 : 2); // boss: +2 first, +1 re-kill
+      if (bs[f.bi] !== 2) bs[f.bi] = 0;
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
     }
     earned[2] = 1;                                                  // GLOOMBUSTER — first kill
@@ -588,7 +619,7 @@ function dash() {                                               // air dash: bur
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
-  n = Math.max(1, n - df);                                    // DEFENSE — subtract pips, always leave at least 1
+  n = Math.max(1, n - df - eqB[3]);                            // DEFENSE — stat + hooves eq bonus
   hp -= n; pl.inv = su[12] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
   for (const f of foes) if (f.bit) f.hit = 1;                    // any hit disqualifies UNTOUCHABLE for the active boss(es)
   sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE grace inside pl.inv
@@ -836,6 +867,14 @@ sfx(110, 55, .5, 'sawtooth', .18);
       else if (d.t === 2) gainXp(2 + lvl, d.x, d.y);
       else if (d.t === 3) { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'FULL HEAL!', '#ffd75e', 1); burst(d.x, d.y, 12, '#ffd75e'); }
       else if (d.t === 4) { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'RAINBOW SHARD!', '#ffd75e', 1); burst(d.x, d.y, 20, '#ffd75e'); sfx(523, 523, .14, 'triangle', .15); sfx(784, 1568, .3, 'triangle', .15, .24); }
+      else if (d.t === 5) {                                     // GEAR PICKUP — into inventory or auto-equip
+        if (inv.length < invMax) {
+          const item = { s: d.s, c: d.c, b: d.b };
+          if (!eq[d.s] || eq[d.s].b < d.b) { equip(item); fly(d.x, d.y, '+' + d.b + ' ' + STAT_LBL[SLOT_STAT[d.s]], PAL[d.c], 1); }
+          else { inv.push(item); fly(d.x, d.y, SLOT_LBL[d.s] + ' GEAR', PAL[d.c]); }
+          sfx(660, 880, .12, 'triangle', .1);
+        } else fly(d.x, d.y, 'BAG FULL', '#f88');
+      }
       else { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'RAINBOW SHARD!', '#ffd75e', 1); } // type 4 — boss only
       sfx(520, 1040, .06, 'triangle', .08);
     }
@@ -1100,6 +1139,7 @@ const draw = () => {
     else if (d.t === 2) { spr(I_XP, dx, ddy, 6, '#9fe89a'); ctx.fillStyle = '#d4a24e'; ctx.fillRect(dx + 2, ddy + 4, 2, 2); }
     else if (d.t === 3) for (let i = 4; i--;) { ctx.beginPath(); ctx.strokeStyle = ['#f44','#f80','#0f0','#44f'][i]; ctx.lineWidth = 1; ctx.arc(dx + 3, ddy + 4 + dy, 2 + i, Math.PI, 0); ctx.stroke(); }
     else if (d.t === 4) for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(dx + 3, ddy + 4 + dy, 3 + i, Math.PI, 0); ctx.stroke(); }
+    else if (d.t === 5) { ctx.fillStyle = PAL[d.c]; ctx.fillRect(dx, ddy, 7, 7); ctx.fillStyle = '#fff'; ctx.globalAlpha = .6; ctx.fillRect(dx + 1, ddy + 1, 5, 1); ctx.globalAlpha = a; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = .5; ctx.strokeRect(dx - .5, ddy - .5, 8, 8); }
     else for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(d.x, d.y + 5 + dy, 3 + i, Math.PI, 0); ctx.stroke(); } // rainbow shard (boss only)
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
@@ -1196,7 +1236,16 @@ const draw = () => {
     });
     // Footer
     ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + shards() + ' / 5', VW / 2, 250);
+    ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + shards() + ' / 5', VW / 2, 244);
+    // EQUIPMENT — 4 equipped slot squares + inventory grid
+    ctx.textAlign = 'left'; ctx.font = '6px monospace';
+    for (let i = 0; i < 4; i++) {
+      const ex = 12 + i * 28, ey = 252;
+      ctx.fillStyle = eq[i] ? PAL[eq[i].c] : '#2a2a33'; ctx.fillRect(ex, ey, 10, 10);
+      ctx.strokeStyle = eq[i] && eq[i].b ? '#ffd75e' : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 10, 10);
+      if (eq[i] && eq[i].b) { ctx.fillStyle = '#fff'; T2('+' + eq[i].b, ex + 5, ey + 14); }
+    }
+    ctx.fillStyle = '#888'; ctx.fillText('BAG ' + inv.length + '/' + invMax, 130, 262);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';
     T2(alloc ? '↑↓ pick · → allocate' : 'tap skill to buy · P close', VW / 2, VH - 4);
   }
