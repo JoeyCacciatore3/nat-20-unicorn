@@ -472,20 +472,13 @@ const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
 // order rows by difficulty. Elites (17%, non-ranged kinds only): 2x hp, +1 dm, +1 size.
 const FT = [, [4, 3, 44, 2, 0], [8, 4, 31, 3, 0], [12, 5, 26.7, 4, 1]];
 // BOSS PHASE-2 TABLE — capability bits per boss index: 1 speed · 2 summon ·
-// 4 ranged · 8 landing shockwave. New boss = seeds.bosses/shards row + bits here.
+// 4 ranged · 8 landing shockwave. New boss = seeds.bosses row + bits here.
 const P2 = [1, 2, 4, 8, 7];
-const foes = seeds.foes.map(([x, y, k]) => {
+const mkFoe = (x, y, k) => {
   const [fh, fd, fv, fz, fr] = FT[k], el = !fr && Math.random() < .17;
-  return {
-    x: x * T, y: y * T, k,
-    vx: fv * (Math.random() < .5 ? 1 : -1),
-    hp: fh * (el ? 2 : 1), mx: fh * (el ? 2 : 1),
-    dm: fd + (el ? 1 : 0),
-    el, fl: 0, t: Math.random() * 7,
-    cz: el ? fz + 1 : fz,
-    rc: fr ? 1.5 + Math.random() : undefined,
-  };
-});
+  return { x, y, k, vx: fv * (Math.random() < .5 ? 1 : -1), hp: fh * (el ? 2 : 1), mx: fh * (el ? 2 : 1), dm: fd + (el ? 1 : 0), el, fl: 0, t: Math.random() * 7, cz: el ? fz + 1 : fz, rc: fr ? 1.5 + Math.random() : undefined };
+};
+const foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
@@ -541,18 +534,18 @@ const strike = (f, r, gen, viaStomp) => {
     spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 7 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
-    if (f.bit) {                                                // GUARDIAN falls — rainbow loot shower
-      bossDead |= f.bit; bossLive[f.bi] = 0;
+    if (f.bit) {                                                // GUARDIAN falls
+      bossLive[f.bi] = 0;
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE
-      earned[1] = 1;                                            // CRYSTAL CLEAR
-      if (bossDead === 31) earned[12] = 1;                      // ALL 5 guardians slain
-      // Guaranteed rainbow drop (full HP+MP) + bonus item shower
-      for (let j = 0; j < 3; j++) drops.push({ x: f.x, y: f.y - 8, vx: (Math.random() - .5) * 60, vy: -120 - Math.random() * 40, t: 3, life: 10 });
-      spawnDrop(f.x, f.y, 4 + lk);
-      sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
+      if (!(bossDead & f.bit)) {                                // FIRST KILL — golden rainbow shard
+        bossDead |= f.bit; earned[1] = 1;
+        if (bossDead === 31) earned[12] = 1;                    // ALL 5 guardians
+        drops.push({ x: f.x, y: f.y - 12, vx: 0, vy: -130, t: 4, life: 15 });
+        sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
+        save();
+      }
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
-      save();
     }
     earned[2] = 1;                                                  // GLOOMBUSTER — first kill
     return 1;
@@ -704,7 +697,7 @@ const step = (dt) => {
   seeds.bosses.forEach(([bx, by], i) => {
     const bit = 1 << i;
     // bossLive[i]: 0 = never spawned, 1 = currently on-screen, {hp,ph,spd,rc} = leash-out stash
-    if ((bossDead & bit) || bossLive[i] === 1) return;
+    if (bossLive[i] === 1) return;                               // bosses respawn (shard only drops first kill)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       // LEASH RESTORE — if the boss was in-fight and player walked out of leash,
       // resume with the saved hp/phase/spd/rc (no free heal). Fresh spawn otherwise.
@@ -803,7 +796,16 @@ sfx(110, 55, .5, 'sawtooth', .18);
     } else if (!hit && (f.wt || 0) > 0) f.wt = Math.max(0, f.wt - dt * 2);  // DECAY, not reset — brief separation keeps threat
     if (f.wt < 0) f.wt = Math.min(0, f.wt + dt);
   }
-  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune (fixes splice-race #5)
+  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune
+  // FOE RESPAWN — off-screen seed positions refill the world (enemies reappear)
+  if (foes.filter(f => !f.bit).length < seeds.foes.length) {
+    for (const [x, y, k] of seeds.foes) {
+      const wx = x * T, wy = y * T;
+      if (Math.abs(wx - pl.x) < VW || Math.abs(wy - pl.y) < VH) continue;
+      if (foes.some(f => !f.bit && Math.abs(f.x - wx) < T && Math.abs(f.y - wy) < T)) continue;
+      foes.push(mkFoe(wx, wy, k));
+    }
+  }
 
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
   nearFire = 0;
@@ -827,6 +829,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
       if (d.t === 0) { hp = Math.min(mHP(), hp + 3); fly(d.x, d.y, '+3 HP', '#ff5d6c'); }
       else if (d.t === 1) { mn = Math.min(mMN(), mn + 2); fly(d.x, d.y, '+2 MP', '#c9a6f7'); }
       else if (d.t === 2) gainXp(2 + lvl, d.x, d.y);
+      else if (d.t === 4) { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'RAINBOW SHARD!', '#ffd75e', 1); }
       else { hp = mHP(); mn = mMN(); fly(d.x, d.y, 'HEAL!', '#ffd75e', 1); }
       sfx(520, 1040, .06, 'triangle', .08);
     }
@@ -1057,7 +1060,9 @@ const draw = () => {
     if (d.t === 0) spr(I_HP, dx, ddy, 6, '#ff5d6c');
     else if (d.t === 1) { spr(I_MP, dx, ddy, 6, '#c9a6f7'); ctx.fillStyle = '#a72'; ctx.fillRect(dx + 2, ddy, 2, 1); }
     else if (d.t === 2) { spr(I_XP, dx, ddy, 6, '#9fe89a'); ctx.fillStyle = '#d4a24e'; ctx.fillRect(dx + 2, ddy + 4, 2, 2); }
-    else for (let i = 4; i--;) { ctx.beginPath(); ctx.strokeStyle = ['#f44','#f80','#0f0','#44f'][i]; ctx.lineWidth = 1; ctx.arc(d.x, d.y + 4 + dy, 2 + i, Math.PI, 0); ctx.stroke(); }
+    else if (d.t === 4) { // GOLDEN RAINBOW SHARD — bigger, golden glow
+      for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(d.x, d.y + 5 + dy, 3 + i, Math.PI, 0); ctx.stroke(); }
+    } else for (let i = 4; i--;) { ctx.beginPath(); ctx.strokeStyle = ['#f44','#f80','#0f0','#44f'][i]; ctx.lineWidth = 1; ctx.arc(d.x, d.y + 4 + dy, 2 + i, Math.PI, 0); ctx.stroke(); }
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
   ctx.globalAlpha = 1;
@@ -1153,7 +1158,7 @@ const draw = () => {
     });
     // Footer
     ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = '#ffd75e'; T2('GUARDIANS · ' + [1, 2, 4, 8, 16].filter(b => bossDead & b).length + ' / 5', VW / 2, 250);
+    ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + [1, 2, 4, 8, 16].filter(b => bossDead & b).length + ' / 5', VW / 2, 250);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';
     T2(alloc ? '↑↓ pick · → allocate' : 'tap skill to buy · P close', VW / 2, VH - 4);
   }
