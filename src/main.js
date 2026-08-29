@@ -780,8 +780,6 @@ sfx(110, 55, .5, 'sawtooth', .18);
     if (blockedAhead) { if (f.bit) f.vx = 0; else f.vx *= -1; } // bosses hold their ground at edges — never lost off-arena
     // CONTACT with wind-up tell: touching sets .wt clock; hurt only fires after 0.3s
     // (visible red flash). Cooldown holds .wt < 0 until the strike can re-arm.
-    // FIRST-FOE MELEE HINT — fired ONCE per save via DM voice, no player-anchored spam
-
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && pl.y + PH - f.y < 10) {
       strike(f, roll(0), 0, 1);
