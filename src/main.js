@@ -20,7 +20,7 @@
 //
 // Save: version-gated JSON to localStorage. Version bumps discard prior saves.
 
-import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
+import { T, W, H, grid, tile, regions, regionAt, seeds, DECO } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -500,9 +500,6 @@ const I_SH = [0b01110, 0b11111, 0b11111, 0b01110, 0b00100]; // shield (VIGOR)
 const I_BT = [0b01100, 0b01110, 0b11111, 0b11110, 0b01100]; // boot (FINESSE)
 // Multi-color string sprite decoder: each char = palette index (0=transparent)
 const sprC = (s, x, y, w, p) => { for (let i = 0; i < s.length; i++) { const c = +s[i]; if (c) { ctx.fillStyle = p[c]; ctx.fillRect(x + i % w, y + (i / w | 0), 1, 1); } } };
-// WIZARD NPC 10×18: 0=clear 1=robe 2=skin 3=beard 4=gold 5=dark 6=staff 7=cyan 8=eyes
-const WIZ = "0000000070" + "0040000060" + "0011000060" + "0111100060" + "1111110060" + "0028280060" + "0023320060" + "0033330060" + "0111111160" + "0111111060" + "0011111060" + "0011110060" + "0001111000" + "0000550000" + "0000500500" + "0005500550";
-const WIZP = [, '#4a3a7c', '#f5e0c8', '#e8e8f0', '#ffd75e', '#2a1f3c', '#8a6a3a', '#8cf', '#111'];
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const r = Math.random(), t = r < .03 ? 3 : r < .33 ? 0 : r < .58 ? 1 : 2;
@@ -898,8 +895,26 @@ const draw = () => {
     const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-    // WIZARD NPC — multi-color string sprite (with arms holding staff)
-    sprC(WIZ, cxp + 11, cyp - 8, 10, WIZP);
+    // WIZARD NPC — procedural, same fillRect quality as the unicorn drawU
+    const wx = cxp + 16, wy = cyp - 2, wb = Math.sin(time * 2) * .4;
+    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(wx + 5, wy - 13, 1, 17);         // staff
+    ctx.fillStyle = '#8cf'; ctx.fillRect(wx + 4, wy - 14, 3, 2);             // crystal tip (glow)
+    ctx.fillStyle = '#4a3a7c';                                                // robe
+    ctx.fillRect(wx - 3, wy - 3, 6, 8);                                      // torso
+    ctx.fillRect(wx - 4, wy + 3, 8, 3);                                      // skirt flare
+    ctx.fillRect(wx + 2, wy - 2, 4, 2);                                      // right arm → staff
+    ctx.fillRect(wx - 3, wy - 8, 6, 2);                                      // hat brim
+    ctx.fillRect(wx - 2, wy - 10, 4, 2);                                     // hat mid
+    ctx.fillRect(wx - 1, wy - 12, 2, 2);                                     // hat tip
+    ctx.fillStyle = '#f5e0c8'; ctx.fillRect(wx - 2, wy - 6, 4, 3);          // face
+    ctx.fillStyle = '#e8e8f0'; ctx.fillRect(wx - 2, wy - 4, 4, 2);          // beard
+    ctx.fillStyle = '#111';                                                   // eyes
+    ctx.fillRect(wx - 1, wy - 5, 1, 1); ctx.fillRect(wx + 1, wy - 5, 1, 1);
+    ctx.fillStyle = '#ffd75e'; ctx.fillRect(wx, wy - 13 + wb, 1, 1);        // gold star on hat
+    ctx.fillStyle = '#2a1f3c';                                                // boots
+    ctx.fillRect(wx - 3, wy + 6, 2, 1); ctx.fillRect(wx + 1, wy + 6, 2, 1);
+    ctx.fillStyle = '#3a2f5c';                                                // legs
+    ctx.fillRect(wx - 2, wy + 4, 1, 2); ctx.fillRect(wx + 1, wy + 4, 1, 2);
   }
   // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
   // Prompt "▲ OPEN" pulses above the nearest unopened chest. (Design pivot v9.)
@@ -920,6 +935,26 @@ const draw = () => {
   }
 
 
+
+  // WORLD DECORATIONS — trees, grass, rocks. Region-hued, data-driven from DECO seeds.
+  // type 0=tree, 1=grass tuft, 2=rock. Nearly free: positions are data, draw is shared.
+  for (const [dx, dy, dt] of DECO) {
+    const px = dx * T, py = dy * T;
+    if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
+    const rg = regionAt(px, py), hue = rg.h * 360;
+    if (dt === 0) { // TREE — trunk + canopy, same style as tile art
+      ctx.fillStyle = `hsl(${hue} 30% 22%)`; ctx.fillRect(px + 6, py - 8, 4, 12);
+      ctx.fillStyle = `hsl(${hue} 50% 35%)`; ctx.fillRect(px + 1, py - 18, 14, 11);
+      ctx.fillStyle = `hsl(${hue} 55% 42%)`; ctx.fillRect(px + 3, py - 21, 10, 6);
+    } else if (dt === 1) { // GRASS — 3 blades swaying
+      const sw = Math.sin(time * 2.5 + dx) * 1.5;
+      ctx.fillStyle = `hsl(${hue} 45% 38%)`;
+      ctx.fillRect(px + 3 + sw, py - 5, 1, 5); ctx.fillRect(px + 7 + sw * .7, py - 7, 1, 7); ctx.fillRect(px + 11 + sw * .4, py - 4, 1, 4);
+    } else { // ROCK — small boulder
+      ctx.fillStyle = `hsl(${hue} 15% 30%)`; ctx.fillRect(px + 3, py - 3, 10, 4);
+      ctx.fillStyle = `hsl(${hue} 12% 38%)`; ctx.fillRect(px + 4, py - 5, 8, 3);
+    }
+  }
 
   // ARTICULATED ENEMY SPRITES — unicorn-quality (legs step, antennae bob,
   // hoods, glowing rune-eyes, robe folds). One draw fn per tier, boss shares
