@@ -293,6 +293,9 @@ const equip = (item) => {
 // Recalc equipment stat bonuses (additive on top of base stats)
 let eqB = [0, 0, 0, 0];                           // cached bonus per slot
 const recalcEq = () => { eqB = eq.map(e => e ? e.b : 0); };
+// Gear tier trim colour — shared by the unicorn's worn accents AND the ground drop
+// borders, so "which level" reads the same everywhere. Index by bonus: 1/2/3.
+const TC = [, '#d8d8e0', '#ffe14a', '#8ff'];       // 1 silver · 2 gold · 3 prismatic
 // UNIFIED PALETTE — 18 colors, same for all 4 body parts.
 // Mane gradient auto-derived: base → 85% → 70% brightness (no stored triples).
 const PAL = [
@@ -339,6 +342,12 @@ const drawU = (bob) => {
   ctx.fillStyle = hc; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill(); // horn
   mc.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });           // mane 3-color
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
+  // EQUIPMENT — a geared part wears a tier trim (colour = which gear, trim = level).
+  const et = s => eq[s] && eq[s].b ? TC[eq[s].b] : 0, a3 = et(3), a0 = et(0), a2 = et(2), a1 = et(1);
+  if (a3) { ctx.fillStyle = a3; ctx.fillRect(1, 15, 2, 1); ctx.fillRect(7, 15, 2, 1); }              // hoof cuffs
+  if (a0) { ctx.fillStyle = a0; ctx.fillRect(0, 5, 10, 1); }                                         // barding stripe
+  if (a2) { ctx.fillStyle = a2; ctx.fillRect(9, 0, 2, 1); }                                          // horn ring
+  if (a1) { ctx.fillStyle = a1; ctx.fillRect(5, 1, 2, 1); }                                          // mane spark
 };
 let hp = 10, xp = 0, lvl = 1;
 let abil = 0;                                      // skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash
@@ -527,6 +536,9 @@ const I_XP = [0b011110, 0b111111, 0b111111, 0b011110, 0b001100, 0b001100, 0b0000
 const I_SW = [0b00001, 0b00010, 0b10100, 0b01000, 0b10000]; // sword (FURY)
 const I_SH = [0b01110, 0b11111, 0b11111, 0b01110, 0b00100]; // shield (VIGOR)
 const I_BT = [0b01100, 0b01110, 0b11111, 0b11110, 0b01100]; // boot (FINESSE)
+const I_HN = [0b00010, 0b00110, 0b01100, 0b11000, 0b11000]; // horn spire
+const I_MN = [0b00011, 0b00110, 0b01100, 0b11000, 0b01000]; // mane streak
+const SLOTICON = [I_SH, I_MN, I_HN, I_BT];         // gear drop icon by slot [BODY,MANE,HORN,HOOVES]
 // Multi-color string sprite decoder: each char = palette index (0=transparent)
 const sprC = (s, x, y, w, p) => { for (let i = 0; i < s.length; i++) { const c = +s[i]; if (c) { ctx.fillStyle = p[c]; ctx.fillRect(x + i % w, y + (i / w | 0), 1, 1); } } };
 const spawnGear = (x, y, slot, bonus) => {
@@ -1134,7 +1146,7 @@ const draw = () => {
     else if (d.t === 2) { spr(I_XP, dx, ddy, 6, '#9fe89a'); ctx.fillStyle = '#d4a24e'; ctx.fillRect(dx + 2, ddy + 4, 2, 2); }
     else if (d.t === 3) for (let i = 4; i--;) { ctx.beginPath(); ctx.strokeStyle = ['#f44','#f80','#0f0','#44f'][i]; ctx.lineWidth = 1; ctx.arc(dx + 3, ddy + 4 + dy, 2 + i, Math.PI, 0); ctx.stroke(); }
     else if (d.t === 4) for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(dx + 3, ddy + 4 + dy, 3 + i, Math.PI, 0); ctx.stroke(); }
-    else if (d.t === 5) { ctx.fillStyle = PAL[d.c]; ctx.fillRect(dx, ddy, 7, 7); ctx.fillStyle = '#fff'; ctx.globalAlpha = .6; ctx.fillRect(dx + 1, ddy + 1, 5, 1); ctx.globalAlpha = a; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = .5; ctx.strokeRect(dx - .5, ddy - .5, 8, 8); }
+    else if (d.t === 5) { ctx.fillStyle = '#1a1226'; ctx.fillRect(dx, ddy, 7, 7); spr(SLOTICON[d.s], dx + 1, ddy + 1, 5, PAL[d.c]); ctx.strokeStyle = TC[d.b] || '#ffd75e'; ctx.lineWidth = .75; ctx.strokeRect(dx - .5, ddy - .5, 8, 8); }
     else for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(d.x, d.y + 5 + dy, 3 + i, Math.PI, 0); ctx.stroke(); } // rainbow shard (boss only)
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
@@ -1237,7 +1249,7 @@ const draw = () => {
     for (let i = 0; i < 4; i++) {
       const ex = 12 + i * 28, ey = 252;
       ctx.fillStyle = eq[i] ? PAL[eq[i].c] : '#2a2a33'; ctx.fillRect(ex, ey, 10, 10);
-      ctx.strokeStyle = eq[i] && eq[i].b ? '#ffd75e' : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 10, 10);
+      ctx.strokeStyle = eq[i] && eq[i].b ? TC[eq[i].b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 10, 10);
       if (eq[i] && eq[i].b) { ctx.fillStyle = '#fff'; T2('+' + eq[i].b, ex + 5, ey + 14); }
     }
     ctx.fillStyle = '#888'; ctx.fillText('BAG ' + inv.length + '/' + invMax, 130, 262);
