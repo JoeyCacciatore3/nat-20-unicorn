@@ -171,8 +171,9 @@ Toggle via `P` / `Esc` / tap top-right icon; tap anywhere to close.
 
 ## Save format
 Key: `localStorage.n20_save`. Version pinned in-file (`d.v !== N` → discard).
-Current version: **v12** — classes and shop removed; save shed `k` (class)
-and `w` (shop bitfield). Prior: `u: [body, mane, horn]` unicorn colors,
+Current version: **v13** — HOOVES palette added; `u` grew to 4-tuple
+`[body, mane, horn, hooves]`. Prior: v12 dropped `k` (class) and `w`
+(shop bitfield),
 (indices into PALB/PALM/PALH palettes, picked at character creation).
 Prior fields: `t: [STR, HP, MAG, DEF, LUCK]` (v10), `o` (opened-chest
 bitfield, v9), `f` (seen-flags bitfield), `k` (class), `m` (player name).
@@ -182,13 +183,14 @@ Version bumps discard prior saves rather than migrating.
 A single **NEW CHARACTER** screen (same split-panel layout as the pause
 overlay) combines name entry and unicorn customization. Left: gold-bordered
 portrait box with hearts row + live unicorn preview + name. Right: four
-selectable rows (NAME / BODY / MANE / HORN). UP/DOWN picks a row, A–Z types
+selectable rows (NAME / BODY / MANE / HORN / HOOVES). UP/DOWN picks a row, A–Z types
 on the NAME row, LEFT/RIGHT cycles on color rows, ENTER begins.
 
 Palettes (5 options each):
 - **BODY** — SNOW · CREAM · SILVER · ROSE · MINT
 - **MANE** — RAINBOW · EMBER · OCEAN · FOREST · VOID (3-color sweeps)
 - **HORN** — GOLD · SILVER · CYAN · ROSE · WHITE
+- **HOOVES** — ONYX · GOLD · SILVER · ROSE · MINT (whole leg color; future: swappable "item pieces")
 
 Live preview updates as you cycle. Colors persist in save and propagate
 to the in-game player render + pause overlay portrait via one shared
