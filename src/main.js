@@ -387,7 +387,7 @@ const STATS = [
   ['HP', '+2 max HP', '#ff5d6c', () => { he++; hp += 2; }],
   ['MAG', '+2 max mana', '#e08ae0', () => { sp++; mn += 2; }],
   ['DEF', '-1 damage taken', '#8cf', () => df++],
-  ['LUCK', '+1 item drop / kill', '#9fe89a', () => lk++],
+  ['LUCK', 'better loot rolls', '#9fe89a', () => lk++],
 ];
 
 // UNIFIED SKILL TREE — 3 branches, 19 nodes, 24 ranks. Perks folded in.
@@ -471,7 +471,7 @@ const openChest = (i) => {
   if (oc & (1 << i)) return;
   oc |= 1 << i;
   const c = chests[i]; hp = mHP();
-  spawnDrop(c.x, c.y, 4 + lk);
+  spawnDrop(c.x, c.y, 5);
   burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .18, 'triangle', .12);
   fly(c.x + 6, c.y - 4, '+HEAL', '#9fe8a0');
   save();
@@ -541,14 +541,22 @@ const I_MN = [0b00011, 0b00110, 0b01100, 0b11000, 0b01000]; // mane streak
 const SLOTICON = [I_SH, I_MN, I_HN, I_BT];         // gear drop icon by slot [BODY,MANE,HORN,HOOVES]
 // Multi-color string sprite decoder: each char = palette index (0=transparent)
 const sprC = (s, x, y, w, p) => { for (let i = 0; i < s.length; i++) { const c = +s[i]; if (c) { ctx.fillStyle = p[c]; ctx.fillRect(x + i % w, y + (i / w | 0), 1, 1); } } };
-const spawnGear = (x, y, slot, bonus) => {
-  const c = (5 + Math.random() * (PC - 5)) | 0;
-  drops.push({ x, y: y - 8, vx: (Math.random() - .5) * 40, vy: -110, t: 5, life: 10, s: slot, c: c, b: bonus });
-};
+// ONE loot table for every drop — a D&D loot check. Ladder floor→ceiling:
+// XP → heart → mana → GEAR (the ceiling LUCK maximizes; tier climbs with the roll).
+// Rainbow (full heal) is a separate rare check so LUCK can't spam it. Each LUCK pip
+// lifts the roll +4 → more gear AND higher-tier gear. Golden boss shard is the ONLY
+// drop outside this table. Thresholds are single literals — tune freely.
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
-    const r = Math.random(), t = r < .03 ? 3 : r < .35 ? 0 : r < .63 ? 1 : 2;
-    drops.push({ x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t, life: 6 });
+    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 2, life: 6 };
+    if (Math.random() < .03 + Math.min(lk, 10) * .004) d.t = 3;   // rainbow — rare, gentle LUCK scaling (3%→7%)
+    else {
+      const r = (Math.random() * 100 | 0) + Math.min(lk, 10) * 4; // % roll + LUCK; GEAR is the ceiling
+      if (r >= 85) { d.t = 5; d.life = 10; d.s = Math.random() * 4 | 0; d.c = (5 + Math.random() * (PC - 5)) | 0; d.b = r >= 100 ? 2 : 1; }
+      else if (r >= 58) d.t = 1;                  // mana
+      else if (r >= 30) d.t = 0;                  // heart  (else: XP gem, the floor)
+    }
+    drops.push(d);
   }
 };
 
@@ -577,9 +585,9 @@ const strike = (f, r, gen, viaStomp) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16);
-    spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 7 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
+    spawnDrop(f.x, f.y, f.bit ? 6 : f.el ? 4 : 1 + (Math.random() < .5 ? 1 : 0)); // count by tier; LUCK now lives in the roll
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
-    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); spawnGear(f.x, f.y, Math.random() * 4 | 0, 1); }
+    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE
@@ -590,7 +598,6 @@ const strike = (f, r, gen, viaStomp) => {
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
-      spawnGear(f.x, f.y, Math.random() * 4 | 0, bs[f.bi] === 2 ? 1 : 2); // boss: +2 first, +1 re-kill
       if (bs[f.bi] !== 2) bs[f.bi] = 0;
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
     }
