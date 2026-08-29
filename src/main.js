@@ -1,13 +1,39 @@
 // NAT 20 UNICORN v2 — 2D metroidvania platformer. Canvas 2D, no WebGL.
-// Phase 1 (bible-approved): dual-convention controls + touch overlay,
-// verb economy (stomp free · melee GENERATES mana · shot/heal SPEND it),
-// 4 stats chosen at level-up (HORN/HOOF/HEART/SPARK), contextual prompts.
+//
+// Design spine (locked):
+//   - Dual-convention controls + touch overlay
+//   - Verb economy: stomp FREE · melee GENERATES mana · shot/heal SPEND mana
+//   - Progression: 3 stats (HORN/HEART/SPARK) + class at L3 + 13-perk pool
+//     + level cap L15 APOTHEOSIS; skills gate on LEVEL not shard (LV3/5/7/9)
+//   - Shards repaint regions + grant a bonus level (no combat prereq for skills)
+//
+// Phase lineage (chronological):
+//   1  Bible-approved core (controls, verbs, stats, world, shards)
+//   3  Combat FEEL — hitstop, screen shake, knockback, wind-up tells,
+//      boss phase 2s, elite foes, Gloomcast ranged tier
+//   4  Correctness + modern canvas — DPR + visualViewport + smoothing off,
+//      boss-leash HP persistence, splice-race guard, UNTOUCHABLE integrity
+//   5  Title screen + name entry + articulated enemy sprites (unicorn-parity)
+//   6  Full leveling — class fork at L3, L15 APOTHEOSIS, +5 perks, XP bar
+//   7  Cleanup — ARCHITECT bug fix, dead PAT fields removed, v6 save pin
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
-const fit = () => { cv.width = innerWidth; cv.height = innerHeight; };
-addEventListener('resize', fit); fit();
+// DPR + visualViewport: draw at native device pixels (retina crispness), size to
+// the actual viewport (fixes iOS URL-bar overshoot). imageSmoothingEnabled=false
+// keeps the pixel art crisp when the letterbox scale is fractional.
+let DPR = 1;
+const fit = () => {
+  const vv = visualViewport, w = vv ? vv.width : innerWidth, h = vv ? vv.height : innerHeight;
+  DPR = devicePixelRatio || 1;
+  cv.width = w * DPR | 0; cv.height = h * DPR | 0;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  ctx.imageSmoothingEnabled = false;
+};
+addEventListener('resize', fit);
+visualViewport && visualViewport.addEventListener('resize', fit);
+fit();
 let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer mapping)
 
 // ---------- input: BOTH conventions (WASD+Space/J/L/S and arrows+Z/X/C/I) ----------
@@ -15,9 +41,28 @@ const J_KEYS = ['Space', 'KeyK', 'KeyZ', 'KeyW', 'ArrowUp'];
 const M_KEYS = ['KeyJ', 'KeyX'], SH_KEYS = ['KeyL', 'KeyC'], HE_KEYS = ['KeyS', 'KeyI'];
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
+// ---------- title / name-entry / class-select flow ----------
+// phase 0 = title menu, 1 = name entry, 2 = playing (started=1)
+let phase = 0, ent = '', pName = 'HORSE', mSel = 0;
+const hasSave = () => !!localStorage.n20_save;
+const nameKey = (e) => {
+  if (e.code === 'Backspace') ent = ent.slice(0, -1);
+  else if (e.code === 'Enter' && ent.length) { pName = ent; phase = 2; started = 1; save(); opener(); }
+  else if (ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
+};
+const titleKey = (e) => {
+  const opts = hasSave() ? 2 : 1;
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') mSel = (mSel + opts - 1) % opts;
+  else if (e.code === 'ArrowDown' || e.code === 'KeyS') mSel = (mSel + 1) % opts;
+  else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) { phase = 1; ent = ''; }
+  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 2; started = 1; opener(); }
+};
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
+  boot();                                                    // resume audio on any key (autoplay policy)
+  if (phase === 0) return titleKey(e);
+  if (phase === 1) return nameKey(e);
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) swing();
@@ -28,7 +73,6 @@ addEventListener('keydown', (e) => {
     const n = '12345'.indexOf(e.key); if (n >= 0) buy(n);
     if (e.code === 'KeyB' || e.code === 'KeyE') { shopping = 0; keys.delete('KeyE'); }
   } else if (e.code === 'KeyB' && nearFire) shopping = 1;
-  boot();
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
@@ -52,11 +96,15 @@ const btns = () => {
   return b;
 };
 const ptrs = new Map();
-const toV = (e) => [(e.clientX - SOX) / SS, (e.clientY - SOY) / SS];
+const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
 addEventListener('pointerdown', (e) => {
   boot();
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
+  // TITLE: tap top half = New Game (skips name — touch users can't type), bottom = Continue
+  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; opener(); } else { phase = 2; started = 1; save(); opener(); } return; }
+  // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
+  if (phase === 1) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); return; }
   if (choosing) {
     const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
     if (vy > 100 && vy < 196) { const n = (vx - sx0) / pitch | 0; if (n >= 0 && n < menu.length) pick(n); }
@@ -81,7 +129,7 @@ addEventListener('pointercancel', (e) => { const c = ptrs.get(e.pointerId); if (
 
 // ---------- audio ----------
 let AC;
-function boot() { started = 1; if (!AC) AC = new AudioContext(); AC.resume(); }
+function boot() { if (!AC) AC = new AudioContext(); AC.resume(); }        // audio-only wake — the game only starts when the title menu is accepted
 const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
   if (!AC) return;
   const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime + dl;
@@ -93,9 +141,10 @@ const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
 const S_SHARD = () => { sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24); };
 const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 * (1 + i * .25), .1, 'square', .12, i * .07); };
 
-// ---------- DM voice ----------
+// ---------- DM voice (queued: same-frame pileups play in order, none are eaten) ----------
 let dmTxt = '', dmT = 0;
-const say = (t) => { dmTxt = t; dmT = 4.5; };
+const dmQ = [];
+const say = (t) => { if (dmT > 0) dmQ.push(t); else { dmTxt = t; dmT = 3.2; } };
 const LORE = [
   'Before the doubt, every tile of this table was painted. I remember the brush.',
   'The roots drink what the sky forgets. Even doubt has an underside.',
@@ -103,13 +152,17 @@ const LORE = [
 
 // ---------- RPG 2.0 (researched): milestone dice, modifier stats, D&D perks ----------
 let ho = 1, he = 1, sp = 1;                       // HORN (+dmg) HEART (+♥) SPARK (+✦) — HOOF cut (useless + broke gate proofs)
-let hp = 3, xp = 0, lvl = 1, spk = 0;
-let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD; abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
+let hp = 3, xp = 0, lvl = 1, spk = 0, cls = 0;    // cls: 0 unpicked · 1 RAMPART · 2 PRISM · 3 ROGUE (D&D-style identity, chosen at L3)
+let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
 let mn = 5, choosing = 0, pending = 0, pk = 0, edg = 0, shp = 0, shopB = 0, shopping = 0;
+const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +1 max ♥); post-cap XP → sparks 1:1
+const SKILL_MIN = { 1: 3, 2: 5, 4: 7, 8: 9 };     // level thresholds for the 4 movement skills — leveling is the ONLY gate (shards are flavor)
+let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 const bossLive = [0, 0, 0, 0, 0];
-const mHP = () => 2 + he + shp, mMN = () => 3 + sp * 2;
+const mHP = () => 2 + he + shp + (lvl >= CAP ? 1 : 0);      // APOTHEOSIS grants +1 max ♥ at cap
+const mMN = () => 3 + sp * 2;
 const DIE = () => lvl >= 12 ? 12 : lvl >= 9 ? 10 : lvl >= 6 ? 8 : lvl >= 3 ? 6 : 4; // die = LEVEL MILESTONE (Zelda-heart law)
-const MOD = () => ho - 1 + edg;                   // flat damage modifier — the +N in "d8+N"
+const MOD = () => ho - 1 + edg + (lvl >= CAP ? 2 : 0) + ((pk & 256) ? (mHP() - hp) : 0); // BLOODLETTER: +1/missing ♥ · APOTHEOSIS: +2
 const roll = (adv) => {                           // adv: ADVANTAGE perk (melee only) rolls 2d keep best
   let r = 1 + (Math.random() * DIE() | 0);
   if (adv && (pk & 2)) r = Math.max(r, 1 + (Math.random() * DIE() | 0));
@@ -121,8 +174,10 @@ const earned = Array(13).fill(0);
 const need = () => 8 + lvl * 6;
 const gainXp = (n, x, y) => {
   if (pk & 16) n = Math.round(n * 1.25);          // SCHOLAR
+  if (lvl >= CAP) { spk += n; fly(x, y, '+' + n + ' 💎', '#ffe28a'); return; } // post-cap: XP is currency
   xp += n; fly(x, y, '+' + n + ' XP', '#9f9');
-  while (xp >= need()) { xp -= need(); pending++; }
+  while (xp >= need() && lvl + pending < CAP) { xp -= need(); pending++; }
+  if (lvl + pending >= CAP) xp = 0;
   if (pending && !choosing) { choosing = 1; openMenu(); S_NAT(); }
 };
 const STATS = [
@@ -139,7 +194,20 @@ const PERKS = [                                   // even levels: pick 1 of 3 �
   { b: 32, n: 'THICK MANE', d: 'longer grace after hits' },
   { b: 64, n: 'PIERCE', d: 'bolts pass through foes' },
   { b: 128, n: 'STOMP SPARK', d: '+2 ✦ on stomp kills' },
+  { b: 256, n: 'BLOODLETTER', d: '+1 dmg per missing ♥' },
+  { b: 512, n: 'THIRST', d: 'kills refill 1 ✦' },
+  { b: 1024, n: 'NIMBLE', d: '−25% dash cooldown' },
+  { b: 2048, n: 'STARSEEKER', d: 'motes worth ×2 XP' },
+  { b: 4096, n: 'OVERCHANNEL', d: 'heal costs 4 (was 5)' },
 ];
+// D&D-style class picked at L3 — starter perk + starter stat + a persistent passive.
+// Class doesn't add new UI beyond the L3 menu; it drives a small bonus in the systems that already exist.
+const CLASSES = [
+  ['RAMPART', 'melee wall · KEEN HORN · +♥', '#ff5d6c'],
+  ['PRISM',   'spellweave · SCHOLAR · +✦',   '#c9a6f7'],
+  ['ROGUE',   'crit hunter · REROLL 1s · +HORN', '#ffd75e'],
+];
+const CLASS_TITLE = ['', 'RAMPART', 'PRISM', 'ROGUE'];
 const SKILLS = {
   1: ['DBL JUMP', 'jump again in air', '#6bc5ff'],
   2: ['R. HEAL', 'hold S · mend 1♥', '#9fe8a0'],
@@ -155,23 +223,43 @@ const LEARN = {
 let menu = [];                                    // cached per screen — random perk offers must not reshuffle each frame
 const openMenu = () => {
   menu = [];
-  for (const bit of [1, 2, 4, 8]) if ((sh & bit) && !(abil & bit)) menu.push({ k: bit, n: SKILLS[bit][0], d: SKILLS[bit][1], col: SKILLS[bit][2] });
+  const nxt = lvl + 1;
+  // L3 class fork replaces the normal menu entirely — one-time identity choice
+  if (nxt === 3 && !cls) { CLASSES.forEach((c, i) => menu.push({ cl: i + 1, n: c[0], d: c[1], col: c[2] })); return; }
+  // skill unlocks — level-gated only. Shards no longer required (they are region-rebloom flavor now).
+  for (const bit of [1, 2, 4, 8]) if (!(abil & bit) && nxt >= SKILL_MIN[bit]) menu.push({ k: bit, n: SKILLS[bit][0], d: SKILLS[bit][1], col: SKILLS[bit][2] });
   const un = PERKS.filter(p => !(pk & p.b));
-  if ((lvl + 1) % 2 === 0 && un.length) {         // even level -> perk offer
+  if (nxt % 2 === 0 && un.length) {               // even level -> perk offer (pool of 13, take 3 random)
     for (let i = 0; i < 3 && un.length; i++) { const j = Math.random() * un.length | 0; const p = un[j]; un.splice(j, 1); menu.push({ p, n: p.n, d: p.d, col: '#c9a6f7' }); }
   } else STATS.forEach((s, i) => menu.push({ i, n: s[0], d: s[1], col: s[2] }));
   menu = menu.slice(0, 6);
 };
 const pick = (n) => {
   const c = menu[n]; if (!c) return;
-  if (c.k) { abil |= c.k; say(LEARN[c.k]); }
+  if (c.cl) {                                     // CLASS: starter perk + stat + persistent passive (dash cd / heal cost / etc live in-engine)
+    cls = c.cl;
+    if (cls === 1) { pk |= 1; he++; hp++; }       // RAMPART: KEEN HORN + HEART pip
+    else if (cls === 2) { pk |= 16; sp++; mn += 2; } // PRISM: SCHOLAR + SPARK pip
+    else { pk |= 4; ho++; }                       // ROGUE: REROLL 1s + HORN pip
+    say('You are ' + pName + ' the ' + CLASS_TITLE[cls] + '. The table remembers.');
+  } else if (c.k) { abil |= c.k; say(LEARN[c.k]); }
   else if (c.p) pk |= c.p.b;
   else STATS[c.i][3]();
   lvl++; pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
   if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, '🎲 → d' + DIE(), '#fff', 1); say('The die grows. A d' + DIE() + ' now. The table approves.'); }
+  if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); say('APOTHEOSIS. You are the die now, ' + pName + '. The doubt is not enough.'); }
   if (!pending) { choosing = 0; save(); } else openMenu();
-  if (lvl === 3) say('Choosing who you become. That is the whole game, little horse.');
+};
+
+// grant one random un-owned perk (elite drop). If all owned, tip 6 sparks instead.
+const grantPerk = (x, y) => {
+  const un = PERKS.filter(p => !(pk & p.b));
+  if (un.length) {
+    const p = un[Math.random() * un.length | 0];
+    pk |= p.b; fly(x, y, p.n + '!', '#c9a6f7', 1);
+    say('An elite falls. Its perk is yours: ' + p.n + '.');
+  } else { spk += 6; fly(x, y, '+6 💎', '#ffe28a', 1); }
 };
 
 // ---------- campfire shop (the ONE fire is where sparkles become power) ----------
@@ -192,22 +280,23 @@ const buy = (i) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 4, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    v: 6, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
     p: pk, w: shopB, r: loreRead, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
+    m: pName, k: cls,
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 4) return;                                // RPG 2.0 — old saves start fresh
+    if (!d || d.v !== 6) return;                                // v6 — class (v5 saves start fresh: leveling overhaul reshapes runs)
+    // v6 pin: every field is guaranteed present, no legacy || fallbacks needed
     d.e.forEach((v, i) => earned[i] = v);
-    hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n || 5;
-    sh = d.q || abil; bossDead = d.g || sh;
-    pk = d.p || 0; shopB = d.w || 0;
-    if (d.r) d.r.forEach((v, i) => loreRead[i] = v);
-    edg = ((shopB >> 0) & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
+    hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
+    sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k;
+    d.r.forEach((v, i) => loreRead[i] = v);
+    edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
-    if (d.t) [ho, he, sp] = d.t;
+    [ho, he, sp] = d.t;                                          // v6 pin: d.t always present
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     d.b.forEach((v, i) => { regions[i].t = v; regions[i].b = v; });
   } catch (e) { /* fresh oath */ }
@@ -231,10 +320,23 @@ const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 const sparks = seeds.sparks.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
 const motes = seeds.motes.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
 const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
-const PAT = [0b01110, 0b11111, 0b11011, 0b11111];
-const foes = seeds.foes.map(([x, y, k]) => ({ x: x * T, y: y * T, vx: (18 + 26 / k) * (Math.random() < .5 ? 1 : -1), k, hp: k * 4, fl: 0, t: Math.random() * 7 })); // HP scaled for the d+MOD damage line
+// SPAWN LAW — every non-boss foe carries: dm (contact damage), el (elite roll),
+// rc (ranged clock if tier 3 = Gloomcast). Boss adds ph / spd / rc at 50%-HP
+// phase 2, plus wt (wind-up-tell clock) filled on first contact.
+const foes = seeds.foes.map(([x, y, k]) => {
+  const el = k < 3 && Math.random() < .17;        // ELITE: only lower tiers can roll — tier-3 already has a role (ranged)
+  return {
+    x: x * T, y: y * T, k,
+    vx: (18 + 26 / k) * (Math.random() < .5 ? 1 : -1),
+    hp: k * 4 * (el ? 2 : 1), mx: k * 4 * (el ? 2 : 1),
+    dm: el ? 2 : 1,
+    el, fl: 0, t: Math.random() * 7,
+    cz: el ? 2 + k : undefined,                   // elite: one cell bigger than natural (1+k -> 2+k)
+    rc: k === 3 ? 1.5 + Math.random() : undefined,
+  };
+});
 const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
-const shots = [], flies = [], parts = [];
+const shots = [], flies = [], parts = [], fbolts = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
 
@@ -248,27 +350,45 @@ const BOSS_INTRO = [
 const BOSS_DEAD = [
   'Guardian down. The shard is loose — take it.',
   'It folds. The caves exhale. Claim it.',
-  'Timber. Take your prize, little horse.',
+  'Timber. Take your prize.',
   'The peak is yours.',
   'The doubt... surrenders.',
 ];
 
 // damage a foe: dmg = die + MOD, crit doubles. Full D&D damage line, visible.
+// Feel pass: knockback on non-boss/non-stomp hits, hitstop + shake on crit, boss
+// phase-2 trigger at half HP, elite perk drop on kill, minion cleanup on boss death.
 const strike = (f, r, gen, viaStomp) => {
   const crit = isCrit(r), dmg = (r + MOD()) * (crit ? 2 : 1);
   f.hp -= dmg; f.fl = .15;
+  if (!f.bit && !viaStomp) f.vx += (crit ? 220 : 140) * (f.x > pl.x ? 1 : -1); // KNOCKBACK — bosses hold their arena
+  shk = Math.max(shk, crit ? .22 : .09);
+  if (crit) hs = .06;                             // hitstop punch — 60 ms world freeze on Nat crit
   fly(f.x, f.y - 8, crit ? 'NAT ' + r + '! ' + dmg : MOD() ? r + '+' + MOD() : '🎲' + r, crit ? '#ffd75e' : '#fff', crit);
   if (crit) { S_NAT(); earned[3] = 1; burst(f.x, f.y, 24, '#ffd75e'); }
-  if (gen) { mn = Math.min(mMN(), mn + 1); }                    // melee GENERATES mana
+  if (gen) mn = Math.min(mMN(), mn + 1);          // melee GENERATES mana
+  // BOSS PHASE 2 — first crossing of half HP, permanent
+  if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
+    f.ph = 1; say('It bleeds — the pattern turns.'); sfx(220, 110, .35, 'sawtooth', .16);
+    if (f.bi === 1 || f.bi === 4) for (let n = 0; n < 2; n++)                                  // CAVES + HEART: summon minions
+      foes.push({ x: f.x + n * 20 - 10, y: f.y - 10, k: 1, vx: 40 * (n ? 1 : -1), hp: 4, dm: 1, fl: 0, t: 0 });
+    if (f.bi === 2 || f.bi === 4) f.rc = 1.6;     // TREETOPS + HEART: fire ranged bolts
+    if (f.bi === 0 || f.bi === 4) f.spd = 1.65;   // MEADOW + HEART: faster chase + hop
+  }
   if (f.hp <= 0) {
-    foes.splice(foes.indexOf(f), 1);
+    if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
+    f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 3 + (crit ? 4 : 0), f.x, f.y - 16);
     spk += f.bit ? 5 : 1;                                       // kills drop sparkles — the shop economy's income
     if (pk & 8) mn = Math.min(mMN(), mn + 1);                   // MANA FONT
+    if (pk & 512) mn = Math.min(mMN(), mn + 1);                 // THIRST — kills refill 1 ✦
     if (viaStomp && (pk & 128)) mn = Math.min(mMN(), mn + 2);   // STOMP SPARK
+    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); grantPerk(f.x, f.y - 20); sfx(880, 1760, .3, 'triangle', .14); }
     if (f.bit) {                                                // GUARDIAN falls — shard unlocks
       bossDead |= f.bit; bossLive[f.bi] = 0;
-      if (hp === f.h0) earned[4] = 1;                           // UNTOUCHABLE — flawless guardian kill
+      // clean up the boss's summoned minions/twins tagged with the same bit
+      for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
+      if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE — no damage during the fight (not healed-over)
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
       say(BOSS_DEAD[f.bi]); save();
     }
@@ -297,12 +417,14 @@ function dash() {                                               // air dash: bur
   if (!started || choosing || shopping || deathT > 0 || !(abil & 8) || dashCd > 0) return;
   if (!pl.ground) { if (adash) return; adash = 1; }
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
-  dashT = .15; dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12);
+  dashT = .15; dashCd = .45 * ((pk & 1024) || cls === 3 ? .75 : 1); pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE / ROGUE class share the -25% cd
 }
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
-  hp -= n; pl.inv = (pk & 32) ? 1.8 : 1.2; chT = 0; sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE
+  hp -= n; pl.inv = (pk & 32) ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
+  for (const f of foes) if (f.bit) f.hit = 1;                    // any hit disqualifies UNTOUCHABLE for the active boss(es)
+  sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE grace inside pl.inv
   if ((abil & 2) && !seenH) { seenH = 1; say('Hurt? Hold S. Channel the rainbow — but stand STILL to do it.'); }
   if (hp <= 0) { deathT = 1.6; say('The mini falls over. ...We do not stop rolling. Back to the fire.'); return; }
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
@@ -312,7 +434,9 @@ const hurt = (n, safe) => {
 // ---------- update ----------
 let last = performance.now(), time = 0;
 const step = (dt) => {
-  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt;
+  if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
+  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
+  if (dmT <= 0 && dmQ.length) { dmTxt = dmQ.shift(); dmT = 3.2; }
   regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
@@ -329,10 +453,11 @@ const step = (dt) => {
   if (onPlat && held('ArrowDown', 'KeyS', 'TBtnDn')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
 
   // -- heal channel: rooted, costs 5, restores 1 (faster with HEART) --
-  const canHeal = (abil & 2) && mn >= 5 && hp < mHP() && pl.ground && !onPlat;
+  const healCost = (pk & 4096) ? 4 : 5;                              // OVERCHANNEL — heal costs 4
+  const canHeal = (abil & 2) && mn >= healCost && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.3 - .1 * he) { chT = 0; mn -= 5; hp++; burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+♥', '#9fe8a0', 1); }
+    if (chT > 1.3 - .1 * he) { chT = 0; mn -= healCost; hp++; burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+♥', '#9fe8a0', 1); }
   } else chT = 0;
   const rooted = chT > 0;
 
@@ -401,10 +526,19 @@ const step = (dt) => {
   // -- guardians: each shard is boss-gated --
   seeds.bosses.forEach(([bx, by], i) => {
     const bit = seeds.shards[i][2];
-    if ((bossDead & bit) || bossLive[i]) return;
+    // bossLive[i]: 0 = never spawned, 1 = currently on-screen, {hp,ph,spd,rc} = leash-out stash
+    if ((bossDead & bit) || bossLive[i] === 1) return;
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
+      // LEASH RESTORE — if the boss was in-fight and player walked out of leash,
+      // resume with the saved hp/phase/spd/rc (no free heal). Fresh spawn otherwise.
+      const st = bossLive[i], fresh = !st;
       bossLive[i] = 1;
-      foes.push({ x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, hp: 24 + 10 * i, mx: 24 + 10 * i, bi: i, bit, cz: 4, fl: 0, t: 0, hop: 1, h0: hp });
+      foes.push({
+        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi: i, bit, cz: 4, dm: 2,
+        fl: 0, t: 0, hop: 1, hit: 0, mx: 24 + 10 * i,
+        hp: fresh ? 24 + 10 * i : st.hp,
+        ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
+      });
       say(BOSS_INTRO[i]); sfx(110, 55, .5, 'sawtooth', .18);
     }
   });
@@ -419,7 +553,7 @@ const step = (dt) => {
       if (bit === 4) { regions[5].t = 1; regions[6].t = 1; }
       if (bit === 8) regions[4].t = 1;
       if (bit === 16) { abil |= 16; regions.forEach(r => r.t = 1); earned[12] = 1; say('The heart of the doubt, gone soft and bright. The diorama breathes. ...To be continued.'); }
-      else say('The shard is yours — the world remembers. Its gift waits at your LEVEL UP.');
+      else say('The rainbow shard is yours. The region reblooms — take a bonus level for your trouble.');
       pending++; choosing = 1; openMenu(); S_NAT();             // the RPG moment, guaranteed
       save();
     }
@@ -428,7 +562,7 @@ const step = (dt) => {
   // -- stardust motes: exploration XP (worth a small pack of kills) --
   for (const m of motes) {
     if (m.got) continue;
-    if (Math.hypot(pl.x + PW / 2 - m.x, pl.y + PH / 2 - m.y) < 13) { m.got = 1; sfx(660, 1100, .1, 'triangle', .1); burst(m.x, m.y, 8, '#8cf'); gainXp(8, m.x, m.y - 10); }
+    if (Math.hypot(pl.x + PW / 2 - m.x, pl.y + PH / 2 - m.y) < 13) { m.got = 1; sfx(660, 1100, .1, 'triangle', .1); burst(m.x, m.y, 8, '#8cf'); gainXp(8 * ((pk & 2048) ? 2 : 1), m.x, m.y - 10); } // STARSEEKER doubles mote XP
   }
 
   // -- shots --
@@ -448,31 +582,68 @@ const step = (dt) => {
   }
   for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
 
+  // -- foe bolts (Gloomcast + boss phase 2): hit the player, die on solid --
+  for (const b of fbolts) {
+    b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
+    if (solid(b.x, b.y)) b.t = 0;
+    else if (pl.x + PW > b.x - 2 && pl.x < b.x + 2 && pl.y + PH > b.y - 2 && pl.y < b.y + 2) { hurt(1, 0); b.t = 0; }
+  }
+  for (let i = fbolts.length; i--;) if (fbolts[i].t <= 0) fbolts.splice(i, 1);
+
   // -- foes --
   for (const f of [...foes]) {
     f.t += dt; f.fl -= dt;
     const fs = fsz(f);
-    if (f.bit) {                                                // GUARDIAN AI: chase + hop, leashed to its arena
-      if (Math.hypot(pl.x - f.x, pl.y - f.y) > 220) { foes.splice(foes.indexOf(f), 1); bossLive[f.bi] = 0; continue; }
-      f.hop -= dt;
-      f.vx = Math.sign(pl.x + PW / 2 - f.x - fs / 2) * (28 + f.bi * 5);
-      if (f.gr && f.hop <= 0) { f.vy = -240; f.hop = 2.4; f.gr = 0; }
+    // RANGED CLOCK (tier-3 Gloomcast + boss phase 2): fire aimed bolt when in range
+    if (f.rc !== undefined) {
+      f.rc -= dt;
+      if (f.rc <= 0 && Math.abs(pl.x - f.x) < 230) {
+        f.rc = f.bit ? 1.6 : 2.1;
+        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, sp = f.bit ? 115 : 90;
+        fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * sp, vy: dy / d * sp, t: 2.6 });
+        sfx(f.bit ? 260 : 380, 180, .14, 'sawtooth', .09);
+        if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire
+      }
     }
+    if (f.bit) {                                                // GUARDIAN AI: chase + hop, leashed to its arena
+      if (Math.hypot(pl.x - f.x, pl.y - f.y) > 220) {           // walk-out: stash hp/phase so re-trigger resumes, no free heal
+        bossLive[f.bi] = { hp: f.hp, ph: f.ph || 0, spd: f.spd || 0, rc: f.rc };
+        foes.splice(foes.indexOf(f), 1); continue;
+      }
+      f.hop -= dt;
+      f.vx = Math.sign(pl.x + PW / 2 - f.x - fs / 2) * (28 + f.bi * 5) * (f.spd || 1);
+      if (f.gr && f.hop <= 0) { f.vy = -240; f.hop = 2.4 / (f.spd || 1); f.gr = 0; }
+    }
+    const wasGr = f.gr;
     f.vy = (f.vy || 0) + 900 * dt; f.y += f.vy * dt;
     const ty = (f.y + fs) / T | 0;
     const tv = tile((f.x + fs / 2) / T | 0, ty);
-    if (f.vy > 0 && (tv === 1 || tv === 2 || tv === 4)) { f.y = ty * T - fs; f.vy = 0; f.gr = 1; }
+    if (f.vy > 0 && (tv === 1 || tv === 2 || tv === 4)) {
+      f.y = ty * T - fs; f.vy = 0; f.gr = 1;
+      // SUMMIT SHOCKWAVE — guardian bi=3 in phase 2 rings the ground on landing
+      if (f.bit && f.bi === 3 && f.ph && !wasGr) {
+        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 16, '#e08ae0'); sfx(90, 40, .3, 'sawtooth', .18);
+        if (pl.ground && Math.abs(pl.x - f.x) < 64) hurt(1, 0);
+      }
+    }
     f.x += f.vx * dt;
     const ahead = f.x + fs / 2 + Math.sign(f.vx) * fs * .7;
     const blockedAhead = solid(ahead, f.y + fs / 2) || tile(ahead / T | 0, (f.y + fs + 6) / T | 0) === 0;
     if (blockedAhead) { if (f.bit) f.vx = 0; else f.vx *= -1; } // bosses hold their ground at edges — never lost off-arena
-    if (pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y) {
-      if (pl.vy > 40 && pl.y + PH - f.y < 10) {                 // stomp (free, mobility)
-        strike(f, roll(0), 0, 1);
-        pl.vy = jumpHeld() ? -290 : -220; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .2);
-      } else hurt(1, 0);
-    }
+    // CONTACT with wind-up tell: touching sets .wt clock; hurt only fires after 0.3s
+    // (visible red flash). Cooldown holds .wt < 0 until the strike can re-arm.
+    const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
+    if (hit && pl.vy > 40 && pl.y + PH - f.y < 10) {
+      strike(f, roll(0), 0, 1);
+      pl.vy = jumpHeld() ? -290 : -220; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .2);
+      if (f.wt > 0) f.wt = 0;
+    } else if (hit && (f.wt || 0) >= 0) {
+      f.wt = (f.wt || 0) + dt;
+      if (f.wt > .3) { hurt(f.dm, 0); f.wt = -.7; }
+    } else if (!hit && (f.wt || 0) > 0) f.wt = 0;
+    if (f.wt < 0) f.wt = Math.min(0, f.wt + dt);
   }
+  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune (fixes splice-race #5)
 
   // -- campfires + lore stones --
   nearFire = 0; nearLore = 0;
@@ -536,7 +707,9 @@ const draw = () => {
     }
   }
 
-  ctx.translate(-cam.x | 0, -cam.y | 0);
+  // SCREEN SHAKE — offset the world translate, not the HUD (which draws after the untranslate)
+  const so = shk > 0 ? Math.random() * 6 - 3 : 0;
+  ctx.translate((-cam.x + so) | 0, (-cam.y + so) | 0);
   const x0 = cam.x / T | 0, x1 = Math.min(W, x0 + VW / T + 2), y0 = Math.max(0, cam.y / T | 0), y1 = Math.min(H, y0 + VH / T + 2);
   for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
     const v = tile(i, j); if (!v) continue;
@@ -564,7 +737,7 @@ const draw = () => {
     const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-    if (nearFire && Math.hypot(pl.x - cxp, pl.y - cyp) < 26) { ctx.fillStyle = '#fff'; ctx.fillText('E — rest & save · B — shop', cxp, cyp - 18); }
+    if (nearFire && Math.abs(pl.x - cxp) < 26 && Math.abs(pl.y - cyp) < 26) { ctx.fillStyle = '#fff'; ctx.fillText('E — rest & save · B — shop', cxp | 0, (cyp - 18) | 0); }
   }
   for (const [lx, ly] of seeds.lores) {
     ctx.fillStyle = '#7a7a85'; ctx.fillRect(lx * T - 5, ly * T - 6, 10, 15);
@@ -593,22 +766,90 @@ const draw = () => {
     ctx.fillStyle = '#ffe28a';
     ctx.fillRect(sk.x - 1, sk.y - 4 + b, 2, 8); ctx.fillRect(sk.x - 4, sk.y - 1 + b, 8, 2);
   }
+  // ARTICULATED ENEMY SPRITES — unicorn-quality (legs step, antennae bob,
+  // hoods, glowing rune-eyes, robe folds). One draw fn per tier, boss shares
+  // the caster-with-crown silhouette scaled up. cz=elite/boss cell multiplier.
   for (const f of foes) {
-    const cell = f.cz || 1 + f.k, wob = Math.sin(f.t * 6) * 1.5;
-    ctx.fillStyle = f.fl > 0 ? '#fff' : FOECOL[f.k];
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++)
-      if (PAT[r] >> (4 - c) & 1) ctx.fillRect(f.x + c * cell, f.y + r * cell + wob, cell, cell);
+    const s = f.cz || 1 + f.k, fs = 5 * s, wob = Math.sin(f.t * 6) * 1.5;
+    const step = Math.sin(f.t * 8) * s * .35;                   // leg-step animation, shared
+    if (f.el) {                                                 // ELITE — subtle gold outline (mini-boss read)
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
+      ctx.strokeRect(f.x - 1, f.y - 1, fs + 2, fs + 2);
+    }
+    ctx.save();
+    ctx.translate(f.x + fs / 2, f.y + fs);
+    ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
+    ctx.translate(-fs / 2, -fs);
+    // colour: white flash on hit > red pre-strike wind-up tell > tier base
+    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : FOECOL[f.k];
+    if (f.bit) {                                                // GUARDIAN — hulking, crowned, region-tinted (see i-based crown row)
+      ctx.fillRect(s * .6, fs - s + step, s * 1.2, s);          // leg L (steps)
+      ctx.fillRect(fs - s * 1.8, fs - s - step, s * 1.2, s);    // leg R
+      ctx.fillRect(0, s * 1.6 + wob * .3, fs, s * 2.6);          // body
+      ctx.fillRect(s * .8, wob * .3, fs - s * 1.6, s * 1.8);     // head
+      ctx.fillStyle = '#ffd75e';                                 // crown horns
+      ctx.fillRect(s * .8, wob * .3 - s * .8, s * .5, s * 1);
+      ctx.fillRect(fs / 2 - s * .25, wob * .3 - s * 1.1, s * .5, s * 1.3);
+      ctx.fillRect(fs - s * 1.3, wob * .3 - s * .8, s * .5, s * 1);
+      ctx.fillStyle = f.ph ? '#ff5d6c' : '#000';                 // eyes (turn red in phase 2)
+      ctx.fillRect(s * 1.2, s * .7 + wob * .3, s * .55, s * .45);
+      ctx.fillRect(fs - s * 1.75, s * .7 + wob * .3, s * .55, s * .45);
+    } else if (f.k === 1) {                                     // DOUBTLING — 4-legged crawler w/ antennae
+      ctx.fillRect(s * .2, fs - s + step, s * .6, s);            // legs step
+      ctx.fillRect(s * 1.6, fs - s - step * .7, s * .6, s);
+      ctx.fillRect(fs - s * 2.2, fs - s + step * .7, s * .6, s);
+      ctx.fillRect(fs - s * .8, fs - s - step, s * .6, s);
+      ctx.fillRect(0, s + wob * .4, fs, s * 2.5);                // body
+      ctx.fillRect(s * .8, wob * .4, s * .3, s * 1.2);           // antennae
+      ctx.fillRect(fs - s * 1.1, wob * .4, s * .3, s * 1.2);
+      ctx.fillStyle = '#fff';                                    // eye
+      ctx.fillRect(fs - s * 1.7, s * 1.6, s * .7, s * .7);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(fs - s * 1.4, s * 1.8, s * .3, s * .3);
+    } else if (f.k === 2) {                                     // GLOOMER — floating jelly w/ 3 dangling tendrils
+      const flt = wob * 1.5;
+      for (let i = 0; i < 3; i++) {                              // tendrils sway
+        const tx = s * (.5 + i * 1.5);
+        ctx.fillRect(tx, s * 2 + flt, s * .5, s * 2 + Math.sin(f.t * 4 + i) * s * .5);
+      }
+      ctx.fillRect(s * .3, s * .4 + flt, fs - s * .6, s * 2);    // body dome
+      ctx.fillRect(0, s + flt, s * .3, s * 1.4);
+      ctx.fillRect(fs - s * .3, s + flt, s * .3, s * 1.4);
+      ctx.fillStyle = '#fff';                                    // paired eyes
+      ctx.fillRect(s, s + flt, s * .6, s * .6);
+      ctx.fillRect(fs - s * 1.6, s + flt, s * .6, s * .6);
+    } else {                                                    // GLOOMCAST (k=3) — hooded caster w/ glowing rune-eye + charge orb
+      ctx.fillRect(s * .2, s * 1.5, fs - s * .4, s * 2.7);       // robe
+      ctx.fillRect(0, s * 2, s * .4, s * 1.5);                   // shoulders
+      ctx.fillRect(fs - s * .4, s * 2, s * .4, s * 1.5);
+      ctx.fillRect(s * 1.2, wob * .3, fs - s * 2.4, s * 1.4);    // hood top
+      ctx.fillRect(s * .8, wob * .3 + s * .6, fs - s * 1.6, s * 1); // hood brim
+      ctx.fillStyle = '#ffd75e';                                 // rune eye
+      ctx.fillRect(fs / 2 - s * .3, s * .9 + wob * .3, s * .6, s * .35);
+      if (f.rc !== undefined && f.rc < .5) {                     // charge orb (tell before firing)
+        const p = (.5 - f.rc) * 2;
+        ctx.fillStyle = '#c47fe0';
+        ctx.fillRect(fs - s * .5, s * 2.5, s * (.8 + p * .6), s * (.8 + p * .6));
+      }
+    }
+    ctx.restore();
     if (f.bit) {                                                // guardian HP bar
-      const fs = fsz(f);
       ctx.fillStyle = '#2a2a33'; ctx.fillRect(f.x, f.y - 8, fs, 3);
-      ctx.fillStyle = '#e05555'; ctx.fillRect(f.x, f.y - 8, fs * f.hp / f.mx, 3);
+      ctx.fillStyle = f.ph ? '#ffd75e' : '#e05555'; ctx.fillRect(f.x, f.y - 8, fs * f.hp / f.mx, 3);
+    } else if (f.el && f.hp < f.mx) {                           // elite HP tick (mini-boss read, hidden until first hit)
+      ctx.fillStyle = '#2a2a33'; ctx.fillRect(f.x, f.y - 3, fs, 1);
+      ctx.fillStyle = '#ffd75e'; ctx.fillRect(f.x, f.y - 3, fs * f.hp / f.mx, 1);
     }
   }
   for (const s of shots) { ctx.fillStyle = `hsl(${(time * 500) % 360} 85% 65%)`; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }
+  for (const b of fbolts) {                                     // foe bolt: purple diamond with a pale core
+    ctx.fillStyle = '#c47fe0'; ctx.fillRect(b.x - 3, b.y - 3, 6, 6);
+    ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
+  }
 
   // contextual melee prompt (once, near first foe)
   if (!seenM && foes.some(f => Math.hypot(f.x - pl.x, f.y - pl.y) < 70)) {
-    ctx.fillStyle = '#fff'; ctx.fillText(touch ? '⚔ — horn swipe' : 'J — horn swipe', pl.x + PW / 2, pl.y - 16);
+    ctx.fillStyle = '#fff'; ctx.fillText(touch ? '⚔ — horn swipe' : 'J — horn swipe', (pl.x + PW / 2) | 0, (pl.y - 16) | 0);
   }
 
   // unicorn
@@ -637,29 +878,35 @@ const draw = () => {
   ctx.globalAlpha = 1;
   for (const f of flies) {
     ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = (f.big ? 'bold 12px' : '9px') + ' monospace';
-    ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x, f.y);
+    ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x | 0, f.y | 0);
   }
   ctx.globalAlpha = 1;
-  ctx.translate(cam.x | 0, cam.y | 0);
+  ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
-  // ---------- HUD ----------
+  // ---------- HUD (only in-game — keep title screen clean) ----------
+  if (started) {
   ctx.font = '12px monospace'; ctx.textAlign = 'left';
   for (let i = 0; i < mHP(); i++) { ctx.fillStyle = i < hp ? '#ff5d6c' : '#3a3a44'; ctx.fillText('♥', 8 + i * 13, 16); }
   ctx.fillStyle = '#2a2a33'; ctx.fillRect(8, 22, 52, 5);        // mana bar
   ctx.fillStyle = '#e08ae0'; ctx.fillRect(8, 22, 52 * mn / mMN(), 5);
   ctx.fillStyle = '#e08ae0'; ctx.font = '9px monospace'; ctx.fillText('✦' + mn, 64, 28);
   ctx.fillStyle = '#ffe28a'; ctx.fillText('💎' + spk, 8, 41);
-  ctx.fillStyle = '#9f9'; ctx.fillText('LV' + lvl + ' 🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), 8, 54); // the damage line, always visible
-  ctx.fillStyle = '#2a2a33'; ctx.fillRect(70, 48, 40, 5);
-  ctx.fillStyle = '#6bc56b'; ctx.fillRect(70, 48, 40 * Math.min(1, xp / need()), 5);
+  // Named damage line — pName + class title + LV + live die+mod. Class read every frame.
+  ctx.fillStyle = '#9f9'; ctx.fillText(pName + (cls ? ' the ' + CLASS_TITLE[cls] : '') + ' · LV' + lvl + ' 🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), 8, 54);
+  // XP progress bar (100 px wide, 3 px tall) — cap-fills gold at L15
+  const nx = need(), atCap = lvl >= CAP, bw = atCap ? 100 : Math.min(100, (xp / nx) * 100);
+  ctx.fillStyle = '#3a3a44'; ctx.fillRect(8, 58, 100, 3);
+  ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(8, 58, bw, 3);
+  // Contextual hint — leveling is the only gate for skills; shards are region flavor
   ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
-  ctx.fillText((sh & ~abil & 15) ? '⬆ A shard gift waits — take it at your next LEVEL UP'
-    : !(abil & 1) ? '✧ East, through the gloom — a guardian holds the First Shard ➜'
-      : !(abil & 2) ? '✧ Something glows beneath the meadow — find the way down'
-        : !(abil & 4) ? '✧ West and UP — the cliffs, then the treetops'
-          : !(abil & 8) ? '✧ Shoot the gloom crystal — the summit is past it'
+  const nextSkill = !(abil & 1) && lvl < 3 ? '⬆ Reach LV3 — the sky remembers you (DBL JUMP)'
+    : !(abil & 2) && lvl < 5 ? '⬆ Reach LV5 — the rainbow will mend you (HEAL)'
+      : !(abil & 4) && lvl < 7 ? '⬆ Reach LV7 — the rainbow will strike far (SHOT)'
+        : !(abil & 8) && lvl < 9 ? '⬆ Reach LV9 — the space between will bow (DASH)'
+          : (sh & 15) !== 15 ? '✧ Guardians hold rainbow shards — regions rebloom when they fall'
             : !(abil & 16) ? '✧ A shaft west of home leads down. End the doubt.'
-              : '🌈 The diorama breathes — you have every shard', VW / 2, 14);
+              : '🌈 The diorama breathes — every shard is yours';
+  ctx.fillText(nextSkill, VW / 2, 14);
   if (dmT > 0) {
     ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
     ctx.fillRect(VW / 2 - 190, VH - 60, 380, 24);
@@ -667,6 +914,7 @@ const draw = () => {
     ctx.fillText('DM — ' + dmTxt, VW / 2, VH - 45); ctx.globalAlpha = 1;
   }
   if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
+  }                                                                // /HUD gate
 
   // action buttons — always visible, clickable with mouse OR touch
   if (started && !choosing) {
@@ -686,13 +934,15 @@ const draw = () => {
   if (choosing) {
     ctx.fillStyle = 'rgba(8,6,12,.8)'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 14px monospace';
-    ctx.fillText('LEVEL ' + (lvl + 1) + ' — choose your growth', VW / 2, 80);
+    const isClassPick = menu[0] && menu[0].cl;
+    ctx.fillText(isClassPick ? 'LEVEL 3 — WHO ARE YOU AT THE TABLE?' : 'LEVEL ' + (lvl + 1) + ' — choose your growth', VW / 2, 80);
     const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
     menu.forEach((c, i) => {
       const bx = sx0 + i * pitch;
-      ctx.fillStyle = c.k ? 'rgba(255,215,94,.16)' : 'rgba(255,255,255,.08)';   // new skills glow
+      ctx.fillStyle = (c.k || c.cl) ? 'rgba(255,215,94,.16)' : 'rgba(255,255,255,.08)';   // new skills + class picks glow
       ctx.fillRect(bx, 100, 76, 92);
-      if (c.k || c.p) { ctx.fillStyle = c.k ? '#ffd75e' : '#c9a6f7'; ctx.font = '8px monospace'; ctx.fillText(c.k ? 'NEW SKILL' : 'PERK', bx + 38, 111); }
+      const tag = c.cl ? 'CLASS' : c.k ? 'NEW SKILL' : c.p ? 'PERK' : '';
+      if (tag) { ctx.fillStyle = c.cl ? '#ffd75e' : c.k ? '#ffd75e' : '#c9a6f7'; ctx.font = '8px monospace'; ctx.fillText(tag, bx + 38, 111); }
       ctx.fillStyle = c.col; ctx.font = 'bold 10px monospace'; ctx.fillText((i + 1) + ' ' + c.n, bx + 38, 126);
       ctx.fillStyle = '#ccc'; ctx.font = '8px monospace';
       c.d.split(' ').forEach((w, k) => ctx.fillText(w, bx + 38, 140 + k * 10));
@@ -717,15 +967,39 @@ const draw = () => {
     ctx.fillStyle = '#888'; ctx.fillText('1–5 buy · B close', VW / 2, 240);
   }
 
-  // title
-  if (!started) {
-    ctx.fillStyle = 'rgba(8,6,12,.75)'; ctx.fillRect(0, 0, VW, VH);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px monospace'; ctx.fillText('NAT 20 UNICORN', VW / 2, 104);
-    ctx.fillStyle = '#ffd75e'; ctx.font = '10px monospace'; ctx.fillText('the diorama has gone gray — paint it back', VW / 2, 124);
-    ctx.fillStyle = '#aaa';
-    ctx.fillText('A/D or ←→ move · SPACE/Z jump · J/X swipe', VW / 2, 148);
-    ctx.fillText('L/C shot · hold S heal · SHIFT dash · E interact', VW / 2, 162);
-    ctx.fillStyle = '#fff'; ctx.fillText(Math.sin(time * 3) > 0 ? '— press any key or tap —' : '', VW / 2, 186);
+  // title + name-entry screens (HUD is gated separately on `started`)
+  if (phase < 2) {
+    ctx.fillStyle = 'rgba(8,6,12,.85)'; ctx.fillRect(0, 0, VW, VH);
+    // rainbow-shimmer title text
+    const hue = (time * 30) % 360;
+    ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 26px monospace';
+    ctx.fillText('NAT 20 UNICORN', VW / 2, 62);
+    ctx.fillStyle = '#ffd75e'; ctx.font = '9px monospace';
+    ctx.fillText('the diorama has gone gray — paint it back', VW / 2, 80);
+    if (phase === 0) {
+      // menu — New Game / Continue
+      const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
+      opts.forEach((o, i) => {
+        const y = 120 + i * 22, on = mSel === i;
+        ctx.fillStyle = on ? '#ffd75e' : '#aaa'; ctx.font = 'bold 12px monospace';
+        ctx.fillText((on ? '▶ ' : '  ') + (i + 1) + '. ' + o, VW / 2, y);
+      });
+      if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 175); }
+      ctx.fillStyle = '#666'; ctx.font = '8px monospace';
+      ctx.fillText('↑↓ select · ENTER/SPACE accept · or press 1/2 · tap to advance', VW / 2, 210);
+      ctx.fillText('A/D ←→ move · SPACE/Z jump · J/X swipe · L/C shot · S heal · SHIFT dash · E interact', VW / 2, 226);
+    } else {                                                  // phase === 1: name entry
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
+      ctx.fillText('WHAT SHALL THE DM CALL YOU?', VW / 2, 118);
+      // input field
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(VW / 2 - 80, 130, 160, 26);
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 80, 130, 160, 26);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
+      const cur = Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : ' ';
+      ctx.fillText(ent + cur, VW / 2, 149);
+      ctx.fillStyle = '#888'; ctx.font = '8px monospace';
+      ctx.fillText('A–Z type · BACKSPACE delete · ENTER accept · tap for default (HORSE)', VW / 2, 178);
+    }
   }
   ctx.restore();
 };
@@ -734,7 +1008,8 @@ const draw = () => {
 load();
 cam.x = Math.max(0, Math.min(W * T - VW, pl.x - VW / 2));      // camera starts ON the player (was: panned in from world origin)
 cam.y = Math.max(0, Math.min(H * T - VH, pl.y - VH / 2 + 30));
-say('Ah. The last painted mini wakes. Shall we finish the campaign, little horse?');
+// opening line fires when the player picks a name / picks Continue (see title-menu accept)
+const opener = () => say('Ah. The last painted mini wakes. Shall we finish the campaign, ' + pName + '?');
 const loop = () => {
   const now = performance.now(), dt = Math.min(.033, (now - last) / 1000); last = now;
   step(dt); draw();

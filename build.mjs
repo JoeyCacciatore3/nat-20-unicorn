@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // NAT 20 UNICORN build pipeline:
-// esbuild → GLSL squeeze → terser (full prop-mangle) → roadroller (pinned flags) → inline → zip → ECT → 13,312-byte gate
+// esbuild → terser (full prop-mangle) → roadroller (pinned flags) → inline → zip → ECT → 13,312-byte gate
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, statSync, appendFileSync } from 'node:fs';
 
@@ -15,20 +15,10 @@ run('node tools/map-audit.mjs');   // FAILS the build if any reachable spot cann
 console.log('1/6 bundle (esbuild)…');
 run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
 
-// GLSL squeeze: minify shader template literals in place (comments, indentation, spaces)
-{
-  const b = readFileSync('dist/bundle.js', 'utf8');
-  const sq = b.replace(/`#version 300 es[\s\S]*?`/g, (s) =>
-    '`#version 300 es\\n' + s.slice(16, -1)
-      .replace(/\/\/[^\n]*/g, '')            // line comments
-      .replace(/\s+/g, ' ')                  // collapse whitespace
-      .replace(/ ?([=+\-*/,;(){}<>.!?:]) ?/g, '$1') // spaces around punctuation
-      .trim() + '`');
-  // NOTE (measured, do not "optimize"): aliasing Math.* to 1-char names made the
-  // PACKED zip 45 B BIGGER despite -1KB raw. Roadroller models verbose repetition
-  // nearly free; consistency > brevity. Same law killed the CSS-token experiment.
-  writeFileSync('dist/bundle.js', sq);
-}
+// NOTE (measured, do not "optimize"): aliasing Math.* to 1-char names made the
+// PACKED zip 45 B BIGGER despite -1KB raw. Roadroller models verbose repetition
+// nearly free; consistency > brevity. Same law killed the CSS-token experiment.
+// (GLSL squeeze step removed 2026-08-28: this project ships no shaders.)
 
 console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
