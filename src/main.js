@@ -73,8 +73,8 @@ const createKey = (e) => {
   else if (e.code === 'ArrowDown' || e.code === 'KeyS') cRow = (cRow + 1) % 5;
   else if (cRow === 0 && e.code === 'Backspace')        ent = ent.slice(0, -1);
   else if (cRow === 0 && ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
-  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 1) bod = (bod + 4) % 5; else if (cRow === 2) man = (man + 4) % 5; else if (cRow === 3) hrn = (hrn + 4) % 5; else if (cRow === 4) hof = (hof + 4) % 5; }
-  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 1) bod = (bod + 1) % 5; else if (cRow === 2) man = (man + 1) % 5; else if (cRow === 3) hrn = (hrn + 1) % 5; else if (cRow === 4) hof = (hof + 1) % 5; }
+  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 1) bod = (bod + PC - 1) % PC; else if (cRow === 2) man = (man + PC - 1) % PC; else if (cRow === 3) hrn = (hrn + PC - 1) % PC; else if (cRow === 4) hof = (hof + PC - 1) % PC; }
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 1) bod = (bod + 1) % PC; else if (cRow === 2) man = (man + 1) % PC; else if (cRow === 3) hrn = (hrn + 1) % PC; else if (cRow === 4) hof = (hof + 1) % PC; }
   else if (e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); }
 };
 const titleKey = (e) => {
@@ -185,8 +185,8 @@ addEventListener('pointerdown', (e) => {
       cRow = row;
       if (row === 0) { NI.value = ent; NI.focus(); }               // NAME row: summon OS keyboard (in-gesture)
       else { NI.blur();
-        if (row === 1) bod = (bod + 1) % 5; else if (row === 2) man = (man + 1) % 5;
-        else if (row === 3) hrn = (hrn + 1) % 5; else hof = (hof + 1) % 5; }
+        if (row === 1) bod = (bod + 1) % PC; else if (row === 2) man = (man + 1) % PC;
+        else if (row === 3) hrn = (hrn + 1) % PC; else hof = (hof + 1) % PC; }
     }
     return;
   }
@@ -273,16 +273,23 @@ let ho = 1, he = 1, sp = 1, df = 1, lk = 1;       // every stat starts at 1 — 
 // Unicorn customization — palette indices picked at character creation. Four body types:
 // bod (skin/body), man (mane sweep), hrn (horn tip), hof (hooves/legs).
 let bod = 0, man = 0, hrn = 0, hof = 0;
-const PALB = [['#f5f1f4','SNOW'],['#f7d9c0','CREAM'],['#c6c8d1','SILVER'],['#f7bcd9','ROSE'],['#c8f0d3','MINT']];
-const PALM = [
-  [['#ff6b6b','#ffd75e','#6bc5ff'],'RAINBOW'],
-  [['#ff5a3a','#ff9d4a','#ffd75e'],'EMBER'],
-  [['#3ac4ff','#6bc5ff','#a0e0ff'],'OCEAN'],
-  [['#5ac878','#8fd88f','#c8f0a0'],'FOREST'],
-  [['#c07af0','#8f5ad0','#e08ae0'],'VOID'],
+// UNIFIED PALETTE — 18 colors, same for all 4 body parts.
+// Mane gradient auto-derived: base → 85% → 70% brightness (no stored triples).
+const PAL = [
+  '#f5f1f4','#f7d9c0','#ffd75e','#ff9d4a','#ff5d6c','#ff9dc8',
+  '#e08ae0','#c07af0','#6bc5ff','#3ac4ff','#40e8b0','#5ac878',
+  '#c8f0d3','#c6c8d1','#ffffff','#2a1f14','#4a3828','#ff6b6b'
 ];
-const PALH = [['#ffd75e','GOLD'],['#e0e0e6','SILVER'],['#6bc5ff','CYAN'],['#ff9dc8','ROSE'],['#ffffff','WHITE']];
-const PALF = [['#2a1f14','ONYX'],['#ffd75e','GOLD'],['#e0e0e6','SILVER'],['#ff9dc8','ROSE'],['#c8f0d3','MINT']];
+const PN = ['SNOW','CREAM','GOLD','AMBER','RUBY','ROSE','VIOLET','PURPLE',
+  'SKY','OCEAN','TEAL','JADE','MINT','SILVER','WHITE','ONYX','BROWN','CORAL'];
+const PC = PAL.length;
+// Derive mane sweep: darken base color in 3 steps for the flowing gradient
+const dim = (h, f) => '#' + h.slice(1).match(/../g).map(c => (Math.max(0, parseInt(c, 16) * f | 0)).toString(16).padStart(2, '0')).join('');
+const mane3 = i => [PAL[i], dim(PAL[i], .85), dim(PAL[i], .7)];
+// Shim layer so drawU / creation / save still use PALB[n][0], PALM[n][0], etc.
+const PALB = PAL.map((c, i) => [c, PN[i]]);
+const PALM = PAL.map((c, i) => [mane3(i), PN[i]]);
+const PALH = PALB, PALF = PALB;
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 2; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
 // Shared portrait panel — renders the identity card (title bar, bordered box with
