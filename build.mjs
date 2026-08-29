@@ -45,7 +45,10 @@ console.log('3/6 pack (roadroller)…');
 // -D (dirty decoder) is safe: canvas id is 2 chars (cv), no single-letter DOM globals.
 const SHELL = '<meta name=viewport content="width=device-width,initial-scale=1,user-scalable=no">'
   + '<title>NAT 20 UNICORN</title>'
-  + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{width:100%;height:100%;display:block;touch-action:none}</style>'
+  // viewport-fit=cover extends the canvas edge-to-edge on notched devices;
+  // JS reads visualViewport to size correctly and HUD positions include ~8px safe margin
+  + '<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">'
+  + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}canvas{width:100%;height:100%;display:block;touch-action:none}</style>'
   + '<canvas id=cv></canvas>';
 writeFileSync('dist/min2.js', `document.write('${SHELL.replace(/'/g, "\\'")}');` + readFileSync('dist/min.js', 'utf8'));
 // Pinned flags = deterministic builds (no ±20 B jitter). After big source changes,

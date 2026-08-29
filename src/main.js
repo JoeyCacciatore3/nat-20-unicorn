@@ -16,6 +16,12 @@
 //   5  Title screen + name entry + articulated enemy sprites (unicorn-parity)
 //   6  Full leveling — class fork at L3, L15 APOTHEOSIS, +5 perks, XP bar
 //   7  Cleanup — ARCHITECT bug fix, dead PAT fields removed, v6 save pin
+//   8  Stomp launch (horizontal knockback + higher bounce) + tutorial-hint
+//      one-shot via say() queue + v7 save (seen-flags persist across sessions)
+//   9  AAA-quality HUD pass — bottom-left cluster near thumb, contextual mana
+//      fade, level-up hint auto-hide (5 s or 75 % of XP bar), pause overlay
+//      with full character sheet (P / ESC / ☰ tap), 2 px stroke outlines on
+//      all HUD text, viewport-fit=cover for notched devices
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -73,6 +79,7 @@ addEventListener('keydown', (e) => {
     const n = '12345'.indexOf(e.key); if (n >= 0) buy(n);
     if (e.code === 'KeyB' || e.code === 'KeyE') { shopping = 0; keys.delete('KeyE'); }
   } else if (e.code === 'KeyB' && nearFire) shopping = 1;
+  else if (e.code === 'KeyP' || e.code === 'Escape') paused = paused ? 0 : 1;
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
@@ -105,6 +112,9 @@ addEventListener('pointerdown', (e) => {
   if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; opener(); } else { phase = 2; started = 1; save(); opener(); } return; }
   // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
   if (phase === 1) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); return; }
+  // PAUSE overlay — top-right corner icon opens it (48px tap zone); tap anywhere to close
+  if (paused) { paused = 0; return; }
+  if (started && !choosing && !shopping && vx > VW - 40 && vy < 40) { paused = 1; return; }
   if (choosing) {
     const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
     if (vy > 100 && vy < 196) { const n = (vx - sx0) / pitch | 0; if (n >= 0 && n < menu.length) pick(n); }
@@ -245,7 +255,7 @@ const pick = (n) => {
   } else if (c.k) { abil |= c.k; say(LEARN[c.k]); }
   else if (c.p) pk |= c.p.b;
   else STATS[c.i][3]();
-  lvl++; pending--;
+  lvl++; pending--; hintT = 5;                                    // level-up hint auto-shows next-milestone for 5s
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
   if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, '🎲 → d' + DIE(), '#fff', 1); say('The die grows. A d' + DIE() + ' now. The table approves.'); }
   if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); say('APOTHEOSIS. You are the die now, ' + pName + '. The doubt is not enough.'); }
@@ -280,19 +290,20 @@ const buy = (i) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 6, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    v: 7, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
     p: pk, w: shopB, r: loreRead, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
-    m: pName, k: cls,
+    m: pName, k: cls, f: seenM | (seenH << 1),               // v7 — tutorial-seen flags (was session-only, spammed on every session)
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 6) return;                                // v6 — class (v5 saves start fresh: leveling overhaul reshapes runs)
-    // v6 pin: every field is guaranteed present, no legacy || fallbacks needed
+    if (!d || d.v !== 7) return;                                // v7 — adds seen-flags. v6 saves start fresh (early access, no migration path).
+    // v7 pin: every field is guaranteed present, no legacy || fallbacks needed
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
     sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k;
+    seenM = d.f & 1; seenH = (d.f >> 1) & 1;
     d.r.forEach((v, i) => loreRead[i] = v);
     edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
@@ -307,6 +318,9 @@ const PW = 10, PH = 14;
 const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
 let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0;
+// HUD state: paused = pause overlay open · hintT = seconds of level-up hint remaining
+// · manaShow = seconds mana pips stay visible after fall-below-max reset (contextual reveal)
+let paused = 0, hintT = 3, manaShow = 0;
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 const loreRead = [0, 0];
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
@@ -435,7 +449,11 @@ const hurt = (n, safe) => {
 let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
+  if (paused) return;                              // pause overlay open: freeze all sim; render still draws
   time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
+  // HUD timers — contextual mana reveal + level-up hint auto-hide (kept in sim so pause freezes them too)
+  if (mn < mMN()) manaShow = 2; else manaShow = Math.max(0, manaShow - dt);
+  hintT = Math.max(0, hintT - dt);
   if (dmT <= 0 && dmQ.length) { dmTxt = dmQ.shift(); dmT = 3.2; }
   regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
@@ -632,10 +650,18 @@ const step = (dt) => {
     if (blockedAhead) { if (f.bit) f.vx = 0; else f.vx *= -1; } // bosses hold their ground at edges — never lost off-arena
     // CONTACT with wind-up tell: touching sets .wt clock; hurt only fires after 0.3s
     // (visible red flash). Cooldown holds .wt < 0 until the strike can re-arm.
+    // FIRST-FOE MELEE HINT — fired ONCE per save via DM voice, no player-anchored spam
+    if (!seenM && !f.bit && Math.hypot(f.x - pl.x, f.y - pl.y) < 60) {
+      seenM = 1; say(touch ? 'Tap ⚔ to horn-swipe. Melee earns you mana.' : 'Press J to horn-swipe. Melee earns you mana.'); save();
+    }
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && pl.y + PH - f.y < 10) {
       strike(f, roll(0), 0, 1);
-      pl.vy = jumpHeld() ? -290 : -220; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .2);
+      // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center.
+      // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
+      // horizontal push means an unskilled player lands far away instead of bunny-hopping.
+      pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
+      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .2);
       if (f.wt > 0) f.wt = 0;
     } else if (hit && (f.wt || 0) >= 0) {
       f.wt = (f.wt || 0) + dt;
@@ -847,11 +873,6 @@ const draw = () => {
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
   }
 
-  // contextual melee prompt (once, near first foe)
-  if (!seenM && foes.some(f => Math.hypot(f.x - pl.x, f.y - pl.y) < 70)) {
-    ctx.fillStyle = '#fff'; ctx.fillText(touch ? '⚔ — horn swipe' : 'J — horn swipe', (pl.x + PW / 2) | 0, (pl.y - 16) | 0);
-  }
-
   // unicorn
   if (pl.inv <= 0 || Math.sin(time * 40) > 0) {
     ctx.save();
@@ -883,41 +904,84 @@ const draw = () => {
   ctx.globalAlpha = 1;
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
-  // ---------- HUD (only in-game — keep title screen clean) ----------
-  if (started) {
-  ctx.font = '12px monospace'; ctx.textAlign = 'left';
-  for (let i = 0; i < mHP(); i++) { ctx.fillStyle = i < hp ? '#ff5d6c' : '#3a3a44'; ctx.fillText('♥', 8 + i * 13, 16); }
-  ctx.fillStyle = '#2a2a33'; ctx.fillRect(8, 22, 52, 5);        // mana bar
-  ctx.fillStyle = '#e08ae0'; ctx.fillRect(8, 22, 52 * mn / mMN(), 5);
-  ctx.fillStyle = '#e08ae0'; ctx.font = '9px monospace'; ctx.fillText('✦' + mn, 64, 28);
-  ctx.fillStyle = '#ffe28a'; ctx.fillText('💎' + spk, 8, 41);
-  // Named damage line — pName + class title + LV + live die+mod. Class read every frame.
-  ctx.fillStyle = '#9f9'; ctx.fillText(pName + (cls ? ' the ' + CLASS_TITLE[cls] : '') + ' · LV' + lvl + ' 🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), 8, 54);
-  // XP progress bar (100 px wide, 3 px tall) — cap-fills gold at L15
-  const nx = need(), atCap = lvl >= CAP, bw = atCap ? 100 : Math.min(100, (xp / nx) * 100);
-  ctx.fillStyle = '#3a3a44'; ctx.fillRect(8, 58, 100, 3);
-  ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(8, 58, bw, 3);
-  // Contextual hint — leveling is the only gate for skills; shards are region flavor
-  ctx.textAlign = 'center'; ctx.fillStyle = '#ccc';
-  const nextSkill = !(abil & 1) && lvl < 3 ? '⬆ Reach LV3 — the sky remembers you (DBL JUMP)'
-    : !(abil & 2) && lvl < 5 ? '⬆ Reach LV5 — the rainbow will mend you (HEAL)'
-      : !(abil & 4) && lvl < 7 ? '⬆ Reach LV7 — the rainbow will strike far (SHOT)'
-        : !(abil & 8) && lvl < 9 ? '⬆ Reach LV9 — the space between will bow (DASH)'
-          : (sh & 15) !== 15 ? '✧ Guardians hold rainbow shards — regions rebloom when they fall'
-            : !(abil & 16) ? '✧ A shaft west of home leads down. End the doubt.'
-              : '🌈 The diorama breathes — every shard is yours';
-  ctx.fillText(nextSkill, VW / 2, 14);
-  if (dmT > 0) {
-    ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
-    ctx.fillRect(VW / 2 - 190, VH - 60, 380, 24);
-    ctx.fillStyle = '#e8d9b0'; ctx.font = 'italic 9px monospace';
-    ctx.fillText('DM — ' + dmTxt, VW / 2, VH - 45); ctx.globalAlpha = 1;
+  // ---------- HUD (modern: minimal, decision-relevant, high-contrast) ----------
+  // Outline helper — draws dark stroke behind fill so text stays legible over any background
+  // (WANDR game HUD guidance: validate contrast against the worst case your game can produce).
+  const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 2; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
+  if (started && !paused) {
+    ctx.textAlign = 'left';
+    // Bottom-left cluster — near the touch dpad, near the action. Thumb + eye zone.
+    const hy = VH - 62;
+    ctx.font = '12px monospace';
+    for (let i = 0; i < mHP(); i++) { ctx.fillStyle = i < hp ? '#ff5d6c' : '#3a3a44'; T2('♥', 8 + i * 13, hy); }
+    // Contextual mana — visible only when below max or briefly after a spend (manaShow set in step())
+    if (manaShow > 0) {
+      ctx.globalAlpha = mn < mMN() ? 1 : Math.min(1, manaShow);
+      ctx.fillStyle = '#e08ae0'; ctx.font = '10px monospace';
+      T2('✦' + mn + '/' + mMN(), 8, hy + 14); ctx.globalAlpha = 1;
+    }
+    // D&D damage line — the game's signature, unique value, earns its slot
+    ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 11px monospace';
+    T2('🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), 8, hy + 30);
+    // Sparks currency — cluster-adjacent (shop context)
+    ctx.fillStyle = '#ffe28a';
+    T2('💎' + spk, 68, hy + 30);
+    // Level-up hint — visible for 5s after each level-up OR when within 25% of next level
+    if (hintT > 0 || (lvl < CAP && xp / need() > .75)) {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 9px monospace';
+      const nextSkill = !(abil & 1) && lvl < 3 ? '⬆ LV3 — the sky remembers you (DBL JUMP)'
+        : !(abil & 2) && lvl < 5 ? '⬆ LV5 — the rainbow will mend you (HEAL)'
+          : !(abil & 4) && lvl < 7 ? '⬆ LV7 — the rainbow will strike far (SHOT)'
+            : !(abil & 8) && lvl < 9 ? '⬆ LV9 — the space between will bow (DASH)'
+              : lvl < CAP ? '⬆ LV' + (lvl + 1) + ' — the die remembers'
+                : '🌈 APOTHEOSIS — end the doubt';
+      T2(nextSkill, VW / 2, 18);
+    }
+    // Pause icon top-right (48px+ tap zone handled in pointerdown)
+    ctx.textAlign = 'right'; ctx.fillStyle = '#aaa'; ctx.font = 'bold 14px monospace';
+    T2('☰', VW - 10, 18);
+    // DM voice — unchanged, bottom-center speech plate
+    if (dmT > 0) {
+      ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
+      ctx.fillRect(VW / 2 - 190, VH - 108, 380, 24);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#e8d9b0'; ctx.font = 'italic 9px monospace';
+      ctx.fillText('DM — ' + dmTxt, VW / 2, VH - 93); ctx.globalAlpha = 1;
+    }
+    if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
   }
-  if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
-  }                                                                // /HUD gate
 
-  // action buttons — always visible, clickable with mouse OR touch
-  if (started && !choosing) {
+  // PAUSE OVERLAY — full character sheet (identity chrome moved out of gameplay HUD)
+  if (paused && started) {
+    ctx.fillStyle = 'rgba(8,6,12,.94)'; ctx.fillRect(0, 0, VW, VH);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 16px monospace'; T2('CHARACTER', VW / 2, 42);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace';
+    T2(pName + (cls ? ' the ' + CLASS_TITLE[cls] : ''), VW / 2, 66);
+    ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 11px monospace';
+    T2('LV' + lvl + '   🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), VW / 2, 84);
+    const nx = need(), atCap = lvl >= CAP;
+    ctx.fillStyle = '#3a3a44'; ctx.fillRect(VW / 2 - 70, 94, 140, 6);
+    ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(VW / 2 - 70, 94, atCap ? 140 : 140 * xp / nx, 6);
+    ctx.fillStyle = '#aaa'; ctx.font = '8px monospace';
+    T2(atCap ? 'APOTHEOSIS — XP → 💎 1:1' : xp + ' / ' + nx + ' XP', VW / 2, 110);
+    ctx.fillStyle = '#fff'; ctx.font = '10px monospace';
+    T2('HORN ' + ho + '   HEART ' + he + '   SPARK ' + sp, VW / 2, 130);
+    // Owned perks — one long line, wrap gracefully by joining with · dividers
+    ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace';
+    const owned = PERKS.filter(p => pk & p.b).map(p => p.n);
+    T2('PERKS · ' + (owned.length ? owned.join(' · ') : 'none yet'), VW / 2, 150);
+    // Skills owned
+    const skl = [(abil & 1) && 'DBL JUMP', (abil & 2) && 'HEAL', (abil & 4) && 'SHOT', (abil & 8) && 'DASH'].filter(Boolean).join(' · ') || 'none yet';
+    ctx.fillStyle = '#8cf'; T2('SKILLS · ' + skl, VW / 2, 166);
+    // Shards / regions rebloomed
+    ctx.fillStyle = '#ffd75e';
+    T2('SHARDS · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 182);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace';
+    T2('press P / ESC / tap to close', VW / 2, VH - 24);
+  }
+
+  // action buttons — hidden during pause / level-up / shop (dedicated overlays own the input)
+  if (started && !choosing && !paused && !shopping) {
     for (const b of btns()) {
       ctx.globalAlpha = keys.has(b.c) ? .7 : (touch ? .35 : .22);
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();

@@ -61,6 +61,7 @@ owned). Mini-boss combat outside the guardian arenas.
 | Interact / rest+save | E | E |
 | Hearth shop (at the fire) | B | tap rows |
 | Level-up menu | 1-3 or ↑↓ + Enter | tap row |
+| **Pause / character sheet** | **P or ESC** | **☰ top-right, tap anywhere to close** |
 
 On-screen buttons are always clickable with the mouse; skill buttons appear as
 skills are learned.
@@ -96,9 +97,33 @@ Roadroller flags are **pinned** in `build.mjs` for deterministic builds. After
 large source changes, re-tune: `TUNE=1 node build.mjs`, then paste the printed
 "use ... to replicate" flags into `ROADFLAGS`.
 
+## HUD design
+The gameplay HUD is deliberately minimal (WANDR HUD frequency/urgency guidance):
+only decision-relevant elements earn permanent screen slots.
+
+- **Bottom-left cluster** — hearts, mana pips (contextual: fade when full),
+  D&D damage line (`🎲d8+3`), sparks currency. Near the thumb, near the action.
+- **Top-right pause icon** (☰) — opens the character sheet
+- **Top-center level-up hint** — only visible for 5 s after leveling up OR when
+  ≥ 75 % of the way to the next level
+- **DM voice** — bottom-center speech plate, only when the DM has a line
+- **All HUD text** — 2 px dark outline (`strokeText` + `fillText`) so it stays
+  legible over meadow, cave, or shockwave backgrounds
+
+The **pause overlay** hosts identity chrome that used to squat on gameplay HUD:
+full character name, class, level, XP progress, all stats, owned perks, owned
+skills, shard count.
+
+Touch controls follow modern mobile-first spacing (Apple HIG 44 pt / Material
+48 dp): jump/attack buttons are 44–56 px tap zones, semi-transparent so they
+don't occlude sprites, in the natural thumb arc (bottom-right cluster). Viewport
+uses `viewport-fit=cover` for edge-to-edge on notched devices; HUD is inset
+~8 px so nothing important sits under a Dynamic Island / home indicator.
+
 ## Save format
 Key: `localStorage.n20_save`. Version pinned in-file (`d.v !== N` → discard).
-Current version: **v6** — adds `k: cls` (class id).
+Current version: **v7** — adds `f` (seen-flags bitfield: tutorial hints don't
+re-spam across sessions). Prior fields: `k` (class), `m` (player name).
 Version bumps discard prior saves rather than migrating; the game is early
 enough that mid-run states can't survive a rules change intact.
 
