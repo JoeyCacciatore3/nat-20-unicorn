@@ -24,7 +24,7 @@ console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
 // inventory keys used via quoted strings, namespaced localStorage key)
 const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","n20_save"';
-run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true -m --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 -o dist/min.js`);
+run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true,toplevel=true,pure_getters=true,unsafe_math=true,unsafe_comps=true,hoist_funs=true -m toplevel=true --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 -o dist/min.js`);
 
 // Rules compliance: no external URLs may ship (js13k rule #2)
 const min = readFileSync('dist/min.js', 'utf8');
@@ -43,12 +43,11 @@ console.log('3/6 pack (roadroller)…');
 // it with the code — measured −69 B vs plain-deflated template. Only doctype +
 // charset stay literal (encoding must be declared before the high-byte payload).
 // -D (dirty decoder) is safe: canvas id is 2 chars (cv), no single-letter DOM globals.
-const SHELL = '<meta name=viewport content="width=device-width,initial-scale=1,user-scalable=no">'
-  + '<title>UNI-CORN</title>'
-  // viewport-fit=cover extends the canvas edge-to-edge on notched devices;
-  // JS reads visualViewport to size correctly and HUD positions include ~8px safe margin
+// Single viewport meta with viewport-fit=cover (the second one superseded the first — measured: removing the
+// duplicate saves 5 B post-zip). -webkit-user-select dropped (user-select alone covers all 2020+ browsers).
+const SHELL = '<title>UNI-CORN</title>'
   + '<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">'
-  + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}canvas{width:100%;height:100%;display:block;touch-action:none}</style>'
+  + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}canvas{width:100%;height:100%;display:block;touch-action:none}</style>'
   + '<canvas id=cv></canvas>';
 writeFileSync('dist/min2.js', `document.write('${SHELL.replace(/'/g, "\\'")}');` + readFileSync('dist/min.js', 'utf8'));
 // Pinned flags = deterministic builds (no ±20 B jitter). After big source changes,

@@ -22,65 +22,73 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
+// ---- MAP GEOMETRY TABLE ----
+// One row = one box: [x, y, w, h, v?] (v omitted = solid). ORDER MATTERS —
+// later rows overwrite earlier (carves cut into mass). Add platforms/zones by
+// adding rows; tools/map-audit.mjs proves every law still holds at build time.
+const MAP = [
 // ---- envelope ----
-box(0, 0, 3, H); box(277, 0, 3, H);
-box(3, 60, 274, 12);                      // ground + underground mass
+[0, 0, 3, H], [277, 0, 3, H],
+[3, 60, 274, 12],                      // ground + underground mass
 
 // ---- GLOOM MEADOW (surface, x158-277) ----
-box(170, 60, 3, 2, 0); box(170, 61, 3, 1, 3);   // pits: 2 deep (L1), spikes, floor below
-box(196, 60, 5, 2, 0); box(196, 61, 5, 1, 3); box(197, 59, 3, 1, 2);
-box(233, 60, 3, 2, 0); box(233, 61, 3, 1, 3);
-box(175, 57, 4, 1, 2); box(181, 55, 4, 1, 2); box(188, 57, 5, 1, 2);
-box(205, 56, 4, 1, 2); box(212, 54, 4, 1, 2); box(220, 57, 6, 1, 2);
-box(240, 56, 4, 1, 2); box(247, 54, 4, 1, 2);
-box(210, 51, 3, 1, 2); box(218, 49, 3, 1, 2);   // DJ high route (motes)
-box(262, 59, 3, 1); box(265, 58, 3, 2); box(268, 57, 3, 3); box(271, 56, 3, 4); // shard tower
-box(274, 58, 3, 1, 2);                    // rung behind the tower (audit: stuck corner)
+[170, 60, 3, 2, 0], [170, 61, 3, 1, 3],   // pits: 2 deep (L1), spikes, floor below
+[196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
+[233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
+[175, 57, 4, 1, 2], [181, 55, 4, 1, 2], [188, 57, 5, 1, 2],
+[205, 56, 4, 1, 2], [212, 54, 4, 1, 2], [220, 57, 6, 1, 2],
+[240, 56, 4, 1, 2], [247, 54, 4, 1, 2],
+[210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route (motes)
+[262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4], // shard tower
+[274, 58, 3, 1, 2],                    // rung behind the tower (audit: stuck corner)
 
 // ---- ROOT CAVES (x150-256, carved) ----
-box(150, 66, 107, 4, 0);                  // main corridor
-box(175, 63, 18, 7, 0);                   // tall room W
-box(215, 64, 20, 6, 0);                   // tall room E
-box(162, 60, 3, 6, 0);                    // entry shaft (L2 rungs)
-box(162, 62, 3, 1, 2); box(162, 64, 3, 1, 2); box(162, 66, 3, 1, 2); box(162, 68, 3, 1, 2);
-box(246, 60, 3, 6, 0);                    // loop shaft (L2 rungs)
-box(246, 62, 3, 1, 2); box(246, 64, 3, 1, 2); box(246, 66, 3, 1, 2); box(246, 68, 3, 1, 2);
+[150, 66, 107, 4, 0],                  // main corridor
+[175, 63, 18, 7, 0],                   // tall room W
+[215, 64, 20, 6, 0],                   // tall room E
+[162, 60, 3, 6, 0],                    // entry shaft (L2 rungs)
+[162, 62, 3, 1, 2], [162, 64, 3, 1, 2], [162, 66, 3, 1, 2], [162, 68, 3, 1, 2],
+[246, 60, 3, 6, 0],                    // loop shaft (L2 rungs)
+[246, 62, 3, 1, 2], [246, 64, 3, 1, 2], [246, 66, 3, 1, 2], [246, 68, 3, 1, 2],
 // HEAL ALCOVE (L5): high pocket in room E — the step platform needs a 4-tile
 // rise (double jump only), entry column open on the left. No rung adjacency.
-box(222, 61, 8, 3, 0); box(224, 63, 6, 1); box(219, 66, 3, 1, 2);
-box(184, 69, 3, 1, 3); box(228, 69, 3, 1, 3);   // floor spike patches (3 wide, tall rooms)
+[222, 61, 8, 3, 0], [224, 63, 6, 1], [219, 66, 3, 1, 2],
+[184, 69, 3, 1, 3], [228, 69, 3, 1, 3],   // floor spike patches (3 wide, tall rooms)
 
 // ---- WEST CLIFFS (x40-118, DJ terraces) ----
-box(114, 56, 2, 4);                       // 4-tile DJ gate wall
-box(100, 57, 8, 3); box(88, 54, 8, 6); box(76, 51, 8, 9); box(64, 48, 8, 12); box(52, 45, 8, 15);
+[114, 56, 2, 4],                       // 4-tile DJ gate wall
+[100, 57, 8, 3], [88, 54, 8, 6], [76, 51, 8, 9], [64, 48, 8, 12], [52, 45, 8, 15],
 // audit fix: fill the canyons between terrace towers (were 12-deep no-exit traps)
-box(60, 48, 4, 12); box(72, 51, 4, 9); box(84, 54, 4, 6);
+[60, 48, 4, 12], [72, 51, 4, 9], [84, 54, 4, 6],
 // audit fix: vine ladder up the west terrace face — the far-west strip (fall
 // zone from the treetops) had no way back. Rungs every 2 tiles (L2).
-box(49, 57, 3, 1, 2); box(49, 55, 3, 1, 2); box(49, 53, 3, 1, 2); box(49, 51, 3, 1, 2);
-box(49, 49, 3, 1, 2); box(49, 47, 3, 1, 2); box(49, 45, 3, 1, 2);
+[49, 57, 3, 1, 2], [49, 55, 3, 1, 2], [49, 53, 3, 1, 2], [49, 51, 3, 1, 2],
+[49, 49, 3, 1, 2], [49, 47, 3, 1, 2], [49, 45, 3, 1, 2],
 
 // ---- TREETOPS (x40-118): L3-compliant zig-zag, rises 3 / gaps <=5 ----
-box(62, 42, 4, 1, 2); box(68, 39, 4, 1, 2); box(74, 36, 4, 1, 2); box(80, 33, 4, 1, 2);
-box(74, 30, 4, 1, 2); box(68, 27, 3, 1, 2); box(63, 26, 3, 1, 2);
-box(52, 26, 8, 2);                        // shot-shard ledge + summit campfire
+[62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
+[74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
+[52, 26, 8, 2],                        // shot-shard ledge + summit campfire
 // descent-only mote detour (fall east off the climb; always exits to the surface)
-box(86, 36, 4, 1, 2); box(94, 39, 4, 1, 2); box(102, 42, 4, 1, 2);
+[86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
 
 // ---- SUMMIT (x10-60): bridge platform after the crystal, then tight chain ----
-box(48, 18, 2, 10, 4);                    // GLOOM CRYSTAL barrier (shot breaks 3x3)
-box(46, 24, 3, 1, 2);                     // bridge — first step past the barrier
-box(40, 23, 4, 1, 2); box(34, 20, 3, 1, 2); box(28, 17, 3, 1, 2); box(22, 14, 3, 1, 2);
-box(10, 12, 9, 2);                        // peak ledge (widened — L3 landing)
+[48, 18, 2, 10, 4],                    // GLOOM CRYSTAL barrier (shot breaks 3x3)
+[46, 24, 3, 1, 2],                     // bridge — first step past the barrier
+[40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
+[10, 12, 9, 2],                        // peak ledge (widened — L3 landing)
 
 // ---- GLOOM HEART (x10-139, carved) ----
-box(10, 64, 130, 6, 0);
-box(108, 60, 3, 4, 0);                    // entry shaft (L2 rungs)
-box(108, 62, 3, 1, 2); box(108, 64, 3, 1, 2); box(108, 66, 3, 1, 2); box(108, 68, 3, 1, 2);
-box(80, 69, 7, 1, 3);                     // spike lake, 7 wide — DASH gate (audit: 10 was uncrossable even with dash)
+[10, 64, 130, 6, 0],
+[108, 60, 3, 4, 0],                    // entry shaft (L2 rungs)
+[108, 62, 3, 1, 2], [108, 64, 3, 1, 2], [108, 66, 3, 1, 2], [108, 68, 3, 1, 2],
+[80, 69, 7, 1, 3],                     // spike lake, 7 wide — DASH gate (audit: 10 was uncrossable even with dash)
 
 // ---- PADDOCK extras ----
-box(124, 54, 4, 1, 2);                    // DJ hub perch (mote)
+[124, 54, 4, 1, 2],                    // DJ hub perch (mote)
+
+];
+for (const m of MAP) box(...m);
 
 // ---- regions ----
 // Static regions — hue only defines zone tint. Rebloom system removed:
