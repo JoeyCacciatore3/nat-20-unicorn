@@ -18,7 +18,7 @@ to win. D&D-inspired combat with dice rolls, crits, and stat allocation.
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
-- Everyone starts the same neutral white unicorn — creation asks ONE thing: your name
+- Everyone starts the same neutral white unicorn — NEW GAME asks ONE thing (your name), right on the title screen; 3 save slots (name + level shown on CONTINUE); SAVE / SAVE & EXIT buttons in the pause sheet
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
 - 5-slot inventory bag, auto-equip if better than current
 
@@ -72,14 +72,14 @@ npm run build    # map-audit → esbuild → terser → roadroller → zip → E
 Build gates: map traversal audit (no stuck spots), 13,312 byte limit,
 no external URLs, no unprefixed localStorage.
 
-**Current: 11,938 / 13,312 B (89.7%)**
+**Current: 12,082 / 13,312 B (90.8%)**
 
 ## Save format
-Key: `localStorage.n20_save`. Version: **v21** — auto-discards older saves.
+Keys: `localStorage.n20_s0..2` (3 slots). Version: **v29** — auto-discards older saves.
 Equipment, inventory, owned skills, boss state, palette indices all persisted.
 
 ## Structure
-- `src/main.js` — the game (1,422 lines)
+- `src/main.js` — the game (1,445 lines)
 - `src/world.js` — tile map, entity seeds, decorations (146 lines)
 - `design/SUBMISSION-KIT.md` — paste-ready store copy, cover/screenshot assets, entry checklist
 - `build.mjs` — full pipeline + compliance gates

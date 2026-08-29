@@ -42,12 +42,13 @@ let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer 
 
 // ---------- input: BOTH conventions (WASD+Space/J/L/S and arrows+Z/X/C/I) ----------
 const J_KEYS = ['Space', 'KeyK', 'KeyZ', 'KeyW', 'ArrowUp'];
-const M_KEYS = ['KeyJ', 'KeyX'], SH_KEYS = ['KeyL', 'KeyC'], HE_KEYS = ['KeyS', 'KeyI'];
+const M_KEYS = ['KeyJ', 'KeyX', 'ShiftLeft', 'ShiftRight', 'KeyO'], SH_KEYS = ['KeyL', 'KeyC'], HE_KEYS = ['KeyS', 'KeyI'];  // M = dash (the attack verb)
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
-// phase 0 = title menu, 1 = character create (name + colors combined), 2 = playing (started=1)
-let phase = 0, ent = '', pName = 'HORSE', mSel = 0, delConf = 0;   // delConf: 2-step title DELETE guard
+// phase 0 = title (tMode: menu/name/slots), 2 = playing (started=1). Phase 1 no longer exists.
+let phase = 0, ent = '', pName = 'HORSE', mSel = 0;
+let tMode = 0, sSel = 0, slot = 0, slotNew = 0, svT = 0; // title mode 0 menu · 1 name · 2 slots; active save slot; SAVED toast clock
 // HIDDEN NAME INPUT — the standard mobile-canvas technique: focusing a real <input>
 // inside the tap gesture summons the OS keyboard (iOS requires the gesture).
 // It is the single source of truth for `ent` while focused; window keydown defers.
@@ -63,31 +64,40 @@ const stars = Array.from({ length: 22 }, () => ({
   x: Math.random() * VW, y: Math.random() * VH,
   s: 1 + (Math.random() * 1.5 | 0), v: 4 + Math.random() * 14, a: .3 + Math.random() * .5,
 }));
-const hasSave = () => !!localStorage.n20_save;
+// 3 SAVE SLOTS (n20_s0..2). sMeta reads name+level for the slot list without loading.
+const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 28 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const hasSave = () => !!(sMeta(0) || sMeta(1) || sMeta(2));
 // Character create: UP/DOWN pick row (name/body/mane/horn), then row-specific input:
 //   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume/create transitions can't drift.
 const beginGame = () => { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); };
 const resumeGame = () => { load(); phase = 2; started = 1; };
-const toCreate = () => { fresh(); phase = 1; ent = ''; delConf = 0; };
-const createKey = (e) => {
-  // CREATE = NAME ONLY (2026-08-29): everyone starts the same neutral white unicorn.
-  // Colors come from EQUIPMENT — gear recolors parts on equip (the customization system).
-  if (e.code === 'Backspace')                            ent = ent.slice(0, -1);
-  else if (ent.length < 8 && /^[a-z]$/i.test(e.key))     ent += e.key.toUpperCase();
-  else if (e.code === 'Enter') beginGame();
+const toName  = () => { fresh(); ent = ''; slotNew = 1; tMode = 1; };  // NEW GAME → type name (title art stays)
+const toSlots = (nw) => { slotNew = nw; sSel = 0; tMode = 2; };        // then/or pick a slot
+const pickSlot = (i) => {                                              // row 3 = BACK
+  if (i === 3) { tMode = 0; return; }
+  if (slotNew) { slot = i; tMode = 0; beginGame(); }                   // new game: any slot (occupied = overwrite)
+  else if (sMeta(i)) { slot = i; tMode = 0; resumeGame(); }            // continue: occupied slots only
 };
 const titleKey = (e) => {
-  const opts = hasSave() ? 3 : 1;                                    // NEW GAME · CONTINUE · DELETE SAVE (last two only when save exists)
-  if (e.code === 'ArrowUp' || e.code === 'KeyW') { mSel = (mSel + opts - 1) % opts; delConf = 0; }
-  else if (e.code === 'ArrowDown' || e.code === 'KeyS') { mSel = (mSel + 1) % opts; delConf = 0; }
-  else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) toCreate();
-  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) resumeGame();
-  else if ((e.key === '3' || (mSel === 2 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) {
-    // 2-step delete: first press arms, second press wipes
-    if (delConf) { localStorage.removeItem('n20_save'); location.reload(); } else delConf = 1;
+  if (tMode === 1) {                                                   // NAME ENTRY on the title screen
+    if (e.code === 'Backspace')                        ent = ent.slice(0, -1);
+    else if (ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
+    else if (e.code === 'Enter')                       toSlots(1);
+    else if (e.code === 'Escape')                      tMode = 0;
+    return;
   }
+  if (tMode === 2) {                                                   // SLOT SELECT (3 slots + BACK)
+    if (e.code === 'ArrowUp' || e.code === 'KeyW')        sSel = (sSel + 3) % 4;
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') sSel = (sSel + 1) % 4;
+    else if (e.code === 'Enter' || e.code === 'Space')    pickSlot(sSel);
+    else if (e.code === 'Escape')                         tMode = 0;
+    return;
+  }
+  const opts = hasSave() ? 2 : 1;                                      // NEW GAME · CONTINUE
+  if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') mSel = (mSel + 1) % opts;
+  else if (e.code === 'Enter' || e.code === 'Space') { if (mSel === 0) toName(); else toSlots(0); }
 };
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -97,7 +107,6 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
   boot();                                                    // resume audio on any key (autoplay policy)
   if (phase === 0) return titleKey(e);
-  if (phase === 1) return createKey(e);
   // DIALOG owns input — arrow keys navigate, JUMP confirms, MELEE cancels
   if (dialog) {
     if (e.code === 'ArrowUp')        dialog = dialog === 1 ? 2 : 1;
@@ -113,7 +122,6 @@ addEventListener('keydown', (e) => {
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) dash();                          // J/X = dash (the attack verb) — old swipe muscle memory preserved
   if (SH_KEYS.includes(e.code)) shoot();
-  if (['ShiftLeft', 'ShiftRight', 'KeyO'].includes(e.code)) dash();
   if (choosing) {
     const n = picks().length;
     if (e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + n - 1) % n;
@@ -142,8 +150,8 @@ const btns = () => {
     { x: VW - 36, y: VH - 34, r: 24, l: jl, h: 'SPACE', c: 'TBtnJ', col: jc },
     { x: VW - 92, y: VH - 30, r: 20, l: ml, h: 'J',     c: 'TBtnM', col: '#ffd75e' },
   ];
-  if (abil & 4) b.push({ x: VW - 78,  y: VH - 78, r: 20, l: '✦', h: 'L',     c: 'TBtnS', col: '#c9a6f7' });
-  if (abil & 2) b.push({ x: VW - 36,  y: VH - 88, r: 20, l: '＋', h: 'S',    c: 'TBtnH', col: '#9fe89a' });
+  if (su[0]) b.push({ x: VW - 78,  y: VH - 78, r: 20, l: '✦', h: 'L',     c: 'TBtnS', col: '#c9a6f7' });
+  if (su[4]) b.push({ x: VW - 36,  y: VH - 88, r: 20, l: '＋', h: 'S',    c: 'TBtnH', col: '#9fe89a' });
   // (dedicated dash fan button removed — the always-on attack button IS dash now)
   return b;
 };
@@ -173,16 +181,20 @@ addEventListener('pointerdown', (e) => {
   boot();
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
-  // TITLE: tap top half = New Game (→ create screen, tap rows to cycle colors), bottom = Continue
-  if (phase === 0) { if (vy > VH / 2 && hasSave()) resumeGame(); else toCreate(); return; }
-  // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
-  // CHARACTER CREATE: tap the BEGIN NEW GAME button (bottom-center) to start. Name required.
-  if (phase === 1) {
-    if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= VH - 42 && vy <= VH - 16) {
-      beginGame(); return;   // empty name → default HORSE
+  // TITLE — every mode fully clickable (row hitboxes MUST match the render y's)
+  if (phase === 0) {
+    if (tMode === 1) {                                             // name entry
+      if (vx >= VW / 2 - 60 && vx <= VW / 2 + 60 && vy >= 236 && vy <= 256) { toSlots(1); return; }  // ▶ BEGIN
+      if (vy > 198 && vy < 230) { NI.value = ent; NI.focus(); return; }  // tap the name = OS keyboard (in-gesture)
+      tMode = 0; return;                                           // tap elsewhere = back
     }
-    // (color-cycling tap zones removed 2026-08-29 — create is NAME ONLY; colors = equipment)
-    if (vx > 24 && vx < 144 && vy > 190 && vy < 222) { NI.value = ent; NI.focus(); }   // NAME row under the box: summon OS keyboard (in-gesture)
+    if (tMode === 2) {                                             // slot select: rows at y=206+i*16
+      const row = ((vy - 195) / 16) | 0;
+      if (row >= 0 && row <= 3 && vx > VW / 2 - 100 && vx < VW / 2 + 100) pickSlot(row); else tMode = 0;
+      return;
+    }
+    const row = ((vy - 197) / 16) | 0;                             // menu rows at y=208+i*16
+    if (row === 0) toName(); else if (row === 1 && hasSave()) toSlots(0);
     return;
   }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
@@ -191,9 +203,14 @@ addEventListener('pointerdown', (e) => {
       const req = TREE[i][1], [cx, cy] = TPOS[i];   // SAME TPOS as the render — cannot drift
       if (vx >= cx - 2 && vx <= cx + 74 && vy >= cy - 9 && vy <= cy + 3) {
         const locked = req >= 0 && !su[req];
-        if (spts > 0 && !su[i] && !locked) { su[i] = 1; spts--; abilSync(); sfx(660, 990, .15, 'triangle', .12); save(); }
+        if (spts > 0 && !su[i] && !locked) { su[i] = 1; spts--; sfx(660, 990, .15, 'triangle', .12); save(); }
         return;
       }
+    }
+    // SAVE / SAVE & EXIT buttons (y 236-252) — save only writes the slot, no heal, no side effects
+    if (vy >= 236 && vy <= 252) {
+      if (vx >= 24 && vx <= 88)  { save(); svT = time + 1.2; sfx(660, 990, .15, 'triangle', .12); return; }
+      if (vx >= 96 && vx <= 168) { save(); paused = 0; started = 0; phase = 0; tMode = 0; mSel = 0; return; }
     }
     paused = 0; return;
   }
@@ -354,7 +371,7 @@ const drawU = (bob) => {
   if (a1) { ctx.fillStyle = a1; ctx.fillRect(5, 1, 2, 1); }                                          // mane spark
 };
 let hp = 10, xp = 0, lvl = 1;
-let abil = 0;                                      // skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash
+// (abil bitfield removed 2026-08-29 — it was a pure mirror of su[]; reads go straight to the tree)
 let mn = 5, choosing = 0, pending = 0;
 const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +2 max HP); post-cap XP ignored
 // Skills are ALL player-chosen via the 3-branch tree — no auto-learn milestones
@@ -419,7 +436,7 @@ const TPOS = []; { let r = 0; for (let t = 0; t <= Math.max(...TD); t++) {
 } }
 // (branch names/colors removed 2026-08-29 — one tree, one visual language)
 let spts = 0; const su = Array(TREE.length).fill(0);
-const abilSync = () => { abil = (su[12]?1:0)|(su[4]?2:0)|(su[0]?4:0)|(su[14]?8:0); };
+// (abilSync removed with the abil mirror)
 let aRow = 0;
 const picks = () => STATS.map((s, i) => ({ i, n: s[0], col: s[2] }));
 const allocate = () => {
@@ -431,8 +448,8 @@ const allocate = () => {
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
-  localStorage.n20_save = JSON.stringify({
-    v: 28, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+  localStorage['n20_s' + slot] = JSON.stringify({
+    v: 29, e: earned, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     u: [bod, man, hrn, hof],
@@ -441,20 +458,20 @@ const save = () => {
 };
 const load = () => {
   try {
-    const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 28) return;                               // v28 — 17-skill tree.
+    const d = JSON.parse(localStorage['n20_s' + slot] || '0');
+    if (!d || d.v !== 29) return;                               // v29 — no abil mirror.
     d.e.forEach((v, i) => earned[i] = v);
-    hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
-    (d.g || []).forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
+    hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
+    d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
 
     [ho, he, sp, df, lk] = d.t;
     [bod, man, hrn, hof] = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
-    pending = d.d || 0; if (pending) { choosing = 1; aRow = 0; }    // unspent stat points survive reload
-    spts = d.k || 0; (d.y || []).forEach((v, i) => su[i] = v); abilSync();
-    if (d.q) d.q.forEach((v, i) => eq[i] = v);
-    if (d.i) { inv.length = 0; d.i.forEach(v => inv.push(v)); }
-    invMax = d.im || 5; recalcEq();
+    pending = d.d; if (pending) { choosing = 1; aRow = 0; }        // unspent stat points survive reload
+    spts = d.k; d.y.forEach((v, i) => su[i] = v);
+    d.q.forEach((v, i) => eq[i] = v);
+    inv.length = 0; d.i.forEach(v => inv.push(v));
+    invMax = d.im; recalcEq();
   } catch (e) { /* fresh oath */ }
 };
 
@@ -510,11 +527,11 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 // FULL progression reset — NEW GAME must NOT inherit a boot-loaded save's state
 // (boot load() fills globals; without this, "new" characters kept old lvl/stats/bosses)
 const fresh = () => {
-  hp = 10; xp = 0; lvl = 1; abil = 0; mn = 5; bs.fill(0);
+  hp = 10; xp = 0; lvl = 1; mn = 5; bs.fill(0);
   eq.fill(null); inv.length = 0; invMax = 5; eqB = [0, 0, 0, 0];
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
   oc = 0; pName = 'HORSE'; earned.fill(0);
-  spts = 0; su.fill(0); abilSync();
+  spts = 0; su.fill(0);
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
 const FOECOL = ['', '#c9a6f7', '#6bc5ff', '#e05555', '#e08ae0', '#9fe89a', '#8cf'];
@@ -613,7 +630,7 @@ const strike = (f, r, gen, viaStomp) => {
   if (crit) hs = .06;                             // hitstop punch — 60 ms world freeze on Nat crit
   fly(f.x, f.y - 8, (crit ? 'CRIT ' : '') + '-' + dmg, crit ? '#ffd75e' : '#ff5d6c', crit);
   if (crit) { S_NAT(); earned[3] = 1; burst(f.x, f.y, 24, '#ffd75e'); }
-  if (gen) mn = Math.min(mMN(), mn + 1);          // melee GENERATES mana
+  if (gen) mn = Math.min(mMN(), mn + 1);          // dash hits GENERATE mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
   if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
     f.ph = 1; sfx(220, 110, .35, 'sawtooth', .16);
@@ -653,20 +670,19 @@ const strike = (f, r, gen, viaStomp) => {
 // (swing/melee removed 2026-08-29 — DASH is the attack verb now: available from
 // the start at half distance, always strikes foes it passes through, and hits
 // GENERATE mana (inheriting melee's role in the economy). Celeste-validated
-// pattern: one celebrated gesture, "dash attack" window. DASH+ doubles distance.)
+// pattern: one celebrated gesture, "dash attack" window. LONG DASH doubles distance.)
 function shoot() {                                              // rainbow shot: 3 mana
-  if (!started || choosing || deathT > 0 || !(abil & 4)) return;
-  const sc = 3;                                          // FOCUS ranks: cost 3→2→1
-  if (mn < sc) { fly(pl.x, pl.y - 12, 'need ✦' + sc, '#f9c'); return; }
-  mn -= sc; sfx(700, 1300, .12, 'sawtooth', .09);
-  shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * (su[1] + su[2]) });   // base range SHORT; RANGE ranks extend (.55s→1.3s)
+  if (!started || choosing || deathT > 0 || !su[0]) return;
+  if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#f9c'); return; }   // flat 3 MP (cost chain removed)
+  mn -= 3; sfx(700, 1300, .12, 'sawtooth', .09);
+  shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * (su[1] + su[2]) });   // base range SHORT; FAR SHOT + SNIPER extend (.55s→1.3s)
 }
 function dash() {                                               // THE attack verb: burst + strike-through; air use resets on landing
   if (!started || choosing || deathT > 0 || dashCd > 0) return;
   if (!pl.ground) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
-  dashT = su[14] ? .15 : .075;                                  // base = HALF distance; DASH+ doubles it (gates the spike lake)
-  dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE: -25% cd
+  dashT = su[14] ? .15 : .075;                                  // base = HALF distance; LONG DASH doubles it (gates the spike lake)
+  dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // flat cooldown (cd skill removed)
 }
 
 const hurt = (n, safe) => {
@@ -674,7 +690,7 @@ const hurt = (n, safe) => {
   n = Math.max(1, n - df - eqB[3]);                            // DEFENSE — stat + hooves eq bonus
   hp -= n; pl.inv = su[11] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
   for (const f of foes) if (f.bit) f.hit = 1;                    // any hit disqualifies UNTOUCHABLE for the active boss(es)
-  sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE grace inside pl.inv
+  sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // GUARD TIME extends pl.inv
 
   if (hp <= 0) { deathT = 1.6; return; }
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
@@ -712,11 +728,11 @@ const step = (dt) => {
   const onPlat = pl.ground && tile((pl.x + PW / 2) / T | 0, (pl.y + PH + 1) / T | 0) === 2;
   if (onPlat && held('ArrowDown', 'KeyS', 'TBtnDn')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
 
-  // -- heal channel: rooted, costs 5 mana, restores 3+MEND rank HP --
-  const canHeal = (abil & 2) && mn >= 5 && hp < mHP() && pl.ground && !onPlat;
+  // -- heal channel: rooted, costs 5 mana, restores 3 HP (HEAL +2/+4 nodes → 5/7) --
+  const canHeal = su[4] && mn >= 5 && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.2) { const hm = 3 + 2 * (su[5] + su[6]); chT = 0; mn -= 5; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // MEND+ ranks: 3→5→7
+    if (chT > 1.2) { const hm = 3 + 2 * (su[5] + su[6]); chT = 0; mn -= 5; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // HEAL +2/+4: 3→5→7
   } else chT = 0;
   // (REGEN skill + its regT timer removed 2026-08-29)
   const rooted = chT > 0;
@@ -730,7 +746,7 @@ const step = (dt) => {
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0 && !rooted) {
     if (pl.coyote > 0) { pl.vy = -V0(); pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); burst(pl.x, pl.y + PH, 4, '#ccc'); }
-    else if ((abil & 1) && pl.air < 1 + su[13]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // JUMP+1 rank = triple jump
+    else if (su[12] && pl.air < 1 + su[13]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // TRI JUMP node = third jump
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash overrides physics: flat burst
@@ -738,7 +754,7 @@ const step = (dt) => {
     parts.push({ x: pl.x + PW / 2, y: pl.y + 8, vx: 0, vy: 0, t: .3, c: `hsl(${(time * 500) % 360} 80% 65%)` });
     for (const f of [...foes]) {                                // DASH ATTACK — dashing through a foe IS the strike; hits generate mana
       const fz = fsz(f);
-      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, roll(), 1, 0);   // dash strike — flat d20; power scales via STR/gear
+      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, roll(), 1, 0);   // dash strike — flat die roll; power scales via STR/gear
     }
   } else {
     pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
@@ -912,7 +928,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
 
   // -- achievement watchers (all 13 Wavedash slots live) --
   if (lvl >= 10) earned[9] = 1;                                  // HOARDER — reach LV10
-  if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
+  if (su[0] && su[4] && su[12] && su[14]) earned[10] = 1;       // BELIEVER — shot+heal+dbl jump+long dash learned
   // earned[7] = SILVER_TONGUE — set directly in dialogDo() on first talk
   if (pl.x < 64 * T && pl.y < 30 * T) earned[6] = 1;                  // SUMMIT — reached the peak area
   if (hof === 4) earned[5] = 1;                                 // GREEN_HOOVES (Wavedash slot 5) — fires on RUBY hooves (idx 4); name is legacy
@@ -1300,6 +1316,14 @@ const draw = () => {
     // Footer — shard tally under the tree; equipment + bag now live on the LEFT side
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + shards() + ' / 5', 300, 250);
+    // SAVE / SAVE & EXIT — clickable (no hotkeys required); save = write slot ONLY
+    ctx.font = 'bold 8px monospace';
+    [[24, 64, 'SAVE'], [96, 72, 'SAVE & EXIT']].forEach(([bx, bw, lb]) => {
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,215,94,.14)';
+      ctx.fillRect(bx, 236, bw, 16); ctx.strokeRect(bx, 236, bw, 16);
+      ctx.fillStyle = '#ffd75e'; T2(lb, bx + bw / 2, 247);
+    });
+    if (time < svT) { ctx.fillStyle = '#9fe89a'; T2('SAVED', 96, 230); }
     ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
     T2(alloc ? '↑↓ pick · ↵ spend' : 'tap skill to buy · P close', VW / 2, VH - 4);
   }
@@ -1372,45 +1396,44 @@ const draw = () => {
     ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 30px monospace'; ctx.fillText('UNI-CORN', 0, 0);
     ctx.restore();
     ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; ctx.fillText('the last savior', VW / 2, 188);
-    // Menu
-    // NEW GAME · CONTINUE · DELETE SAVE. DELETE arms on first press, wipes on second.
-    const has = hasSave();
-    const opts = has ? ['NEW GAME', 'CONTINUE', delConf ? 'DELETE? PRESS AGAIN' : 'DELETE SAVE'] : ['NEW GAME'];
-    opts.forEach((o, i) => {
-      const y = 208 + i * 16, on = mSel === i, isDel = i === 2;
-      ctx.fillStyle = on ? (isDel ? (delConf ? '#ff5d6c' : '#ff9d3c') : '#ffd75e') : (isDel ? '#888' : '#888');
+    // Title art above stays in EVERY mode — menu / name entry / slot select swap below it.
+    if (tMode === 1) {                                             // NAME ENTRY
+      const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
+      ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace'; ctx.fillText('NAME YOUR UNICORN', VW / 2, 206);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; ctx.fillText(nm || '(type A–Z)', VW / 2, 224);
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,215,94,.14)';
+      ctx.fillRect(VW / 2 - 60, 236, 120, 20); ctx.strokeRect(VW / 2 - 60, 236, 120, 20);
+      ctx.fillStyle = '#ffd75e'; ctx.fillText('▶ BEGIN', VW / 2, 250);
+      ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
+      ctx.fillText('A–Z name · ENTER or tap BEGIN · ESC back', VW / 2, 266);
+    } else if (tMode === 2) {                                      // SLOT SELECT — name + level per slot
       ctx.font = 'bold 13px monospace';
-      ctx.fillText(o, VW / 2, y);                                  // word itself dead-center (numbers removed 2026-08-29)
-      if (on) ctx.fillText('▶', VW / 2 - 72, y);                   // cursor in a fixed column — can't skew centering
-    });
-    if (has) { ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 260); }
-    ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
-    ctx.fillText('↑↓ select · ENTER accept · A/D move · SPACE jump · J dash · L shot · S heal', VW / 2, 266);
+      for (let i = 0; i < 4; i++) {
+        const m = i < 3 ? sMeta(i) : 0, on = sSel === i, y = 206 + i * 16;
+        ctx.fillStyle = on ? '#ffd75e' : (i < 3 && !m && !slotNew) ? '#555' : '#888';
+        ctx.fillText(i === 3 ? '← BACK' : 'SLOT ' + (i + 1) + ' · ' + (m || 'EMPTY'), VW / 2, y);
+        if (on) ctx.fillText('▶', VW / 2 - 90, y);
+      }
+      ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
+      ctx.fillText(slotNew ? 'pick a slot for the new game' : 'pick a save to continue', VW / 2, 266);
+    } else {                                                       // MENU
+      const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
+      opts.forEach((o, i) => {
+        const y = 208 + i * 16, on = mSel === i;
+        ctx.fillStyle = on ? '#ffd75e' : '#888'; ctx.font = 'bold 13px monospace';
+        ctx.fillText(o, VW / 2, y);
+        if (on) ctx.fillText('▶', VW / 2 - 72, y);            // cursor in a fixed column — can't skew centering
+      });
+      ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
+      ctx.fillText('↑↓ select · ENTER accept · A/D move · SPACE jump · J dash · L shot · S heal', VW / 2, 266);
+    }
   }
-  // CHARACTER CREATE screen (phase 1) — same split-panel look as pause
-  if (phase === 1) {
-    portraitPanel('NEW CHARACTER');
-    // NAME-ONLY creation (2026-08-29): every unicorn starts the same neutral white.
-    // Colors are earned — equipment recolors the part it equips. One decision: your name.
-    const nmVal = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
-    ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace';
-    ctx.fillStyle = '#ffd75e'; T2('NAME', 84, 202);
-    ctx.fillStyle = '#fff'; T2(nmVal || '(type A–Z)', 84, 216);
-    // BEGIN NEW GAME button — bottom-center, clickable (tap area matches BEGIN_BTN below)
-    const bx = VW / 2 - 70, by = VH - 42;
-    ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
-    ctx.fillStyle = 'rgba(255,215,94,.14)';
-    ctx.fillRect(bx, by, 140, 26); ctx.strokeRect(bx, by, 140, 26);
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
-    T2('▶ BEGIN NEW GAME', VW / 2, by + 17);
-    ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
-    ctx.fillText('A–Z name · ENTER or tap BEGIN', VW / 2, VH - 6);
-  }
+  // (character-create screen removed 2026-08-29 — name entry lives ON the title; phase 1 no longer exists)
   ctx.restore();
 };
 
 // ---------- loop ----------
-load();
+// (no boot-time load — saves load when a slot is picked; title reads sMeta only)
 cam.x = Math.max(0, Math.min(W * T - VW, pl.x - VW / 2));      // camera starts ON the player (was: panned in from world origin)
 cam.y = Math.max(0, Math.min(H * T - VH, pl.y - VH / 2 + 30));
 // opening line fires when the player picks a name / picks Continue (see title-menu accept)

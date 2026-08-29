@@ -66,7 +66,7 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 1. `02_gameplay_meadow.png` — platforming + enemies (LEAD)
 2. `03_gameplay_caves_edge.png` — world variety
 3. `04_character_sheet.png` — RPG depth
-4. `05_character_create.png` — name your unicorn
+4. `05_character_create.png` — name entry on the title screen
 5. `01_title.png` — branding (last)
 
 **Achievements:** ✅ DONE (verified 2026-08-29 via CLI — all 13 identifiers exist on the
