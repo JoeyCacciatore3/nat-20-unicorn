@@ -308,10 +308,12 @@ const recalcEq = () => { eqB = eq.map(e => e ? e.b : 0); };
 const TC = [, '#d8d8e0', '#ffe08a', '#8cf'];       // 1 silver · 2 gold · 3 prismatic
 // UNIFIED PALETTE — 18 colors, same for all 4 body parts.
 // Mane gradient auto-derived: base → 85% → 70% brightness (no stored triples).
+// 2026-08-29 trim: #3ac4ff (2nd blue), #c8f0d3 (2nd silver-mint) and a trailing
+// EXACT dupe of ruby #ff5d6c removed — 15 distinct swatches, zero repeats.
 const PAL = [
   '#f5f1f4','#f7d9c0','#ffd75e','#ff9d3c','#ff5d6c','#f9c',
-  '#e08ae0','#c47fe0','#6bc5ff','#3ac4ff','#40e8b0','#5ac878',
-  '#c8f0d3','#d8d8e0','#fff','#2a1f14','#4a3828','#ff5d6c'
+  '#e08ae0','#c47fe0','#6bc5ff','#40e8b0','#5ac878',
+  '#d8d8e0','#fff','#2a1f14','#4a3828'
 ];
 // (PN color-name strings removed 2026-08-29 — creation now shows colors ON the
 // corner part-slots, pause-sheet style; ~18 shipped string literals reclaimed.)
@@ -346,7 +348,7 @@ const portraitPanel = (title) => {
   ctx.fillStyle = '#fff'; T2(mn + '/' + mMN(), 97, 62);
   // XP gauge — under both bars, above the unicorn
   const atCap = lvl >= CAP;
-  ctx.fillStyle = '#3a3a44'; ctx.fillRect(48, 67, 98, 3);
+  ctx.fillStyle = '#2a2a33'; ctx.fillRect(48, 67, 98, 3);   // same track color as HP/MP
   ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(48, 67, atCap ? 98 : 98 * xp / need(), 3);
   // Unicorn — 2.6× scale, gentle bob, centered in the middle band
   ctx.save(); ctx.translate(84, 108); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
@@ -449,7 +451,7 @@ const allocate = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 29, e: earned, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 30, e: earned, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     u: [bod, man, hrn, hof],
@@ -459,7 +461,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 29) return;                               // v29 — no abil mirror.
+    if (!d || d.v !== 30) return;                               // v30 — 15-swatch PAL (indices shifted).
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
