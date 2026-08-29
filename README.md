@@ -173,11 +173,27 @@ Toggle via `P` / `Esc` / tap top-right icon; tap anywhere to close.
 
 ## Save format
 Key: `localStorage.n20_save`. Version pinned in-file (`d.v !== N` → discard).
-Current version: **v8** — drops the `r` field (lore-stones system removed
-entirely; SILVER_TONGUE achievement now fires on first DM conversation).
-Prior fields: `f` (seen-flags bitfield), `k` (class), `m` (player name).
-Version bumps discard prior saves rather than migrating; the game is early
-enough that mid-run states can't survive a rules change intact.
+Current version: **v10** — 5-stat pip array `t: [STR, HP, MAG, DEF, LUCK]`,
+region rebloom `b` field dropped (world palette is fixed at boot now).
+Prior fields: `o` (opened-chest bitfield, v9), `f` (seen-flags bitfield),
+`k` (class), `m` (player name). Version bumps discard prior saves rather
+than migrating; the game is early enough that mid-run states can't survive
+a rules change intact.
+
+## Stats
+Five pips picked at odd level-ups (choose 1 of 3 offered):
+- **STR** — +1 damage per pip
+- **HP** — +1 max heart per pip
+- **MAG** — +2 max mana per pip
+- **DEF** — subtracts pips from every damage instance (min 1)
+- **LUCK** — +50% enemy shard drops per pip
+
+## Rainbow shards
+Five guardian-drop **rainbow shards** are the collection goal (like the
+Triforce pieces in Zelda). Each corresponds to a guardian (DBL JUMP / HEAL /
+SHOT / DASH / HEART). Pause overlay tracks progress: `RAINBOW · N / 5`.
+Currency (the shop economy) is separate and tracked as `SHARDS · N` —
+earned from enemy kills + 6 hand-placed chests.
 
 ## Troubleshooting — the obvious route
 | Symptom | Where to look |

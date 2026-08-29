@@ -83,15 +83,17 @@ box(80, 69, 7, 1, 3);                     // spike lake, 7 wide — DASH gate (a
 box(124, 54, 4, 1, 2);                    // DJ hub perch (mote)
 
 // ---- regions ----
+// Static regions — hue only defines zone tint. Rebloom system removed:
+// world palette is fixed at boot, no per-boss color change.
 export const regions = [
-  { x0: 118, x1: 158, y0: 40, y1: 64, h: .12, b: 1, t: 1, n: 'The Paddock' },
-  { x0: 158, x1: 280, y0: 0, y1: 64, h: .33, b: 0, t: 0, n: 'Gloom Meadow' },
-  { x0: 140, x1: 280, y0: 64, y1: 72, h: .08, b: 0, t: 0, n: 'Root Caves' },
-  { x0: 0, x1: 140, y0: 64, y1: 72, h: .78, b: 0, t: 0, n: 'Gloom Heart' },
-  { x0: 0, x1: 64, y0: 0, y1: 30, h: .62, b: 0, t: 0, n: 'Summit' },
-  { x0: 40, x1: 118, y0: 0, y1: 48, h: .45, b: 0, t: 0, n: 'Treetops' },
-  { x0: 0, x1: 118, y0: 0, y1: 64, h: .55, b: 0, t: 0, n: 'West Cliffs' },
-  { x0: 0, x1: 280, y0: 0, y1: 72, h: .12, b: 1, t: 1, n: 'The Paddock' },
+  { x0: 118, x1: 158, y0: 40, y1: 64, h: .12 },
+  { x0: 158, x1: 280, y0: 0, y1: 64, h: .33 },
+  { x0: 140, x1: 280, y0: 64, y1: 72, h: .08 },
+  { x0: 0, x1: 140, y0: 64, y1: 72, h: .78 },
+  { x0: 0, x1: 64, y0: 0, y1: 30, h: .62 },
+  { x0: 40, x1: 118, y0: 0, y1: 48, h: .45 },
+  { x0: 0, x1: 118, y0: 0, y1: 64, h: .55 },
+  { x0: 0, x1: 280, y0: 0, y1: 72, h: .12 },
 ];
 export const regionAt = (px, py) => regions.find(r => px >= r.x0 * T && px < r.x1 * T && py >= r.y0 * T && py < r.y1 * T) || regions[7];
 

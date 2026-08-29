@@ -68,6 +68,29 @@
 //      BECOME?". Opener "last painted mini" → "last unicorn". Dice
 //      display + class/perk names retained — they ARE the RPG mechanic,
 //      not decorative D&D lore.
+//  18  Design pivot 2 — 5-stat system (STR/HP/MAG/DEF/LUCK), overlay narrator
+//      removed, region rebloom killed. (A) STATS: HORN→STR, HEART→HP,
+//      SPARK→MAG; ADDED df (DEF: subtracts pips from every damage instance,
+//      min 1) and lk (LUCK: multiplies enemy shard drop by 1 + lk*0.5).
+//      Pause overlay row now shows all 5. Save v9→v10 (t: [ho,he,sp,df,lk]).
+//      (B) NARRATOR: bottom-center voice-line plate and its `say()` queue
+//      + dmTxt/dmT/dmQ state deleted. ~15 ambient say() calls stripped
+//      (level-up narration, boss intro/death, elite-drop, tutorial hints,
+//      class-pick, death, first-gloom, phase-2). DM_LINES, BOSS_INTRO,
+//      BOSS_DEAD, LEARN string arrays removed entirely. TALK now grants
+//      +10 XP + fly('+10 XP · WELCOME') on first talk, fly('the sage nods')
+//      on repeat. REST now shows fly('SAVED') instead of narrator line.
+//      opener() reduced to no-op stub. `▲ TALK` proximity prompt over the
+//      wizard deleted (JUMP button glyph ☰ already signals interact).
+//      (C) REGION REBLOOM removed: world.js `regions[]` seed dropped `b`/`t`
+//      fields (hue-only now); `regions.forEach(r => r.b += ...)` interpolation
+//      cut; boss-kill `regions[i].t = 1` assignments removed (were changing
+//      nothing after seed always=1); shard-pickup narrator line removed;
+//      save `b: regions.map(r => r.t)` dropped from v10 payload; render sky/
+//      parallax/tile fill switched from `saturation*b, lit*b` formulas to
+//      fixed 22%/12% palette per zone (world visually consistent from t=0).
+//      (D) CURRENCY RENAME: HUD pause `HEARTH · 💎N gems for the shop` →
+//      `SHARDS · N`. Currency mechanic unchanged (still `spk` in save).
 //  17  Design pivot — combat UI simplification, Dark Horse bosses, chest
 //      economy. (A) Combat: dice notation stripped from attack fly-text
 //      (was 'NAT 8! 16' / '6+2' / '🎲r' → now '-N' red or 'CRIT -N' gold);
@@ -272,20 +295,11 @@ const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
 const S_SHARD = () => { sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24); };
 const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 * (1 + i * .25), .1, 'square', .12, i * .07); };
 
-// ---------- DM voice (queued: same-frame pileups play in order, none are eaten) ----------
-let dmTxt = '', dmT = 0;
-const dmQ = [];
-const say = (t) => { if (dmT > 0) dmQ.push(t); else { dmTxt = t; dmT = 3.2; } };
-// DM dialogue pool — first-talk grants a small XP boon (+10), later talks rotate lore/encouragement
-const DM_LINES = [
-  'Welcome, little hero. The world has been waiting. Take this — a spark to begin.',
-  'Every step matters. Even the ones no one sees.',
-  'The shards want to be free. Their guardians want otherwise.',
-  'Rest well. Doubt is patient — so are we.',
-];
+// Narrator overlay removed — feedback comes via fly() text over the player/NPC.
 
 // ---------- RPG 2.0 (researched): milestone dice, modifier stats, D&D perks ----------
-let ho = 1, he = 1, sp = 1;                       // HORN (+dmg) HEART (+♥) SPARK (+✦) — HOOF cut (useless + broke gate proofs)
+// 5-stat system: STR (dmg) HP (max ♥) MAG (max ✦) DEF (dmg reduction) LUCK (drop bonus)
+let ho = 1, he = 1, sp = 1, df = 0, lk = 0;
 let hp = 3, xp = 0, lvl = 1, spk = 0, cls = 0;    // cls: 0 unpicked · 1 RAMPART · 2 PRISM · 3 ROGUE (D&D-style identity, chosen at L3)
 let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
 let mn = 5, choosing = 0, pending = 0, pk = 0, edg = 0, shp = 0, shopB = 0, shopping = 0;
@@ -315,9 +329,11 @@ const gainXp = (n, x, y) => {
   if (pending && !choosing) { choosing = 1; openMenu(); S_NAT(); }
 };
 const STATS = [
-  ['HORN', '+1 damage mod', '#ffd75e', () => ho++],
-  ['HEART', '+1 max ♥ · faster heal', '#ff5d6c', () => { he++; hp++; }],
-  ['SPARK', '+2 max mana', '#e08ae0', () => { sp++; mn += 2; }],
+  ['STR', '+1 damage', '#ffd75e', () => ho++],
+  ['HP', '+1 max ♥', '#ff5d6c', () => { he++; hp++; }],
+  ['MAG', '+2 max mana', '#e08ae0', () => { sp++; mn += 2; }],
+  ['DEF', '-1 damage taken', '#8cf', () => df++],
+  ['LUCK', '+50% shard drops', '#9fe89a', () => lk++],
 ];
 const PERKS = [                                   // even levels: pick 1 of 3 — real table rules, zero movement physics
   { b: 1, n: 'KEEN HORN', d: 'crit on top 2 rolls' },
@@ -348,12 +364,6 @@ const SKILLS = {
   4: ['R. SHOT', 'press L · ✦3 bolt', '#e08ae0'],
   8: ['AIR DASH', 'Shift · burst fwd', '#ffd75e'],
 };
-const LEARN = {
-  1: 'DOUBLE JUMP. You remember the sky.',
-  2: 'RAINBOW HEAL. Hold S, stand still, mend. Mercy costs mana — swing that horn to earn it.',
-  4: 'RAINBOW SHOT. Press L. Gloom crystal shatters before it.',
-  8: 'AIR DASH. The space between platforms was always a suggestion.',
-};
 let menu = [];                                    // cached per screen — random perk offers must not reshuffle each frame
 const openMenu = () => {
   menu = [];
@@ -375,14 +385,13 @@ const pick = (n) => {
     if (cls === 1) { pk |= 1; he++; hp++; }       // RAMPART: KEEN HORN + HEART pip
     else if (cls === 2) { pk |= 16; sp++; mn += 2; } // PRISM: SCHOLAR + SPARK pip
     else { pk |= 4; ho++; }                       // ROGUE: REROLL 1s + HORN pip
-    say('You are ' + pName + ' the ' + CLASS_TITLE[cls] + '. The world remembers.');
-  } else if (c.k) { abil |= c.k; say(LEARN[c.k]); }
+  } else if (c.k) { abil |= c.k;; }
   else if (c.p) pk |= c.p.b;
   else STATS[c.i][3]();
   lvl++; pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
-  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, 'POWER UP', '#fff', 1); say('Your strength grows. The world watches.'); }
-  if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); say('APOTHEOSIS. You are unstoppable, ' + pName + '. The doubt is not enough.'); }
+  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, 'POWER UP', '#fff', 1); }
+  if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); }
   if (!pending) { choosing = 0; save(); } else openMenu();
 };
 
@@ -392,7 +401,6 @@ const grantPerk = (x, y) => {
   if (un.length) {
     const p = un[Math.random() * un.length | 0];
     pk |= p.b; fly(x, y, p.n + '!', '#c9a6f7', 1);
-    say('An elite falls. Its perk is yours: ' + p.n + '.');
   } else { spk += 6; fly(x, y, '+6 💎', '#ffe28a', 1); }
 };
 
@@ -414,25 +422,24 @@ const buy = (i) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 9, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
-    p: pk, w: shopB, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
-    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), o: oc, // v9 — added oc (opened-chests bitfield). Map sparks + motes removed. Tutorial flags: bit 0 melee · 1 heal · 2 first-DM-talk
+    v: 10, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    p: pk, w: shopB, t: [ho, he, sp, df, lk], c: [cp[0], cp[1]],
+    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), o: oc, // v10 — 5-stat DEF+LUCK added, region rebloom system removed (b field dropped)
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 9) return;                                // v9 — chests + no-map-currency pivot. v8 saves start fresh (early access, no migration path).
-    // v9 pin: every field is guaranteed present, no legacy || fallbacks needed
+    if (!d || d.v !== 10) return;                               // v10 — 5-stat DEF/LUCK + region rebloom removed. v9 saves start fresh.
+    // v10 pin: every field guaranteed present, no legacy || fallbacks
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
     sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k; oc = d.o;
     seenM = d.f & 1; seenH = (d.f >> 1) & 1; seenT = (d.f >> 2) & 1;
     edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
-    [ho, he, sp] = d.t;                                          // v9 pin: d.t always present
+    [ho, he, sp, df, lk] = d.t;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
-    d.b.forEach((v, i) => { regions[i].t = v; regions[i].b = v; });
   } catch (e) { /* fresh oath */ }
 };
 
@@ -447,14 +454,14 @@ let paused = 0;                                   // pause overlay open — free
 let dialog = 0;
 const dialogDo = () => {
   if (dialog === 1) {                             // TALK — first talk grants +10 XP boon
-    if (!seenT) { seenT = 1; gainXp(10, pl.x, pl.y - 14); say(DM_LINES[0]); save(); }
-    else say(DM_LINES[1 + (Math.random() * (DM_LINES.length - 1) | 0)]);
+    if (!seenT) { seenT = 1; gainXp(10, pl.x, pl.y - 14); fly(pl.x, pl.y - 16, '+10 XP · WELCOME', '#9fe89a', 1); save(); }
+    else fly(pl.x, pl.y - 16, 'the sage nods', '#c9a6f7', 1);
   } else if (dialog === 2) {                      // REST + save
     const [fx, fy] = seeds.fires[0];
     if (hp === mHP()) earned[8] = 1;              // WELL_RESTED — rest without needing it
     hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
     burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
-    say('Rest. Saved. The fire keeps what you earned.');
+    fly(pl.x, pl.y - 16, 'SAVED', '#9fe89a', 1);
   } else shopping = 1;                            // SHOP
   dialog = 0;
 };
@@ -501,21 +508,6 @@ const shots = [], flies = [], parts = [], fbolts = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
 
-const BOSS_INTRO = [
-  "A guardian rises. The meadow's doubt has a body. ROLL INITIATIVE.",
-  'The roots kept their worst below. Guardian of the caves!',
-  'The canopy shakes — this one has watched you climb.',
-  'The summit wind carries a giant. Peak guardian!',
-  'The Heart itself stands up. Everything gray began here.',
-];
-const BOSS_DEAD = [
-  'Guardian down. The shard is loose — take it.',
-  'It folds. The caves exhale. Claim it.',
-  'Timber. Take your prize.',
-  'The peak is yours.',
-  'The doubt... surrenders.',
-];
-
 // damage a foe: dmg = die + MOD, crit doubles. Full D&D damage line, visible.
 // Feel pass: knockback on non-boss/non-stomp hits, hitstop + shake on crit, boss
 // phase-2 trigger at half HP, elite perk drop on kill, minion cleanup on boss death.
@@ -530,7 +522,7 @@ const strike = (f, r, gen, viaStomp) => {
   if (gen) mn = Math.min(mMN(), mn + 1);          // melee GENERATES mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
   if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
-    f.ph = 1; say('It bleeds — the pattern turns.'); sfx(220, 110, .35, 'sawtooth', .16);
+    f.ph = 1; sfx(220, 110, .35, 'sawtooth', .16);
     if (f.bi === 1 || f.bi === 4) for (let n = 0; n < 2; n++)                                  // CAVES + HEART: summon minions
       foes.push({ x: f.x + n * 20 - 10, y: f.y - 10, k: 1, vx: 40 * (n ? 1 : -1), hp: 4, dm: 1, fl: 0, t: 0 });
     if (f.bi === 2 || f.bi === 4) f.rc = 1.6;     // TREETOPS + HEART: fire ranged bolts
@@ -540,8 +532,9 @@ const strike = (f, r, gen, viaStomp) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16);
-    // Drop economy (post-map-currency-removal v9): normal 1-2 · elite 4 · boss 20. All spark income comes from kills + 6 chests.
-    const drop = f.bit ? 20 : f.el ? 4 : 1 + (Math.random() * 2 | 0);
+    // Drop economy (v10): base normal 1-2 · elite 4 · boss 20. LUCK adds +50% per pip.
+    let drop = f.bit ? 20 : f.el ? 4 : 1 + (Math.random() * 2 | 0);
+    drop = Math.round(drop * (1 + lk * .5));
     spk += drop; fly(f.x, f.y - 20, '+' + drop + ' ✦', '#ffe28a');
     if (pk & 8) mn = Math.min(mMN(), mn + 1);                   // MANA FONT
     if (pk & 512) mn = Math.min(mMN(), mn + 1);                 // THIRST — kills refill 1 ✦
@@ -553,9 +546,9 @@ const strike = (f, r, gen, viaStomp) => {
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE — no damage during the fight (not healed-over)
       gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
-      say(BOSS_DEAD[f.bi]); save();
+save();
     }
-    if (!earned[2]) { earned[2] = 1; say('First gloom, popped. That is how doubt dies: under hooves.'); }
+    if (!earned[2]) { earned[2] = 1; }
     return 1;
   }
 };
@@ -585,11 +578,12 @@ function dash() {                                               // air dash: bur
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
+  n = Math.max(1, n - df);                                    // DEFENSE — subtract pips, always leave at least 1
   hp -= n; pl.inv = (pk & 32) ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
   for (const f of foes) if (f.bit) f.hit = 1;                    // any hit disqualifies UNTOUCHABLE for the active boss(es)
   sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE grace inside pl.inv
-  if ((abil & 2) && !seenH) { seenH = 1; say('Hurt? Hold S. Channel the rainbow — but stand STILL to do it.'); }
-  if (hp <= 0) { deathT = 1.6; say('The mini falls over. ...We do not stop rolling. Back to the fire.'); return; }
+  if ((abil & 2) && !seenH) { seenH = 1; }
+  if (hp <= 0) { deathT = 1.6; return; }
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
   else pl.vy = -180;
 };
@@ -599,9 +593,7 @@ let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
   if (paused || dialog) return;                    // pause overlay or hearth dialog open: freeze sim; render still draws
-  time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
-  if (dmT <= 0 && dmQ.length) { dmTxt = dmQ.shift(); dmT = 3.2; }
-  regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
+  time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
   if (deathT > 0) {
@@ -701,7 +693,7 @@ const step = (dt) => {
         hp: fresh ? 24 + 10 * i : st.hp,
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
-      say(BOSS_INTRO[i]); sfx(110, 55, .5, 'sawtooth', .18);
+sfx(110, 55, .5, 'sawtooth', .18);
     }
   });
 
@@ -710,12 +702,7 @@ const step = (dt) => {
     if ((sh & bit) || !(bossDead & bit)) continue;
     if (Math.hypot(pl.x - sx * T, pl.y - sy * T) < 16) {
       sh |= bit; earned[1] = 1; S_SHARD(); burst(sx * T, sy * T, 30, '#fff');
-      if (bit === 1) regions[1].t = 1;
-      if (bit === 2) regions[2].t = 1;
-      if (bit === 4) { regions[5].t = 1; regions[6].t = 1; }
-      if (bit === 8) regions[4].t = 1;
-      if (bit === 16) { abil |= 16; regions.forEach(r => r.t = 1); earned[12] = 1; say('The heart of the doubt, gone soft and bright. The diorama breathes. ...To be continued.'); }
-      else say('The rainbow shard is yours. The region reblooms — take a bonus level for your trouble.');
+      if (bit === 16) { abil |= 16; earned[12] = 1; }           // HEART shard — endgame flag
       pending++; choosing = 1; openMenu(); S_NAT();             // the RPG moment, guaranteed
       save();
     }
@@ -790,7 +777,7 @@ const step = (dt) => {
     // (visible red flash). Cooldown holds .wt < 0 until the strike can re-arm.
     // FIRST-FOE MELEE HINT — fired ONCE per save via DM voice, no player-anchored spam
     if (!seenM && !f.bit && Math.hypot(f.x - pl.x, f.y - pl.y) < 60) {
-      seenM = 1; say(touch ? 'Tap ⚔ to horn-swipe. Melee earns you mana.' : 'Press J to horn-swipe. Melee earns you mana.'); save();
+      seenM = 1; save();
     }
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && pl.y + PH - f.y < 10) {
@@ -843,11 +830,11 @@ const draw = () => {
   cam.x = Math.max(0, Math.min(W * T - VW, cam.x));
   cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
 
+  // Sky + parallax — fixed 22%/12% palette per zone (rebloom removed)
   const rg = regionAt(pl.x + PW / 2, pl.y + 7);
-  const sat = 22 * rg.b, lit = 12 + 6 * rg.b;
-  ctx.fillStyle = `hsl(${rg.h * 360} ${sat}% ${lit}%)`; ctx.fillRect(0, 0, VW, VH);
+  ctx.fillStyle = `hsl(${rg.h * 360} 22% 12%)`; ctx.fillRect(0, 0, VW, VH);
   for (const [par, base, amp, l] of [[.25, 90, 22, 8], [.5, 60, 16, 11]]) {
-    ctx.fillStyle = `hsl(${rg.h * 360} ${sat * .8}% ${l}%)`;
+    ctx.fillStyle = `hsl(${rg.h * 360} 18% ${l}%)`;
     for (let x = 0; x < VW; x += 8) {
       const wx = x + cam.x * par;
       ctx.fillRect(x, VH - (base + Math.sin(wx * .011) * amp + Math.sin(wx * .027 + 5) * amp * .5), 8, VH);
@@ -860,12 +847,12 @@ const draw = () => {
   const x0 = cam.x / T | 0, x1 = Math.min(W, x0 + VW / T + 2), y0 = Math.max(0, cam.y / T | 0), y1 = Math.min(H, y0 + VH / T + 2);
   for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
     const v = tile(i, j); if (!v) continue;
-    const r = regionAt(i * T + 8, j * T + 8), hue = r.h * 360, b = r.b;
+    const r = regionAt(i * T + 8, j * T + 8), hue = r.h * 360;
     if (v === 1) {
-      ctx.fillStyle = `hsl(${hue} ${40 * b}% ${26 + 6 * b}%)`; ctx.fillRect(i * T, j * T, T + .5, T + .5);
-      if (tile(i, j - 1) !== 1) { ctx.fillStyle = `hsl(${hue} ${55 * b}% ${42 + 12 * b}%)`; ctx.fillRect(i * T, j * T, T + .5, 4); }
+      ctx.fillStyle = `hsl(${hue} 40% 32%)`; ctx.fillRect(i * T, j * T, T + .5, T + .5);
+      if (tile(i, j - 1) !== 1) { ctx.fillStyle = `hsl(${hue} 55% 54%)`; ctx.fillRect(i * T, j * T, T + .5, 4); }
     } else if (v === 2) {
-      ctx.fillStyle = `hsl(${hue} ${50 * b}% ${45 + 8 * b}%)`; ctx.fillRect(i * T, j * T, T + .5, 4);
+      ctx.fillStyle = `hsl(${hue} 50% 53%)`; ctx.fillRect(i * T, j * T, T + .5, 4);
     } else if (v === 4) {                                       // gloom crystal — pulses, begs to be shot
       ctx.fillStyle = `hsl(280 60% ${26 + Math.sin(time * 4 + i + j) * 8}%)`;
       ctx.fillRect(i * T, j * T, T + .5, T + .5);
@@ -912,12 +899,7 @@ const draw = () => {
     ctx.fillStyle = '#8a6a3a';                                    // wooden staff (taller now to match)
     ctx.fillRect(wx + 5, wy + 2, 1, 15);
     ctx.fillStyle = '#8cf'; ctx.fillRect(wx + 5, wy + 1, 1, 1);   // cyan crystal tip
-    // -- proximity prompt above wizard head (only when close and dialog not yet open) --
-    if (nearFire && !dialog) {
-      const pf = 1 + Math.sin(time * 5) * .3;                     // pulses to draw the eye
-      ctx.fillStyle = '#ffd75e'; ctx.textAlign = 'center';
-      ctx.font = 'bold 6px monospace'; ctx.fillText('▲ TALK', wx, wy - 6 - pf);
-    }
+    // Prompt-above-head removed — JUMP button glyph (☰) already signals interact when nearby.
   }
   // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
   // Prompt "▲ OPEN" pulses above the nearest unopened chest. (Design pivot v9.)
@@ -1083,13 +1065,7 @@ const draw = () => {
     // TOP-RIGHT — pause icon (48px+ tap zone handled in pointerdown)
     ctx.textAlign = 'right'; ctx.fillStyle = '#aaa'; ctx.font = 'bold 14px monospace';
     T2('☰', VW - 10, 18);
-    // DM voice — bottom-center speech plate (position clear of touch buttons)
-    if (dmT > 0) {
-      ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
-      ctx.fillRect(VW / 2 - 190, VH - 108, 380, 24);
-      ctx.textAlign = 'center'; ctx.fillStyle = '#e8d9b0'; ctx.font = 'italic 9px monospace';
-      ctx.fillText('SAGE — ' + dmTxt, VW / 2, VH - 93); ctx.globalAlpha = 1;
-    }
+    // Overlay narrator removed per design pivot. NPC dialog uses its own bubble.
     if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
   }
 
@@ -1125,7 +1101,7 @@ const draw = () => {
     ctx.fillStyle = '#aaa'; ctx.font = '8px monospace';
     T2(atCap ? 'APOTHEOSIS — XP → 💎 1:1' : xp + ' / ' + nx + ' XP', VW / 2, 110);
     ctx.fillStyle = '#fff'; ctx.font = '10px monospace';
-    T2('HORN ' + ho + '   HEART ' + he + '   SPARK ' + sp, VW / 2, 130);
+    T2('STR ' + ho + '  HP ' + he + '  MAG ' + sp + '  DEF ' + df + '  LUCK ' + lk, VW / 2, 130);
     // Owned perks — one long line, wrap gracefully by joining with · dividers
     ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace';
     const owned = PERKS.filter(p => pk & p.b).map(p => p.n);
@@ -1135,9 +1111,9 @@ const draw = () => {
     ctx.fillStyle = '#8cf'; T2('SKILLS · ' + skl, VW / 2, 166);
     // Shards / regions rebloomed
     ctx.fillStyle = '#ffd75e';
-    T2('SHARDS · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 182);
+    T2('RAINBOW · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 182);
     // HEARTH gems — the shop currency (moved out of gameplay HUD to eliminate dual-currency confusion)
-    ctx.fillStyle = '#ffe28a'; T2('HEARTH · 💎' + spk + ' gems for the shop', VW / 2, 198);
+    ctx.fillStyle = '#ffe28a'; T2('SHARDS · ' + spk, VW / 2, 198);
     ctx.fillStyle = '#888'; ctx.font = '8px monospace';
     T2('press P / ESC / tap to close', VW / 2, VH - 24);
   }
@@ -1279,7 +1255,7 @@ load();
 cam.x = Math.max(0, Math.min(W * T - VW, pl.x - VW / 2));      // camera starts ON the player (was: panned in from world origin)
 cam.y = Math.max(0, Math.min(H * T - VH, pl.y - VH / 2 + 30));
 // opening line fires when the player picks a name / picks Continue (see title-menu accept)
-const opener = () => say('Ah. The last unicorn wakes. Shall we begin, ' + pName + '?');
+const opener = () => {};                          // narrator removed — opener kept as no-op stub to preserve call sites
 const loop = () => {
   const now = performance.now(), dt = Math.min(.033, (now - last) / 1000); last = now;
   step(dt); draw();
