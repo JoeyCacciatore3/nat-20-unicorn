@@ -3,11 +3,11 @@
 
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
 
-A 2D pixel-art platformer-RPG. Name your unicorn, pick a class, and grow through
-15 levels while exploring one connected map. Every damage number is a visible die
-roll (`d8+3`, crits fire `NAT n!` on natural max), stats and perks are picked at level-up, and
-movement skills — double jump, rainbow heal, rainbow shot, air dash — unlock as
-you gain levels, re-opening the world Metroid-style.
+A 2D pixel-art platformer-RPG. Name your unicorn, pick its colors, and grow
+through 15 levels while exploring one connected map. Pure D&D-style stat
+allocation: every level you spend 1 point across STR / HP / MAG / DEF / LUCK.
+Movement skills — double jump, rainbow heal, rainbow shot, air dash — unlock at
+milestone levels (3/5/7/9), re-opening the world Metroid-style.
 
 **Categories:** Desktop · Mobile · Wavedash
 
@@ -20,30 +20,28 @@ gently. Below: breathing-scale rainbow-shimmer "UNI-CORN" title, gold italic
 "the last savior" subtitle, menu. The selected menu item slides +6 px right
 in addition to the ▶ prefix + gold color (two feedback channels).
 
-On boot: **NEW GAME** or **CONTINUE** (if a save exists). Name up to 8 letters
-(default `HORSE` if you tap through on mobile). At **LV3** the die grows and you
-pick a class:
-
-| Class | Starter perk | Stat pip | Passive |
-|---|---|---|---|
-| **RAMPART** | KEEN HORN | +1 HEART (max ♥) | tanky melee build |
-| **PRISM**   | SCHOLAR   | +1 SPARK (max ✦) | spellcaster build |
-| **ROGUE**   | REROLL 1s | +1 HORN          | −25% dash cooldown |
+On boot: **NEW GAME** or **CONTINUE** (if a save exists). See "Character
+creation" section below for the full name+colors flow.
 
 ## Progression
-**Die milestones** (Zelda-heart law): LV1 `d4` · LV3 `d6` · LV6 `d8` · LV9 `d10`
-· LV12 `d12` · LV15 **APOTHEOSIS** (+2 dmg, +1 max ♥, full heal, XP→sparks 1:1
-forever).
+**Die milestones** (Zelda-heart law, hidden in UI — see combat numbers):
+LV1 `d4` · LV3 `d6` · LV6 `d8` · LV9 `d10` · LV12 `d12` · LV15 **APOTHEOSIS**
+(+2 dmg, +1 max ♥, full heal, XP→sparks 1:1 forever).
+
+**Every level → 1 stat point.** Pick from 5 D&D-style stats (STR / HP / MAG /
+DEF / LUCK). No classes, no forced identity — pure allocation.
 
 **Skill unlocks — level-gated, no combat prerequisite:**
-LV3 DBL JUMP · LV5 RAINBOW HEAL · LV7 RAINBOW SHOT · LV9 AIR DASH.
+LV3 DBL JUMP · LV5 RAINBOW HEAL · LV7 RAINBOW SHOT · LV9 AIR DASH. These
+appear as a 6th "NEW SKILL" option on the level-up menu at their milestone.
 
-**Shards** stay meaningful: killing each Guardian drops a rainbow shard that
-repaints its region and grants a bonus level.
+**Rainbow shards** are the collection goal (like Zelda Triforce pieces).
+Killing each Guardian drops one shard and grants a bonus level. `RAINBOW N/5`
+tracked in pause overlay.
 
-**Perks** — 13-slot pool, random 3-of-remaining offered every even level:
+**Perks** — 12-slot pool, dropped by ELITE kills only (not level-up):
 KEEN HORN · ADVANTAGE · REROLL 1s · MANA FONT · IRON HIDE · SCHOLAR · PIERCE ·
-STOMP SPARK · BLOODLETTER · THIRST · NIMBLE · STARSEEKER · OVERCHANNEL.
+STOMP SPARK · BLOODLETTER · THIRST · NIMBLE · OVERCHANNEL.
 
 **Elites** — ~17% of tier-1/2 spawns roll champion (bigger, gold aura, +HP,
 +contact dmg). Kill drops a random un-owned perk instantly (or 6 sparks if all
@@ -67,7 +65,7 @@ owned). Mini-boss combat outside the guardian arenas.
 | Rainbow heal (✦5 · ✦4 w/ OVERCHANNEL, rooted) | hold S / I | ＋ |
 | Air dash | Shift / O | » |
 | Interact / rest+save | E | E |
-| Hearth dialogue (at the fire) | 1 TALK · 2 REST · 3 SHOP (or E rest / T talk) | ? Z $ buttons |
+| Hearth dialogue (at the fire) | 1 TALK · 2 REST (JUMP opens) | ← back |
 | Level-up menu | 1-3 or ↑↓ + Enter | tap row |
 | **Pause / character sheet** | **P or ESC** | **☰ top-right, tap anywhere to close** |
 
@@ -173,7 +171,8 @@ Toggle via `P` / `Esc` / tap top-right icon; tap anywhere to close.
 
 ## Save format
 Key: `localStorage.n20_save`. Version pinned in-file (`d.v !== N` → discard).
-Current version: **v11** — unicorn color triple `u: [body, mane, horn]`
+Current version: **v12** — classes and shop removed; save shed `k` (class)
+and `w` (shop bitfield). Prior: `u: [body, mane, horn]` unicorn colors,
 (indices into PALB/PALM/PALH palettes, picked at character creation).
 Prior fields: `t: [STR, HP, MAG, DEF, LUCK]` (v10), `o` (opened-chest
 bitfield, v9), `f` (seen-flags bitfield), `k` (class), `m` (player name).

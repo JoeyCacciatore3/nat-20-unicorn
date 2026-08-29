@@ -68,6 +68,33 @@
 //      BECOME?". Opener "last painted mini" → "last unicorn". Dice
 //      display + class/perk names retained — they ARE the RPG mechanic,
 //      not decorative D&D lore.
+//  21  Redundancy purge — classes + shop + related achievements/perks/state.
+//      (A) CLASSES REMOVED: cls var, CLASSES table (RAMPART/PRISM/ROGUE),
+//      CLASS_TITLE lookup, L3 class-pick branch in openMenu, class-init
+//      branch in pick(), ROGUE-share dash cd bonus, "the CLASS" subtitle
+//      in portrait panel. Rationale: RAMPART/PRISM/ROGUE only granted a
+//      starter perk + a stat pip + one passive — all effects already
+//      available via the natural stat + perk systems. Pure duplication.
+//      (B) SHOP REMOVED: SHOP array (5 items — all duplicating STR/HP
+//      stat pips), buy() fn, shopping state, shopB bitfield, edg + shp
+//      derived vars, shop touch button branch, KeyB / KeyE-closes-shop
+//      keyboard bindings, shopping pointerdown branch, verb gates
+//      (choosing || shopping → choosing), shop render block (~60 B),
+//      "SHOP" as 3rd dialog option, dialog tap-row bounds tightened.
+//      Rationale: shop items exactly duplicated stat pips. Kept spk state
+//      as future potion currency + collection score (per prior operator
+//      direction). (C) LEVELING SIMPLIFIED to pure D&D-style stat picks
+//      every level. Even-level perk offers removed. Perks come from
+//      elite kill drops ONLY (grantPerk unchanged). L3 no longer a class
+//      fork — just another stat point + DBL JUMP unlock. Menu header
+//      changed from "choose your growth" to "spend a stat point".
+//      (D) STARSEEKER perk removed (was chest→sparks; sparks-as-currency
+//      dying makes it meaningless). Perk pool 13 → 12. OVERCHANNEL bit
+//      moved from 4096 → 2048 to fill the gap. (E) ARCHITECT achievement
+//      trigger removed (`shopB === 31` → dead). GREEN_HOOVES trigger
+//      removed (was reading region.t which no longer mutates; already
+//      dead since region rebloom pivot). (F) Save v11 → v12: drop k
+//      (class) and w (shopB) fields.
 //  20  Unified character creation screen — pause-style split panel + hearts
 //      inside portrait box. (A) FLOW: two phases (name + customize) merged
 //      into one phase=1 "NEW CHARACTER" screen; phase 2 (customize) removed
@@ -227,8 +254,8 @@ addEventListener('keydown', (e) => {
   if (phase === 1) return createKey(e);
   // DIALOG owns input — arrow keys navigate, JUMP confirms, MELEE cancels
   if (dialog) {
-    if (e.code === 'ArrowUp')        dialog = ((dialog - 2 + 3) % 3) + 1;
-    else if (e.code === 'ArrowDown') dialog = (dialog % 3) + 1;
+    if (e.code === 'ArrowUp')        dialog = dialog === 1 ? 2 : 1;
+    else if (e.code === 'ArrowDown') dialog = dialog === 2 ? 1 : 2;
     else if (J_KEYS.includes(e.code) || e.code === 'Enter') dialogDo();
     else if (M_KEYS.includes(e.code) || e.code === 'Escape') dialog = 0;
     return;
@@ -242,10 +269,6 @@ addEventListener('keydown', (e) => {
   if (SH_KEYS.includes(e.code)) shoot();
   if (['ShiftLeft', 'ShiftRight', 'KeyO'].includes(e.code)) dash();
   if (choosing) { const n = '123456'.indexOf(e.key); if (n >= 0) pick(n); }
-  else if (shopping) {
-    const n = '12345'.indexOf(e.key); if (n >= 0) buy(n);
-    if (e.code === 'KeyE' || e.code === 'Escape') { shopping = 0; keys.delete('KeyE'); }   // E or Esc closes shop
-  }
   else if (e.code === 'KeyP' || e.code === 'Escape') paused = paused ? 0 : 1;
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -293,28 +316,22 @@ addEventListener('pointerdown', (e) => {
   }
   // PAUSE overlay — top-right corner icon opens it (48px tap zone); tap anywhere to close
   if (paused) { paused = 0; return; }
-  if (started && !choosing && !shopping && !dialog && vx > VW - 40 && vy < 40) { paused = 1; return; }
+  if (started && !choosing && !dialog && vx > VW - 40 && vy < 40) { paused = 1; return; }
   // DIALOG overlay taps: JUMP btn = confirm · MELEE btn = back · bubble row = pick · else close
   if (dialog) {
     const bs = btns();
     const jb = bs.find(b => b.c === 'TBtnJ'), mb = bs.find(b => b.c === 'TBtnM');
     if (jb && Math.hypot(vx - jb.x, vy - jb.y) < jb.r + 6) { dialogDo(); return; }
     if (mb && Math.hypot(vx - mb.x, vy - mb.y) < mb.r + 6) { dialog = 0; return; }
-    if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= 56 && vy <= 100) {
+    if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= 56 && vy <= 86) {
       const row = ((vy - 58) / 14) | 0;
-      if (row >= 0 && row <= 2) { dialog = row + 1; dialogDo(); return; }
+      if (row >= 0 && row <= 1) { dialog = row + 1; dialogDo(); return; }
     }
     dialog = 0; return;
   }
   if (choosing) {
     const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
     if (vy > 100 && vy < 196) { const n = (vx - sx0) / pitch | 0; if (n >= 0 && n < menu.length) pick(n); }
-    return;
-  }
-  if (shopping) {
-    const n = (vy - 92) / 26 | 0;
-    if (vy >= 92 && n < SHOP.length && vx > VW / 2 - 130 && vx < VW / 2 + 130) buy(n);
-    else shopping = 0;
     return;
   }
   for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
@@ -387,7 +404,7 @@ const portraitPanel = (title, isCreate) => {
   if (!isCreate) {
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; T2(pName, 85, 124);
-    if (cls) { ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace'; T2('the ' + CLASS_TITLE[cls], 85, 136); }
+
   }
 };
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
@@ -401,17 +418,17 @@ const drawU = (bob) => {
   mc.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });           // mane 3-color
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
 };
-let hp = 3, xp = 0, lvl = 1, spk = 0, cls = 0;    // cls: 0 unpicked · 1 RAMPART · 2 PRISM · 3 ROGUE (D&D-style identity, chosen at L3)
+let hp = 3, xp = 0, lvl = 1, spk = 0;             // spk = collection score / future potion currency (shop removed)
 let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
-let mn = 5, choosing = 0, pending = 0, pk = 0, edg = 0, shp = 0, shopB = 0, shopping = 0;
+let mn = 5, choosing = 0, pending = 0, pk = 0;
 const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +1 max ♥); post-cap XP → sparks 1:1
 const SKILL_MIN = { 1: 3, 2: 5, 4: 7, 8: 9 };     // level thresholds for the 4 movement skills — leveling is the ONLY gate (shards are flavor)
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 const bossLive = [0, 0, 0, 0, 0];
-const mHP = () => 2 + he + shp + (lvl >= CAP ? 1 : 0);      // APOTHEOSIS grants +1 max ♥ at cap
+const mHP = () => 2 + he + (lvl >= CAP ? 1 : 0);            // APOTHEOSIS grants +1 max ♥ at cap
 const mMN = () => 3 + sp * 2;
 const DIE = () => lvl >= 12 ? 12 : lvl >= 9 ? 10 : lvl >= 6 ? 8 : lvl >= 3 ? 6 : 4; // die = LEVEL MILESTONE (Zelda-heart law)
-const MOD = () => ho - 1 + edg + (lvl >= CAP ? 2 : 0) + ((pk & 256) ? (mHP() - hp) : 0); // BLOODLETTER: +1/missing ♥ · APOTHEOSIS: +2
+const MOD = () => ho - 1 + (lvl >= CAP ? 2 : 0) + ((pk & 256) ? (mHP() - hp) : 0); // BLOODLETTER: +1/missing ♥ · APOTHEOSIS: +2
 const roll = (adv) => {                           // adv: ADVANTAGE perk (melee only) rolls 2d keep best
   let r = 1 + (Math.random() * DIE() | 0);
   if (adv && (pk & 2)) r = Math.max(r, 1 + (Math.random() * DIE() | 0));
@@ -448,97 +465,61 @@ const PERKS = [                                   // even levels: pick 1 of 3 �
   { b: 256, n: 'BLOODLETTER', d: '+1 dmg per missing ♥' },
   { b: 512, n: 'THIRST', d: 'kills refill 1 ✦' },
   { b: 1024, n: 'NIMBLE', d: '−25% dash cooldown' },
-  { b: 2048, n: 'STARSEEKER', d: 'chests give +5 sparks' },
-  { b: 4096, n: 'OVERCHANNEL', d: 'heal costs 4 (was 5)' },
+  { b: 2048, n: 'OVERCHANNEL', d: 'heal costs 4 (was 5)' },
 ];
-// D&D-style class picked at L3 — starter perk + starter stat + a persistent passive.
-// Class doesn't add new UI beyond the L3 menu; it drives a small bonus in the systems that already exist.
-const CLASSES = [
-  ['RAMPART', 'melee wall · KEEN HORN · +♥', '#ff5d6c'],
-  ['PRISM',   'spellweave · SCHOLAR · +✦',   '#c9a6f7'],
-  ['ROGUE',   'crit hunter · REROLL 1s · +HORN', '#ffd75e'],
-];
-const CLASS_TITLE = ['', 'RAMPART', 'PRISM', 'ROGUE'];
 const SKILLS = {
   1: ['DBL JUMP', 'jump again in air', '#6bc5ff'],
   2: ['R. HEAL', 'hold S · mend 1♥', '#9fe8a0'],
   4: ['R. SHOT', 'press L · ✦3 bolt', '#e08ae0'],
   8: ['AIR DASH', 'Shift · burst fwd', '#ffd75e'],
 };
-let menu = [];                                    // cached per screen — random perk offers must not reshuffle each frame
+// D&D leveling: every level offers all 5 STATS (pure allocation, no classes).
+// Skill unlocks (LV3/5/7/9) join the menu at their milestone level as bonus picks.
+// Perks are elite-kill drops ONLY — never surface on level-up.
+let menu = [];
 const openMenu = () => {
   menu = [];
   const nxt = lvl + 1;
-  // L3 class fork replaces the normal menu entirely — one-time identity choice
-  if (nxt === 3 && !cls) { CLASSES.forEach((c, i) => menu.push({ cl: i + 1, n: c[0], d: c[1], col: c[2] })); return; }
-  // skill unlocks — level-gated only. Shards no longer required (they are region-rebloom flavor now).
   for (const bit of [1, 2, 4, 8]) if (!(abil & bit) && nxt >= SKILL_MIN[bit]) menu.push({ k: bit, n: SKILLS[bit][0], d: SKILLS[bit][1], col: SKILLS[bit][2] });
-  const un = PERKS.filter(p => !(pk & p.b));
-  if (nxt % 2 === 0 && un.length) {               // even level -> perk offer (pool of 13, take 3 random)
-    for (let i = 0; i < 3 && un.length; i++) { const j = Math.random() * un.length | 0; const p = un[j]; un.splice(j, 1); menu.push({ p, n: p.n, d: p.d, col: '#c9a6f7' }); }
-  } else STATS.forEach((s, i) => menu.push({ i, n: s[0], d: s[1], col: s[2] }));
+  STATS.forEach((s, i) => menu.push({ i, n: s[0], d: s[1], col: s[2] }));
   menu = menu.slice(0, 6);
 };
 const pick = (n) => {
   const c = menu[n]; if (!c) return;
-  if (c.cl) {                                     // CLASS: starter perk + stat + persistent passive (dash cd / heal cost / etc live in-engine)
-    cls = c.cl;
-    if (cls === 1) { pk |= 1; he++; hp++; }       // RAMPART: KEEN HORN + HEART pip
-    else if (cls === 2) { pk |= 16; sp++; mn += 2; } // PRISM: SCHOLAR + SPARK pip
-    else { pk |= 4; ho++; }                       // ROGUE: REROLL 1s + HORN pip
-  } else if (c.k) { abil |= c.k;; }
-  else if (c.p) pk |= c.p.b;
+  if (c.k) abil |= c.k;
   else STATS[c.i][3]();
   lvl++; pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
-  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, 'POWER UP', '#fff', 1); }
+  if ([3, 6, 9, 12].includes(lvl)) fly(pl.x, pl.y - 26, 'POWER UP', '#fff', 1);
   if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); }
   if (!pending) { choosing = 0; save(); } else openMenu();
 };
-
 // grant one random un-owned perk (elite drop). If all owned, tip 6 sparks instead.
 const grantPerk = (x, y) => {
   const un = PERKS.filter(p => !(pk & p.b));
   if (un.length) {
     const p = un[Math.random() * un.length | 0];
     pk |= p.b; fly(x, y, p.n + '!', '#c9a6f7', 1);
-  } else { spk += 6; fly(x, y, '+6 💎', '#ffe28a', 1); }
-};
-
-// ---------- campfire shop (the ONE fire is where sparkles become power) ----------
-const SHOP = [
-  { c: 6, n: 'Kindled Horn', d: '+1 damage', f: () => edg++ },
-  { c: 10, n: 'Warm Heart', d: '+1 max ♥', f: () => { shp++; hp++; } },
-  { c: 12, n: 'Kindled Horn II', d: '+1 damage', f: () => edg++ },
-  { c: 15, n: 'Sparkstone', d: '+1 max ♥', f: () => { shp++; hp++; } },
-  { c: 18, n: 'Ember Edge', d: '+1 damage', f: () => edg++ },
-];
-const buy = (i) => {
-  const it = SHOP[i]; if (!it || (shopB & (1 << i)) || spk < it.c) { if (it) sfx(160, 90, .1, 'square', .08); return; }
-  spk -= it.c; shopB |= 1 << i; it.f(); save();
-  sfx(700, 1400, .18, 'triangle', .12); burst(pl.x + PW / 2, pl.y, 12, '#ffd75e');
-  fly(pl.x, pl.y - 14, it.n + '!', '#ffd75e', 1);
+  } else { spk += 6; fly(x, y, '+6 ✦', '#ffe28a', 1); }
 };
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 11, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
-    p: pk, w: shopB, t: [ho, he, sp, df, lk], c: [cp[0], cp[1]],
-    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), o: oc,
-    u: [bod, man, hrn],                                            // v11 — unicorn color customization triple
+    v: 12, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    p: pk, t: [ho, he, sp, df, lk], c: [cp[0], cp[1]],
+    m: pName, f: seenM | (seenH << 1) | (seenT << 2), o: oc,
+    u: [bod, man, hrn],                                            // v12 — classes + shop removed (k, w fields dropped)
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 11) return;                               // v11 — unicorn color triple added. v10 saves start fresh.
+    if (!d || d.v !== 12) return;                               // v12 — classes + shop removed. v11 saves start fresh.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
-    sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k; oc = d.o;
+    sh = d.q; bossDead = d.g; pk = d.p; pName = d.m; oc = d.o;
     seenM = d.f & 1; seenH = (d.f >> 1) & 1; seenT = (d.f >> 2) & 1;
-    edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
-    shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
     [ho, he, sp, df, lk] = d.t;
     [bod, man, hrn] = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
@@ -553,25 +534,26 @@ let atkCd = 0, swT = 0, chT = 0, nearFire = 0, seenM = 0, seenH = 0, seenT = 0;
 let paused = 0;                                   // pause overlay open — freezes sim, character sheet renders
 // hearth dialog: 0 = closed, 1..3 = current option highlight (1 TALK, 2 REST, 3 SHOP).
 // JUMP button is the universal interact/confirm; MELEE button is back. No separate dialogue buttons.
+// Hearth dialog: 2 options — 1 TALK · 2 REST (SHOP removed with shop system)
 let dialog = 0;
 const dialogDo = () => {
   if (dialog === 1) {                             // TALK — first talk grants +10 XP boon
     if (!seenT) { seenT = 1; gainXp(10, pl.x, pl.y - 14); fly(pl.x, pl.y - 16, '+10 XP · WELCOME', '#9fe89a', 1); save(); }
     else fly(pl.x, pl.y - 16, 'the sage nods', '#c9a6f7', 1);
-  } else if (dialog === 2) {                      // REST + save
+  } else {                                        // REST + save
     const [fx, fy] = seeds.fires[0];
     if (hp === mHP()) earned[8] = 1;              // WELL_RESTED — rest without needing it
     hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
     burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
     fly(pl.x, pl.y - 16, 'SAVED', '#9fe89a', 1);
-  } else shopping = 1;                            // SHOP
+  }
   dialog = 0;
 };
-// Chest reward: fixed +15 sparks (+5 with STARSEEKER perk) + full heal. Predictable, no RNG.
+// Chest reward: fixed +15 sparks + full heal. Predictable, no RNG.
 const openChest = (i) => {
   if (oc & (1 << i)) return;
   oc |= 1 << i;
-  const c = chests[i], drop = 15 + ((pk & 2048) ? 5 : 0);
+  const c = chests[i], drop = 15;
   spk += drop; hp = mHP();
   burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .18, 'triangle', .12);
   fly(c.x, c.y - 12, '+' + drop + ' ✦', '#ffe28a', 1); fly(c.x + 6, c.y - 4, '+HEAL', '#9fe8a0');
@@ -657,7 +639,7 @@ save();
 
 // ---------- verbs ----------
 function swing() {                                              // melee: horn swipe
-  if (!started || choosing || shopping || deathT > 0 || atkCd > 0) return;
+  if (!started || choosing || deathT > 0 || atkCd > 0) return;
   atkCd = .28; swT = .14; seenM = 1; sfx(340, 90, .07, 'square', .1);
   const hx = pl.x + (pl.face > 0 ? PW : -16), hy = pl.y - 2;
   for (const f of [...foes]) {
@@ -666,16 +648,16 @@ function swing() {                                              // melee: horn s
   }
 }
 function shoot() {                                              // rainbow shot: 3 mana
-  if (!started || choosing || shopping || deathT > 0 || !(abil & 4)) return;
+  if (!started || choosing || deathT > 0 || !(abil & 4)) return;
   if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#f9c'); return; }
   mn -= 3; sfx(700, 1300, .12, 'sawtooth', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: 1.1 });
 }
 function dash() {                                               // air dash: burst, resets on landing
-  if (!started || choosing || shopping || deathT > 0 || !(abil & 8) || dashCd > 0) return;
+  if (!started || choosing || deathT > 0 || !(abil & 8) || dashCd > 0) return;
   if (!pl.ground) { if (adash) return; adash = 1; }
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
-  dashT = .15; dashCd = .45 * ((pk & 1024) || cls === 3 ? .75 : 1); pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE / ROGUE class share the -25% cd
+  dashT = .15; dashCd = .45 * ((pk & 1024) ? .75 : 1); pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE perk -25% cd
 }
 
 const hurt = (n, safe) => {
@@ -703,7 +685,7 @@ const step = (dt) => {
     if (deathT <= 0) { hp = mHP(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; }
     return;
   }
-  if (!started || choosing || shopping) return;
+  if (!started || choosing) return;
 
   // -- drop-through: DOWN on a one-way platform falls through it (S doubles as
   // down here — movement wins over heal on platforms; heal works on solid ground) --
@@ -711,7 +693,7 @@ const step = (dt) => {
   if (onPlat && held('ArrowDown', 'KeyS', 'TBtnDn')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
 
   // -- heal channel: rooted, costs 5, restores 1 (faster with HEART) --
-  const healCost = (pk & 4096) ? 4 : 5;                              // OVERCHANNEL — heal costs 4
+  const healCost = (pk & 2048) ? 4 : 5;                              // OVERCHANNEL — heal costs 4 (perk bit moved from 4096 when STARSEEKER was cut)
   const canHeal = (abil & 2) && mn >= healCost && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
@@ -906,10 +888,8 @@ sfx(110, 55, .5, 'sawtooth', .18);
   // -- achievement watchers (all 13 Wavedash slots now live) --
   if (spk >= 30) earned[9] = 1;                                 // HOARDER
   if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
-  if (shopB === 31) earned[11] = 1;                             // ARCHITECT — the hearth fully built
   if (seenT) earned[7] = 1;                                     // SILVER_TONGUE — spoke with the DM at least once
   if (regionAt(pl.x + PW / 2, pl.y + 7) === regions[4]) earned[6] = 1; // SUMMIT
-  if (regions.slice(1, 7).reduce((a, r) => a + r.t, 0) >= 2) earned[5] = 1; // GREEN_HOOVES — 2 zones rebloomed
 
   // fx
   for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
@@ -1165,13 +1145,13 @@ const draw = () => {
 
   // HEARTH DIALOG OVERLAY — view-space bubble, keyboard nav + touch row-tap. Universal JUMP=confirm, MELEE=back.
   if (dialog && started) {
-    const rows = ['1 TALK', '2 REST', '3 SHOP'];
+    const rows = ['1 TALK', '2 REST'];
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(20,15,30,.95)'; ctx.fillRect(VW / 2 - 70, 44, 140, 60);
-    ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 70, 44, 140, 60);
+    ctx.fillStyle = 'rgba(20,15,30,.95)'; ctx.fillRect(VW / 2 - 70, 44, 140, 46);
+    ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 70, 44, 140, 46);
     ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 9px monospace'; ctx.fillText('THE SAGE', VW / 2, 54);
     ctx.font = 'bold 8px monospace';
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       if (dialog === i + 1) { ctx.fillStyle = 'rgba(255,215,94,.18)'; ctx.fillRect(VW / 2 - 60, 58 + i * 14, 120, 12); }
       ctx.fillStyle = dialog === i + 1 ? '#ffd75e' : '#ddd';
       ctx.fillText(rows[i], VW / 2, 67 + i * 14);
@@ -1224,7 +1204,7 @@ const draw = () => {
 
   // action buttons — hidden during pause / level-up / shop (dedicated overlays own the input)
   // Colored ring per action, dark disc, glyph in accent color. Modern mobile pattern.
-  if (started && !choosing && !paused && !shopping) {
+  if (started && !choosing && !paused) {
     ctx.textAlign = 'center';
     for (const b of btns()) {
       const pressed = keys.has(b.c);
@@ -1251,37 +1231,19 @@ const draw = () => {
   if (choosing) {
     ctx.fillStyle = 'rgba(8,6,12,.8)'; ctx.fillRect(0, 0, VW, VH);
     ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 14px monospace';
-    const isClassPick = menu[0] && menu[0].cl;
-    ctx.fillText(isClassPick ? 'LEVEL 3 — WHO WILL YOU BECOME?' : 'LEVEL ' + (lvl + 1) + ' — choose your growth', VW / 2, 80);
-    const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
+    ctx.fillText('LEVEL ' + (lvl + 1) + ' — spend a stat point', VW / 2, 80);
+    // Fit up to 6 cards at 76px pitch (was 82 — 6 cards @ 82 overflowed 480px viewport)
+    const pitch = 76, bw = 70, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
     menu.forEach((c, i) => {
       const bx = sx0 + i * pitch;
-      ctx.fillStyle = (c.k || c.cl) ? 'rgba(255,215,94,.16)' : 'rgba(255,255,255,.08)';   // new skills + class picks glow
-      ctx.fillRect(bx, 100, 76, 92);
-      const tag = c.cl ? 'CLASS' : c.k ? 'NEW SKILL' : c.p ? 'PERK' : '';
-      if (tag) { ctx.fillStyle = c.cl ? '#ffd75e' : c.k ? '#ffd75e' : '#c9a6f7'; ctx.font = '8px monospace'; ctx.fillText(tag, bx + 38, 111); }
-      ctx.fillStyle = c.col; ctx.font = 'bold 10px monospace'; ctx.fillText((i + 1) + ' ' + c.n, bx + 38, 126);
+      ctx.fillStyle = c.k ? 'rgba(255,215,94,.16)' : 'rgba(255,255,255,.08)';
+      ctx.fillRect(bx, 100, bw, 92);
+      if (c.k) { ctx.fillStyle = '#ffd75e'; ctx.font = '8px monospace'; ctx.fillText('NEW SKILL', bx + bw / 2, 111); }
+      ctx.fillStyle = c.col; ctx.font = 'bold 10px monospace'; ctx.fillText((i + 1) + ' ' + c.n, bx + bw / 2, 126);
       ctx.fillStyle = '#ccc'; ctx.font = '8px monospace';
-      c.d.split(' ').forEach((w, k) => ctx.fillText(w, bx + 38, 140 + k * 10));
+      c.d.split(' ').forEach((w, k) => ctx.fillText(w, bx + bw / 2, 140 + k * 10));
     });
     ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.fillText('press 1–' + menu.length + ' or tap', VW / 2, 214);
-  }
-
-  // campfire shop
-  if (shopping) {
-    ctx.fillStyle = 'rgba(8,6,12,.85)'; ctx.fillRect(0, 0, VW, VH);
-    ctx.fillStyle = '#ff9d3c'; ctx.font = 'bold 13px monospace'; ctx.fillText('🔥 THE HEARTH — 💎' + spk, VW / 2, 70);
-    ctx.font = '9px monospace';
-    SHOP.forEach((it, i) => {
-      const y = 100 + i * 26, own = shopB & (1 << i), can = spk >= it.c;
-      ctx.fillStyle = own ? 'rgba(155,232,160,.1)' : 'rgba(255,255,255,.07)';
-      ctx.fillRect(VW / 2 - 130, y - 8, 260, 22);
-      ctx.textAlign = 'left'; ctx.fillStyle = own ? '#9fe8a0' : can ? '#fff' : '#777';
-      ctx.fillText((i + 1) + '  ' + it.n + ' — ' + it.d, VW / 2 - 122, y + 6);
-      ctx.textAlign = 'right'; ctx.fillText(own ? '✓' : '💎' + it.c, VW / 2 + 122, y + 6);
-      ctx.textAlign = 'center';
-    });
-    ctx.fillStyle = '#888'; ctx.fillText('1–5 buy · E or ESC to close', VW / 2, 240);
   }
 
   // TITLE screen (phase 0) — branded start: black sky, stars, rainbow arc, unicorn
