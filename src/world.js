@@ -109,19 +109,16 @@ export const seeds = {
   ],
   // boss arenas: index-aligned with shards — the guardian stands here until slain
   bosses: [[258, 57], [226, 67], [56, 23], [14, 10], [22, 67]],
-  motes: [
-    [211.5, 50.3], [219.5, 48.3], [152, 68.5], [255, 67.3], [104, 41.3],
-    [12, 11.3], [136, 68.5], [83, 66.5], [126, 53.3],
-  ],
-  sparks: [
-    [163, 59.2], [176, 56.5], [182, 54.5], [190, 56.5], [198.5, 58.3], [207, 55.5],
-    [213, 53.5], [222, 56.5], [228, 59.2], [238, 59.2], [241, 55.5], [248, 53.5],
-    [263, 58.2], [270, 55.2],
-    [163.5, 61.3], [170, 68.5], [185, 63.5], [210, 68.5], [230, 64.5], [242, 68.5],
-    [104, 56.2], [92, 53.2], [80, 50.2], [68, 47.2], [56, 44.2],
-    [63, 41.2], [69, 38.2], [75, 35.2], [81, 32.2], [64, 25.2], [88, 35.2],
-    [41, 22.2], [29, 16.2], [23, 13.2],
-    [120, 68.5], [100, 68.5], [50, 68.5], [30, 68.5],
+  // Chests — hand-placed exploration rewards. All drops come from enemies +
+  // these 6 chests; no scattered map currency (design pivot v9). Contents
+  // are fixed: 15 sparks + full heal each. Bit index in oc bitfield.
+  chests: [
+    [219.5, 48.3],  // 0 — Meadow high route (DJ-only)
+    [186, 68.3],    // 1 — Root Caves W tall room
+    [252, 67.3],    // 2 — Root Caves E loop
+    [83, 50.3],     // 3 — West Cliffs terrace
+    [56, 25.3],     // 4 — Treetops crest (SHOT-gated shard nearby)
+    [12, 11.3],     // 5 — Summit peak (post-DASH)
   ],
   foes: [
     [174, 58, 1], [186, 58, 1], [206, 54, 1], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3],

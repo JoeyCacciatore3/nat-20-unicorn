@@ -68,6 +68,29 @@
 //      BECOME?". Opener "last painted mini" → "last unicorn". Dice
 //      display + class/perk names retained — they ARE the RPG mechanic,
 //      not decorative D&D lore.
+//  17  Design pivot — combat UI simplification, Dark Horse bosses, chest
+//      economy. (A) Combat: dice notation stripped from attack fly-text
+//      (was 'NAT 8! 16' / '6+2' / '🎲r' → now '-N' red or 'CRIT -N' gold);
+//      heal fly-text '+♥' → '+1'; level-up milestone '🎲 → d8' → 'POWER UP'
+//      + neutral voice; pause overlay's 'LV5 🎲d8+3' → 'LEVEL 5'; APOTHEOSIS
+//      voice line loses "you are the die" phrasing. Underlying dice
+//      mechanic KEPT (die grows d4→d12 at LV3/6/9/12, drives crit range +
+//      MOD math) — player just doesn't see the rolls. (B) Bosses: all 5
+//      guardians rendered as Dark Horses — mirror of the player unicorn
+//      sprite (same body/head/horn/mane geometry, scaled to fs=fs/14
+//      × 14×16 bbox), BLACK body, per-boss signature eye+horn color
+//      indexed by f.bi (0 red · 1 purple · 2 green · 3 cyan · 4 gold),
+//      spectral gray mane, walk-cycle step. Phase-2 (half HP) flips eye
+//      + horn to bright white rage. (C) Economy: scattered map currency
+//      REMOVED — seeds.sparks (34 pickups) and seeds.motes (9 XP orbs)
+//      deleted from world.js. All sparks come from enemy kills (1-2
+//      normal · 4 elite · 20 boss, +fly-text '+N ✦' on kill) and 6 hand-
+//      placed chests (world seeds). Chest: wooden box sprite w/ closed→
+//      open lid state, JUMP-to-open when near (JUMP glyph contextualizes
+//      to 📦), reward 15 sparks + full heal (+5 with STARSEEKER perk,
+//      repurposed from 'motes ×2 XP'). Enemy XP bumped k*3 → k*4, bosses
+//      +25 XP to compensate for lost mote XP. Save format v8 → v9 (added
+//      `o` field for opened-chests bitfield).
 //  16  Rebrand + simplified title — game renamed to "UNI-CORN, the last
 //      savior". Title screen stripped to the four requested elements:
 //      (1) pure black bg (dropped purple horizon glow), (2) small stardust
@@ -145,6 +168,7 @@ addEventListener('keydown', (e) => {
   }
   // Near NPC: JUMP becomes universal INTERACT (open dialog) — no dedicated interact key
   if (J_KEYS.includes(e.code) && nearFire) { dialog = 1; return; }
+  if (J_KEYS.includes(e.code) && nearChest >= 0) { openChest(nearChest); return; }
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) swing();
@@ -166,8 +190,8 @@ const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('TBtnH');
 // No dedicated hearth buttons — JUMP is the universal interact/confirm, MELEE is back/cancel.
 const btns = () => {
   // JUMP contextualizes: dialog open = ↵ confirm · nearFire (closed) = ☰ open dialog · else = ▲ jump
-  const jl = dialog ? '↵' : nearFire ? '☰' : '▲';
-  const jc = dialog || nearFire ? '#ffd75e' : '#8cf';
+  const jl = dialog ? '↵' : nearFire ? '☰' : nearChest >= 0 ? '📦' : '▲';
+  const jc = dialog || nearFire || nearChest >= 0 ? '#ffd75e' : '#8cf';
   // MELEE contextualizes: dialog open = ← back · else = ⚔ swipe
   const ml = dialog ? '←' : '⚔';
   const b = [
@@ -223,6 +247,7 @@ addEventListener('pointerdown', (e) => {
   for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
     // JUMP button contextualizes: near NPC it's INTERACT, not jump
     if (b.c === 'TBtnJ' && nearFire) { dialog = 1; return; }
+    if (b.c === 'TBtnJ' && nearChest >= 0) { openChest(nearChest); return; }
     ptrs.set(e.pointerId, b.c); keys.add(b.c);
     if (b.c === 'TBtnJ') jbuf = .12;
     if (b.c === 'TBtnM') swing();
@@ -306,7 +331,7 @@ const PERKS = [                                   // even levels: pick 1 of 3 �
   { b: 256, n: 'BLOODLETTER', d: '+1 dmg per missing ♥' },
   { b: 512, n: 'THIRST', d: 'kills refill 1 ✦' },
   { b: 1024, n: 'NIMBLE', d: '−25% dash cooldown' },
-  { b: 2048, n: 'STARSEEKER', d: 'motes worth ×2 XP' },
+  { b: 2048, n: 'STARSEEKER', d: 'chests give +5 sparks' },
   { b: 4096, n: 'OVERCHANNEL', d: 'heal costs 4 (was 5)' },
 ];
 // D&D-style class picked at L3 — starter perk + starter stat + a persistent passive.
@@ -356,8 +381,8 @@ const pick = (n) => {
   else STATS[c.i][3]();
   lvl++; pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
-  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, '🎲 → d' + DIE(), '#fff', 1); say('The die grows. A d' + DIE() + ' now. The world watches.'); }
-  if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); say('APOTHEOSIS. You are the die now, ' + pName + '. The doubt is not enough.'); }
+  if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, 'POWER UP', '#fff', 1); say('Your strength grows. The world watches.'); }
+  if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); say('APOTHEOSIS. You are unstoppable, ' + pName + '. The doubt is not enough.'); }
   if (!pending) { choosing = 0; save(); } else openMenu();
 };
 
@@ -389,23 +414,23 @@ const buy = (i) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 8, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    v: 9, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
     p: pk, w: shopB, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
-    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), // v8 — dropped lore-stones (r field). tutorial flags: bit 0 melee · 1 heal · 2 first-DM-talk
+    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), o: oc, // v9 — added oc (opened-chests bitfield). Map sparks + motes removed. Tutorial flags: bit 0 melee · 1 heal · 2 first-DM-talk
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 8) return;                                // v8 — lore-stones removed (r field dropped). v7 saves start fresh (early access, no migration path).
-    // v8 pin: every field is guaranteed present, no legacy || fallbacks needed
+    if (!d || d.v !== 9) return;                                // v9 — chests + no-map-currency pivot. v8 saves start fresh (early access, no migration path).
+    // v9 pin: every field is guaranteed present, no legacy || fallbacks needed
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
-    sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k;
+    sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k; oc = d.o;
     seenM = d.f & 1; seenH = (d.f >> 1) & 1; seenT = (d.f >> 2) & 1;
     edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
-    [ho, he, sp] = d.t;                                          // v8 pin: d.t always present
+    [ho, he, sp] = d.t;                                          // v9 pin: d.t always present
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     d.b.forEach((v, i) => { regions[i].t = v; regions[i].b = v; });
   } catch (e) { /* fresh oath */ }
@@ -433,6 +458,16 @@ const dialogDo = () => {
   } else shopping = 1;                            // SHOP
   dialog = 0;
 };
+// Chest reward: fixed +15 sparks (+5 with STARSEEKER perk) + full heal. Predictable, no RNG.
+const openChest = (i) => {
+  if (oc & (1 << i)) return;
+  oc |= 1 << i;
+  const c = chests[i], drop = 15 + ((pk & 2048) ? 5 : 0);
+  spk += drop; hp = mHP();
+  burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .18, 'triangle', .12);
+  fly(c.x, c.y - 12, '+' + drop + ' ✦', '#ffe28a', 1); fly(c.x + 6, c.y - 4, '+HEAL', '#9fe8a0');
+  save();
+};
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
@@ -442,8 +477,9 @@ const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 |
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
-const sparks = seeds.sparks.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
-const motes = seeds.motes.map(([x, y]) => ({ x: x * T, y: y * T, got: 0, ph: Math.random() * 7 }));
+// Chests: exploration rewards. `oc` bitfield tracks opened state (persisted v9).
+const chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
 // SPAWN LAW — every non-boss foe carries: dm (contact damage), el (elite roll),
 // rc (ranged clock if tier 3 = Gloomcast). Boss adds ph / spd / rc at 50%-HP
@@ -489,7 +525,7 @@ const strike = (f, r, gen, viaStomp) => {
   if (!f.bit && !viaStomp) f.vx += (crit ? 220 : 140) * (f.x > pl.x ? 1 : -1); // KNOCKBACK — bosses hold their arena
   shk = Math.max(shk, crit ? .22 : .09);
   if (crit) hs = .06;                             // hitstop punch — 60 ms world freeze on Nat crit
-  fly(f.x, f.y - 8, crit ? 'NAT ' + r + '! ' + dmg : MOD() ? r + '+' + MOD() : '🎲' + r, crit ? '#ffd75e' : '#fff', crit);
+  fly(f.x, f.y - 8, (crit ? 'CRIT ' : '') + '-' + dmg, crit ? '#ffd75e' : '#ff5d6c', crit);
   if (crit) { S_NAT(); earned[3] = 1; burst(f.x, f.y, 24, '#ffd75e'); }
   if (gen) mn = Math.min(mMN(), mn + 1);          // melee GENERATES mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
@@ -503,8 +539,10 @@ const strike = (f, r, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 3 + (crit ? 4 : 0), f.x, f.y - 16);
-    spk += f.bit ? 5 : 1;                                       // kills drop sparkles — the shop economy's income
+    burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16);
+    // Drop economy (post-map-currency-removal v9): normal 1-2 · elite 4 · boss 20. All spark income comes from kills + 6 chests.
+    const drop = f.bit ? 20 : f.el ? 4 : 1 + (Math.random() * 2 | 0);
+    spk += drop; fly(f.x, f.y - 20, '+' + drop + ' ✦', '#ffe28a');
     if (pk & 8) mn = Math.min(mMN(), mn + 1);                   // MANA FONT
     if (pk & 512) mn = Math.min(mMN(), mn + 1);                 // THIRST — kills refill 1 ✦
     if (viaStomp && (pk & 128)) mn = Math.min(mMN(), mn + 2);   // STOMP SPARK
@@ -583,7 +621,7 @@ const step = (dt) => {
   const canHeal = (abil & 2) && mn >= healCost && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.3 - .1 * he) { chT = 0; mn -= healCost; hp++; burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+♥', '#9fe8a0', 1); }
+    if (chT > 1.3 - .1 * he) { chT = 0; mn -= healCost; hp++; burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+1', '#9fe8a0', 1); }
   } else chT = 0;
   const rooted = chT > 0;
 
@@ -643,11 +681,9 @@ const step = (dt) => {
     if (spike(pl.x + ox, pl.y + oy)) { hurt(1, 1); break; }
   if (pl.y > H * T) hurt(1, 1);
 
-  // -- sparks --
-  for (const s of sparks) {
-    if (s.got) continue;
-    if (Math.hypot(pl.x + PW / 2 - s.x, pl.y + PH / 2 - s.y) < 13) { s.got = 1; spk++; mn = Math.min(mMN(), mn + 1); sfx(880, 1500, .07, 'triangle', .09); burst(s.x, s.y, 5, '#fe9'); }
-  }
+  // -- chest proximity — JUMP-to-open handled in keydown; here just flag the nearest --
+  nearChest = -1;
+  for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- guardians: each shard is boss-gated --
   seeds.bosses.forEach(([bx, by], i) => {
@@ -683,12 +719,6 @@ const step = (dt) => {
       pending++; choosing = 1; openMenu(); S_NAT();             // the RPG moment, guaranteed
       save();
     }
-  }
-
-  // -- stardust motes: exploration XP (worth a small pack of kills) --
-  for (const m of motes) {
-    if (m.got) continue;
-    if (Math.hypot(pl.x + PW / 2 - m.x, pl.y + PH / 2 - m.y) < 13) { m.got = 1; sfx(660, 1100, .1, 'triangle', .1); burst(m.x, m.y, 8, '#8cf'); gainXp(8 * ((pk & 2048) ? 2 : 1), m.x, m.y - 10); } // STARSEEKER doubles mote XP
   }
 
   // -- shots --
@@ -889,12 +919,22 @@ const draw = () => {
       ctx.font = 'bold 6px monospace'; ctx.fillText('▲ TALK', wx, wy - 6 - pf);
     }
   }
-  // stardust motes (blue — exploration XP)
-  for (const m of motes) {
-    if (m.got) continue;
-    const b = Math.sin(time * 2.5 + m.ph) * 2;
-    ctx.fillStyle = '#8cf';
-    ctx.fillRect(m.x - 1.5, m.y - 5 + b, 3, 10); ctx.fillRect(m.x - 5, m.y - 1.5 + b, 10, 3);
+  // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
+  // Prompt "▲ OPEN" pulses above the nearest unopened chest. (Design pivot v9.)
+  for (const c of chests) {
+    const opened = oc & (1 << c.i);
+    ctx.fillStyle = '#6b4a2b';                              // dark oak base
+    ctx.fillRect(c.x - 6, c.y - 2, 12, 7);                  // body
+    ctx.fillStyle = '#8a6a3a';                              // lighter oak (lid or interior)
+    if (opened) ctx.fillRect(c.x - 6, c.y - 6, 12, 3);      // lid tilted back (open)
+    else ctx.fillRect(c.x - 6, c.y - 5, 12, 3);             // lid down (closed)
+    ctx.fillStyle = '#ffd75e';                              // gold latch/band
+    ctx.fillRect(c.x - 1, c.y - 1, 2, 3);
+    if (!opened && nearChest === c.i && !dialog) {          // proximity prompt
+      const pf = 1 + Math.sin(time * 5) * .3;
+      ctx.fillStyle = '#ffd75e'; ctx.textAlign = 'center';
+      ctx.font = 'bold 6px monospace'; ctx.fillText('▲ OPEN', c.x, c.y - 10 - pf);
+    }
   }
 
   // shards + tease
@@ -906,12 +946,6 @@ const draw = () => {
   };
   for (const [sx, sy, bit] of seeds.shards) if (!(sh & bit)) gem(sx, sy, (bossDead & bit) ? .95 : .3, !(bossDead & bit));
 
-  for (const sk of sparks) {
-    if (sk.got) continue;
-    const b = Math.sin(time * 3 + sk.ph) * 2;
-    ctx.fillStyle = '#ffe28a';
-    ctx.fillRect(sk.x - 1, sk.y - 4 + b, 2, 8); ctx.fillRect(sk.x - 4, sk.y - 1 + b, 8, 2);
-  }
   // ARTICULATED ENEMY SPRITES — unicorn-quality (legs step, antennae bob,
   // hoods, glowing rune-eyes, robe folds). One draw fn per tier, boss shares
   // the caster-with-crown silhouette scaled up. cz=elite/boss cell multiplier.
@@ -931,19 +965,24 @@ const draw = () => {
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
     ctx.translate(-fs / 2, -fs);
     // colour: white flash on hit > red pre-strike wind-up tell > tier base
-    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : FOECOL[f.k];
-    if (f.bit) {                                                // GUARDIAN — hulking, crowned, region-tinted (see i-based crown row)
-      ctx.fillRect(s * .6, fs - s + step, s * 1.2, s);          // leg L (steps)
-      ctx.fillRect(fs - s * 1.8, fs - s - step, s * 1.2, s);    // leg R
-      ctx.fillRect(0, s * 1.6 + wob * .3, fs, s * 2.6);          // body
-      ctx.fillRect(s * .8, wob * .3, fs - s * 1.6, s * 1.8);     // head
-      ctx.fillStyle = '#ffd75e';                                 // crown horns
-      ctx.fillRect(s * .8, wob * .3 - s * .8, s * .5, s * 1);
-      ctx.fillRect(fs / 2 - s * .25, wob * .3 - s * 1.1, s * .5, s * 1.3);
-      ctx.fillRect(fs - s * 1.3, wob * .3 - s * .8, s * .5, s * 1);
-      ctx.fillStyle = f.ph ? '#ff5d6c' : '#000';                 // eyes (turn red in phase 2)
-      ctx.fillRect(s * 1.2, s * .7 + wob * .3, s * .55, s * .45);
-      ctx.fillRect(fs - s * 1.75, s * .7 + wob * .3, s * .55, s * .45);
+    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#111' : FOECOL[f.k];
+    if (f.bit) {                                                // DARK HORSE — reflection of the player unicorn: same shape,
+      // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
+      // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
+      const eye = ['#ff5d6c', '#c9a6f7', '#9fe89a', '#8cf', '#ffd75e'][f.bi];
+      const sc = fs / 14, ph = Math.sin(f.t * 8) * 3;            // scale player unicorn bbox → fs; walk cycle
+      ctx.scale(sc, sc);
+      ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3);              // leg L (steps)
+      ctx.fillRect(7, 12 - ph * .3, 2, 4 + ph * .3);              // leg R
+      ctx.fillRect(0, 5, 10, 7);                                  // body
+      ctx.fillRect(7, 0, 5, 6);                                   // head
+      ctx.fillStyle = f.ph ? '#fff' : eye;                        // horn matches eye; white-hot rage in phase 2
+      ctx.beginPath();
+      ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill();
+      ctx.fillStyle = '#333';                                     // spectral gray mane (contrasts with black body)
+      ctx.fillRect(5, 1, 2, 4); ctx.fillRect(3, 3, 2, 4); ctx.fillRect(1, 5, 2, 4);
+      ctx.fillStyle = f.ph ? '#fff' : eye;                        // eye — signature per boss, flips to rage-white in phase 2
+      ctx.fillRect(10, 2, 1.5, 1.5);
     } else if (f.k === 1) {                                     // DOUBTLING — 4-legged crawler w/ antennae
       ctx.fillRect(s * .2, fs - s + step, s * .6, s);            // legs step
       ctx.fillRect(s * 1.6, fs - s - step * .7, s * .6, s);
@@ -1079,7 +1118,7 @@ const draw = () => {
     ctx.fillStyle = '#fff'; ctx.font = 'bold 12px monospace';
     T2(pName + (cls ? ' the ' + CLASS_TITLE[cls] : ''), VW / 2, 66);
     ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 11px monospace';
-    T2('LV' + lvl + '   🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), VW / 2, 84);
+    T2('LEVEL ' + lvl, VW / 2, 84);
     const nx = need(), atCap = lvl >= CAP;
     ctx.fillStyle = '#3a3a44'; ctx.fillRect(VW / 2 - 70, 94, 140, 6);
     ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(VW / 2 - 70, 94, atCap ? 140 : 140 * xp / nx, 6);
