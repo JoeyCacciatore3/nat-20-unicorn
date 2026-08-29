@@ -12,7 +12,7 @@
 // Systems intentionally REMOVED (don't re-add without explicit ask):
 //   classes · shop · region rebloom · overlay narrator · lore stones ·
 //   scattered map currency (motes/sparks pickups) · STARSEEKER perk ·
-//   L3 class fork · even-level perk offers · SHOP dialog option.
+//   L3 class fork · perks (folded into tree v18).
 //
 // Build: esbuild → terser → roadroller → inline → zip → ECT → 13,312-byte gate.
 //   npm run build   (also runs map audit, logs to SIZELOG.md)
@@ -324,7 +324,7 @@ const drawU = (bob) => {
 let hp = 10, xp = 0, lvl = 1;
 let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
 let mn = 5, choosing = 0, pending = 0;
-const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +2 max HP); post-cap XP → sparks 1:1
+const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +2 max HP); post-cap XP ignored
 // Skills are ALL player-chosen via the 3-branch tree — no auto-learn milestones
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 const bossLive = [0, 0, 0, 0, 0];
@@ -503,7 +503,7 @@ const spawnDrop = (x, y, n) => {
 
 // damage a foe: dmg = die + MOD, crit doubles. Full D&D damage line, visible.
 // Feel pass: knockback on non-boss/non-stomp hits, hitstop + shake on crit, boss
-// phase-2 trigger at half HP, elite perk drop on kill, minion cleanup on boss death.
+// phase-2 trigger at half HP, elite bonus drops on kill, minion cleanup on boss death.
 const strike = (f, r, gen, viaStomp) => {
   const crit = isCrit(r), dmg = (r + MOD()) * (crit ? 2 : 1);
   f.hp -= dmg; f.fl = .15;
@@ -526,10 +526,9 @@ const strike = (f, r, gen, viaStomp) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16);
-    // ITEM DROPS: base 1-2 normal, 3 elite, 6 boss. LUCK adds +1 drop per pip.
-    spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 3 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
+    spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 7 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
-    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); spawnDrop(f.x, f.y, 4); sfx(880, 1760, .3, 'triangle', .14); }
+    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
     if (f.bit) {                                                // GUARDIAN falls — shard unlocks
       bossDead |= f.bit; bossLive[f.bi] = 0;
       // clean up the boss's summoned minions/twins tagged with the same bit
@@ -574,7 +573,7 @@ const hurt = (n, safe) => {
   hp -= n; pl.inv = su[12] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
   for (const f of foes) if (f.bit) f.hit = 1;                    // any hit disqualifies UNTOUCHABLE for the active boss(es)
   sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE grace inside pl.inv
-  // (seenH hint flag removed — dead code, no visible effect)
+
   if (hp <= 0) { deathT = 1.6; return; }
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
   else pl.vy = -180;
@@ -612,11 +611,10 @@ const step = (dt) => {
   if (onPlat && held('ArrowDown', 'KeyS', 'TBtnDn')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
 
   // -- heal channel: rooted, costs 5, restores 1 (faster with HEART) --
-  const healCost = 5;
-  const canHeal = (abil & 2) && mn >= healCost && hp < mHP() && pl.ground && !onPlat;
+  const canHeal = (abil & 2) && mn >= 5 && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.3 - .1 * he) { const hm = 3 + 2 * su[8]; chT = 0; mn -= healCost; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe8a0', 1); }   // MEND+ ranks: 3→5→7
+    if (chT > 1.3 - .1 * he) { const hm = 3 + 2 * su[8]; chT = 0; mn -= 5; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe8a0', 1); }   // MEND+ ranks: 3→5→7
   } else chT = 0;
   if (su[10] && hp < mHP()) { regT += dt; if (regT >= 8) { regT -= 8; hp++; fly(pl.x, pl.y - 12, '+1', '#9fe8a0'); } } else regT = 0;
   const rooted = chT > 0;
@@ -732,7 +730,6 @@ sfx(110, 55, .5, 'sawtooth', .18);
     }
   }
   for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
-
   // -- foe bolts (Gloomcast + boss phase 2): hit the player, die on solid --
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
@@ -784,7 +781,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
     // CONTACT with wind-up tell: touching sets .wt clock; hurt only fires after 0.3s
     // (visible red flash). Cooldown holds .wt < 0 until the strike can re-arm.
     // FIRST-FOE MELEE HINT — fired ONCE per save via DM voice, no player-anchored spam
-    // (seenM proximity hint removed — dead code, no visible effect)
+
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && pl.y + PH - f.y < 10) {
       strike(f, roll(0), 0, 1);
