@@ -1,214 +1,29 @@
 // UNI-CORN, the last savior — 2D pixel-art platformer. Canvas 2D, no WebGL.
 //
-// Design spine (locked):
-//   - Dual-convention controls + touch overlay
-//   - Verb economy: stomp FREE · melee GENERATES mana · shot/heal SPEND mana
-//   - Progression: 3 stats (HORN/HEART/SPARK) + class at L3 + 13-perk pool
-//     + level cap L15 APOTHEOSIS; skills gate on LEVEL not shard (LV3/5/7/9)
-//   - Shards repaint regions + grant a bonus level (no combat prereq for skills)
+// Design pillars (see OneStone project "uni-corn" for full history + rationale):
+//   - D&D-style stat allocation (STR/HP/MAG/DEF/LUCK), no classes
+//   - 4-slot palette customization (BODY/MANE/HORN/HOOVES)
+//   - Metroidvania skill gating by LEVEL only (LV3/5/7/9)
+//   - Rainbow shards = collection goal (5 guardian bosses)
+//   - Unified character sheet: pause + level-up + creation share layout
+//   - No overlay narrator — feedback via fly() and NPC dialog only
+//   - Fixed world palette (no rebloom)
 //
-// Phase lineage (chronological):
-//   1  Bible-approved core (controls, verbs, stats, world, shards)
-//   3  Combat FEEL — hitstop, screen shake, knockback, wind-up tells,
-//      boss phase 2s, elite foes, Gloomcast ranged tier
-//   4  Correctness + modern canvas — DPR + visualViewport + smoothing off,
-//      boss-leash HP persistence, splice-race guard, UNTOUCHABLE integrity
-//   5  Title screen + name entry + articulated enemy sprites (unicorn-parity)
-//   6  Full leveling — class fork at L3, L15 APOTHEOSIS, +5 perks, XP bar
-//   7  Cleanup — ARCHITECT bug fix, dead PAT fields removed, v6 save pin
-//   8  Stomp launch (horizontal knockback + higher bounce) + tutorial-hint
-//      one-shot via say() queue + v7 save (seen-flags persist across sessions)
-//   9  AAA-quality HUD pass — bottom-left cluster near thumb, contextual mana
-//      fade, level-up hint auto-hide (5 s or 75 % of XP bar), pause overlay
-//      with full character sheet (P / ESC / ☰ tap), 2 px stroke outlines on
-//      all HUD text, viewport-fit=cover for notched devices
-//  10  Minimalist HUD redesign — hearts / mana bar / xp bar top-left cluster
-//      always-on. Removed dice + gems + name banner + level-up hint from HUD
-//      (moved to pause overlay). Contextual REST + SHOP + READ buttons dock
-//      near dpad — never mid-screen. Every button gets a color-coded ring for
-//      at-a-glance identity (cyan jump · white melee · purple shot · green
-//      heal · gold dash / green rest). Shop is now touch-reachable.
-//  11  Hearth NPC + dialogue system — proper wizard sprite next to the fire
-//      (robe, hat with gold star, beard, staff with crystal). Classic RPG
-//      dialogue bubble on approach: 1 TALK · 2 REST · 3 SHOP with keys +
-//      touch buttons (?, Z, $). First TALK grants +10 XP boon + intro line,
-//      later talks rotate through DM_LINES pool. Elite marker changed from
-//      ugly outer strokeRect to a small pulsing gold crown ABOVE the head
-//      (sprite-integrated, no visual "box" around the enemy). Removed
-//      legacy B-opens-shop keyboard shortcut (superseded by 3 in the
-//      dialogue menu). Shop close hint updated to reflect current bindings.
-//  12  Consolidation — JUMP button is universal INTERACT/CONFIRM (contextual
-//      glyph: ▲ jump · ☰ open dialog at fire · ↵ confirm in dialog); MELEE
-//      button is BACK/CANCEL (← in dialog). Removed dedicated hearth touch
-//      buttons (TBtnT/TBtnE/TBtnSh) and Digit1-3/KeyT/KeyE aliases. Dialog
-//      uses ↑↓ nav + JUMP confirm + MELEE back. Wizard sprite extended with
-//      proper legs so feet plant on the ground (was floating).
-//  13  Removed lore-stones system entirely — world seeds, LORE array, readLore
-//      fn, loreRead state, nearLore proximity, JUMP ★ label, TBtnJ handler,
-//      save `r` field. SILVER_TONGUE achievement repurposed to fire on first
-//      DM conversation (was "read both stones"). Save v7 → v8. Wizard given
-//      longer legs (pants + planted boots at ground line cyp+8) — no more
-//      floating look.
-//  14  Title screen polish — atmospheric depth: 22 procedural stardust particles
-//      falling behind title, purple horizon glow, breathing title scale
-//      (sin *.015 x/y, GMTK juice). Protagonist read: procedural unicorn
-//      silhouette (body + head + gold horn + rainbow mane + eye) bobbing
-//      above title. Rotating DM_LINES quote below tagline (5s cycle,
-//      breathing alpha, reuses existing data). Selected menu item slides
-//      +6 px right (2nd feedback channel beside gold color + ▶ prefix).
-//  15  Narrative de-framing — stripped overpromise language. "· a D&D
-//      metroidvania fable ·" subtitle removed. Tagline "diorama has gone
-//      gray — paint it back" → "world has gone gray — bring back its color"
-//      (drops the tabletop-diorama meta). "THE DM" NPC label → "THE SAGE";
-//      "WHAT SHALL THE DM CALL YOU?" → "WHAT SHALL THE SAGE CALL YOU?".
-//      DM_LINES scrubbed of "brave d20" / "DM screen" / "boon"; kept the
-//      shards/guardians/doubt world-terms since those are actual game
-//      entities. "Table remembers/approves" → "world remembers/watches".
-//      Class-pick prompt "WHO ARE YOU AT THE TABLE?" → "WHO WILL YOU
-//      BECOME?". Opener "last painted mini" → "last unicorn". Dice
-//      display + class/perk names retained — they ARE the RPG mechanic,
-//      not decorative D&D lore.
-//  22  HOOVES + DELETE SAVE + unified level-up (character screen).
-//      (A) HOOVES: 4th customization slot — new palette PALF (5 options),
-//      state var hof, drawU splits leg color from body color, character-
-//      creation gets a 5th HOOVES row. Save v12 → v13 (`u` becomes
-//      4-tuple [bod, man, hrn, hof]). Future: swappable "item pieces".
-//      (B) TITLE DELETE SAVE: 3rd menu option (visible only when save
-//      exists), 2-step confirmation (first press arms + turns text red
-//      "DELETE? PRESS AGAIN", second press wipes localStorage +
-//      location.reload() for a clean state). delConf state var tracks
-//      arm. UP/DOWN clears arm.
-//      (C) LEVEL-UP → CHARACTER SHEET: openMenu() + pick() + separate
-//      6-card modal removed entirely. Level-up now opens the pause
-//      overlay in "allocation mode" (choosing state). Right panel
-//      switches header to "LEVEL UP · N pts", stat rows get ‹ › cursor
-//      around the value on the selected row, skill unlocks appear as
-//      "NEW SKILL · <name>" rows above stats with ▶ cursor. Keyboard:
-//      UP/DOWN pick row, RIGHT/SPACE/ENTER allocate. Touch: tap row.
-//      Same rendered box as pause but allocation mode blocks close until
-//      pending === 0. step() gate broadened to freeze sim during choosing
-//      too. Menu state variable removed; picks() computes rows on demand.
-//      (A) CLASSES REMOVED: cls var, CLASSES table (RAMPART/PRISM/ROGUE),
-//      CLASS_TITLE lookup, L3 class-pick branch in openMenu, class-init
-//      branch in pick(), ROGUE-share dash cd bonus, "the CLASS" subtitle
-//      in portrait panel. Rationale: RAMPART/PRISM/ROGUE only granted a
-//      starter perk + a stat pip + one passive — all effects already
-//      available via the natural stat + perk systems. Pure duplication.
-//      (B) SHOP REMOVED: SHOP array (5 items — all duplicating STR/HP
-//      stat pips), buy() fn, shopping state, shopB bitfield, edg + shp
-//      derived vars, shop touch button branch, KeyB / KeyE-closes-shop
-//      keyboard bindings, shopping pointerdown branch, verb gates
-//      (choosing || shopping → choosing), shop render block (~60 B),
-//      "SHOP" as 3rd dialog option, dialog tap-row bounds tightened.
-//      Rationale: shop items exactly duplicated stat pips. Kept spk state
-//      as future potion currency + collection score (per prior operator
-//      direction). (C) LEVELING SIMPLIFIED to pure D&D-style stat picks
-//      every level. Even-level perk offers removed. Perks come from
-//      elite kill drops ONLY (grantPerk unchanged). L3 no longer a class
-//      fork — just another stat point + DBL JUMP unlock. Menu header
-//      changed from "choose your growth" to "spend a stat point".
-//      (D) STARSEEKER perk removed (was chest→sparks; sparks-as-currency
-//      dying makes it meaningless). Perk pool 13 → 12. OVERCHANNEL bit
-//      moved from 4096 → 2048 to fill the gap. (E) ARCHITECT achievement
-//      trigger removed (`shopB === 31` → dead). GREEN_HOOVES trigger
-//      removed (was reading region.t which no longer mutates; already
-//      dead since region rebloom pivot). (F) Save v11 → v12: drop k
-//      (class) and w (shopB) fields.
-//  20  Unified character creation screen — pause-style split panel + hearts
-//      inside portrait box. (A) FLOW: two phases (name + customize) merged
-//      into one phase=1 "NEW CHARACTER" screen; phase 2 (customize) removed
-//      entirely — cRow now 0=NAME/1=BODY/2=MANE/3=HORN. Row-aware input:
-//      A-Z types on NAME row, ←→ cycles on color rows. ENTER begins.
-//      Playing state moves phase 1→2 (was 2→3). (B) PORTRAIT PANEL extracted
-//      as `portraitPanel(title, isCreate)` — shared by pause overlay AND
-//      character-create screen. Draws title bar + gold-bordered box with
-//      hearts row TOP (♥ icons, same style as in-game HUD — filled by hp,
-//      grey for empty), unicorn MIDDLE (2.6× scale, gentle bob), name+class
-//      BOTTOM. Create screen: blinking cursor on name only when NAME row
-//      active. Pause: shows pName + "the CLASS". (C) T2() outline helper
-//      hoisted from HUD-block scope to module scope so both overlays can
-//      call it. (D) Pause overlay right-side: removed duplicated name/class
-//      (now in portrait), starts stat column higher (LEVEL at y=48).
-//  19  Unicorn customization + classic RPG pause overlay + currency rename.
-//      (A) COLORS: 3 palettes (PALB body 5 · PALM mane 5 as 3-color sweeps ·
-//      PALH horn 5). New state bod/man/hrn (indices). drawU(bob) helper
-//      extracts player unicorn geometry — used by in-game player render AND
-//      the pause portrait (both auto-inherit customization). Save v10→v11
-//      adds u: [bod, man, hrn]. (B) FLOW: new phase=2 "customize" screen
-//      between name entry and gameplay. Live preview at 3× scale + 3-row
-//      cycler (BODY/MANE/HORN) — ↑↓ picks row, ←→ cycles color, ENTER
-//      begins. Touch-tap on customize accepts current picks. CONTINUE path
-//      skips customize (colors loaded from save). Existing phase gate
-//      `phase < 2` widened to `phase < 3` so overlay stays through
-//      customize. (C) PAUSE REDESIGN: classic split-panel RPG layout.
-//      Left = gold-bordered 130×108 portrait box with drawU() at 3.4×.
-//      Right-top = pName (bold), "the CLASS" subtitle, LEVEL + ♥ hp/mHP,
-//      thin XP bar with atCap fallback. Right-column = 5 stats in
-//      traditional order HP/STR/DEF/MAG/LUCK, label-left + value-right
-//      aligned. Bottom-left = PERKS row of 20×20 icon squares (first
-//      letter as glyph + 6-char name below). Bottom-right = SKILLS row
-//      with colored ring per skill (lit if owned, gray if not). Footer =
-//      RAINBOW N/5 (left) + SPARKS N (right). (D) RENAME: pause overlay
-//      currency `SHARDS · N` → `SPARKS · N` (game data unchanged).
-//  18  Design pivot 2 — 5-stat system (STR/HP/MAG/DEF/LUCK), overlay narrator
-//      removed, region rebloom killed. (A) STATS: HORN→STR, HEART→HP,
-//      SPARK→MAG; ADDED df (DEF: subtracts pips from every damage instance,
-//      min 1) and lk (LUCK: multiplies enemy shard drop by 1 + lk*0.5).
-//      Pause overlay row now shows all 5. Save v9→v10 (t: [ho,he,sp,df,lk]).
-//      (B) NARRATOR: bottom-center voice-line plate and its `say()` queue
-//      + dmTxt/dmT/dmQ state deleted. ~15 ambient say() calls stripped
-//      (level-up narration, boss intro/death, elite-drop, tutorial hints,
-//      class-pick, death, first-gloom, phase-2). DM_LINES, BOSS_INTRO,
-//      BOSS_DEAD, LEARN string arrays removed entirely. TALK now grants
-//      +10 XP + fly('+10 XP · WELCOME') on first talk, fly('the sage nods')
-//      on repeat. REST now shows fly('SAVED') instead of narrator line.
-//      opener() reduced to no-op stub. `▲ TALK` proximity prompt over the
-//      wizard deleted (JUMP button glyph ☰ already signals interact).
-//      (C) REGION REBLOOM removed: world.js `regions[]` seed dropped `b`/`t`
-//      fields (hue-only now); `regions.forEach(r => r.b += ...)` interpolation
-//      cut; boss-kill `regions[i].t = 1` assignments removed (were changing
-//      nothing after seed always=1); shard-pickup narrator line removed;
-//      save `b: regions.map(r => r.t)` dropped from v10 payload; render sky/
-//      parallax/tile fill switched from `saturation*b, lit*b` formulas to
-//      fixed 22%/12% palette per zone (world visually consistent from t=0).
-//      (D) CURRENCY RENAME: HUD pause `HEARTH · 💎N gems for the shop` →
-//      `SHARDS · N`. Currency mechanic unchanged (still `spk` in save).
-//  17  Design pivot — combat UI simplification, Dark Horse bosses, chest
-//      economy. (A) Combat: dice notation stripped from attack fly-text
-//      (was 'NAT 8! 16' / '6+2' / '🎲r' → now '-N' red or 'CRIT -N' gold);
-//      heal fly-text '+♥' → '+1'; level-up milestone '🎲 → d8' → 'POWER UP'
-//      + neutral voice; pause overlay's 'LV5 🎲d8+3' → 'LEVEL 5'; APOTHEOSIS
-//      voice line loses "you are the die" phrasing. Underlying dice
-//      mechanic KEPT (die grows d4→d12 at LV3/6/9/12, drives crit range +
-//      MOD math) — player just doesn't see the rolls. (B) Bosses: all 5
-//      guardians rendered as Dark Horses — mirror of the player unicorn
-//      sprite (same body/head/horn/mane geometry, scaled to fs=fs/14
-//      × 14×16 bbox), BLACK body, per-boss signature eye+horn color
-//      indexed by f.bi (0 red · 1 purple · 2 green · 3 cyan · 4 gold),
-//      spectral gray mane, walk-cycle step. Phase-2 (half HP) flips eye
-//      + horn to bright white rage. (C) Economy: scattered map currency
-//      REMOVED — seeds.sparks (34 pickups) and seeds.motes (9 XP orbs)
-//      deleted from world.js. All sparks come from enemy kills (1-2
-//      normal · 4 elite · 20 boss, +fly-text '+N ✦' on kill) and 6 hand-
-//      placed chests (world seeds). Chest: wooden box sprite w/ closed→
-//      open lid state, JUMP-to-open when near (JUMP glyph contextualizes
-//      to 📦), reward 15 sparks + full heal (+5 with STARSEEKER perk,
-//      repurposed from 'motes ×2 XP'). Enemy XP bumped k*3 → k*4, bosses
-//      +25 XP to compensate for lost mote XP. Save format v8 → v9 (added
-//      `o` field for opened-chests bitfield).
-//  16  Rebrand + simplified title — game renamed to "UNI-CORN, the last
-//      savior". Title screen stripped to the four requested elements:
-//      (1) pure black bg (dropped purple horizon glow), (2) small stardust
-//      stars (kept 22 particle field), (3) procedural rainbow arc — 7
-//      ROYGBIV bands curving over the unicorn via ctx.arc(π, 0), (4)
-//      centered protagonist unicorn at 2.4x scale with gentle bob.
-//      Removed: rotating DM_LINES quote (still available for in-game
-//      wizard dialog), double control-hint line (collapsed to one).
-//      Title text "NAT 20 UNICORN" → "UNI-CORN" (bold 30px, breathing).
-//      Tagline "the world has gone gray..." → "the last savior" (gold
-//      italic). Menu ys shifted down for the taller title area.
-//      HTML <title>, README, build-pipeline header, world.js header,
-//      main.js header all updated to the new brand.
+// Systems intentionally REMOVED (don't re-add without explicit ask):
+//   classes · shop · region rebloom · overlay narrator · lore stones ·
+//   scattered map currency (motes/sparks pickups) · STARSEEKER perk ·
+//   L3 class fork · even-level perk offers · SHOP dialog option.
+//
+// Build: esbuild → terser → roadroller → inline → zip → ECT → 13,312-byte gate.
+//   npm run build   (also runs map audit, logs to SIZELOG.md)
+//   wavedash build push -m "message"
+//
+// Save format v13:
+//   { v, e, h, x, l, s, a, n, q, g, p,
+//     t:[STR,HP,MAG,DEF,LUCK], c:[cpx,cpy], m:name, f:seenFlags,
+//     o:openedChestBits, u:[bod,man,hrn,hof] }
+//   Version bumps discard prior saves — early-access, no migration path.
+
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -256,14 +71,14 @@ const createKey = (e) => {
   else if (cRow === 0 && ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
   else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 1) bod = (bod + 4) % 5; else if (cRow === 2) man = (man + 4) % 5; else if (cRow === 3) hrn = (hrn + 4) % 5; else if (cRow === 4) hof = (hof + 4) % 5; }
   else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 1) bod = (bod + 1) % 5; else if (cRow === 2) man = (man + 1) % 5; else if (cRow === 3) hrn = (hrn + 1) % 5; else if (cRow === 4) hof = (hof + 1) % 5; }
-  else if ((e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) && ent.length > 0) { pName = ent; phase = 2; started = 1; save(); opener(); }
+  else if ((e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) && ent.length > 0) { pName = ent; phase = 2; started = 1; save(); }
 };
 const titleKey = (e) => {
   const opts = hasSave() ? 3 : 1;                                    // NEW GAME · CONTINUE · DELETE SAVE (last two only when save exists)
   if (e.code === 'ArrowUp' || e.code === 'KeyW') { mSel = (mSel + opts - 1) % opts; delConf = 0; }
   else if (e.code === 'ArrowDown' || e.code === 'KeyS') { mSel = (mSel + 1) % opts; delConf = 0; }
   else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) { phase = 1; ent = ''; cRow = 0; delConf = 0; }
-  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 2; started = 1; opener(); }
+  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 2; started = 1; }
   else if ((e.key === '3' || (mSel === 2 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) {
     // 2-step delete: first press arms, second press wipes
     if (delConf) { localStorage.removeItem('n20_save'); location.reload(); } else delConf = 1;
@@ -333,12 +148,12 @@ addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
   // TITLE: tap top half = New Game (skips name — touch users can't type), bottom = Continue
-  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; opener(); } else { phase = 2; started = 1; save(); opener(); } return; }
+  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; } else { phase = 2; started = 1; save(); } return; }
   // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
   // CHARACTER CREATE: tap the BEGIN NEW GAME button (bottom-center) to start. Name required.
   if (phase === 1) {
     if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= VH - 42 && vy <= VH - 16 && ent.length > 0) {
-      pName = ent; phase = 2; started = 1; save(); opener();
+      pName = ent; phase = 2; started = 1; save();
     }
     return;
   }
@@ -919,11 +734,13 @@ sfx(110, 55, .5, 'sawtooth', .18);
   for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
   if (!nearFire && dialog) dialog = 0;                    // walk-away auto-closes dialog
 
-  // -- achievement watchers (all 13 Wavedash slots now live) --
+  // -- achievement watchers (all 13 Wavedash slots live) --
   if (spk >= 30) earned[9] = 1;                                 // HOARDER
   if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
   if (seenT) earned[7] = 1;                                     // SILVER_TONGUE — spoke with the DM at least once
   if (regionAt(pl.x + PW / 2, pl.y + 7) === regions[4]) earned[6] = 1; // SUMMIT
+  if (hof === 4) earned[5] = 1;                                 // GREEN_HOOVES — MINT hooves picked (repurposed from region-rebloom)
+  if (bod && man && hrn && hof) earned[11] = 1;                 // ARCHITECT — all 4 body parts customized off default
 
   // fx
   for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
@@ -1359,7 +1176,6 @@ load();
 cam.x = Math.max(0, Math.min(W * T - VW, pl.x - VW / 2));      // camera starts ON the player (was: panned in from world origin)
 cam.y = Math.max(0, Math.min(H * T - VH, pl.y - VH / 2 + 30));
 // opening line fires when the player picks a name / picks Continue (see title-menu accept)
-const opener = () => {};                          // narrator removed — opener kept as no-op stub to preserve call sites
 const loop = () => {
   const now = performance.now(), dt = Math.min(.033, (now - last) / 1000); last = now;
   step(dt); draw();
