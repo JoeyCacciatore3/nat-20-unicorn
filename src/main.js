@@ -562,7 +562,9 @@ const spawnDrop = (x, y, n) => {
 
 // damage a foe: dmg = die + MOD, crit doubles. Full D&D damage line, visible.
 // Feel pass: knockback on non-boss/non-stomp hits, hitstop + shake on crit, boss
-// phase-2 trigger at half HP, elite bonus drops on kill, minion cleanup on boss death.
+// phase-2 trigger at half HP, minion cleanup on boss death. Drops: one shared loot
+// roll for all kills (elites/bosses just roll more times); golden shard is the only
+// guaranteed boss drop.
 const strike = (f, r, gen, viaStomp) => {
   const crit = isCrit(r), dmg = (r + MOD()) * (crit ? 2 : 1);
   f.hp -= dmg; f.fl = .15;
@@ -585,7 +587,7 @@ const strike = (f, r, gen, viaStomp) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16);
-    spawnDrop(f.x, f.y, f.bit ? 6 : f.el ? 4 : 1 + (Math.random() < .5 ? 1 : 0)); // count by tier; LUCK now lives in the roll
+    spawnDrop(f.x, f.y, f.el || f.bit ? 3 : 1);                 // elites & bosses share ONE "higher chance" tier (more rolls) — never a guaranteed gear drop. Golden shard (below) is the ONLY boss guarantee.
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
     if (f.bit) {                                                // BOSS falls
