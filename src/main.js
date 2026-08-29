@@ -49,6 +49,15 @@
 //      DM conversation (was "read both stones"). Save v7 → v8. Wizard given
 //      longer legs (pants + planted boots at ground line cyp+8) — no more
 //      floating look.
+//  14  Title screen polish — atmospheric depth: 22 procedural stardust particles
+//      falling behind title, purple horizon glow, breathing title scale
+//      (sin *.015 x/y, GMTK juice). Protagonist read: procedural unicorn
+//      silhouette (body + head + gold horn + rainbow mane + eye) bobbing
+//      above title. New subtitle "· a D&D metroidvania fable ·" between
+//      title and tagline. Rotating DM_LINES quote below tagline (5s cycle,
+//      breathing alpha, reuses existing data). Selected menu item slides
+//      +6 px right (2nd feedback channel beside gold color + ▶ prefix).
+//      Layout ys shifted down to make room. Zero new dependencies.
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -77,6 +86,13 @@ let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
 // phase 0 = title menu, 1 = name entry, 2 = playing (started=1)
 let phase = 0, ent = '', pName = 'HORSE', mSel = 0;
+// Stardust particles for the title screen — 22 dots falling at varied speeds, wrap
+// at bottom, procedural (no assets). Ambient motion = "living world," the single
+// cheapest first-impression polish (Celeste snow / Hollow Knight rain pattern).
+const stars = Array.from({ length: 22 }, () => ({
+  x: Math.random() * VW, y: Math.random() * VH,
+  s: 1 + (Math.random() * 1.5 | 0), v: 4 + Math.random() * 14, a: .3 + Math.random() * .5,
+}));
 const hasSave = () => !!localStorage.n20_save;
 const nameKey = (e) => {
   if (e.code === 'Backspace') ent = ent.slice(0, -1);
@@ -1128,36 +1144,70 @@ const draw = () => {
 
   // title + name-entry screens (HUD is gated separately on `started`)
   if (phase < 2) {
-    ctx.fillStyle = 'rgba(8,6,12,.85)'; ctx.fillRect(0, 0, VW, VH);
-    // rainbow-shimmer title text
-    const hue = (time * 30) % 360;
+    // -- BASE: deep-purple gradient overlay (was flat black — sells "curtain lifted") --
+    ctx.fillStyle = '#08060c'; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = 'rgba(74,58,124,.15)'; ctx.fillRect(0, VH * .55, VW, VH * .45);   // purple horizon glow
+
+    // -- STARDUST layer (procedural falling motes) — atmospheric depth --
+    for (const p of stars) {
+      const y = (p.y + time * p.v) % (VH + 4);
+      ctx.fillStyle = 'rgba(220,225,255,' + p.a + ')';
+      ctx.fillRect(p.x | 0, y | 0, p.s, p.s);
+    }
+
+    // -- UNICORN silhouette (protagonist read; procedural fillRect only) --
+    // Small, centered above title text. Rainbow tail behind body, gold horn, dark eye.
+    const ux = VW / 2, uy = 34, bob = Math.sin(time * 1.6) * 1;
+    ctx.fillStyle = '#f5f1f4';                              // body
+    ctx.fillRect(ux - 6, uy + bob, 12, 7);
+    ctx.fillRect(ux + 2, uy - 4 + bob, 5, 5);               // head
+    ctx.fillStyle = '#ffd75e';                              // horn
+    ctx.beginPath();
+    ctx.moveTo(ux + 5, uy - 4 + bob); ctx.lineTo(ux + 9, uy - 10 + bob); ctx.lineTo(ux + 6, uy - 3 + bob);
+    ctx.fill();
+    ['#ff6b6b', '#ffd75e', '#6bc5ff'].forEach((c, i) => {   // rainbow mane/tail sweep
+      ctx.fillStyle = c; ctx.fillRect(ux - 8 - i * 2, uy + i + bob, 2, 4);
+    });
+    ctx.fillStyle = '#333'; ctx.fillRect(ux + 4, uy - 2 + bob, 1, 1);   // eye
+
+    // -- TITLE: rainbow-shimmer + subtle breathing scale (GMTK juice) --
+    const hue = (time * 30) % 360, br = 1 + Math.sin(time * 2) * .015;
+    ctx.save(); ctx.translate(VW / 2, 68); ctx.scale(br, br);
     ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 26px monospace';
-    ctx.fillText('NAT 20 UNICORN', VW / 2, 62);
-    ctx.fillStyle = '#ffd75e'; ctx.font = '9px monospace';
-    ctx.fillText('the diorama has gone gray — paint it back', VW / 2, 80);
+    ctx.fillText('NAT 20 UNICORN', 0, 0);
+    ctx.restore();
+    ctx.fillStyle = '#c9a6f7'; ctx.font = 'italic 8px monospace';                     // NEW subtitle — genre + tone
+    ctx.fillText('· a D&D metroidvania fable ·', VW / 2, 82);
+    ctx.fillStyle = '#ffd75e'; ctx.font = '9px monospace';                            // permanent tagline (existing)
+    ctx.fillText('the diorama has gone gray — paint it back', VW / 2, 96);
+    // rotating flavor line from DM_LINES pool — sets tone before the player commits
+    const q = DM_LINES[(time / 5 | 0) % DM_LINES.length];
+    const qa = .35 + Math.sin(time * .6) * .25;                                       // slow breathing alpha
+    ctx.fillStyle = 'rgba(232,217,176,' + qa + ')'; ctx.font = 'italic 7px monospace';
+    ctx.fillText('"' + q + '"', VW / 2, 106);
+
     if (phase === 0) {
-      // menu — New Game / Continue
+      // menu — New Game / Continue. Selected item slides +6 px right for a 2nd feedback channel.
       const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
       opts.forEach((o, i) => {
-        const y = 120 + i * 22, on = mSel === i;
+        const y = 138 + i * 22, on = mSel === i;
         ctx.fillStyle = on ? '#ffd75e' : '#aaa'; ctx.font = 'bold 12px monospace';
-        ctx.fillText((on ? '▶ ' : '  ') + (i + 1) + '. ' + o, VW / 2, y);
+        ctx.fillText((on ? '▶ ' : '  ') + (i + 1) + '. ' + o, VW / 2 + (on ? 6 : 0), y);
       });
-      if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 175); }
+      if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 190); }
       ctx.fillStyle = '#666'; ctx.font = '8px monospace';
-      ctx.fillText('↑↓ select · ENTER/SPACE accept · or press 1/2 · tap to advance', VW / 2, 210);
-      ctx.fillText('A/D ←→ move · SPACE/Z jump · J/X swipe · L/C shot · S heal · SHIFT dash · E interact', VW / 2, 226);
-    } else {                                                  // phase === 1: name entry
+      ctx.fillText('↑↓ select · ENTER/SPACE accept · or press 1/2 · tap to advance', VW / 2, 216);
+      ctx.fillText('A/D ←→ move · SPACE/Z jump · J/X swipe · L/C shot · S heal · SHIFT dash · E interact', VW / 2, 230);
+    } else {                                                                          // phase === 1: name entry
       ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
-      ctx.fillText('WHAT SHALL THE DM CALL YOU?', VW / 2, 118);
-      // input field
-      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(VW / 2 - 80, 130, 160, 26);
-      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 80, 130, 160, 26);
+      ctx.fillText('WHAT SHALL THE DM CALL YOU?', VW / 2, 138);
+      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(VW / 2 - 80, 150, 160, 26);
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 80, 150, 160, 26);
       ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
       const cur = Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : ' ';
-      ctx.fillText(ent + cur, VW / 2, 149);
+      ctx.fillText(ent + cur, VW / 2, 169);
       ctx.fillStyle = '#888'; ctx.font = '8px monospace';
-      ctx.fillText('A–Z type · BACKSPACE delete · ENTER accept · tap for default (HORSE)', VW / 2, 178);
+      ctx.fillText('A–Z type · BACKSPACE delete · ENTER accept · tap for default (HORSE)', VW / 2, 198);
     }
   }
   ctx.restore();

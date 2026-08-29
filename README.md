@@ -11,7 +11,15 @@ movement skills unlock as you gain levels, re-opening the world Metroid-style.
 
 **Categories:** Desktop · Mobile · Wavedash
 
-## Character creation
+## Title & character creation
+A proper title screen: procedural unicorn silhouette (rainbow mane + gold horn)
+bobs above a breathing-scale "NAT 20 UNICORN", subtitle "· a D&D metroidvania
+fable ·", the permanent tagline, and a rotating flavor line from the DM pool
+(5s cycle). 22 stardust particles fall behind the title layer; a purple horizon
+glow sits at the bottom. The selected menu item slides +6 px right in addition
+to the ▶ prefix + gold color (two feedback channels). All procedural — zero
+external assets, per js13k rule.
+
 On boot: **NEW GAME** or **CONTINUE** (if a save exists). Name up to 8 letters
 (default `HORSE` if you tap through on mobile). At **LV3** the die grows and you
 pick a class:
