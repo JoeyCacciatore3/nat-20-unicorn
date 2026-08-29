@@ -2,8 +2,8 @@
 //
 // Design pillars (see OneStone project "uni-corn" for full history + rationale):
 //   - D&D-style stat allocation (STR/HP/MAG/DEF/LUCK), no classes
-//   - 4-slot palette customization (BODY/MANE/HORN/HOOVES)
-//   - Metroidvania skill gating by LEVEL only (LV3/5/7/9)
+//   - 4-slot color customization + equipment gear (BODY/MANE/HORN/HOOVES)
+//   - 3-branch skill tree (FURY/VIGOR/FINESSE), all player-chosen — no auto-learn
 //   - Rainbow shards = collection goal (5 bosses)
 //   - Unified character sheet: pause + level-up + creation share layout
 //   - No overlay narrator — feedback via fly() and NPC dialog only
@@ -280,7 +280,6 @@ const inv = [];                                    // inventory bag (max invMax)
 let invMax = 5;                                    // upgradeable to 10
 const SLOT_STAT = [1, 2, 0, 3];                    // slot→stat index: HP, MAG, STR, DEF
 const SLOT_LBL = ['BODY', 'MANE', 'HORN', 'HOOVES'];
-const STAT_LBL = ['STR', 'HP', 'MAG', 'DEF'];
 // Starting palette — the 5 neutral colors available at creation (indices into PAL)
 const STARTER = [0, 1, 13, 15, 14];               // SNOW, CREAM, SILVER, ONYX, WHITE
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
@@ -307,10 +306,6 @@ const PC = PAL.length;
 // Derive mane sweep: darken base color in 3 steps for the flowing gradient
 const dim = (h, f) => '#' + h.slice(1).match(/../g).map(c => (Math.max(0, parseInt(c, 16) * f | 0)).toString(16).padStart(2, '0')).join('');
 const mane3 = i => [PAL[i], dim(PAL[i], .85), dim(PAL[i], .7)];
-// Shim layer so drawU / creation / save still use PALB[n][0], PALM[n][0], etc.
-const PALB = PAL.map((c, i) => [c, PN[i]]);
-const PALM = PAL.map((c, i) => [mane3(i), PN[i]]);
-const PALH = PALB, PALF = PALB;
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 2; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
 // Shared portrait panel — renders the identity card (title bar, bordered box with
@@ -320,7 +315,7 @@ const portraitPanel = (title) => {
   ctx.fillStyle = 'rgba(8,6,12,.96)'; ctx.fillRect(0, 0, VW, VH);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2(title, VW / 2, 20);
-  // Portrait box (left) — gold border, hearts top, unicorn middle, name bottom
+  // Portrait box (left) — gold border, HP bar top, unicorn below
   ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
   ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(20, 32, 130, 108); ctx.strokeRect(20, 32, 130, 108);
   // HP bar — same style as in-game HUD (continuous fill, numbers inside)
@@ -328,7 +323,7 @@ const portraitPanel = (title) => {
   ctx.fillStyle = '#ff5d6c'; ctx.fillRect(50, 40, 70 * hp / mHP(), 10);
   ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(49.5, 39.5, 71, 11);
   ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), 85, 48);
-  // Unicorn — 2.6× scale, gentle bob, centered below hearts
+  // Unicorn — 2.6× scale, gentle bob, centered below the HP bar
   ctx.save(); ctx.translate(85, 92); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(Math.sin(time * 1.4) * .8);
   ctx.restore();
@@ -337,7 +332,7 @@ const portraitPanel = (title) => {
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
 // scale sets pixel scale. All colors come from current bod/man/hrn palette picks.
 const drawU = (bob) => {
-  const [bc] = PALB[bod], [mc] = PALM[man], [hc] = PALH[hrn], [fc] = PALF[hof];
+  const bc = PAL[bod], mc = mane3(man), hc = PAL[hrn], fc = PAL[hof];
   ctx.fillStyle = fc;                                                                               // hooves (whole leg)
   ctx.fillRect(1, 12 + bob * .3, 2, 4 - bob * .3); ctx.fillRect(7, 12 - bob * .3, 2, 4 + bob * .3);
   ctx.fillStyle = bc; ctx.fillRect(0, 5, 10, 7); ctx.fillRect(7, 0, 5, 6);                          // body + head
@@ -853,7 +848,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
   if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
   // earned[7] = SILVER_TONGUE — set directly in dialogDo() on first talk
   if (pl.x < 64 * T && pl.y < 30 * T) earned[6] = 1;                  // SUMMIT — reached the peak area
-  if (hof === 4) earned[5] = 1;                                 // GREEN_HOOVES — MINT hooves picked (repurposed from region-rebloom)
+  if (hof === 4) earned[5] = 1;                                 // GREEN_HOOVES (Wavedash slot 5) — fires on RUBY hooves (idx 4); name is legacy
   if (bod && man && hrn && hof) earned[11] = 1;                 // ARCHITECT — all 4 body parts customized off default
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
@@ -870,7 +865,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
       else if (d.t === 5) {                                     // GEAR PICKUP — into inventory or auto-equip
         if (inv.length < invMax) {
           const item = { s: d.s, c: d.c, b: d.b };
-          if (!eq[d.s] || eq[d.s].b < d.b) { equip(item); fly(d.x, d.y, '+' + d.b + ' ' + STAT_LBL[SLOT_STAT[d.s]], PAL[d.c], 1); }
+          if (!eq[d.s] || eq[d.s].b < d.b) { equip(item); fly(d.x, d.y, '+' + d.b + ' ' + STATS[SLOT_STAT[d.s]][0], PAL[d.c], 1); }
           else { inv.push(item); fly(d.x, d.y, SLOT_LBL[d.s] + ' GEAR', PAL[d.c]); }
           sfx(660, 880, .12, 'triangle', .1);
         } else fly(d.x, d.y, 'BAG FULL', '#f88');
@@ -995,7 +990,7 @@ const draw = () => {
 
 
 
-  // WORLD DECORATIONS — trees, grass, rocks. Region-hued, data-driven from DECO seeds.
+  // WORLD DECORATIONS — trees, grass, rocks, flowers, mushrooms. Data-driven from DECO seeds.
   // type 0=tree, 1=grass tuft, 2=rock. Nearly free: positions are data, draw is shared.
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
@@ -1151,7 +1146,7 @@ const draw = () => {
   ctx.globalAlpha = 1;
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
-  // ---------- HUD (minimalist: hearts / mana / xp cluster top-left, pause icon top-right) ----------
+  // ---------- HUD (minimalist: HP / mana / xp bars top-left, pause icon top-right) ----------
   if (started && !paused) {
     ctx.textAlign = 'left';
     // TOP-LEFT CLUSTER — HP · mana · xp bars, one visual language: continuous fill,
@@ -1340,10 +1335,10 @@ const draw = () => {
     const nmVal = ent + (cRow === 0 && Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
     const rows = [
       ['NAME',   nmVal || '(type A–Z)', '#fff'],
-      ['BODY',   PALB[bod][1], PALB[bod][0]],
-      ['MANE',   PALM[man][1], PALM[man][0][0]],
-      ['HORN',   PALH[hrn][1], PALH[hrn][0]],
-      ['HOOVES', PALF[hof][1], PALF[hof][0]],
+      ['BODY',   PN[bod], PAL[bod]],
+      ['MANE',   PN[man], PAL[man]],
+      ['HORN',   PN[hrn], PAL[hrn]],
+      ['HOOVES', PN[hof], PAL[hof]],
     ];
     rows.forEach(([lbl, val, col], i) => {
       const y = 54 + i * 18, on = cRow === i;                        // tighter row height fits 5 rows

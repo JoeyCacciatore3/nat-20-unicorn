@@ -38,7 +38,7 @@ const MAP = [
 [175, 57, 4, 1, 2], [181, 55, 4, 1, 2], [188, 57, 5, 1, 2],
 [205, 56, 4, 1, 2], [212, 54, 4, 1, 2], [220, 57, 6, 1, 2],
 [240, 56, 4, 1, 2], [247, 54, 4, 1, 2],
-[210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route (motes)
+[210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route
 [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4], // stepped tower
 [274, 58, 3, 1, 2],                    // rung behind the tower (audit: stuck corner)
 
@@ -69,7 +69,7 @@ const MAP = [
 [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
 [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
 [52, 26, 8, 2],                        // summit ledge + campfire
-// descent-only mote detour (fall east off the climb; always exits to the surface)
+// descent-only detour (fall east off the climb; always exits to the surface)
 [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
 
 // ---- SUMMIT (x10-60): bridge platform after the crystal, then tight chain ----
@@ -85,14 +85,10 @@ const MAP = [
 [80, 69, 7, 1, 3],                     // spike lake, 7 wide — DASH gate (audit: 10 was uncrossable even with dash)
 
 // ---- PADDOCK extras ----
-[124, 54, 4, 1, 2],                    // DJ hub perch (mote)
+[124, 54, 4, 1, 2],                    // DJ hub perch
 
 ];
 for (const m of MAP) box(...m);
-
-// ---- regions ----
-// Static regions — hue only defines zone tint. Rebloom system removed:
-// Zone 1 — single vibrant world (future zones will have different palettes)
 
 // ---- entity seeds ----
 export const seeds = {
@@ -101,9 +97,8 @@ export const seeds = {
   fires: [[132.5, 59.5]],
   // boss arenas: guardian index → bit is 1<<i (5 bosses, bits 1/2/4/8/16)
   bosses: [[258, 57], [226, 67], [56, 23], [14, 10], [22, 67]],
-  // Chests — hand-placed exploration rewards. All drops come from enemies +
-  // these 6 chests; no scattered map currency (design pivot v9). Contents
-  // are fixed: 15 sparks + full heal each. Bit index in oc bitfield.
+  // Chests — hand-placed exploration rewards. Open once (oc bitfield): full
+  // heal + a shower of (4 + LUCK) item drops. Bit index = position in array.
   chests: [
     [219.5, 48.3],  // 0 — Meadow high route (DJ-only)
     [186, 68.3],    // 1 — Root Caves W tall room
