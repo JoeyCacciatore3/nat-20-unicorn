@@ -266,7 +266,7 @@ const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
   o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d);
 };
-const S_SHARD = () => { sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24); };
+// S_SHARD inlined at its single call site (boss death)
 const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 * (1 + i * .25), .1, 'square', .12, i * .07); };
 
 // Narrator overlay removed — feedback comes via fly() text over the player/NPC.
@@ -494,6 +494,18 @@ const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.ran
 // Types: 0 heart (+3 HP), 1 mana crystal (+2 ✦), 2 XP gem (+lvl XP), 3 rainbow (full heal, rare).
 // LUCK adds +1 drop per pip — making it one of the best stats in the game.
 const DCOL = ['#ff5d6c', '#c9a6f7', '#9fe89a', '#ffd75e'];
+// Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
+const spr = (d, x, y, w, c) => { ctx.fillStyle = c; for (let r = 0; r < d.length; r++) for (let b = w; b--;) d[r] >> b & 1 && ctx.fillRect(x + w - 1 - b, y + r, 1, 1); };
+// HEART 6×6
+const I_HP = [0b010010, 0b111111, 0b111111, 0b011110, 0b001100, 0b000000];
+// POTION 6×7 (cork top, rounded bottle body)
+const I_MP = [0b001100, 0b001100, 0b011110, 0b111111, 0b111111, 0b011110, 0b000000];
+// ICE CREAM 6×7 (round scoop + cone bottom)
+const I_XP = [0b011110, 0b111111, 0b111111, 0b011110, 0b001100, 0b001100, 0b000000];
+// Skill tree branch icons 5×5
+const I_SW = [0b00001, 0b00010, 0b10100, 0b01000, 0b10000]; // sword (FURY)
+const I_SH = [0b01110, 0b11111, 0b11111, 0b01110, 0b00100]; // shield (VIGOR)
+const I_BT = [0b01100, 0b01110, 0b11111, 0b11110, 0b01100]; // boot (FINESSE)
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const r = Math.random(), t = r < .03 ? 3 : r < .33 ? 0 : r < .58 ? 1 : 2;
@@ -529,14 +541,17 @@ const strike = (f, r, gen, viaStomp) => {
     spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 7 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
     if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
-    if (f.bit) {                                                // GUARDIAN falls — shard reward integrated
+    if (f.bit) {                                                // GUARDIAN falls — rainbow loot shower
       bossDead |= f.bit; bossLive[f.bi] = 0;
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (!f.hit) earned[4] = 1;                                // UNTOUCHABLE
-      earned[1] = 1;                                            // CRYSTAL CLEAR (was shard pickup)
+      earned[1] = 1;                                            // CRYSTAL CLEAR
       if (bossDead === 31) earned[12] = 1;                      // ALL 5 guardians slain
-      pending++; choosing = 1; aRow = 0;                        // +1 bonus stat point (was shard reward)
-      S_SHARD(); gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
+      // Guaranteed rainbow drop (full HP+MP) + bonus item shower
+      for (let j = 0; j < 3; j++) drops.push({ x: f.x, y: f.y - 8, vx: (Math.random() - .5) * 60, vy: -120 - Math.random() * 40, t: 3, life: 10 });
+      spawnDrop(f.x, f.y, 4 + lk);
+      sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
+      gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
       save();
     }
     earned[2] = 1;                                                  // GLOOMBUSTER — first kill
@@ -1035,12 +1050,14 @@ const draw = () => {
     }
   }
 
-  // Item drops — colored diamonds, bob gently, fade near end of life
+  // Item drops — pixel sprites, bob gently, fade near end of life
   for (const d of drops) {
     ctx.globalAlpha = Math.min(1, d.life);
-    ctx.fillStyle = d.t === 3 ? `hsl(${(time * 120) % 360} 80% 65%)` : DCOL[d.t];
-    const dy = Math.sin(d.life * 5) * 1.5;
-    ctx.fillRect(d.x - 2, d.y - 1 + dy, 4, 2); ctx.fillRect(d.x - 1, d.y - 2 + dy, 2, 4);
+    const dy = Math.sin(d.life * 5) * 1.5, dx = d.x - 3, ddy = d.y - 3 + dy;
+    if (d.t === 0) spr(I_HP, dx, ddy, 6, '#ff5d6c');
+    else if (d.t === 1) { spr(I_MP, dx, ddy, 6, '#c9a6f7'); ctx.fillStyle = '#a72'; ctx.fillRect(dx + 2, ddy, 2, 1); }
+    else if (d.t === 2) { spr(I_XP, dx, ddy, 6, '#9fe89a'); ctx.fillStyle = '#d4a24e'; ctx.fillRect(dx + 2, ddy + 4, 2, 2); }
+    else for (let i = 4; i--;) { ctx.beginPath(); ctx.strokeStyle = ['#f44','#f80','#0f0','#44f'][i]; ctx.lineWidth = 1; ctx.arc(d.x, d.y + 4 + dy, 2 + i, Math.PI, 0); ctx.stroke(); }
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
   ctx.globalAlpha = 1;
@@ -1120,8 +1137,8 @@ const draw = () => {
     });
     // 3-COLUMN SKILL TREE (perks fully merged in — one system)
     ctx.textAlign = 'left'; ctx.font = 'bold 8px monospace';
-    const TX = [164, 268, 370];                     // column x positions
-    for (let b = 0; b < 3; b++) { ctx.fillStyle = BCOL[b]; ctx.fillText(BNAME[b], TX[b], 132); }
+    const TX = [164, 268, 370], BI = [I_SW, I_SH, I_BT]; // column x + branch icons
+    for (let b = 0; b < 3; b++) { spr(BI[b], TX[b], 126, 5, BCOL[b]); ctx.fillStyle = BCOL[b]; ctx.fillText(BNAME[b], TX[b] + 7, 132); }
     if (spts) { ctx.fillStyle = '#ffd75e'; ctx.font = '7px monospace'; ctx.fillText(spts + ' PT' + (spts > 1 ? 'S' : ''), 420, 132); }
     const bri = [0, 0, 0];                          // per-branch row counter
     ctx.font = 'bold 7px monospace';
