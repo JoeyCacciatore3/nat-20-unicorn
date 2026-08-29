@@ -68,6 +68,21 @@
 //      BECOME?". Opener "last painted mini" → "last unicorn". Dice
 //      display + class/perk names retained — they ARE the RPG mechanic,
 //      not decorative D&D lore.
+//  20  Unified character creation screen — pause-style split panel + hearts
+//      inside portrait box. (A) FLOW: two phases (name + customize) merged
+//      into one phase=1 "NEW CHARACTER" screen; phase 2 (customize) removed
+//      entirely — cRow now 0=NAME/1=BODY/2=MANE/3=HORN. Row-aware input:
+//      A-Z types on NAME row, ←→ cycles on color rows. ENTER begins.
+//      Playing state moves phase 1→2 (was 2→3). (B) PORTRAIT PANEL extracted
+//      as `portraitPanel(title, isCreate)` — shared by pause overlay AND
+//      character-create screen. Draws title bar + gold-bordered box with
+//      hearts row TOP (♥ icons, same style as in-game HUD — filled by hp,
+//      grey for empty), unicorn MIDDLE (2.6× scale, gentle bob), name+class
+//      BOTTOM. Create screen: blinking cursor on name only when NAME row
+//      active. Pause: shows pName + "the CLASS". (C) T2() outline helper
+//      hoisted from HUD-block scope to module scope so both overlays can
+//      call it. (D) Pause overlay right-side: removed duplicated name/class
+//      (now in portrait), starts stat column higher (LEVEL at y=48).
 //  19  Unicorn customization + classic RPG pause overlay + currency rename.
 //      (A) COLORS: 3 palettes (PALB body 5 · PALM mane 5 as 3-color sweeps ·
 //      PALH horn 5). New state bod/man/hrn (indices). drawU(bob) helper
@@ -174,8 +189,8 @@ const M_KEYS = ['KeyJ', 'KeyX'], SH_KEYS = ['KeyL', 'KeyC'], HE_KEYS = ['KeyS', 
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
-// phase 0 = title menu, 1 = name entry, 2 = customize (unicorn colors), 3 = playing (started=1)
-let phase = 0, ent = '', pName = 'HORSE', mSel = 0, cRow = 0;   // cRow: 0 body · 1 mane · 2 horn (customize screen row)
+// phase 0 = title menu, 1 = character create (name + colors combined), 2 = playing (started=1)
+let phase = 0, ent = '', pName = 'HORSE', mSel = 0, cRow = 0;   // cRow: 0 name · 1 body · 2 mane · 3 horn
 // Stardust particles for the title screen — 22 dots falling at varied speeds, wrap
 // at bottom, procedural (no assets). Ambient motion = "living world," the single
 // cheapest first-impression polish (Celeste snow / Hollow Knight rain pattern).
@@ -184,33 +199,32 @@ const stars = Array.from({ length: 22 }, () => ({
   s: 1 + (Math.random() * 1.5 | 0), v: 4 + Math.random() * 14, a: .3 + Math.random() * .5,
 }));
 const hasSave = () => !!localStorage.n20_save;
-const nameKey = (e) => {
-  if (e.code === 'Backspace') ent = ent.slice(0, -1);
-  else if (e.code === 'Enter' && ent.length) { pName = ent; phase = 2; cRow = 0; }
-  else if (ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
-};
-// Customize screen: UP/DOWN pick row (body/mane/horn), LEFT/RIGHT cycle color, ENTER accept
-const customKey = (e) => {
-  if (e.code === 'ArrowUp' || e.code === 'KeyW')        cRow = (cRow + 2) % 3;
-  else if (e.code === 'ArrowDown' || e.code === 'KeyS') cRow = (cRow + 1) % 3;
-  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 0) bod = (bod + 4) % 5; else if (cRow === 1) man = (man + 4) % 5; else hrn = (hrn + 4) % 5; }
-  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 0) bod = (bod + 1) % 5; else if (cRow === 1) man = (man + 1) % 5; else hrn = (hrn + 1) % 5; }
-  else if (e.code === 'Enter' || e.code === 'Space') { phase = 3; started = 1; save(); opener(); }
+// Character create: UP/DOWN pick row (name/body/mane/horn), then row-specific input:
+//   NAME row → A-Z type, BACKSPACE delete
+//   color rows → LEFT/RIGHT cycle
+// ENTER begins (only if a name is typed).
+const createKey = (e) => {
+  if (e.code === 'ArrowUp' || e.code === 'KeyW')        cRow = (cRow + 3) % 4;
+  else if (e.code === 'ArrowDown' || e.code === 'KeyS') cRow = (cRow + 1) % 4;
+  else if (cRow === 0 && e.code === 'Backspace')        ent = ent.slice(0, -1);
+  else if (cRow === 0 && ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
+  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (cRow === 1) bod = (bod + 4) % 5; else if (cRow === 2) man = (man + 4) % 5; else if (cRow === 3) hrn = (hrn + 4) % 5; }
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (cRow === 1) bod = (bod + 1) % 5; else if (cRow === 2) man = (man + 1) % 5; else if (cRow === 3) hrn = (hrn + 1) % 5; }
+  else if (e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); }
 };
 const titleKey = (e) => {
   const opts = hasSave() ? 2 : 1;
   if (e.code === 'ArrowUp' || e.code === 'KeyW') mSel = (mSel + opts - 1) % opts;
   else if (e.code === 'ArrowDown' || e.code === 'KeyS') mSel = (mSel + 1) % opts;
-  else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) { phase = 1; ent = ''; }
-  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 3; started = 1; opener(); }
+  else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) { phase = 1; ent = ''; cRow = 0; }
+  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 2; started = 1; opener(); }
 };
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
   if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
   boot();                                                    // resume audio on any key (autoplay policy)
   if (phase === 0) return titleKey(e);
-  if (phase === 1) return nameKey(e);
-  if (phase === 2) return customKey(e);
+  if (phase === 1) return createKey(e);
   // DIALOG owns input — arrow keys navigate, JUMP confirms, MELEE cancels
   if (dialog) {
     if (e.code === 'ArrowUp')        dialog = ((dialog - 2 + 3) % 3) + 1;
@@ -268,10 +282,9 @@ addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
   // TITLE: tap top half = New Game (skips name — touch users can't type), bottom = Continue
-  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 3; started = 1; opener(); } else { phase = 3; started = 1; save(); opener(); } return; }
+  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; opener(); } else { phase = 2; started = 1; save(); opener(); } return; }
   // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
-  if (phase === 1) { pName = ent || 'HORSE'; phase = 2; cRow = 0; return; }
-  if (phase === 2) { phase = 3; started = 1; save(); opener(); return; }  // touch tap during customize = accept
+  if (phase === 1) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); return; }  // touch tap during create = accept
   // PAUSE overlay — top-right corner icon opens it (48px tap zone); tap anywhere to close
   if (paused) { paused = 0; return; }
   if (started && !choosing && !shopping && !dialog && vx > VW - 40 && vy < 40) { paused = 1; return; }
@@ -343,6 +356,33 @@ const PALM = [
   [['#c07af0','#8f5ad0','#e08ae0'],'VOID'],
 ];
 const PALH = [['#ffd75e','GOLD'],['#e0e0e6','SILVER'],['#6bc5ff','CYAN'],['#ff9dc8','ROSE'],['#ffffff','WHITE']];
+// Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
+const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 2; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
+// Shared portrait panel — renders the identity card (title bar, bordered box with
+// hearts row at top, live unicorn silhouette, name+class below) used by both the
+// PAUSE overlay and the CHARACTER-CREATE screen. isCreate flag turns on the blink
+// cursor when the name row is active.
+const portraitPanel = (title, isCreate) => {
+  ctx.fillStyle = 'rgba(8,6,12,.96)'; ctx.fillRect(0, 0, VW, VH);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2(title, VW / 2, 20);
+  // Portrait box (left) — gold border, hearts top, unicorn middle, name bottom
+  ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(20, 32, 130, 108); ctx.strokeRect(20, 32, 130, 108);
+  // Hearts row — same style as in-game HUD (♥ icons, filled/empty by hp state)
+  const m = mHP(), hw = 12;
+  ctx.font = '11px monospace'; ctx.textAlign = 'left';
+  for (let i = 0; i < m; i++) { ctx.fillStyle = i < hp ? '#ff5d6c' : '#3a3a44'; T2('♥', 85 - (m * hw) / 2 + i * hw, 48); }
+  // Unicorn — 2.6× scale, gentle bob, centered below hearts
+  ctx.save(); ctx.translate(85, 92); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
+  drawU(Math.sin(time * 1.4) * .8);
+  ctx.restore();
+  // Name (bold) + class subtitle inside the box
+  ctx.textAlign = 'center';
+  const nm = isCreate ? (ent + (cRow === 0 && Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : ' ')) : pName;
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace'; T2(nm || 'HORSE', 85, 124);
+  if (!isCreate && cls) { ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace'; T2('the ' + CLASS_TITLE[cls], 85, 136); }
+};
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
 // scale sets pixel scale. All colors come from current bod/man/hrn palette picks.
 const drawU = (bob) => {
@@ -1099,8 +1139,6 @@ const draw = () => {
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
   // ---------- HUD (minimalist: hearts / mana / xp cluster top-left, pause icon top-right) ----------
-  // Outline helper — dark stroke behind fill so text stays legible over any background
-  const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 2; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
   if (started && !paused) {
     ctx.textAlign = 'left';
     // TOP-LEFT CLUSTER — hearts row · mana bar · xp bar. Always-on, one place, high-contrast.
@@ -1137,65 +1175,41 @@ const draw = () => {
 
   // PAUSE OVERLAY — full character sheet (identity chrome moved out of gameplay HUD)
   if (paused && started) {
-    // -- Classic RPG split panel: portrait LEFT, identity+stats RIGHT, perks/skills BOTTOM --
-    ctx.fillStyle = 'rgba(8,6,12,.96)'; ctx.fillRect(0, 0, VW, VH);
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('CHARACTER', VW / 2, 20);
-
-    // Portrait panel (left) — bordered box with the unicorn drawn at 4× scale
-    ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
-    ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(20, 32, 130, 108); ctx.strokeRect(20, 32, 130, 108);
-    ctx.save(); ctx.translate(85, 108); ctx.scale(3.4, 3.4); ctx.translate(-6, -8);
-    drawU(Math.sin(time * 1.4) * .8);
-    ctx.restore();
-
-    // Identity panel (right) — name, class, LV, hearts
-    ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
-    ctx.fillText(pName, 164, 46);
-    if (cls) { ctx.fillStyle = '#c9a6f7'; ctx.font = '9px monospace'; ctx.fillText('the ' + CLASS_TITLE[cls], 164, 58); }
-    ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 9px monospace';
-    ctx.fillText('LEVEL ' + lvl, 164, 74);
-    ctx.fillStyle = '#ff5d6c'; ctx.fillText('♥ ' + hp + ' / ' + mHP(), 244, 74);
-    // XP bar (thin, top-right of identity)
+    portraitPanel('CHARACTER', 0);
+    // Right panel: LEVEL + XP bar (top), 5-stat column
+    ctx.textAlign = 'left'; ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 10px monospace';
+    ctx.fillText('LEVEL ' + lvl, 164, 48);
     const nx = need(), atCap = lvl >= CAP;
-    ctx.fillStyle = '#3a3a44'; ctx.fillRect(164, 80, 180, 3);
-    ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(164, 80, atCap ? 180 : 180 * xp / nx, 3);
+    ctx.fillStyle = '#3a3a44'; ctx.fillRect(164, 54, 180, 4);
+    ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(164, 54, atCap ? 180 : 180 * xp / nx, 4);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';
-    ctx.fillText(atCap ? 'APOTHEOSIS · XP→SPK' : xp + ' / ' + nx + ' XP', 164, 90);
-    // Stats column: label left, value right — HP / STR / DEF / MAG / LUCK in classic order
+    ctx.fillText(atCap ? 'APOTHEOSIS · XP→SPK' : xp + ' / ' + nx + ' XP', 164, 66);
     const stat = [['HP', he, '#ff5d6c'], ['STR', ho, '#ffd75e'], ['DEF', df, '#8cf'], ['MAG', sp, '#e08ae0'], ['LUCK', lk, '#9fe89a']];
     ctx.font = 'bold 9px monospace';
     stat.forEach(([lbl, v, c], i) => {
-      const y = 104 + i * 10;
+      const y = 84 + i * 12;
       ctx.fillStyle = c; ctx.fillText(lbl, 164, y);
       ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText(String(v), 340, y); ctx.textAlign = 'left';
     });
-
-    // Perks — owned only, one icon square per perk (glyph + short name below)
-    ctx.textAlign = 'center'; ctx.fillStyle = '#c9a6f7'; ctx.font = 'bold 8px monospace';
-    ctx.textAlign = 'left'; ctx.fillText('PERKS', 20, 156);
-    const own = PERKS.filter(p => pk & p.b);
-    own.forEach((p, i) => {
+    // Perks + skills bottom
+    ctx.fillStyle = '#c9a6f7'; ctx.font = 'bold 8px monospace'; ctx.fillText('PERKS', 20, 156);
+    PERKS.filter(p => pk & p.b).forEach((p, i) => {
       const x = 20 + (i % 6) * 34, y = 162 + Math.floor(i / 6) * 26;
       ctx.strokeStyle = '#c9a6f7'; ctx.strokeRect(x, y, 20, 20);
       ctx.fillStyle = '#c9a6f7'; ctx.textAlign = 'center'; ctx.font = 'bold 11px monospace';
-      ctx.fillText(p.n[0], x + 10, y + 14);                                        // first letter as glyph
+      ctx.fillText(p.n[0], x + 10, y + 14);
       ctx.font = '6px monospace'; ctx.fillText(p.n.slice(0, 6), x + 10, y + 26);
     });
-    // Skills — bottom-right cluster, colored squares
-    ctx.textAlign = 'left'; ctx.fillStyle = '#8cf'; ctx.font = 'bold 8px monospace';
-    ctx.fillText('SKILLS', 260, 156);
-    const sks = [[1, '▲', 'JUMP', '#6bc5ff'], [2, '+', 'HEAL', '#9fe8a0'], [4, '✦', 'SHOT', '#c9a6f7'], [8, '»', 'DASH', '#ffd75e']];
-    sks.forEach(([bit, g, nm, col], i) => {
+    ctx.textAlign = 'left'; ctx.fillStyle = '#8cf'; ctx.font = 'bold 8px monospace'; ctx.fillText('SKILLS', 260, 156);
+    [[1, '▲', 'JUMP', '#6bc5ff'], [2, '+', 'HEAL', '#9fe8a0'], [4, '✦', 'SHOT', '#c9a6f7'], [8, '»', 'DASH', '#ffd75e']].forEach(([bit, g, nm, col], i) => {
       const x = 260 + i * 34, y = 162, on = abil & bit;
       ctx.strokeStyle = on ? col : '#333'; ctx.strokeRect(x, y, 20, 20);
       ctx.fillStyle = on ? col : '#333'; ctx.font = 'bold 11px monospace';
       ctx.textAlign = 'center'; ctx.fillText(g, x + 10, y + 14);
       ctx.font = '6px monospace'; ctx.fillText(nm, x + 10, y + 26);
     });
-
-    // Footer: rainbow shard progress + spark currency
-    ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
+    // Footer
+    ctx.font = 'bold 9px monospace';
     ctx.fillStyle = '#ffd75e'; T2('RAINBOW · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', 130, 254);
     ctx.fillStyle = '#ffe28a'; T2('SPARKS · ' + spk, 350, 254);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace'; T2('P / ESC / tap · close', VW / 2, VH - 4);
@@ -1263,88 +1277,68 @@ const draw = () => {
     ctx.fillStyle = '#888'; ctx.fillText('1–5 buy · E or ESC to close', VW / 2, 240);
   }
 
-  // title + name-entry screens (HUD is gated separately on `started`)
-  if (phase < 3) {
-    // -- Pure BLACK background (per brand: night sky over the unicorn) --
+  // TITLE screen (phase 0) — branded start: black sky, stars, rainbow arc, unicorn
+  if (phase === 0) {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, VH);
-
-    // -- Little STARS layer (procedural falling motes, unchanged behavior) --
     for (const p of stars) {
       const y = (p.y + time * p.v) % (VH + 4);
       ctx.fillStyle = 'rgba(220,225,255,' + p.a + ')';
       ctx.fillRect(p.x | 0, y | 0, p.s, p.s);
     }
-
-    // -- RAINBOW ARC (7 concentric ROYGBIV bands curving over the unicorn) --
+    // Rainbow arc
     ctx.lineWidth = 3;
     ['#ff5d6c', '#ff9d3c', '#ffd75e', '#9fe8a0', '#8cf', '#7a8cff', '#c9a6f7'].forEach((c, i) => {
-      ctx.strokeStyle = c;
-      ctx.beginPath(); ctx.arc(VW / 2, 130, 78 - i * 3, Math.PI, 0); ctx.stroke();
+      ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(VW / 2, 130, 78 - i * 3, Math.PI, 0); ctx.stroke();
     });
-
-    // -- Centered UNICORN silhouette (2.4x scale, gentle bob) --
+    // Centered white unicorn silhouette (default palette look — pre-customization)
     const bob = Math.sin(time * 1.6) * 1;
     ctx.save(); ctx.translate(VW / 2, 108); ctx.scale(2.4, 2.4);
-    ctx.fillStyle = '#f5f1f4';                              // body
-    ctx.fillRect(-6, bob, 12, 7);
-    ctx.fillRect(2, bob - 4, 5, 5);                          // head
-    ctx.fillStyle = '#ffd75e';                              // horn
-    ctx.beginPath();
+    ctx.fillStyle = '#f5f1f4';
+    ctx.fillRect(-6, bob, 12, 7); ctx.fillRect(2, bob - 4, 5, 5);
+    ctx.fillStyle = '#ffd75e'; ctx.beginPath();
     ctx.moveTo(5, bob - 4); ctx.lineTo(9, bob - 10); ctx.lineTo(6, bob - 3); ctx.fill();
-    ['#ff6b6b', '#ffd75e', '#6bc5ff'].forEach((c, i) => {   // rainbow mane/tail sweep
-      ctx.fillStyle = c; ctx.fillRect(-8 - i * 2, bob + i, 2, 4);
-    });
-    ctx.fillStyle = '#333'; ctx.fillRect(4, bob - 2, 1, 1);  // eye
+    ['#ff6b6b', '#ffd75e', '#6bc5ff'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(-8 - i * 2, bob + i, 2, 4); });
+    ctx.fillStyle = '#333'; ctx.fillRect(4, bob - 2, 1, 1);
     ctx.restore();
-
-    // -- TITLE "UNI-CORN" — rainbow-shimmer hue + subtle breathing scale --
+    // Title + subtitle
     const hue = (time * 30) % 360, br = 1 + Math.sin(time * 2) * .02;
+    ctx.textAlign = 'center';
     ctx.save(); ctx.translate(VW / 2, 168); ctx.scale(br, br);
-    ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 30px monospace';
-    ctx.fillText('UNI-CORN', 0, 0);
+    ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 30px monospace'; ctx.fillText('UNI-CORN', 0, 0);
     ctx.restore();
-    // -- SUBTITLE "the last savior" --
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'italic 10px monospace';
-    ctx.fillText('the last savior', VW / 2, 188);
-
-    if (phase === 0) {
-      // menu — New Game / Continue. Selected item slides +6 px right (2nd feedback channel).
-      const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
-      opts.forEach((o, i) => {
-        const y = 212 + i * 20, on = mSel === i;
-        ctx.fillStyle = on ? '#ffd75e' : '#aaa'; ctx.font = 'bold 12px monospace';
-        ctx.fillText((on ? '▶ ' : '  ') + (i + 1) + '. ' + o, VW / 2 + (on ? 6 : 0), y);
-      });
-      if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 252); }
-      ctx.fillStyle = '#666'; ctx.font = '7px monospace';                             // single condensed hint line
-      ctx.fillText('↑↓ select · ENTER accept · A/D move · SPACE jump · J swipe · L shot · S heal', VW / 2, 266);
-    } else if (phase === 1) {                                                         // NAME ENTRY
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
-      ctx.fillText('WHAT SHALL THE SAGE CALL YOU?', VW / 2, 208);
-      ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(VW / 2 - 80, 218, 160, 24);
-      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 80, 218, 160, 24);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
-      const cur = Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : ' ';
-      ctx.fillText(ent + cur, VW / 2, 235);
-      ctx.fillStyle = '#888'; ctx.font = '7px monospace';
-      ctx.fillText('A–Z type · BACKSPACE delete · ENTER accept · tap for default (HORSE)', VW / 2, 260);
-    } else {                                                                          // phase === 2: CUSTOMIZE
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 10px monospace';
-      ctx.fillText('CUSTOMIZE ' + pName, VW / 2, 202);
-      // Live preview (large, gentle bob, current picks applied)
-      ctx.save(); ctx.translate(VW / 2, 226); ctx.scale(3, 3); ctx.translate(-6, -8);
-      drawU(Math.sin(time * 2) * 1);
-      ctx.restore();
-      // 3-row cycler
-      const rows = [['BODY', PALB[bod][1]], ['MANE', PALM[man][1]], ['HORN', PALH[hrn][1]]];
-      rows.forEach(([label, val], i) => {
-        const y = 246 + i * 8, on = cRow === i;
-        ctx.fillStyle = on ? '#ffd75e' : '#888'; ctx.font = 'bold 7px monospace';
-        ctx.fillText((on ? '‹ ' : '  ') + label + '  ' + val + (on ? ' ›' : ''), VW / 2, y);
-      });
-      ctx.fillStyle = '#666'; ctx.font = '7px monospace';
-      ctx.fillText('↑↓ row · ←→ color · ENTER begin', VW / 2, VH - 4);
-    }
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'italic 10px monospace'; ctx.fillText('the last savior', VW / 2, 188);
+    // Menu
+    const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
+    opts.forEach((o, i) => {
+      const y = 212 + i * 20, on = mSel === i;
+      ctx.fillStyle = on ? '#ffd75e' : '#aaa'; ctx.font = 'bold 12px monospace';
+      ctx.fillText((on ? '▶ ' : '  ') + (i + 1) + '. ' + o, VW / 2 + (on ? 6 : 0), y);
+    });
+    if (hasSave()) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 252); }
+    ctx.fillStyle = '#666'; ctx.font = '7px monospace';
+    ctx.fillText('↑↓ select · ENTER accept · A/D move · SPACE jump · J swipe · L shot · S heal', VW / 2, 266);
+  }
+  // CHARACTER CREATE screen (phase 1) — same split-panel look as pause
+  if (phase === 1) {
+    portraitPanel('NEW CHARACTER', 1);
+    // Right panel — name label + 3 color cyclers. Active row highlighted gold.
+    ctx.textAlign = 'left'; ctx.font = 'bold 10px monospace';
+    const nmVal = ent + (cRow === 0 && Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
+    const rows = [
+      ['NAME', nmVal || '(type A–Z)', '#fff'],
+      ['BODY', PALB[bod][1], PALB[bod][0]],
+      ['MANE', PALM[man][1], PALM[man][0][0]],
+      ['HORN', PALH[hrn][1], PALH[hrn][0]],
+    ];
+    rows.forEach(([lbl, val, col], i) => {
+      const y = 60 + i * 22, on = cRow === i;
+      ctx.fillStyle = on ? '#ffd75e' : '#888'; ctx.fillText(lbl, 164, y);
+      ctx.fillStyle = on ? '#fff' : '#aaa'; ctx.fillText((on && i > 0 ? '‹ ' : '  ') + val + (on && i > 0 ? ' ›' : ''), 220, y);
+      // color swatch on right for color rows
+      if (i > 0) { ctx.fillStyle = col; ctx.fillRect(340, y - 8, 10, 10); }
+    });
+    ctx.fillStyle = '#666'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('↑↓ row · A–Z name · ←→ color · ENTER begin', VW / 2, VH - 8);
   }
   ctx.restore();
 };

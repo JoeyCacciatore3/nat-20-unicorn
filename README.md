@@ -180,8 +180,13 @@ bitfield, v9), `f` (seen-flags bitfield), `k` (class), `m` (player name).
 Version bumps discard prior saves rather than migrating.
 
 ## Character creation
-Three screens: **name entry** (A–Z, max 8 chars) → **customize** (unicorn
-colors) → gameplay. Customize offers 3 palettes of 5 options each:
+A single **NEW CHARACTER** screen (same split-panel layout as the pause
+overlay) combines name entry and unicorn customization. Left: gold-bordered
+portrait box with hearts row + live unicorn preview + name. Right: four
+selectable rows (NAME / BODY / MANE / HORN). UP/DOWN picks a row, A–Z types
+on the NAME row, LEFT/RIGHT cycles on color rows, ENTER begins.
+
+Palettes (5 options each):
 - **BODY** — SNOW · CREAM · SILVER · ROSE · MINT
 - **MANE** — RAINBOW · EMBER · OCEAN · FOREST · VOID (3-color sweeps)
 - **HORN** — GOLD · SILVER · CYAN · ROSE · WHITE
