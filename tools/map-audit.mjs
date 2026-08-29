@@ -14,7 +14,7 @@
 import { W, H, grid, seeds } from '../src/world.js';
 
 const TIERS = [
-  { name: 'base       ', up: 2, h: 4, gloom: 0 },
+  { name: 'base       ', up: 2, h: 5, gloom: 0 },   // base now includes HALF-dash (attack verb from start, 30px≈2 tiles) — drift 4→5
   { name: '+doublejump', up: 4, h: 6, gloom: 0 },
   { name: '+dash      ', up: 4, h: 9, gloom: 0 },
   { name: '+shot      ', up: 4, h: 9, gloom: 1 },
@@ -25,7 +25,7 @@ const idx = (c, r) => r * W + c;
 // Boss arenas (from seeds.bosses) — each at its world-tile coordinate
 const BOSS_POS = seeds.bosses;
 const NAMES = ['MEADOW', 'CAVES', 'TREETOP', 'SUMMIT', 'HEART'];
-const EXPECT = ['base', '+doublejump', '+doublejump', '+shot', '+dash'];
+const EXPECT = ['base', 'base', '+doublejump', '+shot', '+dash'];   // CAVES → base since half-dash-from-start (2026-08-29): second boss, soft gate is intended
 
 let fail = 0;
 const bossTier = BOSS_POS.map(() => null);

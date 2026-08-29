@@ -68,7 +68,10 @@ writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 // init() is REQUIRED to reveal the game behind Wavedash's loading screen; achievement
 // unlocks are mirrored by polling the game's own save (zero bytes added to the compo zip).
 const WD_IDS = 'HOMEBODY,FIRST_LIGHT,GLOOMBUSTER,NATURAL_20,UNTOUCHABLE,GREEN_HOOVES,SUMMIT,SILVER_TONGUE,WELL_RESTED,HOARDER,BELIEVER,ARCHITECT,PRISMATIC';
-const WD_GLUE = `<script>(()=>{const W=window.Wavedash;if(!W)return;W.updateLoadProgressZeroToOne(1);W.init({});
+// init() is the whole load contract — docs.wavedash.com/sdk/setup: "init() calls
+// loadComplete() internally… required for every game". Progress reporting is
+// optional for JS games and redundant when load is instant (verified 2026-08-29).
+const WD_GLUE = `<script>(()=>{const W=window.Wavedash;if(!W)return;W.init({});
 const A='${WD_IDS}'.split(',');const sent={};
 setInterval(()=>{try{const d=JSON.parse(localStorage.n20_save||'0');
 d&&d.e&&d.e.forEach((v,i)=>{if(v&&!sent[i]){sent[i]=1;W.setAchievement(A[i],true)}})}catch(e){}},3000)})()</scr` + `ipt>`;

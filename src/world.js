@@ -96,7 +96,9 @@ export const seeds = {
   // The Return Law auditor proves every reachable cell can get back to it.
   fires: [[132.5, 59.5]],
   // boss arenas: guardian index → bit is 1<<i (5 bosses, bits 1/2/4/8/16)
-  bosses: [[258, 57], [226, 67], [56, 23], [14, 10], [22, 67]],
+  // GLOOM MARE (i=4) staged CENTER of the wide-open Heart span (x30-80 kept
+  // empty — the emptiness IS the arena), west of the spike lake (x80-86).
+  bosses: [[258, 57], [226, 67], [56, 23], [14, 10], [55, 67]],
   // Chests — hand-placed exploration rewards. Open once (oc bitfield): full
   // heal + a shower of (4 + LUCK) item drops. Bit index = position in array.
   chests: [
@@ -108,31 +110,37 @@ export const seeds = {
     [12, 11.3],     // 5 — Summit peak (post-DASH)
   ],
   foes: [
-    [174, 58, 1], [186, 58, 1], [206, 54, 1], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3],
-    [180, 66, 1], [200, 68, 2], [225, 66, 2], [248, 68, 3],
-    [92, 52, 1], [78, 49, 2],
+    // Meadow — k4 sprinter on the platform route, k5 hopper by the tower
+    [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
+    // Root Caves — k6 ranged jelly ambushes the E room, k5 hopper in the corridor
+    [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
+    // West Cliffs — hopper on the terraces (jumps close the height gaps)
+    [92, 52, 1], [78, 49, 2], [86, 53, 5],
     [75, 35, 2],
-    [34, 19, 2],
-    [60, 68, 3], [40, 68, 3], [22, 68, 2],
+    // Summit approach — ranged jelly guards the climb
+    [34, 19, 6],
+    // Gloom Heart — GAUNTLET at the east entry only; arena x30-80 stays EMPTY
+    // ("almost nothing there" — the open dread before the GLOOM MARE at x55)
+    [125, 68, 3], [115, 68, 4], [98, 68, 6],
   ],
 };
 // DECORATIONS — [x, y, type]. 0=tree, 1=grass, 2=rock, 3=flower, 4=mushroom.
 // y = air tile ABOVE ground (tile(x,y)=0, tile(x,y+1)=1). No decos near spikes.
 export const DECO = [
-  // Meadow (y=59) — vibrant, fun, lots of flowers and life
+  // Flowers/mushrooms REMOVED 2026-08-29: they read as collectible items, and
+  // items only come from foes/chests. Scenery = trees, grass tufts, rocks only.
+  // Meadow (y=59)
   [142, 59, 0], [155, 59, 0], [212, 59, 0], [238, 59, 0],
-  [145, 59, 3], [150, 59, 1], [160, 59, 4], [175, 59, 3], [183, 59, 1],
-  [192, 59, 3], [202, 59, 4], [218, 59, 3], [225, 59, 1], [232, 59, 3],
-  [243, 59, 4], [250, 59, 3], [255, 59, 1], [260, 59, 3],
+  [150, 59, 1], [183, 59, 1], [225, 59, 1], [255, 59, 1],
   // Upper platforms
-  [206, 55, 1], [241, 55, 3], [176, 56, 0], [266, 57, 1],
-  // Caves (y=69) — more rocks, mushrooms (underground feel)
-  [20, 69, 2], [35, 69, 4], [50, 69, 2], [100, 69, 4], [120, 69, 2],
-  [160, 69, 4], [190, 69, 2], [210, 69, 4], [240, 69, 2], [170, 69, 4],
+  [206, 55, 1], [176, 56, 0], [266, 57, 1],
+  // Caves (y=69) — rocks (underground feel).
+  // Heart arena x30-80 kept bare (boss stage); its decos moved to the flanks.
+  [20, 69, 2], [125, 69, 2], [120, 69, 2], [190, 69, 2], [240, 69, 2],
   // West cliffs
-  [86, 53, 0], [92, 53, 3], [73, 50, 0], [78, 50, 1],
+  [86, 53, 0], [73, 50, 0], [78, 50, 1],
   // Treetops
-  [53, 25, 0], [57, 25, 3], [46, 23, 1],
+  [53, 25, 0], [46, 23, 1],
   // Summit
   [12, 11, 2], [16, 11, 1],
 ];
