@@ -22,6 +22,12 @@
 //      fade, level-up hint auto-hide (5 s or 75 % of XP bar), pause overlay
 //      with full character sheet (P / ESC / ☰ tap), 2 px stroke outlines on
 //      all HUD text, viewport-fit=cover for notched devices
+//  10  Minimalist HUD redesign — hearts / mana bar / xp bar top-left cluster
+//      always-on. Removed dice + gems + name banner + level-up hint from HUD
+//      (moved to pause overlay). Contextual REST + SHOP + READ buttons dock
+//      near dpad — never mid-screen. Every button gets a color-coded ring for
+//      at-a-glance identity (cyan jump · white melee · purple shot · green
+//      heal · gold dash / shop / lore · green rest). Shop is now touch-reachable.
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -86,20 +92,27 @@ const held = (...c) => c.some(k => keys.has(k));
 const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('TBtnJ'); // button jump gets full hold-height too
 const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('TBtnH');
 
-// ---------- touch overlay (auto-shown; fixed dpad left, verb cluster right) ----------
+// ---------- touch overlay (data-driven: colored ring per action; contextual REST/SHOP/READ splits E off mid-screen) ----------
 const btns = () => {
   const b = [
-    { x: VW - 36, y: VH - 34, r: 28, l: '▲', h: 'SPACE', c: 'TBtnJ' },  // JUMP — biggest, thumb rest
-    { x: VW - 94, y: VH - 28, r: 22, l: '⚔', h: 'J', c: 'TBtnM' },      // melee
+    { x: VW - 40, y: VH - 40, r: 26, l: '▲', h: 'SPACE', c: 'TBtnJ', col: '#8cf' },   // JUMP — biggest, thumb rest, cyan
+    { x: VW - 96, y: VH - 30, r: 22, l: '⚔', h: 'J', c: 'TBtnM', col: '#fff' },        // MELEE — white
   ];
-  if (touch) b.unshift(                                                 // dpad is touch-only — keyboard moves on desktop
-    { x: 28, y: VH - 30, r: 22, l: '◀', h: '', c: 'TBtnL' },
-    { x: 76, y: VH - 30, r: 22, l: '▼', h: '', c: 'TBtnDn' },            // drop through platforms
-    { x: 124, y: VH - 30, r: 22, l: '▶', h: '', c: 'TBtnR' });
-  if (abil & 4) b.push({ x: VW - 86, y: VH - 74, r: 19, l: '✦', h: 'L', c: 'TBtnS' });
-  if (abil & 2) b.push({ x: VW - 34, y: VH - 86, r: 17, l: '＋', h: 'S', c: 'TBtnH' });
-  if (abil & 8) b.push({ x: VW - 138, y: VH - 62, r: 19, l: '»', h: 'SHIFT', c: 'TBtnD' });
-  if (nearFire || nearLore) b.push({ x: VW / 2, y: VH - 28, r: 18, l: 'E', h: '', c: 'KeyE' });
+  if (touch) b.unshift(                                                                // dpad is touch-only — keyboard moves on desktop
+    { x: 30, y: VH - 30, r: 22, l: '◀', h: '', c: 'TBtnL', col: '#ccc' },
+    { x: 78, y: VH - 30, r: 22, l: '▼', h: '', c: 'TBtnDn', col: '#aaa' },              // drop through platforms
+    { x: 126, y: VH - 30, r: 22, l: '▶', h: '', c: 'TBtnR', col: '#ccc' });
+  // learned skills — color-coded per school, distinct visual identity
+  if (abil & 4) b.push({ x: VW - 96, y: VH - 76, r: 20, l: '✦', h: 'L', c: 'TBtnS', col: '#c9a6f7' });     // SHOT · purple
+  if (abil & 2) b.push({ x: VW - 40, y: VH - 88, r: 18, l: '＋', h: 'S', c: 'TBtnH', col: '#9fe8a0' });    // HEAL · green
+  if (abil & 8) b.push({ x: VW - 140, y: VH - 62, r: 20, l: '»', h: 'SHIFT', c: 'TBtnD', col: '#ffd75e' }); // DASH · gold
+  // CONTEXTUAL INTERACT — appears near dpad on touch, in world position on desktop. Never mid-screen.
+  const ix = touch ? 174 : VW - 200, iy = VH - 30;
+  if (nearLore) b.push({ x: ix, y: iy, r: 20, l: '★', h: 'E', c: 'KeyE', col: '#ffd75e' });                 // READ lore
+  if (nearFire) {                                                                                            // REST + SHOP split
+    b.push({ x: ix, y: iy, r: 20, l: 'Z', h: 'E', c: 'KeyE', col: '#9fe8a0' });                             //   REST · green Z
+    b.push({ x: ix + 48, y: iy, r: 20, l: '$', h: 'B', c: 'TBtnSh', col: '#ffd75e' });                       //   SHOP · gold $
+  }
   return b;
 };
 const ptrs = new Map();
@@ -132,6 +145,7 @@ addEventListener('pointerdown', (e) => {
     if (b.c === 'TBtnM') swing();
     if (b.c === 'TBtnS') shoot();
     if (b.c === 'TBtnD') dash();
+    if (b.c === 'TBtnSh' && nearFire) shopping = 1;                       // touch: SHOP button opens the hearth
   }
 });
 addEventListener('pointerup', (e) => { const c = ptrs.get(e.pointerId); if (c) { keys.delete(c); ptrs.delete(e.pointerId); } });
@@ -255,7 +269,7 @@ const pick = (n) => {
   } else if (c.k) { abil |= c.k; say(LEARN[c.k]); }
   else if (c.p) pk |= c.p.b;
   else STATS[c.i][3]();
-  lvl++; pending--; hintT = 5;                                    // level-up hint auto-shows next-milestone for 5s
+  lvl++; pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
   if ([3, 6, 9, 12].includes(lvl)) { fly(pl.x, pl.y - 26, '🎲 → d' + DIE(), '#fff', 1); say('The die grows. A d' + DIE() + ' now. The table approves.'); }
   if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); say('APOTHEOSIS. You are the die now, ' + pName + '. The doubt is not enough.'); }
@@ -318,9 +332,7 @@ const PW = 10, PH = 14;
 const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
 let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0;
-// HUD state: paused = pause overlay open · hintT = seconds of level-up hint remaining
-// · manaShow = seconds mana pips stay visible after fall-below-max reset (contextual reveal)
-let paused = 0, hintT = 3, manaShow = 0;
+let paused = 0;                                   // pause overlay open — freezes sim, character sheet renders
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 const loreRead = [0, 0];
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
@@ -451,9 +463,6 @@ const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
   if (paused) return;                              // pause overlay open: freeze all sim; render still draws
   time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
-  // HUD timers — contextual mana reveal + level-up hint auto-hide (kept in sim so pause freezes them too)
-  if (mn < mMN()) manaShow = 2; else manaShow = Math.max(0, manaShow - dt);
-  hintT = Math.max(0, hintT - dt);
   if (dmT <= 0 && dmQ.length) { dmTxt = dmQ.shift(); dmT = 3.2; }
   regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
@@ -904,43 +913,23 @@ const draw = () => {
   ctx.globalAlpha = 1;
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
-  // ---------- HUD (modern: minimal, decision-relevant, high-contrast) ----------
-  // Outline helper — draws dark stroke behind fill so text stays legible over any background
-  // (WANDR game HUD guidance: validate contrast against the worst case your game can produce).
+  // ---------- HUD (minimalist: hearts / mana / xp cluster top-left, pause icon top-right) ----------
+  // Outline helper — dark stroke behind fill so text stays legible over any background
   const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.lineWidth = 2; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
   if (started && !paused) {
     ctx.textAlign = 'left';
-    // Bottom-left cluster — near the touch dpad, near the action. Thumb + eye zone.
-    const hy = VH - 62;
+    // TOP-LEFT CLUSTER — hearts row · mana bar · xp bar. Always-on, one place, high-contrast.
     ctx.font = '12px monospace';
-    for (let i = 0; i < mHP(); i++) { ctx.fillStyle = i < hp ? '#ff5d6c' : '#3a3a44'; T2('♥', 8 + i * 13, hy); }
-    // Contextual mana — visible only when below max or briefly after a spend (manaShow set in step())
-    if (manaShow > 0) {
-      ctx.globalAlpha = mn < mMN() ? 1 : Math.min(1, manaShow);
-      ctx.fillStyle = '#e08ae0'; ctx.font = '10px monospace';
-      T2('✦' + mn + '/' + mMN(), 8, hy + 14); ctx.globalAlpha = 1;
-    }
-    // D&D damage line — the game's signature, unique value, earns its slot
-    ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 11px monospace';
-    T2('🎲d' + DIE() + (MOD() ? '+' + MOD() : ''), 8, hy + 30);
-    // Sparks currency — cluster-adjacent (shop context)
-    ctx.fillStyle = '#ffe28a';
-    T2('💎' + spk, 68, hy + 30);
-    // Level-up hint — visible for 5s after each level-up OR when within 25% of next level
-    if (hintT > 0 || (lvl < CAP && xp / need() > .75)) {
-      ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 9px monospace';
-      const nextSkill = !(abil & 1) && lvl < 3 ? '⬆ LV3 — the sky remembers you (DBL JUMP)'
-        : !(abil & 2) && lvl < 5 ? '⬆ LV5 — the rainbow will mend you (HEAL)'
-          : !(abil & 4) && lvl < 7 ? '⬆ LV7 — the rainbow will strike far (SHOT)'
-            : !(abil & 8) && lvl < 9 ? '⬆ LV9 — the space between will bow (DASH)'
-              : lvl < CAP ? '⬆ LV' + (lvl + 1) + ' — the die remembers'
-                : '🌈 APOTHEOSIS — end the doubt';
-      T2(nextSkill, VW / 2, 18);
-    }
-    // Pause icon top-right (48px+ tap zone handled in pointerdown)
+    for (let i = 0; i < mHP(); i++) { ctx.fillStyle = i < hp ? '#ff5d6c' : '#3a3a44'; T2('♥', 10 + i * 13, 20); }
+    const bw = 60;                                                  // shared bar width for mana + xp
+    ctx.fillStyle = '#2a2a33'; ctx.fillRect(10, 26, bw, 4);         // mana track
+    ctx.fillStyle = '#e08ae0'; ctx.fillRect(10, 26, bw * mn / mMN(), 4);
+    ctx.fillStyle = '#2a2a33'; ctx.fillRect(10, 32, bw, 2);         // xp track (slimmer — level is less urgent than mana)
+    ctx.fillStyle = lvl >= CAP ? '#ffd75e' : '#9fe89a'; ctx.fillRect(10, 32, lvl >= CAP ? bw : bw * xp / need(), 2);
+    // TOP-RIGHT — pause icon (48px+ tap zone handled in pointerdown)
     ctx.textAlign = 'right'; ctx.fillStyle = '#aaa'; ctx.font = 'bold 14px monospace';
     T2('☰', VW - 10, 18);
-    // DM voice — unchanged, bottom-center speech plate
+    // DM voice — bottom-center speech plate (position clear of touch buttons)
     if (dmT > 0) {
       ctx.globalAlpha = Math.min(1, dmT); ctx.fillStyle = 'rgba(10,8,14,.82)';
       ctx.fillRect(VW / 2 - 190, VH - 108, 380, 24);
@@ -976,18 +965,31 @@ const draw = () => {
     // Shards / regions rebloomed
     ctx.fillStyle = '#ffd75e';
     T2('SHARDS · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 182);
+    // HEARTH gems — the shop currency (moved out of gameplay HUD to eliminate dual-currency confusion)
+    ctx.fillStyle = '#ffe28a'; T2('HEARTH · 💎' + spk + ' gems for the shop', VW / 2, 198);
     ctx.fillStyle = '#888'; ctx.font = '8px monospace';
     T2('press P / ESC / tap to close', VW / 2, VH - 24);
   }
 
   // action buttons — hidden during pause / level-up / shop (dedicated overlays own the input)
+  // Colored ring per action, dark disc, glyph in accent color. Modern mobile pattern.
   if (started && !choosing && !paused && !shopping) {
+    ctx.textAlign = 'center';
     for (const b of btns()) {
-      ctx.globalAlpha = keys.has(b.c) ? .7 : (touch ? .35 : .22);
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
-      ctx.globalAlpha = .9; ctx.fillStyle = '#111'; ctx.font = '14px monospace'; ctx.fillText(b.l, b.x, b.y + 5);
-      if (!touch && b.h) {                                       // key hint for mouse users — above the button (bottom edge clips)
-        ctx.globalAlpha = .7; ctx.fillStyle = '#fff'; ctx.font = '6px monospace';
+      const pressed = keys.has(b.c);
+      // dark disc for hit legibility over any background
+      ctx.globalAlpha = pressed ? .85 : (touch ? .55 : .38);
+      ctx.fillStyle = 'rgba(15,15,20,.75)';
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+      // colored outer ring
+      ctx.strokeStyle = b.col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.stroke();
+      // glyph in ring color (pressed = full brightness)
+      ctx.globalAlpha = pressed ? 1 : .9;
+      ctx.fillStyle = b.col; ctx.font = 'bold 14px monospace';
+      ctx.fillText(b.l, b.x, b.y + 5);
+      if (!touch && b.h) {                                        // key hint for desktop users
+        ctx.globalAlpha = .7; ctx.fillStyle = '#ccc'; ctx.font = '6px monospace';
         ctx.fillText(b.h, b.x, b.y - b.r - 3);
       }
     }

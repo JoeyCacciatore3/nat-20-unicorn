@@ -98,27 +98,50 @@ large source changes, re-tune: `TUNE=1 node build.mjs`, then paste the printed
 "use ... to replicate" flags into `ROADFLAGS`.
 
 ## HUD design
-The gameplay HUD is deliberately minimal (WANDR HUD frequency/urgency guidance):
-only decision-relevant elements earn permanent screen slots.
+The gameplay HUD is deliberately minimal — only three always-on elements, one
+place, one glance:
 
-- **Bottom-left cluster** — hearts, mana pips (contextual: fade when full),
-  D&D damage line (`🎲d8+3`), sparks currency. Near the thumb, near the action.
+- **Top-left cluster** — hearts (row of ♥), mana bar (purple), XP bar (green;
+  gold at APOTHEOSIS cap). All three visible every frame, small footprint.
 - **Top-right pause icon** (☰) — opens the character sheet
-- **Top-center level-up hint** — only visible for 5 s after leveling up OR when
-  ≥ 75 % of the way to the next level
 - **DM voice** — bottom-center speech plate, only when the DM has a line
-- **All HUD text** — 2 px dark outline (`strokeText` + `fillText`) so it stays
-  legible over meadow, cave, or shockwave backgrounds
+- **All HUD text** — 2 px dark outline (`strokeText` + `fillText`) for legibility
+  over any background
 
-The **pause overlay** hosts identity chrome that used to squat on gameplay HUD:
-full character name, class, level, XP progress, all stats, owned perks, owned
-skills, shard count.
+Deliberately **not** in gameplay HUD (kept in pause overlay or shop instead):
+- **Dice / damage line** — it's a stat, not chrome. Shown as `🎲d8+3` in pause.
+- **Gems** (💎, the shop currency) — dual-currency HUD (XP + gems) was confusing.
+  Now only visible in the shop and in pause as `HEARTH · 💎N gems for the shop`.
+- **Name + class banner** — identity info, low-frequency. Shown in pause.
+- **Persistent "Reach LVn" hint** — visual noise. Pause overlay shows the exact
+  next milestone via XP bar.
 
-Touch controls follow modern mobile-first spacing (Apple HIG 44 pt / Material
-48 dp): jump/attack buttons are 44–56 px tap zones, semi-transparent so they
-don't occlude sprites, in the natural thumb arc (bottom-right cluster). Viewport
-uses `viewport-fit=cover` for edge-to-edge on notched devices; HUD is inset
-~8 px so nothing important sits under a Dynamic Island / home indicator.
+### Touch controls — color-coded per action
+Each button has a distinct ring color for at-a-glance identity:
+| Action | Ring | Glyph |
+|---|---|---|
+| Jump | cyan | ▲ |
+| Melee | white | ⚔ |
+| Rainbow shot | purple | ✦ |
+| Rainbow heal | green | ＋ |
+| Air dash | gold | » |
+| Rest (at fire) | green | Z |
+| Shop (at fire) | gold | $ |
+| Read (at lore stone) | gold | ★ |
+
+**Interact button never appears mid-screen** — always docked to the left cluster
+near the dpad. At the fire, REST + SHOP appear side-by-side (was: single E
+that couldn't open shop on touch — fixed).
+
+Modern mobile-first sizing: 44–56 px tap zones (Apple HIG 44 pt / Material 48 dp),
+semi-transparent dark disc + colored ring so buttons don't occlude sprites but
+stay legible. Viewport uses `viewport-fit=cover` for edge-to-edge on notched
+devices; HUD is inset ~10 px so nothing sits under a Dynamic Island / home indicator.
+
+### Pause overlay
+Full character sheet — name + class, level + damage line, XP bar, all stats
+(HORN / HEART / SPARK), owned perks, owned skills, shard count, hearth gems.
+Toggle via `P` / `Esc` / tap top-right icon; tap anywhere to close.
 
 ## Save format
 Key: `localStorage.n20_save`. Version pinned in-file (`d.v !== N` → discard).
