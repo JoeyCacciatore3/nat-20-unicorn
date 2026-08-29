@@ -12,14 +12,14 @@ to win. D&D-inspired combat with dice rolls, crits, and stat allocation.
 ## Progression
 - **Every level:** +3 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point
 - **Skill tree:** 19 nodes in 3 branches (⚔ FURY / 🛡 VIGOR / 💨 FINESSE) — all player-chosen
-- **Equipment:** enemies drop colored gear that changes your unicorn's appearance AND gives stat bonuses
+- **Equipment:** enemies drop colored gear that recolors the matching body part, wears a tier trim (silver/gold), AND gives stat bonuses
 - **Die milestones:** d4 → d6 (L3) → d8 (L6) → d10 (L9) → d12 (L12)
 - **Level 15 cap:** APOTHEOSIS (+2 dmg, +2 max HP)
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
 - Start with 5 neutral colors (SNOW/CREAM/SILVER/ONYX/WHITE)
-- Elites drop +1 gear, bosses drop +2 gear — vibrant colors are earned
+- Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
 - 5-slot inventory bag, auto-equip if better than current
 
 ## Combat
@@ -29,8 +29,10 @@ to win. D&D-inspired combat with dice rolls, crits, and stat allocation.
 - 3 enemy tiers + elite variants + 5 bosses with phase-2 abilities
 
 ## Item Drops
-Heart (+3 HP) · Mana potion (+2 MP) · XP gem · Rainbow (rare full heal) ·
-Golden rainbow shard (boss first-kill only) · Equipment gear (elite/boss only)
+One unified D&D loot roll (`d100 + LUCK×4`) for every kill and chest:
+Heart (+3 HP) · Mana potion (+2 MP) · XP gem (floor) · Equipment gear (ceiling) ·
+Rainbow (rare full heal, separate check). Golden rainbow shard is the ONE exception —
+guaranteed on a boss's first kill only, and the game-completion item (collect all 5).
 
 ## Skill Tree (3 branches, 19 nodes)
 **⚔ FURY:** LUNGE · SHOT · RANGE(×2) · FOCUS(×2) · PRECISE(×3) · PIERCE · BLEED
@@ -64,7 +66,7 @@ npm run build    # map-audit → esbuild → terser → roadroller → zip → E
 Build gates: map traversal audit (no stuck spots), 13,312 byte limit,
 no external URLs, no unprefixed localStorage.
 
-**Current: 12,370 / 13,312 B (92.9%)**
+**Current: 12,403 / 13,312 B (93.2%)**
 
 ## Save format
 Key: `localStorage.n20_save`. Version: **v21** — auto-discards older saves.
