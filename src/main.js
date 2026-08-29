@@ -28,6 +28,15 @@
 //      near dpad — never mid-screen. Every button gets a color-coded ring for
 //      at-a-glance identity (cyan jump · white melee · purple shot · green
 //      heal · gold dash / shop / lore · green rest). Shop is now touch-reachable.
+//  11  Hearth NPC + dialogue system — proper wizard sprite next to the fire
+//      (robe, hat with gold star, beard, staff with crystal). Classic RPG
+//      dialogue bubble on approach: 1 TALK · 2 REST · 3 SHOP with keys +
+//      touch buttons (?, Z, $). First TALK grants +10 XP boon + intro line,
+//      later talks rotate through DM_LINES pool. Elite marker changed from
+//      ugly outer strokeRect to a small pulsing gold crown ABOVE the head
+//      (sprite-integrated, no visual "box" around the enemy). Removed
+//      legacy B-opens-shop keyboard shortcut (superseded by 3 in the
+//      dialogue menu). Shop close hint updated to reflect current bindings.
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -83,8 +92,9 @@ addEventListener('keydown', (e) => {
   if (choosing) { const n = '123456'.indexOf(e.key); if (n >= 0) pick(n); }
   else if (shopping) {
     const n = '12345'.indexOf(e.key); if (n >= 0) buy(n);
-    if (e.code === 'KeyB' || e.code === 'KeyE') { shopping = 0; keys.delete('KeyE'); }
-  } else if (e.code === 'KeyB' && nearFire) shopping = 1;
+    if (e.code === 'KeyE' || e.code === 'Escape') { shopping = 0; keys.delete('KeyE'); }   // E or Esc closes shop
+  }
+  // hearth shop is now opened via the 1/2/3 dialogue keys — see the fire-interact block in step()
   else if (e.code === 'KeyP' || e.code === 'Escape') paused = paused ? 0 : 1;
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -109,9 +119,10 @@ const btns = () => {
   // CONTEXTUAL INTERACT — appears near dpad on touch, in world position on desktop. Never mid-screen.
   const ix = touch ? 174 : VW - 200, iy = VH - 30;
   if (nearLore) b.push({ x: ix, y: iy, r: 20, l: '★', h: 'E', c: 'KeyE', col: '#ffd75e' });                 // READ lore
-  if (nearFire) {                                                                                            // REST + SHOP split
-    b.push({ x: ix, y: iy, r: 20, l: 'Z', h: 'E', c: 'KeyE', col: '#9fe8a0' });                             //   REST · green Z
-    b.push({ x: ix + 48, y: iy, r: 20, l: '$', h: 'B', c: 'TBtnSh', col: '#ffd75e' });                       //   SHOP · gold $
+  if (nearFire) {                                                                                            // hearth dialogue: TALK · REST · SHOP
+    b.push({ x: ix,      y: iy, r: 18, l: '?', h: '1', c: 'TBtnT',  col: '#8cf'    });                       //   TALK · cyan ?
+    b.push({ x: ix + 40, y: iy, r: 18, l: 'Z', h: '2', c: 'KeyE',   col: '#9fe8a0' });                       //   REST · green Z (E-key alias)
+    b.push({ x: ix + 80, y: iy, r: 18, l: '$', h: '3', c: 'TBtnSh', col: '#ffd75e' });                       //   SHOP · gold $
   }
   return b;
 };
@@ -146,6 +157,7 @@ addEventListener('pointerdown', (e) => {
     if (b.c === 'TBtnS') shoot();
     if (b.c === 'TBtnD') dash();
     if (b.c === 'TBtnSh' && nearFire) shopping = 1;                       // touch: SHOP button opens the hearth
+    if (b.c === 'TBtnT'  && nearFire) keys.add('KeyT');                   // touch: TALK routes through the hearth handler on next frame
   }
 });
 addEventListener('pointerup', (e) => { const c = ptrs.get(e.pointerId); if (c) { keys.delete(c); ptrs.delete(e.pointerId); } });
@@ -172,6 +184,13 @@ const say = (t) => { if (dmT > 0) dmQ.push(t); else { dmTxt = t; dmT = 3.2; } };
 const LORE = [
   'Before the doubt, every tile of this table was painted. I remember the brush.',
   'The roots drink what the sky forgets. Even doubt has an underside.',
+];
+// DM dialogue pool — first-talk grants a small XP boon (+10), later talks rotate lore/encouragement
+const DM_LINES = [
+  'Welcome, little hero. The table remembers a brave d20. Take this — a boon of experience.',
+  'Every roll counts. Even the ones that vanish behind the DM screen.',
+  'The shards want to be free. Their guardians want otherwise.',
+  'Rest well. Doubt is patient — so are we.',
 ];
 
 // ---------- RPG 2.0 (researched): milestone dice, modifier stats, D&D perks ----------
@@ -306,7 +325,7 @@ const save = () => {
   localStorage.n20_save = JSON.stringify({
     v: 7, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
     p: pk, w: shopB, r: loreRead, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
-    m: pName, k: cls, f: seenM | (seenH << 1),               // v7 — tutorial-seen flags (was session-only, spammed on every session)
+    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), // v7 — tutorial-seen flags (bit 0 melee · 1 heal · 2 first-DM-talk)
   });
 };
 const load = () => {
@@ -317,7 +336,7 @@ const load = () => {
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
     sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k;
-    seenM = d.f & 1; seenH = (d.f >> 1) & 1;
+    seenM = d.f & 1; seenH = (d.f >> 1) & 1; seenT = (d.f >> 2) & 1;
     d.r.forEach((v, i) => loreRead[i] = v);
     edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
@@ -331,7 +350,7 @@ const load = () => {
 const PW = 10, PH = 14;
 const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
-let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0;
+let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0, seenT = 0;
 let paused = 0;                                   // pause overlay open — freezes sim, character sheet renders
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 const loreRead = [0, 0];
@@ -680,18 +699,24 @@ const step = (dt) => {
   }
   for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune (fixes splice-race #5)
 
-  // -- campfires + lore stones --
+  // -- HEARTH: DM dialogue (1 TALK · 2 REST · 3 SHOP). Also legacy: E rests, B shops.
   nearFire = 0; nearLore = 0;
   for (const [fx, fy] of seeds.fires) {
     if (Math.hypot(pl.x - fx * T, pl.y - fy * T) > 26) continue;
     nearFire = 1;
-    if (keys.has('KeyE')) {
-      keys.delete('KeyE');
-      if (hp === mHP()) earned[8] = 1;                          // WELL_RESTED — rest without needing it
+    if (keys.has('Digit1') || keys.has('KeyT')) {                   // TALK — first talk grants +10 XP boon
+      keys.delete('Digit1'); keys.delete('KeyT');
+      if (!seenT) { seenT = 1; gainXp(10, pl.x, pl.y - 14); say(DM_LINES[0]); save(); }
+      else say(DM_LINES[1 + (Math.random() * (DM_LINES.length - 1) | 0)]);
+    }
+    if (keys.has('KeyE') || keys.has('Digit2')) {                   // REST + save
+      keys.delete('KeyE'); keys.delete('Digit2');
+      if (hp === mHP()) earned[8] = 1;                              // WELL_RESTED — rest without needing it
       hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
       burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
       say('Rest. Saved. The fire keeps what you earned.');
     }
+    if (keys.has('Digit3')) { keys.delete('Digit3'); shopping = 1; } // SHOP via 3
   }
   seeds.lores.forEach(([lx, ly], i) => {
     if (Math.hypot(pl.x - lx * T, pl.y - ly * T) > 22) return;
@@ -764,15 +789,47 @@ const draw = () => {
     }
   }
 
-  // campfires + lore stones
+  // Hearth: campfire + DUNGEON MASTER wizard NPC (the shopkeeper — dialogue on approach)
   ctx.font = '9px monospace'; ctx.textAlign = 'center';
   for (const [fx, fy] of seeds.fires) {
     const cxp = fx * T, cyp = fy * T;
+    // -- fire --
     ctx.fillStyle = '#6b4a2b'; ctx.fillRect(cxp - 8, cyp + 4, 16, 4);
     const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-    if (nearFire && Math.abs(pl.x - cxp) < 26 && Math.abs(pl.y - cyp) < 26) { ctx.fillStyle = '#fff'; ctx.fillText('E — rest & save · B — shop', cxp | 0, (cyp - 18) | 0); }
+    // -- DM wizard NPC (sits to the right of the fire, faces player) --
+    const wx = cxp + 14, wy = cyp - 12, wob = Math.sin(time * 2) * .3;
+    ctx.fillStyle = '#4a3a7c';                                    // deep purple robe
+    ctx.fillRect(wx - 3, wy + 6, 6, 8);                           // robe body
+    ctx.fillRect(wx - 4, wy + 10, 8, 2);                          // robe hem flare
+    ctx.fillStyle = '#f5e0c8';                                    // face
+    ctx.fillRect(wx - 2, wy + 3, 4, 3);
+    ctx.fillStyle = '#e8e8f0';                                    // white beard
+    ctx.fillRect(wx - 2, wy + 5, 4, 2);
+    ctx.fillStyle = '#4a3a7c';                                    // pointed hat (triangle-ish)
+    ctx.fillRect(wx - 3, wy + 1, 6, 2);
+    ctx.fillRect(wx - 2, wy - 1, 4, 2);
+    ctx.fillRect(wx - 1, wy - 3, 2, 2);
+    ctx.fillStyle = '#ffd75e';                                    // gold star on hat tip
+    ctx.fillRect(wx, wy - 4 + wob, 1, 1);
+    ctx.fillStyle = '#111';                                       // eyes
+    ctx.fillRect(wx - 1, wy + 4, 1, 1); ctx.fillRect(wx + 1, wy + 4, 1, 1);
+    ctx.fillStyle = '#8a6a3a';                                    // staff
+    ctx.fillRect(wx + 4, wy + 2, 1, 12);
+    ctx.fillStyle = '#8cf'; ctx.fillRect(wx + 4, wy + 1, 1, 1);   // staff crystal tip
+    // -- dialogue prompt bubble (near NPC, only when close) --
+    if (nearFire && Math.abs(pl.x - cxp) < 26 && Math.abs(pl.y - cyp) < 26) {
+      const by = wy - 12;
+      ctx.fillStyle = 'rgba(20,15,30,.92)'; ctx.fillRect(wx - 34, by - 26, 72, 30);
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(wx - 34, by - 26, 72, 30);
+      ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 6px monospace';
+      ctx.fillText('THE DM', wx, by - 20);
+      ctx.font = '6px monospace'; ctx.fillStyle = '#fff';
+      ctx.fillText('1 TALK', wx, by - 12);
+      ctx.fillText('2 REST', wx, by - 6);
+      ctx.fillText('3 SHOP', wx, by);
+    }
   }
   for (const [lx, ly] of seeds.lores) {
     ctx.fillStyle = '#7a7a85'; ctx.fillRect(lx * T - 5, ly * T - 6, 10, 15);
@@ -807,9 +864,13 @@ const draw = () => {
   for (const f of foes) {
     const s = f.cz || 1 + f.k, fs = 5 * s, wob = Math.sin(f.t * 6) * 1.5;
     const step = Math.sin(f.t * 8) * s * .35;                   // leg-step animation, shared
-    if (f.el) {                                                 // ELITE — subtle gold outline (mini-boss read)
-      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
-      ctx.strokeRect(f.x - 1, f.y - 1, fs + 2, fs + 2);
+    if (f.el) {                                                 // ELITE — small gold crown ABOVE head (no box, sprite-integrated read)
+      ctx.fillStyle = '#ffd75e';
+      const cx = f.x + fs / 2, cy = f.y - 4 + Math.sin(time * 4) * .5; // gentle bob
+      ctx.fillRect(cx - 3, cy + 1, 6, 1);                         // crown base
+      ctx.fillRect(cx - 3, cy, 1, 1);                             // three spikes
+      ctx.fillRect(cx - 1, cy - 1, 1, 2);
+      ctx.fillRect(cx + 2, cy, 1, 1);
     }
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
@@ -1030,7 +1091,7 @@ const draw = () => {
       ctx.textAlign = 'right'; ctx.fillText(own ? '✓' : '💎' + it.c, VW / 2 + 122, y + 6);
       ctx.textAlign = 'center';
     });
-    ctx.fillStyle = '#888'; ctx.fillText('1–5 buy · B close', VW / 2, 240);
+    ctx.fillStyle = '#888'; ctx.fillText('1–5 buy · E or ESC to close', VW / 2, 240);
   }
 
   // title + name-entry screens (HUD is gated separately on `started`)

@@ -59,7 +59,7 @@ owned). Mini-boss combat outside the guardian arenas.
 | Rainbow heal (✦5 · ✦4 w/ OVERCHANNEL, rooted) | hold S / I | ＋ |
 | Air dash | Shift / O | » |
 | Interact / rest+save | E | E |
-| Hearth shop (at the fire) | B | tap rows |
+| Hearth dialogue (at the fire) | 1 TALK · 2 REST · 3 SHOP (or E rest / T talk) | ? Z $ buttons |
 | Level-up menu | 1-3 or ↑↓ + Enter | tap row |
 | **Pause / character sheet** | **P or ESC** | **☰ top-right, tap anywhere to close** |
 
@@ -137,6 +137,20 @@ Modern mobile-first sizing: 44–56 px tap zones (Apple HIG 44 pt / Material 48 
 semi-transparent dark disc + colored ring so buttons don't occlude sprites but
 stay legible. Viewport uses `viewport-fit=cover` for edge-to-edge on notched
 devices; HUD is inset ~10 px so nothing sits under a Dynamic Island / home indicator.
+
+### Hearth NPC
+The one home campfire is tended by **THE DM** — a wizard NPC (purple robe,
+pointed hat with gold star, white beard, crystal-tipped staff). Walk up to
+open a classic RPG dialogue bubble with three options:
+
+- **1 TALK** — first talk grants a **+10 XP boon** + intro line; later talks
+  rotate flavor lines from the DM pool. Persisted via v7 save `f` bit 2.
+- **2 REST** — full HP + save + checkpoint (was `E`; both keys still work)
+- **3 SHOP** — opens the hearth shop (was `B` on desktop; B is retired now,
+  only the numeric dialogue keys open shop cleanly)
+
+Elite enemies wear a **small pulsing gold crown above the head** — no more
+outer yellow square around the sprite (that read as a UI bug, not a marker).
 
 ### Pause overlay
 Full character sheet — name + class, level + damage line, XP bar, all stats
