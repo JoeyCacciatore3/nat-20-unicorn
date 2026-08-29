@@ -196,11 +196,13 @@ addEventListener('pointerdown', (e) => {
   }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
   if (paused) {
-    for (let i = 0; i < UPG.length; i++) {
-      const x = 260 + (i % 2) * 70, y = 200 + (i / 2 | 0) * 14;
-      if (vx >= x - 4 && vx <= x + 61 && vy >= y - 9 && vy <= y + 10) {
-        const [, req, mx] = UPG[i];
-        if (spts > 0 && su[i] < mx && (!req || (abil & req))) { su[i]++; spts--; sfx(660, 990, .15, 'triangle', .12); save(); }
+    const TX = [164, 268, 370], bri = [0, 0, 0];
+    for (let i = 0; i < TREE.length; i++) {
+      const [, br, req, mx] = TREE[i], cx = TX[br], cy = 142 + bri[br] * 16;
+      bri[br]++;
+      if (vx >= cx - 2 && vx <= cx + 66 && vy >= cy - 9 && vy <= cy + 5) {
+        const locked = req >= 0 && !su[req];
+        if (spts > 0 && su[i] < mx && !locked) { su[i]++; spts--; abilSync(); sfx(660, 990, .15, 'triangle', .12); save(); }
         return;
       }
     }
@@ -323,10 +325,10 @@ let hp = 10, xp = 0, lvl = 1;
 let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
 let mn = 5, choosing = 0, pending = 0, pk = 0;
 const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +2 max HP); post-cap XP → sparks 1:1
-const SKILL_MIN = { 1: 3, 2: 5, 4: 7, 8: 9 };     // level thresholds for the 4 movement skills — leveling is the ONLY gate (shards are flavor)
+// Skills are ALL player-chosen via the 3-branch tree — no auto-learn milestones
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 const bossLive = [0, 0, 0, 0, 0];
-const mHP = () => 8 + he * 2 + (lvl >= CAP ? 2 : 0);        // base 10 at he=1 · +2/HP pick · APOTHEOSIS +2 max at cap
+const mHP = () => 8 + he * 2 + su[6] * 3 + (lvl >= CAP ? 2 : 0); // 10 base · +2/HP · TOUGH +3/rank · APOTHEOSIS +2
 const mMN = () => 3 + sp * 2;
 const DIE = () => [4,4,6,6,6,8,8,8,10,10,10,12,12,12,12][lvl - 1] || 4; // die = LEVEL MILESTONE (Zelda-heart law)
 const MOD = () => ho - 1 + (lvl >= CAP ? 2 : 0) + ((pk & 256) ? (mHP() - hp) >> 1 : 0); // BLOODLETTER: +1 per 2 missing HP · APOTHEOSIS: +2
@@ -344,9 +346,8 @@ const gainXp = (n, x, y) => {
   if (lvl >= CAP) return;                                       // post-cap: XP no longer needed
   xp += n; fly(x, y, '+' + n + ' XP', '#9f9');
   while (xp >= need() && lvl < CAP) {
-    xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt (Joe's law)
-    for (const b of [1, 2, 4, 8]) if (!(abil & b) && lvl >= SKILL_MIN[b])   // milestones AUTO-LEARN —
-      { abil |= b; fly(pl.x, pl.y - 26, SKILLS[b][0] + ' LEARNED!', SKILLS[b][2], 1); } // skills never compete with stats
+    xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
+    fly(pl.x, pl.y - 34, '+1 SKILL', '#8cf');
     if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); }
   }
   if (lvl >= CAP) xp = 0;
@@ -373,25 +374,16 @@ const PERKS = [                                   // even levels: pick 1 of 3 �
   { b: 1024, n: 'NIMBLE', d: '−25% dash cooldown' },
   { b: 2048, n: 'OVERCHANNEL', d: 'heal costs 4 (was 5)' },
 ];
-const SKILLS = {
-  1: ['DBL JUMP', 'jump again in air', '#6bc5ff'],
-  2: ['R. HEAL', 'hold S · mend HP', '#9fe8a0'],
-  4: ['R. SHOT', 'press L · ✦ bolt', '#e08ae0'],
-  8: ['AIR DASH', 'Shift · burst fwd', '#ffd75e'],
-};
-// SKILL UPGRADE TREE — [name, req abil bit (0 = none), max rank, color].
-// 1 skill point per level; base skills auto-learn at SKILL_MIN milestones.
-// New upgrade = add a row + wire its su[i] into the mechanic it modifies.
-const UPG = [
-  ['LUNGE',   0, 1, '#ffd75e'],                   // bash steps forward (dash-attack feel)
-  ['JUMP+1',  1, 1, '#6bc5ff'],                   // triple jump
-  ['RANGE',   4, 3, '#e08ae0'],                   // +bolt range per rank (base is short)
-  ['FOCUS',   4, 2, '#e08ae0'],                   // bolt cost −1 per rank (3→1)
-  ['MEND+',   2, 2, '#9fe8a0'],                   // heal +2 HP per rank (3→7)
-  ['RAZOR »', 8, 1, '#ffd75e'],                   // dash deals melee damage
-  ['SWIFT',   0, 2, '#9fe89a'],                   // +12% run speed per rank
+// SKILL TREE — 3 branches (0 FURY · 1 VIGOR · 2 FINESSE). [name, branch, prereq idx (-1=none), max rank]
+const TREE = [
+  ['LUNGE',  0,-1,1],['SHOT',   0,-1,1],['RANGE',  0, 1,2],['FOCUS',  0, 1,2],  // ⚔ FURY
+  ['HEAL',   1,-1,1],['MEND+',  1, 4,2],['TOUGH',  1,-1,2],['REGEN',  1, 4,1],  // 🛡 VIGOR
+  ['DBL JMP',2,-1,1],['JMP+1',  2, 8,1],['DASH',   2,-1,1],['RAZOR',  2,10,1],['SWIFT',  2,-1,2],  // 💨 FINESSE
 ];
-let spts = 0; const su = [0, 0, 0, 0, 0, 0, 0];   // skill points held · rank per UPG row
+const BCOL = ['#ffd75e','#9fe8a0','#6bc5ff'], BNAME = ['FURY','VIGOR','FINESSE'];
+let spts = 0; const su = Array(13).fill(0);        // skill points held · rank per TREE row
+const abilSync = () => { abil = (su[8]?1:0)|(su[4]?2:0)|(su[1]?4:0)|(su[10]?8:0)|(abil&16); };
+let regT = 0;                                       // REGEN tick timer
 // D&D leveling: every level offers all 5 STATS (pure allocation, no classes).
 // Skill unlocks (LV3/5/7/9) join the menu at their milestone level as bonus picks.
 // Perks are elite-kill drops ONLY — never surface on level-up.
@@ -420,7 +412,7 @@ const grantPerk = (x, y) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 16, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, q: sh, g: bossDead,
+    v: 17, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, q: sh, g: bossDead,
     p: pk, t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, f: seenT, o: oc,
     u: [bod, man, hrn, hof],                                       // v13 — 4-slot palette (added hooves)
@@ -429,7 +421,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 16) return;                               // v16 — item drops replace sparks. Older saves start fresh.
+    if (!d || d.v !== 17) return;                               // v17 — unified 3-branch skill tree. Older saves start fresh.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
     sh = d.q; bossDead = d.g; pk = d.p; pName = d.m; oc = d.o;
@@ -438,7 +430,7 @@ const load = () => {
     [bod, man, hrn, hof] = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     pending = d.d || 0; if (pending) { choosing = 1; aRow = 0; }    // unspent stat points survive reload
-    spts = d.k || 0; (d.y || []).forEach((v, i) => su[i] = v);      // skill points + upgrade ranks
+    spts = d.k || 0; (d.y || []).forEach((v, i) => su[i] = v); abilSync();  // skill points + ranks → derive abil bits
   } catch (e) { /* fresh oath */ }
 };
 
@@ -478,7 +470,7 @@ const openChest = (i) => {
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0, navT = 0;   // navT = menu-nav repeat clock (joystick)
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
-const RUN = () => 115 * (1 + su[6] * .12), V0 = () => 250;   // SWIFT HOOVES ranks boost run speed
+const RUN = () => 115 * (1 + su[12] * .12), V0 = () => 250;  // SWIFT ranks boost run speed
 
 const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // gloom crystal is solid until shot
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -493,7 +485,7 @@ const fresh = () => {
   hp = 10; xp = 0; lvl = 1; sh = 0; abil = 0; bossDead = 0; mn = 5; pk = 0;
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
   seenT = 0; oc = 0; pName = 'HORSE'; earned.fill(0); bossLive.fill(0);
-  spts = 0; su.fill(0);
+  spts = 0; su.fill(0); regT = 0; abilSync();
   cp = [126 * T, 57 * T]; lastSafe = [126 * T, 57 * T]; pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0;
 };
 const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
@@ -652,8 +644,9 @@ const step = (dt) => {
   const canHeal = (abil & 2) && mn >= healCost && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.3 - .1 * he) { const hm = 3 + 2 * su[4]; chT = 0; mn -= healCost; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe8a0', 1); }   // MEND+ ranks: 3→5→7
+    if (chT > 1.3 - .1 * he) { const hm = 3 + 2 * su[5]; chT = 0; mn -= healCost; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe8a0', 1); }   // MEND+ ranks: 3→5→7
   } else chT = 0;
+  if (su[7] && hp < mHP()) { regT += dt; if (regT >= 8) { regT -= 8; hp++; fly(pl.x, pl.y - 12, '+1', '#9fe8a0'); } } else regT = 0;
   const rooted = chT > 0;
 
   // -- run --
@@ -665,13 +658,13 @@ const step = (dt) => {
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0 && !rooted) {
     if (pl.coyote > 0) { pl.vy = -V0(); pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); burst(pl.x, pl.y + PH, 4, '#ccc'); }
-    else if ((abil & 1) && pl.air < 1 + su[1]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // JUMP+1 rank = triple jump
+    else if ((abil & 1) && pl.air < 1 + su[9]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // JUMP+1 rank = triple jump
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash overrides physics: flat burst
     pl.vx = pl.face * 400; pl.vy = 0;
     parts.push({ x: pl.x + PW / 2, y: pl.y + 8, vx: 0, vy: 0, t: .3, c: `hsl(${(time * 500) % 360} 80% 65%)` });
-    if (su[5]) for (const f of [...foes]) {                     // RAZOR DASH — dashing through foes strikes them
+    if (su[11]) for (const f of [...foes]) {                    // RAZOR DASH — dashing through foes strikes them
       const fz = fsz(f);
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, roll(0), 0, 0);
     }
@@ -1153,67 +1146,56 @@ const draw = () => {
   // Both share the split-panel layout; allocation mode adds ‹ › cursor + skill-unlock rows.
   if ((paused || choosing) && started) {
     portraitPanel(pName);
-    const alloc = !!choosing, arr = alloc ? picks() : [];
-    // Right panel: header (LEVEL or LEVEL UP prompt) + XP bar
+    const alloc = !!choosing;
+    // Right panel — LEVEL header + XP bar
     ctx.textAlign = 'left';
-    if (alloc) {
-      ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 10px monospace';
-      ctx.fillText('LEVEL UP · ' + pending + ' STAT PT' + (pending > 1 ? 'S' : ''), 164, 48);
-    } else {
-      ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 10px monospace';
-      ctx.fillText('LEVEL ' + lvl, 164, 48);
-    }
+    ctx.fillStyle = alloc ? '#ffd75e' : '#9fe89a'; ctx.font = 'bold 10px monospace';
+    ctx.fillText(alloc ? 'LEVEL UP · ' + pending + ' STAT PT' + (pending > 1 ? 'S' : '') : 'LEVEL ' + lvl, 164, 48);
     const nx = need(), atCap = lvl >= CAP;
     ctx.fillStyle = '#3a3a44'; ctx.fillRect(164, 54, 180, 4);
     ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(164, 54, atCap ? 180 : 180 * xp / nx, 4);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';
-    ctx.fillText(atCap ? 'APOTHEOSIS · XP→SPK' : xp + ' / ' + nx + ' XP', 164, 66);
-    // Rows — in ALLOC mode: [skill unlocks | 5 stats]. In pause: [5 stats only].
-    // ORDER MUST MATCH the STATS table — allocate() maps row index straight into it
-    const statList = [['STR', ho, '#ffd75e'], ['HP', he, '#ff5d6c'], ['MAG', sp, '#e08ae0'], ['DEF', df, '#8cf'], ['LUCK', lk, '#9fe89a']];
-    const rows = statList.map(([l, v, c]) => ({ name: l, val: String(v), col: c }));   // stats ONLY — skills live in the tree below
+    ctx.fillText(atCap ? 'APOTHEOSIS' : xp + ' / ' + nx + ' XP', 164, 66);
+    // STATS — compact: name + number together, tight spacing
+    const SL = [['STR', ho, '#ffd75e'], ['HP', he, '#ff5d6c'], ['MAG', sp, '#e08ae0'], ['DEF', df, '#8cf'], ['LCK', lk, '#9fe89a']];
     ctx.font = 'bold 9px monospace';
-    rows.forEach((r, i) => {
-      const y = 82 + i * 12, sel = alloc && i === aRow;
-      if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(160, y - 9, 190, 12); }
-      ctx.fillStyle = r.col; ctx.textAlign = 'left'; ctx.fillText(r.name, 164, y);
-      if (r.val) { ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.fillText((sel ? '‹ ' : '') + r.val + (sel ? ' ›' : ''), 340, y); }
-      else if (sel) { ctx.fillStyle = '#ffd75e'; ctx.textAlign = 'right'; ctx.fillText('▶', 340, y); }
+    SL.forEach(([l, v, c], i) => {
+      const y = 76 + i * 10, sel = alloc && i === aRow;
+      if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(160, y - 8, 120, 10); }
+      ctx.fillStyle = c; ctx.textAlign = 'left';
+      ctx.fillText((sel ? '› ' : '  ') + l + ' ' + v, 164, y);
     });
-    ctx.textAlign = 'left';
-    // Perks + skills bottom
-    ctx.fillStyle = '#c9a6f7'; ctx.font = 'bold 8px monospace'; ctx.fillText('PERKS', 20, 156);
-    PERKS.filter(p => pk & p.b).forEach((p, i) => {
-      const x = 20 + (i % 6) * 34, y = 162 + Math.floor(i / 6) * 26;
-      ctx.strokeStyle = '#c9a6f7'; ctx.strokeRect(x, y, 20, 20);
-      ctx.fillStyle = '#c9a6f7'; ctx.textAlign = 'center'; ctx.font = 'bold 11px monospace';
-      ctx.fillText(p.n[0], x + 10, y + 14);
-      ctx.font = '6px monospace'; ctx.fillText(p.n.slice(0, 6), x + 10, y + 26);
+    // Perks — compact row under portrait
+    ctx.fillStyle = '#c9a6f7'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('PERKS', 10, 156);
+    const owned = PERKS.filter(p => pk & p.b);
+    owned.forEach((p, i) => {
+      const x = 10 + (i % 7) * 18, y = 162 + (i / 7 | 0) * 18;
+      ctx.strokeStyle = '#c9a6f7'; ctx.strokeRect(x, y, 14, 14);
+      ctx.fillStyle = '#c9a6f7'; ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
+      ctx.fillText(p.n[0], x + 7, y + 11);
     });
+    // 3-COLUMN SKILL TREE
     ctx.textAlign = 'left'; ctx.font = 'bold 8px monospace';
-    ctx.fillStyle = '#8cf'; ctx.fillText('SKILLS', 260, 156);
-    if (spts) { ctx.fillStyle = '#ffd75e'; ctx.fillText('· ' + spts + ' PT' + (spts > 1 ? 'S' : ''), 292, 156); }
-    [[1, '▲', 'JUMP', '#6bc5ff'], [2, '+', 'HEAL', '#9fe8a0'], [4, '✦', 'SHOT', '#c9a6f7'], [8, '»', 'DASH', '#ffd75e']].forEach(([bit, g, nm, col], i) => {
-      const x = 260 + i * 34, y = 162, on = abil & bit;
-      ctx.strokeStyle = on ? col : '#333'; ctx.strokeRect(x, y, 20, 20);
-      ctx.fillStyle = on ? col : '#333'; ctx.font = 'bold 11px monospace';
-      ctx.textAlign = 'center'; ctx.fillText(g, x + 10, y + 14);
-      ctx.font = '6px monospace'; ctx.fillText(nm, x + 10, y + 26);
-    });
-    // SKILL TREE — 7 upgrades, 2-col grid. Rank pips; gold outline = buyable now.
-    UPG.forEach(([nm, req, mx, col], i) => {
-      const x = 260 + (i % 2) * 70, y = 200 + (i / 2 | 0) * 14;
-      const locked = req && !(abil & req), can = spts > 0 && !locked && su[i] < mx;
-      ctx.textAlign = 'left'; ctx.font = 'bold 7px monospace';
-      ctx.fillStyle = locked ? '#444' : col; ctx.fillText(nm, x, y);
-      for (let p = 0; p < mx; p++) { ctx.fillStyle = p < su[i] ? '#ffd75e' : locked ? '#2a2a33' : '#3a3a44'; ctx.fillRect(x + p * 6, y + 3, 4, 4); }
-      if (can) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(x - 3.5, y - 8.5, 64, 18); }
+    const TX = [164, 268, 370];                     // column x positions
+    for (let b = 0; b < 3; b++) { ctx.fillStyle = BCOL[b]; ctx.fillText(BNAME[b], TX[b], 132); }
+    if (spts) { ctx.fillStyle = '#ffd75e'; ctx.font = '7px monospace'; ctx.fillText(spts + ' PT' + (spts > 1 ? 'S' : ''), 420, 132); }
+    const bri = [0, 0, 0];                          // per-branch row counter
+    ctx.font = 'bold 7px monospace';
+    TREE.forEach(([nm, br, req, mx], i) => {
+      const cx = TX[br], cy = 142 + bri[br] * 16;
+      bri[br]++;
+      const locked = req >= 0 && !su[req], can = spts > 0 && su[i] < mx && !locked;
+      ctx.fillStyle = locked ? '#444' : BCOL[br]; ctx.textAlign = 'left';
+      ctx.fillText((req >= 0 ? ' ' : '') + nm, cx, cy);          // indent prereq nodes
+      for (let p = 0; p < mx; p++) { ctx.fillStyle = p < su[i] ? '#ffd75e' : locked ? '#2a2a33' : '#3a3a44'; ctx.fillRect(cx + 52 + p * 6, cy - 4, 4, 4); }
+      if (can) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(cx - 2, cy - 9, 68, 14); }
     });
     // Footer
     ctx.font = 'bold 9px monospace';
-    ctx.fillStyle = '#ffd75e'; T2('RAINBOW · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 254);
+    ctx.fillStyle = '#ffd75e'; T2('RAINBOW · ' + [1, 2, 4, 8, 16].filter(b => sh & b).length + ' / 5', VW / 2, 250);
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';
-    T2(alloc ? '↑↓ pick · → allocate · cannot close' : 'P / ESC / tap · close', VW / 2, VH - 4);
+    T2(alloc ? '↑↓ pick · → allocate' : 'tap skill to buy · P close', VW / 2, VH - 4);
   }
 
   // action buttons — hidden during pause / level-up (dedicated overlays own the input)
