@@ -40,7 +40,7 @@ box(274, 58, 3, 1, 2);                    // rung behind the tower (audit: stuck
 // ---- ROOT CAVES (x150-256, carved) ----
 box(150, 66, 107, 4, 0);                  // main corridor
 box(175, 63, 18, 7, 0);                   // tall room W
-box(215, 64, 20, 6, 0);                   // tall room E (lore stone)
+box(215, 64, 20, 6, 0);                   // tall room E
 box(162, 60, 3, 6, 0);                    // entry shaft (L2 rungs)
 box(162, 62, 3, 1, 2); box(162, 64, 3, 1, 2); box(162, 66, 3, 1, 2); box(162, 68, 3, 1, 2);
 box(246, 60, 3, 6, 0);                    // loop shaft (L2 rungs)
@@ -100,7 +100,6 @@ export const seeds = {
   // ONE home campfire (Joe): the Paddock hearth is the only rest/save/respawn.
   // The Return Law auditor proves every reachable cell can get back to it.
   fires: [[132.5, 59.5]],
-  lores: [[141.5, 59.4], [232, 68.4]],
   shards: [
     [272.5, 54.3, 1],    // DOUBLE JUMP — meadow tower (base kit)
     [226, 61.7, 2],      // RAINBOW HEAL — caves alcove, behind the DJ step

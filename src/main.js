@@ -27,7 +27,7 @@
 //      (moved to pause overlay). Contextual REST + SHOP + READ buttons dock
 //      near dpad — never mid-screen. Every button gets a color-coded ring for
 //      at-a-glance identity (cyan jump · white melee · purple shot · green
-//      heal · gold dash / shop / lore · green rest). Shop is now touch-reachable.
+//      heal · gold dash / green rest). Shop is now touch-reachable.
 //  11  Hearth NPC + dialogue system — proper wizard sprite next to the fire
 //      (robe, hat with gold star, beard, staff with crystal). Classic RPG
 //      dialogue bubble on approach: 1 TALK · 2 REST · 3 SHOP with keys +
@@ -37,6 +37,18 @@
 //      (sprite-integrated, no visual "box" around the enemy). Removed
 //      legacy B-opens-shop keyboard shortcut (superseded by 3 in the
 //      dialogue menu). Shop close hint updated to reflect current bindings.
+//  12  Consolidation — JUMP button is universal INTERACT/CONFIRM (contextual
+//      glyph: ▲ jump · ☰ open dialog at fire · ↵ confirm in dialog); MELEE
+//      button is BACK/CANCEL (← in dialog). Removed dedicated hearth touch
+//      buttons (TBtnT/TBtnE/TBtnSh) and Digit1-3/KeyT/KeyE aliases. Dialog
+//      uses ↑↓ nav + JUMP confirm + MELEE back. Wizard sprite extended with
+//      proper legs so feet plant on the ground (was floating).
+//  13  Removed lore-stones system entirely — world seeds, LORE array, readLore
+//      fn, loreRead state, nearLore proximity, JUMP ★ label, TBtnJ handler,
+//      save `r` field. SILVER_TONGUE achievement repurposed to fire on first
+//      DM conversation (was "read both stones"). Save v7 → v8. Wizard given
+//      longer legs (pants + planted boots at ground line cyp+8) — no more
+//      floating look.
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -84,6 +96,16 @@ addEventListener('keydown', (e) => {
   boot();                                                    // resume audio on any key (autoplay policy)
   if (phase === 0) return titleKey(e);
   if (phase === 1) return nameKey(e);
+  // DIALOG owns input — arrow keys navigate, JUMP confirms, MELEE cancels
+  if (dialog) {
+    if (e.code === 'ArrowUp')        dialog = ((dialog - 2 + 3) % 3) + 1;
+    else if (e.code === 'ArrowDown') dialog = (dialog % 3) + 1;
+    else if (J_KEYS.includes(e.code) || e.code === 'Enter') dialogDo();
+    else if (M_KEYS.includes(e.code) || e.code === 'Escape') dialog = 0;
+    return;
+  }
+  // Near NPC: JUMP becomes universal INTERACT (open dialog) — no dedicated interact key
+  if (J_KEYS.includes(e.code) && nearFire) { dialog = 1; return; }
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) swing();
@@ -94,7 +116,6 @@ addEventListener('keydown', (e) => {
     const n = '12345'.indexOf(e.key); if (n >= 0) buy(n);
     if (e.code === 'KeyE' || e.code === 'Escape') { shopping = 0; keys.delete('KeyE'); }   // E or Esc closes shop
   }
-  // hearth shop is now opened via the 1/2/3 dialogue keys — see the fire-interact block in step()
   else if (e.code === 'KeyP' || e.code === 'Escape') paused = paused ? 0 : 1;
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -102,28 +123,26 @@ const held = (...c) => c.some(k => keys.has(k));
 const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('TBtnJ'); // button jump gets full hold-height too
 const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('TBtnH');
 
-// ---------- touch overlay (data-driven: colored ring per action; contextual REST/SHOP/READ splits E off mid-screen) ----------
+// ---------- touch overlay (minimal: dpad + JUMP + MELEE + earned skills; JUMP + MELEE contextualize) ----------
+// No dedicated hearth buttons — JUMP is the universal interact/confirm, MELEE is back/cancel.
 const btns = () => {
+  // JUMP contextualizes: dialog open = ↵ confirm · nearFire (closed) = ☰ open dialog · else = ▲ jump
+  const jl = dialog ? '↵' : nearFire ? '☰' : '▲';
+  const jc = dialog || nearFire ? '#ffd75e' : '#8cf';
+  // MELEE contextualizes: dialog open = ← back · else = ⚔ swipe
+  const ml = dialog ? '←' : '⚔';
   const b = [
-    { x: VW - 40, y: VH - 40, r: 26, l: '▲', h: 'SPACE', c: 'TBtnJ', col: '#8cf' },   // JUMP — biggest, thumb rest, cyan
-    { x: VW - 96, y: VH - 30, r: 22, l: '⚔', h: 'J', c: 'TBtnM', col: '#fff' },        // MELEE — white
+    { x: VW - 40, y: VH - 40, r: 26, l: jl, h: 'SPACE', c: 'TBtnJ', col: jc },
+    { x: VW - 96, y: VH - 30, r: 22, l: ml, h: 'J',     c: 'TBtnM', col: '#fff' },
   ];
-  if (touch) b.unshift(                                                                // dpad is touch-only — keyboard moves on desktop
-    { x: 30, y: VH - 30, r: 22, l: '◀', h: '', c: 'TBtnL', col: '#ccc' },
-    { x: 78, y: VH - 30, r: 22, l: '▼', h: '', c: 'TBtnDn', col: '#aaa' },              // drop through platforms
-    { x: 126, y: VH - 30, r: 22, l: '▶', h: '', c: 'TBtnR', col: '#ccc' });
-  // learned skills — color-coded per school, distinct visual identity
-  if (abil & 4) b.push({ x: VW - 96, y: VH - 76, r: 20, l: '✦', h: 'L', c: 'TBtnS', col: '#c9a6f7' });     // SHOT · purple
-  if (abil & 2) b.push({ x: VW - 40, y: VH - 88, r: 18, l: '＋', h: 'S', c: 'TBtnH', col: '#9fe8a0' });    // HEAL · green
-  if (abil & 8) b.push({ x: VW - 140, y: VH - 62, r: 20, l: '»', h: 'SHIFT', c: 'TBtnD', col: '#ffd75e' }); // DASH · gold
-  // CONTEXTUAL INTERACT — appears near dpad on touch, in world position on desktop. Never mid-screen.
-  const ix = touch ? 174 : VW - 200, iy = VH - 30;
-  if (nearLore) b.push({ x: ix, y: iy, r: 20, l: '★', h: 'E', c: 'KeyE', col: '#ffd75e' });                 // READ lore
-  if (nearFire) {                                                                                            // hearth dialogue: TALK · REST · SHOP
-    b.push({ x: ix,      y: iy, r: 18, l: '?', h: '1', c: 'TBtnT',  col: '#8cf'    });                       //   TALK · cyan ?
-    b.push({ x: ix + 40, y: iy, r: 18, l: 'Z', h: '2', c: 'KeyE',   col: '#9fe8a0' });                       //   REST · green Z (E-key alias)
-    b.push({ x: ix + 80, y: iy, r: 18, l: '$', h: '3', c: 'TBtnSh', col: '#ffd75e' });                       //   SHOP · gold $
-  }
+  if (touch) b.unshift(
+    { x: 30,  y: VH - 30, r: 22, l: '◀', h: '', c: 'TBtnL',  col: '#ccc' },
+    { x: 78,  y: VH - 30, r: 22, l: '▼', h: '', c: 'TBtnDn', col: '#aaa' },
+    { x: 126, y: VH - 30, r: 22, l: '▶', h: '', c: 'TBtnR',  col: '#ccc' });
+  // learned skills — color-coded per school (unchanged)
+  if (abil & 4) b.push({ x: VW - 96,  y: VH - 76, r: 20, l: '✦', h: 'L',     c: 'TBtnS', col: '#c9a6f7' });
+  if (abil & 2) b.push({ x: VW - 40,  y: VH - 88, r: 18, l: '＋', h: 'S',    c: 'TBtnH', col: '#9fe8a0' });
+  if (abil & 8) b.push({ x: VW - 140, y: VH - 62, r: 20, l: '»', h: 'SHIFT', c: 'TBtnD', col: '#ffd75e' });
   return b;
 };
 const ptrs = new Map();
@@ -138,7 +157,19 @@ addEventListener('pointerdown', (e) => {
   if (phase === 1) { pName = ent || 'HORSE'; phase = 2; started = 1; save(); opener(); return; }
   // PAUSE overlay — top-right corner icon opens it (48px tap zone); tap anywhere to close
   if (paused) { paused = 0; return; }
-  if (started && !choosing && !shopping && vx > VW - 40 && vy < 40) { paused = 1; return; }
+  if (started && !choosing && !shopping && !dialog && vx > VW - 40 && vy < 40) { paused = 1; return; }
+  // DIALOG overlay taps: JUMP btn = confirm · MELEE btn = back · bubble row = pick · else close
+  if (dialog) {
+    const bs = btns();
+    const jb = bs.find(b => b.c === 'TBtnJ'), mb = bs.find(b => b.c === 'TBtnM');
+    if (jb && Math.hypot(vx - jb.x, vy - jb.y) < jb.r + 6) { dialogDo(); return; }
+    if (mb && Math.hypot(vx - mb.x, vy - mb.y) < mb.r + 6) { dialog = 0; return; }
+    if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= 56 && vy <= 100) {
+      const row = ((vy - 58) / 14) | 0;
+      if (row >= 0 && row <= 2) { dialog = row + 1; dialogDo(); return; }
+    }
+    dialog = 0; return;
+  }
   if (choosing) {
     const pitch = 82, sx0 = VW / 2 - (menu.length * pitch - 6) / 2;
     if (vy > 100 && vy < 196) { const n = (vx - sx0) / pitch | 0; if (n >= 0 && n < menu.length) pick(n); }
@@ -151,13 +182,13 @@ addEventListener('pointerdown', (e) => {
     return;
   }
   for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
+    // JUMP button contextualizes: near NPC it's INTERACT, not jump
+    if (b.c === 'TBtnJ' && nearFire) { dialog = 1; return; }
     ptrs.set(e.pointerId, b.c); keys.add(b.c);
     if (b.c === 'TBtnJ') jbuf = .12;
     if (b.c === 'TBtnM') swing();
     if (b.c === 'TBtnS') shoot();
     if (b.c === 'TBtnD') dash();
-    if (b.c === 'TBtnSh' && nearFire) shopping = 1;                       // touch: SHOP button opens the hearth
-    if (b.c === 'TBtnT'  && nearFire) keys.add('KeyT');                   // touch: TALK routes through the hearth handler on next frame
   }
 });
 addEventListener('pointerup', (e) => { const c = ptrs.get(e.pointerId); if (c) { keys.delete(c); ptrs.delete(e.pointerId); } });
@@ -181,10 +212,6 @@ const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 *
 let dmTxt = '', dmT = 0;
 const dmQ = [];
 const say = (t) => { if (dmT > 0) dmQ.push(t); else { dmTxt = t; dmT = 3.2; } };
-const LORE = [
-  'Before the doubt, every tile of this table was painted. I remember the brush.',
-  'The roots drink what the sky forgets. Even doubt has an underside.',
-];
 // DM dialogue pool — first-talk grants a small XP boon (+10), later talks rotate lore/encouragement
 const DM_LINES = [
   'Welcome, little hero. The table remembers a brave d20. Take this — a boon of experience.',
@@ -323,24 +350,23 @@ const buy = (i) => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 7, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
-    p: pk, w: shopB, r: loreRead, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
-    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), // v7 — tutorial-seen flags (bit 0 melee · 1 heal · 2 first-DM-talk)
+    v: 8, e: earned, h: hp, x: xp, l: lvl, s: spk, a: abil, n: mn, q: sh, g: bossDead,
+    p: pk, w: shopB, t: [ho, he, sp], c: [cp[0], cp[1]], b: regions.map(r => r.t),
+    m: pName, k: cls, f: seenM | (seenH << 1) | (seenT << 2), // v8 — dropped lore-stones (r field). tutorial flags: bit 0 melee · 1 heal · 2 first-DM-talk
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 7) return;                                // v7 — adds seen-flags. v6 saves start fresh (early access, no migration path).
-    // v7 pin: every field is guaranteed present, no legacy || fallbacks needed
+    if (!d || d.v !== 8) return;                                // v8 — lore-stones removed (r field dropped). v7 saves start fresh (early access, no migration path).
+    // v8 pin: every field is guaranteed present, no legacy || fallbacks needed
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; spk = d.s; abil = d.a; mn = d.n;
     sh = d.q; bossDead = d.g; pk = d.p; shopB = d.w; pName = d.m; cls = d.k;
     seenM = d.f & 1; seenH = (d.f >> 1) & 1; seenT = (d.f >> 2) & 1;
-    d.r.forEach((v, i) => loreRead[i] = v);
     edg = (shopB & 1) + ((shopB >> 2) & 1) + ((shopB >> 4) & 1); // rebuild shop effects from bought bits
     shp = ((shopB >> 1) & 1) + ((shopB >> 3) & 1);
-    [ho, he, sp] = d.t;                                          // v6 pin: d.t always present
+    [ho, he, sp] = d.t;                                          // v8 pin: d.t always present
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     d.b.forEach((v, i) => { regions[i].t = v; regions[i].b = v; });
   } catch (e) { /* fresh oath */ }
@@ -350,10 +376,25 @@ const load = () => {
 const PW = 10, PH = 14;
 const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
-let atkCd = 0, swT = 0, chT = 0, nearFire = 0, nearLore = 0, seenM = 0, seenH = 0, seenT = 0;
+let atkCd = 0, swT = 0, chT = 0, nearFire = 0, seenM = 0, seenH = 0, seenT = 0;
 let paused = 0;                                   // pause overlay open — freezes sim, character sheet renders
+// hearth dialog: 0 = closed, 1..3 = current option highlight (1 TALK, 2 REST, 3 SHOP).
+// JUMP button is the universal interact/confirm; MELEE button is back. No separate dialogue buttons.
+let dialog = 0;
+const dialogDo = () => {
+  if (dialog === 1) {                             // TALK — first talk grants +10 XP boon
+    if (!seenT) { seenT = 1; gainXp(10, pl.x, pl.y - 14); say(DM_LINES[0]); save(); }
+    else say(DM_LINES[1 + (Math.random() * (DM_LINES.length - 1) | 0)]);
+  } else if (dialog === 2) {                      // REST + save
+    const [fx, fy] = seeds.fires[0];
+    if (hp === mHP()) earned[8] = 1;              // WELL_RESTED — rest without needing it
+    hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
+    burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
+    say('Rest. Saved. The fire keeps what you earned.');
+  } else shopping = 1;                            // SHOP
+  dialog = 0;
+};
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
-const loreRead = [0, 0];
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = () => 115, V0 = () => 250;
@@ -480,7 +521,7 @@ const hurt = (n, safe) => {
 let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
-  if (paused) return;                              // pause overlay open: freeze all sim; render still draws
+  if (paused || dialog) return;                    // pause overlay or hearth dialog open: freeze sim; render still draws
   time += dt; dmT -= dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; atkCd -= dt; swT -= dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
   if (dmT <= 0 && dmQ.length) { dmTxt = dmQ.shift(); dmT = 3.2; }
   regions.forEach(r => r.b += (r.t - r.b) * Math.min(1, dt * .9));
@@ -699,39 +740,16 @@ const step = (dt) => {
   }
   for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune (fixes splice-race #5)
 
-  // -- HEARTH: DM dialogue (1 TALK · 2 REST · 3 SHOP). Also legacy: E rests, B shops.
-  nearFire = 0; nearLore = 0;
-  for (const [fx, fy] of seeds.fires) {
-    if (Math.hypot(pl.x - fx * T, pl.y - fy * T) > 26) continue;
-    nearFire = 1;
-    if (keys.has('Digit1') || keys.has('KeyT')) {                   // TALK — first talk grants +10 XP boon
-      keys.delete('Digit1'); keys.delete('KeyT');
-      if (!seenT) { seenT = 1; gainXp(10, pl.x, pl.y - 14); say(DM_LINES[0]); save(); }
-      else say(DM_LINES[1 + (Math.random() * (DM_LINES.length - 1) | 0)]);
-    }
-    if (keys.has('KeyE') || keys.has('Digit2')) {                   // REST + save
-      keys.delete('KeyE'); keys.delete('Digit2');
-      if (hp === mHP()) earned[8] = 1;                              // WELL_RESTED — rest without needing it
-      hp = mHP(); cp = [fx * T - 20, (fy - 1) * T]; earned[0] = 1; save();
-      burst(fx * T, fy * T - 8, 12, '#fc6'); sfx(500, 900, .3, 'triangle', .1);
-      say('Rest. Saved. The fire keeps what you earned.');
-    }
-    if (keys.has('Digit3')) { keys.delete('Digit3'); shopping = 1; } // SHOP via 3
-  }
-  seeds.lores.forEach(([lx, ly], i) => {
-    if (Math.hypot(pl.x - lx * T, pl.y - ly * T) > 22) return;
-    nearLore = 1;
-    if (keys.has('KeyE')) {
-      keys.delete('KeyE'); say(LORE[i]);
-      if (!loreRead[i]) { loreRead[i] = 1; gainXp(6, pl.x, pl.y - 12); }
-    }
-  });
+  // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
+  nearFire = 0;
+  for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
+  if (!nearFire && dialog) dialog = 0;                    // walk-away auto-closes dialog
 
   // -- achievement watchers (all 13 Wavedash slots now live) --
   if (spk >= 30) earned[9] = 1;                                 // HOARDER
   if ((abil & 15) === 15) earned[10] = 1;                       // BELIEVER — every skill learned
   if (shopB === 31) earned[11] = 1;                             // ARCHITECT — the hearth fully built
-  if (loreRead[0] && loreRead[1]) earned[7] = 1;                // SILVER_TONGUE — every stone read
+  if (seenT) earned[7] = 1;                                     // SILVER_TONGUE — spoke with the DM at least once
   if (regionAt(pl.x + PW / 2, pl.y + 7) === regions[4]) earned[6] = 1; // SUMMIT
   if (regions.slice(1, 7).reduce((a, r) => a + r.t, 0) >= 2) earned[5] = 1; // GREEN_HOOVES — 2 zones rebloomed
 
@@ -798,42 +816,39 @@ const draw = () => {
     const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-    // -- DM wizard NPC (sits to the right of the fire, faces player) --
-    const wx = cxp + 14, wy = cyp - 12, wob = Math.sin(time * 2) * .3;
-    ctx.fillStyle = '#4a3a7c';                                    // deep purple robe
-    ctx.fillRect(wx - 3, wy + 6, 6, 8);                           // robe body
-    ctx.fillRect(wx - 4, wy + 10, 8, 2);                          // robe hem flare
+    // -- DM wizard NPC (stands to the right of the fire, feet on the ground) --
+    // wy = head anchor. Fire base bottom = cyp+8 (ground level); boot bottoms sit exactly there.
+    const wx = cxp + 14, wy = cyp - 10, wob = Math.sin(time * 2) * .3;
+    ctx.fillStyle = '#4a3a7c';                                    // deep purple robe torso
+    ctx.fillRect(wx - 3, wy + 6, 6, 7);                           // torso
+    ctx.fillRect(wx - 4, wy + 11, 8, 3);                          // robe skirt (flare down to knees)
+    ctx.fillStyle = '#3a2f5c';                                    // pants — darker purple, longer legs
+    ctx.fillRect(wx - 2, wy + 14, 1, 3);                          // left leg
+    ctx.fillRect(wx + 1, wy + 14, 1, 3);                          // right leg
     ctx.fillStyle = '#f5e0c8';                                    // face
     ctx.fillRect(wx - 2, wy + 3, 4, 3);
     ctx.fillStyle = '#e8e8f0';                                    // white beard
     ctx.fillRect(wx - 2, wy + 5, 4, 2);
-    ctx.fillStyle = '#4a3a7c';                                    // pointed hat (triangle-ish)
+    ctx.fillStyle = '#4a3a7c';                                    // pointed hat (stepped triangle)
     ctx.fillRect(wx - 3, wy + 1, 6, 2);
     ctx.fillRect(wx - 2, wy - 1, 4, 2);
     ctx.fillRect(wx - 1, wy - 3, 2, 2);
-    ctx.fillStyle = '#ffd75e';                                    // gold star on hat tip
+    ctx.fillStyle = '#ffd75e';                                    // gold star on hat tip (bobs gently)
     ctx.fillRect(wx, wy - 4 + wob, 1, 1);
     ctx.fillStyle = '#111';                                       // eyes
     ctx.fillRect(wx - 1, wy + 4, 1, 1); ctx.fillRect(wx + 1, wy + 4, 1, 1);
-    ctx.fillStyle = '#8a6a3a';                                    // staff
-    ctx.fillRect(wx + 4, wy + 2, 1, 12);
-    ctx.fillStyle = '#8cf'; ctx.fillRect(wx + 4, wy + 1, 1, 1);   // staff crystal tip
-    // -- dialogue prompt bubble (near NPC, only when close) --
-    if (nearFire && Math.abs(pl.x - cxp) < 26 && Math.abs(pl.y - cyp) < 26) {
-      const by = wy - 12;
-      ctx.fillStyle = 'rgba(20,15,30,.92)'; ctx.fillRect(wx - 34, by - 26, 72, 30);
-      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(wx - 34, by - 26, 72, 30);
-      ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 6px monospace';
-      ctx.fillText('THE DM', wx, by - 20);
-      ctx.font = '6px monospace'; ctx.fillStyle = '#fff';
-      ctx.fillText('1 TALK', wx, by - 12);
-      ctx.fillText('2 REST', wx, by - 6);
-      ctx.fillText('3 SHOP', wx, by);
+    ctx.fillStyle = '#2a1f3c';                                    // boots — planted on the ground line (cyp+8)
+    ctx.fillRect(wx - 3, wy + 17, 3, 1);                          // left boot
+    ctx.fillRect(wx + 1, wy + 17, 3, 1);                          // right boot
+    ctx.fillStyle = '#8a6a3a';                                    // wooden staff (taller now to match)
+    ctx.fillRect(wx + 5, wy + 2, 1, 15);
+    ctx.fillStyle = '#8cf'; ctx.fillRect(wx + 5, wy + 1, 1, 1);   // cyan crystal tip
+    // -- proximity prompt above wizard head (only when close and dialog not yet open) --
+    if (nearFire && !dialog) {
+      const pf = 1 + Math.sin(time * 5) * .3;                     // pulses to draw the eye
+      ctx.fillStyle = '#ffd75e'; ctx.textAlign = 'center';
+      ctx.font = 'bold 6px monospace'; ctx.fillText('▲ TALK', wx, wy - 6 - pf);
     }
-  }
-  for (const [lx, ly] of seeds.lores) {
-    ctx.fillStyle = '#7a7a85'; ctx.fillRect(lx * T - 5, ly * T - 6, 10, 15);
-    ctx.fillStyle = '#aee'; ctx.fillRect(lx * T - 1, ly * T - 2, 2, 6);
   }
   // stardust motes (blue — exploration XP)
   for (const m of motes) {
@@ -998,6 +1013,23 @@ const draw = () => {
       ctx.fillText('DM — ' + dmTxt, VW / 2, VH - 93); ctx.globalAlpha = 1;
     }
     if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
+  }
+
+  // HEARTH DIALOG OVERLAY — view-space bubble, keyboard nav + touch row-tap. Universal JUMP=confirm, MELEE=back.
+  if (dialog && started) {
+    const rows = ['1 TALK', '2 REST', '3 SHOP'];
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(20,15,30,.95)'; ctx.fillRect(VW / 2 - 70, 44, 140, 60);
+    ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 70, 44, 140, 60);
+    ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 9px monospace'; ctx.fillText('THE DM', VW / 2, 54);
+    ctx.font = 'bold 8px monospace';
+    for (let i = 0; i < 3; i++) {
+      if (dialog === i + 1) { ctx.fillStyle = 'rgba(255,215,94,.18)'; ctx.fillRect(VW / 2 - 60, 58 + i * 14, 120, 12); }
+      ctx.fillStyle = dialog === i + 1 ? '#ffd75e' : '#ddd';
+      ctx.fillText(rows[i], VW / 2, 67 + i * 14);
+    }
+    ctx.fillStyle = '#888'; ctx.font = '6px monospace';
+    ctx.fillText(touch ? 'tap row · ← back' : '↕ select · ▲ confirm · ⚔ back', VW / 2, 100);
   }
 
   // PAUSE OVERLAY — full character sheet (identity chrome moved out of gameplay HUD)

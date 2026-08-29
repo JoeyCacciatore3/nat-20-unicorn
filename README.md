@@ -125,13 +125,15 @@ Each button has a distinct ring color for at-a-glance identity:
 | Rainbow shot | purple | ✦ |
 | Rainbow heal | green | ＋ |
 | Air dash | gold | » |
-| Rest (at fire) | green | Z |
-| Shop (at fire) | gold | $ |
-| Read (at lore stone) | gold | ★ |
+| Jump / Interact / Confirm (universal) | cyan / gold contextual | ▲ / ☰ / ↵ |
+| Melee / Back / Cancel (universal) | white | ⚔ / ← |
 
-**Interact button never appears mid-screen** — always docked to the left cluster
-near the dpad. At the fire, REST + SHOP appear side-by-side (was: single E
-that couldn't open shop on touch — fixed).
+**JUMP is the universal interact/confirm button** — near the fire it turns gold
+and becomes ☰ (open dialog); with the dialog open it becomes ↵ (confirm the
+highlighted row). **MELEE is the universal back/cancel** — in dialog it becomes
+← (close dialog). Only two mode buttons, always in the same place, always doing
+the same class of action. No dedicated hearth touch buttons that clutter the
+overlay.
 
 Modern mobile-first sizing: 44–56 px tap zones (Apple HIG 44 pt / Material 48 dp),
 semi-transparent dark disc + colored ring so buttons don't occlude sprites but
@@ -143,11 +145,15 @@ The one home campfire is tended by **THE DM** — a wizard NPC (purple robe,
 pointed hat with gold star, white beard, crystal-tipped staff). Walk up to
 open a classic RPG dialogue bubble with three options:
 
-- **1 TALK** — first talk grants a **+10 XP boon** + intro line; later talks
-  rotate flavor lines from the DM pool. Persisted via v7 save `f` bit 2.
-- **2 REST** — full HP + save + checkpoint (was `E`; both keys still work)
-- **3 SHOP** — opens the hearth shop (was `B` on desktop; B is retired now,
-  only the numeric dialogue keys open shop cleanly)
+- **TALK** (highlight + confirm) — first talk grants a **+10 XP boon** + intro
+  line and unlocks the SILVER_TONGUE achievement; later talks rotate flavor
+  lines from the DM pool. Persisted via v8 save `f` bit 2.
+- **REST** — full HP + save + checkpoint
+- **SHOP** — opens the hearth shop
+
+Navigate with `↑ ↓` (or drag/tap rows on touch), confirm with **JUMP**, cancel
+with **MELEE**. No dedicated keys — the two mode buttons carry every hearth
+interaction. Walking away closes the dialog automatically.
 
 Elite enemies wear a **small pulsing gold crown above the head** — no more
 outer yellow square around the sprite (that read as a UI bug, not a marker).
@@ -159,8 +165,9 @@ Toggle via `P` / `Esc` / tap top-right icon; tap anywhere to close.
 
 ## Save format
 Key: `localStorage.n20_save`. Version pinned in-file (`d.v !== N` → discard).
-Current version: **v7** — adds `f` (seen-flags bitfield: tutorial hints don't
-re-spam across sessions). Prior fields: `k` (class), `m` (player name).
+Current version: **v8** — drops the `r` field (lore-stones system removed
+entirely; SILVER_TONGUE achievement now fires on first DM conversation).
+Prior fields: `f` (seen-flags bitfield), `k` (class), `m` (player name).
 Version bumps discard prior saves rather than migrating; the game is early
 enough that mid-run states can't survive a rules change intact.
 
