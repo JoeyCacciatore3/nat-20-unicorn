@@ -271,7 +271,7 @@ const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 *
 
 // Narrator overlay removed — feedback comes via fly() text over the player/NPC.
 
-// ---------- RPG 2.0 (researched): milestone dice, modifier stats, D&D perks ----------
+// ---------- RPG (researched): milestone dice, modifier stats, skill tree ----------
 // 5-stat system: STR (dmg) HP (max ♥) MAG (max ✦) DEF (dmg reduction) LUCK (drop bonus)
 let ho = 1, he = 1, sp = 1, df = 1, lk = 1;       // every stat starts at 1 — no dead stats at creation
 // Unicorn customization — palette indices picked at character creation. Four body types:
@@ -323,27 +323,26 @@ const drawU = (bob) => {
 };
 let hp = 10, xp = 0, lvl = 1;
 let sh = 0, abil = 0, bossDead = 0;               // sh = shards HELD (flavor now); abil = skills LEARNED; bits: 1 DJ 2 heal 4 shot 8 dash 16 heart
-let mn = 5, choosing = 0, pending = 0, pk = 0;
+let mn = 5, choosing = 0, pending = 0;
 const CAP = 15;                                   // hard level cap. L15 grants APOTHEOSIS (+2 dmg, +2 max HP); post-cap XP → sparks 1:1
 // Skills are ALL player-chosen via the 3-branch tree — no auto-learn milestones
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 const bossLive = [0, 0, 0, 0, 0];
-const mHP = () => 8 + he * 2 + su[6] * 3 + (lvl >= CAP ? 2 : 0); // 10 base · +2/HP · TOUGH +3/rank · APOTHEOSIS +2
+const mHP = () => 8 + he * 2 + su[9] * 3 + (lvl >= CAP ? 2 : 0); // 10 base · +2/HP · TOUGH +3/rank · APOTHEOSIS +2
 const mMN = () => 3 + sp * 2;
 const DIE = () => [4,4,6,6,6,8,8,8,10,10,10,12,12,12,12][lvl - 1] || 4; // die = LEVEL MILESTONE (Zelda-heart law)
-const MOD = () => ho - 1 + (lvl >= CAP ? 2 : 0) + ((pk & 256) ? (mHP() - hp) >> 1 : 0); // BLOODLETTER: +1 per 2 missing HP · APOTHEOSIS: +2
-const roll = (adv) => {                           // adv: ADVANTAGE perk (melee only) rolls 2d keep best
+const MOD = () => ho - 1 + (lvl >= CAP ? 2 : 0) + (su[6] ? (mHP() - hp) >> 1 : 0); // BLEED: +1/2 missing HP
+const roll = (adv) => {                           // adv: PRECISE rank 2+ (melee advantage)
   let r = 1 + (Math.random() * DIE() | 0);
-  if (adv && (pk & 2)) r = Math.max(r, 1 + (Math.random() * DIE() | 0));
-  if ((pk & 4) && r === 1) r = 1 + (Math.random() * DIE() | 0);   // REROLL 1s
+  if (adv && su[4] >= 2) r = Math.max(r, 1 + (Math.random() * DIE() | 0)); // PRECISE r2: advantage
+  if (su[4] >= 1 && r === 1) r = 1 + (Math.random() * DIE() | 0);          // PRECISE r1: reroll 1s
   return r;
 };
-const isCrit = (r) => r >= DIE() - ((pk & 1) ? 1 : 0);            // KEEN HORN widens crit range
+const isCrit = (r) => r >= DIE() - (su[4] >= 3 ? 1 : 0);          // PRECISE r3: keen crit
 const earned = Array(13).fill(0);
 const need = () => 8 + lvl * 6;
 const gainXp = (n, x, y) => {
-  if (pk & 16) n = Math.round(n * 1.25);          // SCHOLAR
-  if (lvl >= CAP) return;                                       // post-cap: XP no longer needed
+  if (lvl >= CAP) return;
   xp += n; fly(x, y, '+' + n + ' XP', '#9f9');
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
@@ -360,60 +359,35 @@ const STATS = [
   ['DEF', '-1 damage taken', '#8cf', () => df++],
   ['LUCK', '+1 item drop / kill', '#9fe89a', () => lk++],
 ];
-const PERKS = [                                   // even levels: pick 1 of 3 — real table rules, zero movement physics
-  { b: 1, n: 'KEEN HORN', d: 'crit on top 2 rolls' },
-  { b: 2, n: 'ADVANTAGE', d: 'melee rolls 2d, keeps best' },
-  { b: 4, n: 'REROLL 1s', d: 'a rolled 1 rerolls once' },
-  { b: 8, n: 'MANA FONT', d: '+1 ✦ every kill' },
-  { b: 16, n: 'SCHOLAR', d: '+25% XP' },
-  { b: 32, n: 'THICK MANE', d: 'longer grace after hits' },
-  { b: 64, n: 'PIERCE', d: 'bolts pass through foes' },
-  { b: 128, n: 'STOMP SPARK', d: '+2 ✦ on stomp kills' },
-  { b: 256, n: 'BLOODLETTER', d: '+1 dmg per 2 missing HP' },
-  { b: 512, n: 'THIRST', d: 'kills refill 1 ✦' },
-  { b: 1024, n: 'NIMBLE', d: '−25% dash cooldown' },
-  { b: 2048, n: 'OVERCHANNEL', d: 'heal costs 4 (was 5)' },
-];
-// SKILL TREE — 3 branches (0 FURY · 1 VIGOR · 2 FINESSE). [name, branch, prereq idx (-1=none), max rank]
+
+// UNIFIED SKILL TREE — 3 branches, 19 nodes, 24 ranks. Perks folded in.
+// [name, branch(0/1/2), prereq idx(-1=none), max rank]
 const TREE = [
-  ['LUNGE',  0,-1,1],['SHOT',   0,-1,1],['RANGE',  0, 1,2],['FOCUS',  0, 1,2],  // ⚔ FURY
-  ['HEAL',   1,-1,1],['MEND+',  1, 4,2],['TOUGH',  1,-1,2],['REGEN',  1, 4,1],  // 🛡 VIGOR
-  ['DBL JMP',2,-1,1],['JMP+1',  2, 8,1],['DASH',   2,-1,1],['RAZOR',  2,10,1],['SWIFT',  2,-1,2],  // 💨 FINESSE
+  ['LUNGE',  0,-1,1],['SHOT',  0,-1,1],['RANGE', 0, 1,2],['FOCUS', 0, 1,2],  // 0-3 ⚔ FURY core
+  ['PRECISE',0, 0,3],['PIERCE',0, 1,1],['BLEED', 0, 0,1],                     // 4-6 ⚔ FURY ex-perks
+  ['HEAL',   1,-1,1],['MEND+', 1, 7,2],['TOUGH', 1,-1,2],['REGEN', 1, 7,1],  // 7-10 🛡 VIGOR core
+  ['SIPHON', 1, 7,2],['WARD',  1,-1,1],                                        // 11-12 🛡 VIGOR ex-perks
+  ['DBL JMP',2,-1,1],['JMP+1', 2,13,1],['DASH',  2,-1,1],['RAZOR', 2,15,1],  // 13-16 💨 FINESSE core
+  ['SWIFT',  2,-1,2],['NIMBLE',2,15,1],                                        // 17-18 💨 FINESSE ex-perks
 ];
 const BCOL = ['#ffd75e','#9fe8a0','#6bc5ff'], BNAME = ['FURY','VIGOR','FINESSE'];
-let spts = 0; const su = Array(13).fill(0);        // skill points held · rank per TREE row
-const abilSync = () => { abil = (su[8]?1:0)|(su[4]?2:0)|(su[1]?4:0)|(su[10]?8:0)|(abil&16); };
-let regT = 0;                                       // REGEN tick timer
-// D&D leveling: every level offers all 5 STATS (pure allocation, no classes).
-// Skill unlocks (LV3/5/7/9) join the menu at their milestone level as bonus picks.
-// Perks are elite-kill drops ONLY — never surface on level-up.
-// Level-up ALLOCATION reuses the character sheet: no separate modal, no menu[] array.
-// picks() returns rows the player can spend a point on at current lvl+1
-// (available skill unlocks + 5 stats). aRow indexes into this list.
+let spts = 0; const su = Array(19).fill(0);
+const abilSync = () => { abil = (su[13]?1:0)|(su[7]?2:0)|(su[1]?4:0)|(su[15]?8:0)|(abil&16); };
+let regT = 0;
 let aRow = 0;
-// picks = the 5 stats, always. Skills auto-learn (gainXp) + rank up in the pause tree.
 const picks = () => STATS.map((s, i) => ({ i, n: s[0], col: s[2] }));
 const allocate = () => {
   const c = picks()[aRow]; if (!c || !pending) return;
-  STATS[c.i][3]();
-  pending--;
+  STATS[c.i][3](); pending--;
   fly(pl.x, pl.y - 14, c.n + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
   if (!pending) { choosing = 0; save(); }
-};
-// grant one random un-owned perk (elite drop). If all owned, item shower instead.
-const grantPerk = (x, y) => {
-  const un = PERKS.filter(p => !(pk & p.b));
-  if (un.length) {
-    const p = un[Math.random() * un.length | 0];
-    pk |= p.b; fly(x, y, p.n + '!', '#c9a6f7', 1);
-  } else spawnDrop(x, y, 3 + lk);
 };
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 17, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, q: sh, g: bossDead,
-    p: pk, t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
+    v: 18, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, q: sh, g: bossDead,
+    t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, f: seenT, o: oc,
     u: [bod, man, hrn, hof],                                       // v13 — 4-slot palette (added hooves)
   });
@@ -421,10 +395,10 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 17) return;                               // v17 — unified 3-branch skill tree. Older saves start fresh.
+    if (!d || d.v !== 18) return;                               // v18 — perks folded into skill tree.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
-    sh = d.q; bossDead = d.g; pk = d.p; pName = d.m; oc = d.o;
+    sh = d.q; bossDead = d.g; pName = d.m; oc = d.o;
     seenT = d.f & 1;                                                 // v15+: f is just seenT (0/1); old bitmask bits ignored
     [ho, he, sp, df, lk] = d.t;
     [bod, man, hrn, hof] = d.u;
@@ -470,7 +444,7 @@ const openChest = (i) => {
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0, navT = 0;   // navT = menu-nav repeat clock (joystick)
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
-const RUN = () => 115 * (1 + su[12] * .12), V0 = () => 250;  // SWIFT ranks boost run speed
+const RUN = () => 115 * (1 + su[17] * .12), V0 = () => 250;  // SWIFT ranks boost run speed
 
 const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // gloom crystal is solid until shot
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -482,7 +456,7 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 // FULL progression reset — NEW GAME must NOT inherit a boot-loaded save's state
 // (boot load() fills globals; without this, "new" characters kept old lvl/stats/bosses)
 const fresh = () => {
-  hp = 10; xp = 0; lvl = 1; sh = 0; abil = 0; bossDead = 0; mn = 5; pk = 0;
+  hp = 10; xp = 0; lvl = 1; sh = 0; abil = 0; bossDead = 0; mn = 5;
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
   seenT = 0; oc = 0; pName = 'HORSE'; earned.fill(0); bossLive.fill(0);
   spts = 0; su.fill(0); regT = 0; abilSync();
@@ -554,10 +528,8 @@ const strike = (f, r, gen, viaStomp) => {
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(f.k * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16);
     // ITEM DROPS: base 1-2 normal, 3 elite, 6 boss. LUCK adds +1 drop per pip.
     spawnDrop(f.x, f.y, (f.bit ? 6 : f.el ? 3 : 1 + (Math.random() < .5 ? 1 : 0)) + lk);
-    if (pk & 8) mn = Math.min(mMN(), mn + 1);                   // MANA FONT
-    if (pk & 512) mn = Math.min(mMN(), mn + 1);                 // THIRST — kills refill 1 ✦
-    if (viaStomp && (pk & 128)) mn = Math.min(mMN(), mn + 2);   // STOMP SPARK
-    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); grantPerk(f.x, f.y - 20); sfx(880, 1760, .3, 'triangle', .14); }
+    if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
+    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); spawnDrop(f.x, f.y, 4); sfx(880, 1760, .3, 'triangle', .14); }
     if (f.bit) {                                                // GUARDIAN falls — shard unlocks
       bossDead |= f.bit; bossLive[f.bi] = 0;
       // clean up the boss's summoned minions/twins tagged with the same bit
@@ -593,13 +565,13 @@ function dash() {                                               // air dash: bur
   if (!started || choosing || deathT > 0 || !(abil & 8) || dashCd > 0) return;
   if (!pl.ground) { if (adash) return; adash = 1; }
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
-  dashT = .15; dashCd = .45 * ((pk & 1024) ? .75 : 1); pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE perk -25% cd
+  dashT = .15; dashCd = .45 * (su[18] ? .75 : 1); pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE: -25% cd
 }
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max(1, n - df);                                    // DEFENSE — subtract pips, always leave at least 1
-  hp -= n; pl.inv = (pk & 32) ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
+  hp -= n; pl.inv = su[12] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
   for (const f of foes) if (f.bit) f.hit = 1;                    // any hit disqualifies UNTOUCHABLE for the active boss(es)
   sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE grace inside pl.inv
   // (seenH hint flag removed — dead code, no visible effect)
@@ -640,13 +612,13 @@ const step = (dt) => {
   if (onPlat && held('ArrowDown', 'KeyS', 'TBtnDn')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
 
   // -- heal channel: rooted, costs 5, restores 1 (faster with HEART) --
-  const healCost = (pk & 2048) ? 4 : 5;                              // OVERCHANNEL — heal costs 4 (perk bit moved from 4096 when STARSEEKER was cut)
+  const healCost = 5;
   const canHeal = (abil & 2) && mn >= healCost && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.3 - .1 * he) { const hm = 3 + 2 * su[5]; chT = 0; mn -= healCost; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe8a0', 1); }   // MEND+ ranks: 3→5→7
+    if (chT > 1.3 - .1 * he) { const hm = 3 + 2 * su[8]; chT = 0; mn -= healCost; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe8a0'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe8a0', 1); }   // MEND+ ranks: 3→5→7
   } else chT = 0;
-  if (su[7] && hp < mHP()) { regT += dt; if (regT >= 8) { regT -= 8; hp++; fly(pl.x, pl.y - 12, '+1', '#9fe8a0'); } } else regT = 0;
+  if (su[10] && hp < mHP()) { regT += dt; if (regT >= 8) { regT -= 8; hp++; fly(pl.x, pl.y - 12, '+1', '#9fe8a0'); } } else regT = 0;
   const rooted = chT > 0;
 
   // -- run --
@@ -658,13 +630,13 @@ const step = (dt) => {
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0 && !rooted) {
     if (pl.coyote > 0) { pl.vy = -V0(); pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); burst(pl.x, pl.y + PH, 4, '#ccc'); }
-    else if ((abil & 1) && pl.air < 1 + su[9]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // JUMP+1 rank = triple jump
+    else if ((abil & 1) && pl.air < 1 + su[14]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // JUMP+1 rank = triple jump
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash overrides physics: flat burst
     pl.vx = pl.face * 400; pl.vy = 0;
     parts.push({ x: pl.x + PW / 2, y: pl.y + 8, vx: 0, vy: 0, t: .3, c: `hsl(${(time * 500) % 360} 80% 65%)` });
-    if (su[11]) for (const f of [...foes]) {                    // RAZOR DASH — dashing through foes strikes them
+    if (su[16]) for (const f of [...foes]) {                    // RAZOR DASH — dashing through foes strikes them
       const fz = fsz(f);
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, roll(0), 0, 0);
     }
@@ -756,7 +728,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
     } else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
-      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { if (!(pk & 64)) s.t = 0; strike(f, roll(0), 0, 0); break; } // PIERCE keeps flying
+      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { if (!su[5]) s.t = 0; strike(f, roll(0), 0, 0); break; } // PIERCE keeps flying
     }
   }
   for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
@@ -1165,17 +1137,7 @@ const draw = () => {
       ctx.fillStyle = c; ctx.textAlign = 'left';
       ctx.fillText((sel ? '› ' : '  ') + l + ' ' + v, 164, y);
     });
-    // Perks — compact row under portrait
-    ctx.fillStyle = '#c9a6f7'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'left';
-    ctx.fillText('PERKS', 10, 156);
-    const owned = PERKS.filter(p => pk & p.b);
-    owned.forEach((p, i) => {
-      const x = 10 + (i % 7) * 18, y = 162 + (i / 7 | 0) * 18;
-      ctx.strokeStyle = '#c9a6f7'; ctx.strokeRect(x, y, 14, 14);
-      ctx.fillStyle = '#c9a6f7'; ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
-      ctx.fillText(p.n[0], x + 7, y + 11);
-    });
-    // 3-COLUMN SKILL TREE
+    // 3-COLUMN SKILL TREE (perks fully merged in — one system)
     ctx.textAlign = 'left'; ctx.font = 'bold 8px monospace';
     const TX = [164, 268, 370];                     // column x positions
     for (let b = 0; b < 3; b++) { ctx.fillStyle = BCOL[b]; ctx.fillText(BNAME[b], TX[b], 132); }
