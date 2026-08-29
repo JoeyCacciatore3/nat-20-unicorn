@@ -3,7 +3,7 @@
 
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
 
-A 2D pixel-art platformer-RPG. Name your unicorn, pick its colors, explore a
+A 2D pixel-art platformer-RPG. Name your unicorn, explore a
 vibrant connected world, defeat 5 bosses, and collect 5 golden rainbow shards
 to win. D&D-inspired combat with dice rolls, crits, and stat allocation.
 
@@ -11,20 +11,20 @@ to win. D&D-inspired combat with dice rolls, crits, and stat allocation.
 
 ## Progression
 - **Every level:** +3 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point
-- **Skill tree:** 19 nodes in 3 branches (⚔ FURY / 🛡 VIGOR / 💨 FINESSE) — all player-chosen
+- **Skill tree:** one open tree, 17 single-rank skills — all player-chosen
 - **Equipment:** enemies drop colored gear that recolors the matching body part, wears a tier trim (silver/gold), AND gives stat bonuses
 - **Die milestones:** d4 → d6 (L3) → d8 (L6) → d10 (L9) → d12 (L12)
 - **Level 15 cap:** APOTHEOSIS (+2 dmg, +2 max HP)
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
-- Start with 5 neutral colors (SNOW/CREAM/SILVER/ONYX/WHITE)
+- Everyone starts the same neutral white unicorn — creation asks ONE thing: your name
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
 - 5-slot inventory bag, auto-equip if better than current
 
 ## Combat
 `damage = (roll(die) + STR + equipment - 1) × (crit ? 2 : 1)`
-- Crit on max roll (PRECISE skill ranks expand crit range)
+- Crit on max roll of the die, always (×2 damage + fanfare)
 - Defense subtracts from incoming damage (min 1)
 - 6 enemy kinds built from one capability-bit system (ranged/jumper/chase/…) + elite variants
 - 5 named boss Mares (DUSK/HOLLOW/GALE/FROST/GLOOM) with arena banners and phase-2 ability grants
@@ -35,10 +35,10 @@ Heart (+3 HP) · Mana potion (+2 MP) · XP gem (floor) · Equipment gear (ceilin
 Rainbow (rare full heal, separate check). Golden rainbow shard is the ONE exception —
 guaranteed on a boss's first kill only, and the game-completion item (collect all 5).
 
-## Skill Tree (3 branches, 19 nodes)
-**⚔ FURY:** IMPALE · SHOT · RANGE(×2) · FOCUS(×2) · PRECISE(×3) · PIERCE · BLEED
-**🛡 VIGOR:** HEAL · MEND+(×2) · TOUGH(×2) · REGEN · SIPHON(×2) · WARD
-**💨 FINESSE:** DBL JMP · JMP+1 · DASH+ · AERIAL · SWIFT(×2) · NIMBLE
+## Skill Tree (one open tree, 17 single-rank skills — every name states its effect)
+SHOT → FAR SHOT → SNIPER · SHOT THRU · HEAL → HEAL +2 → HEAL +4 ·
+MAX HP +3 → +6 · MAX MP +2 → +4 · GUARD TIME · DBL JUMP → TRI JUMP ·
+LONG DASH · SPEED +12% → +24%
 
 ## Controls
 | | Keyboard | Touch |
@@ -59,7 +59,7 @@ Joystick also navigates menus (up/down to select, right to confirm).
 ## World
 One connected map, five zones — Gloom Meadow, Root Caves, West Cliffs,
 Treetops/Summit, and the wide-open Gloom Heart boss arena. Blue sky, parallax
-clouds, rolling hills; trees, grass, rocks (scenery never looks like loot). Universal danger
+clouds on one flat sky; trees, grass, rocks (scenery never looks like loot). Universal danger
 color: pink-red spikes. Enemies and bosses respawn. Opening all 6 chests earns
 SADDLEBAGS (bag 5→10); collecting all 5 shards lifts the gloom (victory).
 
@@ -72,11 +72,11 @@ npm run build    # map-audit → esbuild → terser → roadroller → zip → E
 Build gates: map traversal audit (no stuck spots), 13,312 byte limit,
 no external URLs, no unprefixed localStorage.
 
-**Current: 12,429 / 13,312 B (93.4%)**
+**Current: 11,938 / 13,312 B (89.7%)**
 
 ## Save format
 Key: `localStorage.n20_save`. Version: **v21** — auto-discards older saves.
-Equipment, inventory, skill ranks, boss state, palette indices all persisted.
+Equipment, inventory, owned skills, boss state, palette indices all persisted.
 
 ## Structure
 - `src/main.js` — the game (1,422 lines)

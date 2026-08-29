@@ -20,7 +20,7 @@ team (prefilled from repo contributors) → submit. Draft stays editable until d
 ```markdown
 **The gloom has swallowed the realm, and you are the last unicorn left to fight it.**
 
-Name your unicorn, pick its colors, and set out across a connected world of meadows,
+Name your unicorn and set out across a connected world of meadows,
 root caves, cliffs, treetops and the Gloom Heart — to defeat the five dark Mares and
 claim the five golden rainbow shards that bring the color back.
 
@@ -45,7 +45,7 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 
 > A lone unicorn rolls dice against the dark in this pastel pixel platformer-RPG.
 >
-> The gloom has swallowed the realm. Name your unicorn, choose its colors, and fight
+> The gloom has swallowed the realm. Name your unicorn and fight
 > across meadows, caves, cliffs and treetops to defeat five dark Mares — your own
 > shadowed reflections — and recover the five golden rainbow shards.
 >
@@ -66,7 +66,7 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 1. `02_gameplay_meadow.png` — platforming + enemies (LEAD)
 2. `03_gameplay_caves_edge.png` — world variety
 3. `04_character_sheet.png` — RPG depth
-4. `05_character_create.png` — customization
+4. `05_character_create.png` — name your unicorn
 5. `01_title.png` — branding (last)
 
 **Achievements:** ✅ DONE (verified 2026-08-29 via CLI — all 13 identifiers exist on the

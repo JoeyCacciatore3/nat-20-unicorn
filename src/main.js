@@ -47,7 +47,7 @@ const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
 // phase 0 = title menu, 1 = character create (name + colors combined), 2 = playing (started=1)
-let phase = 0, ent = '', pName = 'HORSE', mSel = 0, cRow = 0, delConf = 0;   // cRow: 0 name · 1..4 body/mane/horn/hooves · delConf: 2-step title DELETE guard
+let phase = 0, ent = '', pName = 'HORSE', mSel = 0, delConf = 0;   // delConf: 2-step title DELETE guard
 // HIDDEN NAME INPUT — the standard mobile-canvas technique: focusing a real <input>
 // inside the tap gesture summons the OS keyboard (iOS requires the gesture).
 // It is the single source of truth for `ent` while focused; window keydown defers.
@@ -65,24 +65,25 @@ const stars = Array.from({ length: 22 }, () => ({
 }));
 const hasSave = () => !!localStorage.n20_save;
 // Character create: UP/DOWN pick row (name/body/mane/horn), then row-specific input:
-//   NAME row → A-Z type, BACKSPACE delete
-//   color rows → LEFT/RIGHT cycle
-// ENTER begins (only if a name is typed).
+//   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
+// FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
+// route here; one source of truth so the begin/resume/create transitions can't drift.
+const beginGame = () => { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); };
+const resumeGame = () => { load(); phase = 2; started = 1; };
+const toCreate = () => { fresh(); phase = 1; ent = ''; delConf = 0; };
 const createKey = (e) => {
-  if (e.code === 'ArrowUp' || e.code === 'KeyW')        cRow = (cRow + 4) % 5;   // 5 rows: NAME/BODY/MANE/HORN/HOOVES
-  else if (e.code === 'ArrowDown' || e.code === 'KeyS') cRow = (cRow + 1) % 5;
-  else if (cRow === 0 && e.code === 'Backspace')        ent = ent.slice(0, -1);
-  else if (cRow === 0 && ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
-  else if (e.code === 'ArrowLeft' || e.code === 'KeyA') { const n = STARTER.length; if (cRow === 1) bod = STARTER[(STARTER.indexOf(bod) + n - 1) % n]; else if (cRow === 2) man = STARTER[(STARTER.indexOf(man) + n - 1) % n]; else if (cRow === 3) hrn = STARTER[(STARTER.indexOf(hrn) + n - 1) % n]; else if (cRow === 4) hof = STARTER[(STARTER.indexOf(hof) + n - 1) % n]; }
-  else if (e.code === 'ArrowRight' || e.code === 'KeyD') { const n = STARTER.length; if (cRow === 1) bod = STARTER[(STARTER.indexOf(bod) + 1) % n]; else if (cRow === 2) man = STARTER[(STARTER.indexOf(man) + 1) % n]; else if (cRow === 3) hrn = STARTER[(STARTER.indexOf(hrn) + 1) % n]; else if (cRow === 4) hof = STARTER[(STARTER.indexOf(hof) + 1) % n]; }
-  else if (e.code === 'Enter' || (e.code === 'Space' && cRow > 0)) { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); }
+  // CREATE = NAME ONLY (2026-08-29): everyone starts the same neutral white unicorn.
+  // Colors come from EQUIPMENT — gear recolors parts on equip (the customization system).
+  if (e.code === 'Backspace')                            ent = ent.slice(0, -1);
+  else if (ent.length < 8 && /^[a-z]$/i.test(e.key))     ent += e.key.toUpperCase();
+  else if (e.code === 'Enter') beginGame();
 };
 const titleKey = (e) => {
   const opts = hasSave() ? 3 : 1;                                    // NEW GAME · CONTINUE · DELETE SAVE (last two only when save exists)
   if (e.code === 'ArrowUp' || e.code === 'KeyW') { mSel = (mSel + opts - 1) % opts; delConf = 0; }
   else if (e.code === 'ArrowDown' || e.code === 'KeyS') { mSel = (mSel + 1) % opts; delConf = 0; }
-  else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) { fresh(); phase = 1; ent = ''; cRow = 0; delConf = 0; }
-  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) { load(); phase = 2; started = 1; }
+  else if (e.key === '1' || (mSel === 0 && (e.code === 'Enter' || e.code === 'Space'))) toCreate();
+  else if ((e.key === '2' || (mSel === 1 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) resumeGame();
   else if ((e.key === '3' || (mSel === 2 && (e.code === 'Enter' || e.code === 'Space'))) && hasSave()) {
     // 2-step delete: first press arms, second press wipes
     if (delConf) { localStorage.removeItem('n20_save'); location.reload(); } else delConf = 1;
@@ -173,33 +174,24 @@ addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
   // TITLE: tap top half = New Game (→ create screen, tap rows to cycle colors), bottom = Continue
-  if (phase === 0) { if (vy > VH / 2 && hasSave()) { load(); phase = 2; started = 1; } else { fresh(); phase = 1; ent = ''; cRow = 0; delConf = 0; } return; }
+  if (phase === 0) { if (vy > VH / 2 && hasSave()) resumeGame(); else toCreate(); return; }
   // NAME ENTRY: tap = accept current buffer (or default HORSE), same as Enter
   // CHARACTER CREATE: tap the BEGIN NEW GAME button (bottom-center) to start. Name required.
   if (phase === 1) {
     if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= VH - 42 && vy <= VH - 16) {
-      NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); return;   // empty name → default HORSE
+      beginGame(); return;   // empty name → default HORSE
     }
-    // Corner part-slots (zones mirror the render): tap cycles that part's color.
-    // Dead zone over the unicorn (64<vx<94) so petting the horse doesn't recolor it.
-    if (vx > 14 && vx < 154 && (vx < 64 || vx > 94) && vy > 66 && vy < 150) {
-      const r = vy > 108 ? (vx > 84 ? 4 : 1) : (vx > 84 ? 3 : 2);   // 1 BODY · 2 MANE · 3 HORN · 4 HOOVES
-      cRow = r; NI.blur();
-      const n = STARTER.length;
-      if (r === 1) bod = STARTER[(STARTER.indexOf(bod) + 1) % n]; else if (r === 2) man = STARTER[(STARTER.indexOf(man) + 1) % n];
-      else if (r === 3) hrn = STARTER[(STARTER.indexOf(hrn) + 1) % n]; else hof = STARTER[(STARTER.indexOf(hof) + 1) % n];
-    } else if (vx > 24 && vx < 144 && vy > 190 && vy < 222) { cRow = 0; NI.value = ent; NI.focus(); }   // NAME row under the box: summon OS keyboard (in-gesture)
+    // (color-cycling tap zones removed 2026-08-29 — create is NAME ONLY; colors = equipment)
+    if (vx > 24 && vx < 144 && vy > 190 && vy < 222) { NI.value = ent; NI.focus(); }   // NAME row under the box: summon OS keyboard (in-gesture)
     return;
   }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
   if (paused) {
-    const TX = [164, 268, 370], bri = [0, 0, 0];
     for (let i = 0; i < TREE.length; i++) {
-      const [, br, req, mx] = TREE[i], cx = TX[br], cy = 62 + bri[br] * 18;   // MUST match the render tree layout
-      bri[br]++;
-      if (vx >= cx - 2 && vx <= cx + 66 && vy >= cy - 9 && vy <= cy + 5) {
+      const req = TREE[i][1], [cx, cy] = TPOS[i];   // SAME TPOS as the render — cannot drift
+      if (vx >= cx - 2 && vx <= cx + 74 && vy >= cy - 9 && vy <= cy + 3) {
         const locked = req >= 0 && !su[req];
-        if (spts > 0 && su[i] < mx && !locked) { su[i]++; spts--; abilSync(); sfx(660, 990, .15, 'triangle', .12); save(); }
+        if (spts > 0 && !su[i] && !locked) { su[i] = 1; spts--; abilSync(); sfx(660, 990, .15, 'triangle', .12); save(); }
         return;
       }
     }
@@ -282,7 +274,7 @@ let invMax = 5;                                    // → 10 when all 6 chests a
 const SLOT_STAT = [1, 2, 0, 3];                    // slot→stat index: HP, MAG, STR, DEF
 const SLOT_LBL = ['BODY', 'MANE', 'HORN', 'HOOVES'];
 // Starting palette — the 5 neutral colors available at creation (indices into PAL)
-const STARTER = [0, 1, 13, 15, 14];               // SNOW, CREAM, SILVER, ONYX, WHITE
+// (STARTER palette removed 2026-08-29 — creation is name-only; colors come from gear)
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
 const equip = (item) => {
   const old = eq[item.s];
@@ -296,7 +288,7 @@ let eqB = [0, 0, 0, 0];                           // cached bonus per slot
 const recalcEq = () => { eqB = eq.map(e => e ? e.b : 0); };
 // Gear tier trim colour — shared by the unicorn's worn accents AND the ground drop
 // borders, so "which level" reads the same everywhere. Index by bonus: 1/2/3.
-const TC = [, '#d8d8e0', '#ffe08a', '#8ff'];       // 1 silver · 2 gold · 3 prismatic
+const TC = [, '#d8d8e0', '#ffe08a', '#8cf'];       // 1 silver · 2 gold · 3 prismatic
 // UNIFIED PALETTE — 18 colors, same for all 4 body parts.
 // Mane gradient auto-derived: base → 85% → 70% brightness (no stored triples).
 const PAL = [
@@ -322,17 +314,23 @@ const portraitPanel = (title) => {
   ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2(title, 84, 28);
   // Gold box (enlarged) — holds HP+LVL, XP gauge, the unicorn, gear corners, stats
   ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
-  ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(14, 34, 140, 154); ctx.strokeRect(14, 34, 140, 154);
-  // HP bar top-left + LVL beside it (same visual language as the HUD)
-  ctx.fillStyle = '#2a2a33'; ctx.fillRect(22, 42, 78, 10);
-  ctx.fillStyle = '#ff5d6c'; ctx.fillRect(22, 42, 78 * hp / mHP(), 10);
-  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(21.5, 41.5, 79, 11);
-  ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), 61, 50);
-  ctx.fillStyle = '#ffd75e'; T2('LVL ' + lvl, 126, 50);
-  // XP gauge — below the HP bar, above the unicorn
+  ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(14, 34, 140, 154); ctx.strokeRect(14, 34, 140, 154);
+  // Identity block (2026-08-29 layout): LVL stacked at the LEFT · HP bar · MP bar
+  // beneath it · XP strip under both. All inside the gold box, all aligned x48-146.
+  ctx.font = 'bold 8px monospace';
+  ctx.fillStyle = '#ffd75e'; T2('LVL', 33, 48); T2(lvl, 33, 60);
+  ctx.fillStyle = '#2a2a33'; ctx.fillRect(48, 42, 98, 9);
+  ctx.fillStyle = '#ff5d6c'; ctx.fillRect(48, 42, 98 * hp / mHP(), 9);
+  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(47.5, 41.5, 99, 10);
+  ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), 97, 50);
+  ctx.fillStyle = '#2a2a33'; ctx.fillRect(48, 54, 98, 9);
+  ctx.fillStyle = '#e08ae0'; ctx.fillRect(48, 54, 98 * mn / mMN(), 9);
+  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(47.5, 53.5, 99, 10);
+  ctx.fillStyle = '#fff'; T2(mn + '/' + mMN(), 97, 62);
+  // XP gauge — under both bars, above the unicorn
   const atCap = lvl >= CAP;
-  ctx.fillStyle = '#3a3a44'; ctx.fillRect(22, 58, 124, 3);
-  ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(22, 58, atCap ? 124 : 124 * xp / need(), 3);
+  ctx.fillStyle = '#3a3a44'; ctx.fillRect(48, 67, 98, 3);
+  ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(48, 67, atCap ? 98 : 98 * xp / need(), 3);
   // Unicorn — 2.6× scale, gentle bob, centered in the middle band
   ctx.save(); ctx.translate(84, 108); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(Math.sin(time * 1.4) * .8);
@@ -364,17 +362,12 @@ let hs = 0, shk = 0;                              // combat feel: hitstop freeze
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
 const bs = [0, 0, 0, 0, 0];
 const shards = () => bs.filter(v => v === 2).length;
-const mHP = () => 8 + (he + eqB[0]) * 2 + su[9] * 3 + (lvl >= CAP ? 2 : 0); // body eq boosts HP
-const mMN = () => 3 + (sp + eqB[1]) * 2;                                    // mane eq boosts MAG
+const mHP = () => 8 + (he + eqB[0]) * 2 + (su[7] + su[8]) * 3 + (lvl >= CAP ? 2 : 0); // body eq boosts HP
+const mMN = () => 3 + (sp + eqB[1]) * 2 + (su[9] + su[10]) * 2;            // mane eq boosts MAG · MAX MP nodes
 const DIE = () => [4,4,6,6,6,8,8,8,10,10,10,12,12,12,12][lvl - 1] || 4; // die = LEVEL MILESTONE (Zelda-heart law)
-const MOD = () => ho + eqB[2] - 1 + (lvl >= CAP ? 2 : 0) + (su[6] ? (mHP() - hp) >> 1 : 0); // horn eq boosts STR
-const roll = (adv) => {                           // adv: PRECISE rank 2+ (melee advantage)
-  let r = 1 + (Math.random() * DIE() | 0);
-  if (adv && su[4] >= 2) r = Math.max(r, 1 + (Math.random() * DIE() | 0)); // PRECISE r2: advantage
-  if (su[4] >= 1 && r === 1) r = 1 + (Math.random() * DIE() | 0);          // PRECISE r1: reroll 1s
-  return r;
-};
-const isCrit = (r) => r >= DIE() - (su[4] >= 3 ? 1 : 0);          // PRECISE r3: keen crit
+const MOD = () => ho + eqB[2] - 1 + (lvl >= CAP ? 2 : 0); // horn eq boosts STR
+const roll = () => 1 + (Math.random() * DIE() | 0);   // one honest die (dice-trick skills removed 2026-08-29)
+const isCrit = (r) => r >= DIE();                             // crit = max face of the die, always
 const earned = Array(13).fill(0);
 const need = () => 8 + lvl * 6;
 const gainXp = (n, x, y) => {
@@ -398,18 +391,35 @@ const STATS = [
 
 // UNIFIED SKILL TREE — 3 branches, 19 nodes, 24 ranks. Perks folded in.
 // [name, branch(0/1/2), prereq idx(-1=none), max rank]
+// OPEN TREE (2026-08-29, save v22): every node is ONE rank with a name that states
+// its exact effect — no tooltips needed, nothing misinterpretable. Old multi-rank
+// skills are now CHAINS of separate skills (classic RPG). [name, branch, reqIndex].
+// 27 nodes = the old 27 total ranks — point economy unchanged.
+// ONE OPEN TREE (2026-08-29): no branches, no branch names — a single constellation
+// laid out in TIER ROWS (tier = chain distance from a root; roots on top, rows of 4,
+// Elder-Scrolls style). Rows: [name, reqIndex]. su indices UNCHANGED from v22.
 const TREE = [
-  ['IMPALE', 0,-1,1],['SHOT',  0,-1,1],['RANGE', 0, 1,2],['FOCUS', 0, 1,2],  // 0-3 ⚔ FURY core (IMPALE: +2 dash dmg)
-  ['PRECISE',0, 0,3],['PIERCE',0, 1,1],['BLEED', 0, 0,1],                     // 4-6 ⚔ FURY ex-perks
-  ['HEAL',   1,-1,1],['MEND+', 1, 7,2],['TOUGH', 1,-1,2],['REGEN', 1, 7,1],  // 7-10 🛡 VIGOR core
-  ['SIPHON', 1, 7,2],['WARD',  1,-1,1],                                        // 11-12 🛡 VIGOR ex-perks
-  ['DBL JMP',2,-1,1],['JMP+1', 2,13,1],['DASH+', 2,-1,1],['AERIAL',2,15,1],  // 13-16 💨 FINESSE core (DASH+: 2× distance · AERIAL: +1 air dash)
-  ['SWIFT',  2,-1,2],['NIMBLE',2,15,1],                                        // 17-18 💨 FINESSE ex-perks
+  // 2026-08-29 prune (save v28): 17 skills. CRIT 19-20 removed — crit is simply
+  // the MAX FACE of your die, always; no dice jargon anywhere the player reads.
+  ['SHOT',      -1],['FAR SHOT',   0],['SNIPER',     1],['SHOT THRU',  0],  // 0-3  bolt (3MP) · range chain · fly-through
+  ['HEAL',      -1],['HEAL +2',    4],['HEAL +4',    5],                     // 4-6  heal (5MP) · amount chain
+  ['MAX HP +3', -1],['MAX HP +6',  7],['MAX MP +2', -1],['MAX MP +4',  9],  // 7-10 HP chain · MP chain
+  ['GUARD TIME',-1],                                                         // 11   longer post-hit safety
+  ['DBL JUMP',  -1],['TRI JUMP',  12],['LONG DASH', -1],                     // 12-14 jump chain · dash extension
+  ['SPEED +12%',-1],['SPEED +24%',15],                                       // 15-16 run speed chain
 ];
-const BCOL = ['#ffd75e','#9fe89a','#6bc5ff'], BNAME = ['FURY','VIGOR','FINESSE'];
-let spts = 0; const su = Array(19).fill(0);
-const abilSync = () => { abil = (su[13]?1:0)|(su[7]?2:0)|(su[1]?4:0)|(su[15]?8:0); };
-let regT = 0;
+// Tier depth per node (prereqs always come earlier in TREE), then grid positions:
+// each tier starts a fresh row, 4 nodes per row. Shared by render AND tap hitboxes.
+const TD = []; TREE.forEach((n, i) => TD[i] = n[1] < 0 ? 0 : TD[n[1]] + 1);
+// Children sort by their parent's column → they land under their parents, lines stay short.
+const TPOS = []; { let r = 0; for (let t = 0; t <= Math.max(...TD); t++) {
+  const tier = []; TREE.forEach((n, i) => TD[i] === t && tier.push(i));
+  tier.sort((a, b) => (TREE[a][1] < 0 ? a * 20 : TPOS[TREE[a][1]][0]) - (TREE[b][1] < 0 ? b * 20 : TPOS[TREE[b][1]][0]));
+  let c = 0; tier.forEach(i => { if (c === 4) { c = 0; r++; } TPOS[i] = [170 + c * 78, 54 + r * 16]; c++; }); r++;
+} }
+// (branch names/colors removed 2026-08-29 — one tree, one visual language)
+let spts = 0; const su = Array(TREE.length).fill(0);
+const abilSync = () => { abil = (su[12]?1:0)|(su[4]?2:0)|(su[0]?4:0)|(su[14]?8:0); };
 let aRow = 0;
 const picks = () => STATS.map((s, i) => ({ i, n: s[0], col: s[2] }));
 const allocate = () => {
@@ -422,7 +432,7 @@ const allocate = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage.n20_save = JSON.stringify({
-    v: 21, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 28, e: earned, h: hp, x: xp, l: lvl, a: abil, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     u: [bod, man, hrn, hof],
@@ -432,7 +442,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage.n20_save || '0');
-    if (!d || d.v !== 21) return;                               // v21 — equipment + inventory.
+    if (!d || d.v !== 28) return;                               // v28 — 17-skill tree.
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
     (d.g || []).forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
@@ -488,7 +498,7 @@ const openChest = (i) => {
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0, navT = 0;   // navT = menu-nav repeat clock (joystick)
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
-const RUN = () => 115 * (1 + su[17] * .12), V0 = () => 250;  // SWIFT ranks boost run speed
+const RUN = () => 115 * (1 + (su[15] + su[16]) * .12), V0 = () => 250;  // SPEED nodes boost run speed
 
 const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // gloom crystal is solid until shot
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -504,10 +514,10 @@ const fresh = () => {
   eq.fill(null); inv.length = 0; invMax = 5; eqB = [0, 0, 0, 0];
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
   oc = 0; pName = 'HORSE'; earned.fill(0);
-  spts = 0; su.fill(0); regT = 0; abilSync();
+  spts = 0; su.fill(0); abilSync();
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
-const FOECOL = ['', '#c9a6f7', '#5aa0e0', '#e05555', '#e08ae0', '#9fe89a', '#8cf'];
+const FOECOL = ['', '#c9a6f7', '#6bc5ff', '#e05555', '#e08ae0', '#9fe89a', '#8cf'];
 // SPAWN LAW — every non-boss foe carries: dm (contact damage), el (elite roll),
 // rc (ranged clock if tier 3 = Gloomcast). Boss adds ph / spd / rc at 50%-HP
 // phase 2, plus wt (wind-up-tell clock) filled on first contact.
@@ -559,9 +569,7 @@ const I_MP = [0b001100, 0b001100, 0b011110, 0b111111, 0b111111, 0b011110, 0b0000
 const I_XP = [0b011110, 0b111111, 0b111111, 0b011110, 0b001100, 0b001100, 0b000000];
 const I_XS = [0b011110, 0b111111, 0b111111, 0b011110];
 // Skill tree branch icons 5×5
-const I_SW = [0b00001, 0b00010, 0b10100, 0b01000, 0b10000]; // sword (FURY)
-const I_SH = [0b01110, 0b11111, 0b11111, 0b01110, 0b00100]; // shield (VIGOR)
-const I_BT = [0b01100, 0b01110, 0b11111, 0b11110, 0b01100]; // boot (FINESSE)
+// (branch icons removed with the branch headers 2026-08-29)
 // GEAR PART ICONS — each looks like the body part it equips (Joey 2026-08-29):
 // a hoof in your bag looks like a hoof, colored by its item color, tier border = power.
 const I_HN = [0b00010, 0b00110, 0b01100, 0b11000, 0b11000]; // HORN — tapered spire
@@ -584,7 +592,7 @@ const spawnDrop = (x, y, n) => {
       const r = (Math.random() * 100 | 0) + Math.min(lk, 10) * 4; // % roll + LUCK; GEAR is the ceiling
       // GEAR TIER = a real D&D check: d20 + LUCK/2 + LEVEL/4 vs DC 17 (gold) / 24
       // (prismatic — needs high level AND luck; was UNREACHABLE before). Tune the two DCs.
-      if (r >= 85) { d.t = 5; d.life = 10; d.s = Math.random() * 4 | 0; d.c = (5 + Math.random() * (PC - 5)) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
+      if (r >= 85) { d.t = 5; d.life = 10; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * (PC - 4)) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
       else if (r >= 58) d.t = 1;                  // mana
       else if (r >= 30) d.t = 0;                  // heart  (else: XP gem, the floor)
     }
@@ -619,7 +627,6 @@ const strike = (f, r, gen, viaStomp) => {
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 rate — k4+ are variants, not a farm ladder
     spawnDrop(f.x, f.y, f.el || f.bit ? 3 : 1);                 // elites & bosses share ONE "higher chance" tier (more rolls) — never a guaranteed gear drop. Golden shard (below) is the ONLY boss guarantee.
-    if (su[11]) mn = Math.min(mMN(), mn + su[11]);               // SIPHON: +1 or +2 mana per kill
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
@@ -649,23 +656,23 @@ const strike = (f, r, gen, viaStomp) => {
 // pattern: one celebrated gesture, "dash attack" window. DASH+ doubles distance.)
 function shoot() {                                              // rainbow shot: 3 mana
   if (!started || choosing || deathT > 0 || !(abil & 4)) return;
-  const sc = 3 - su[3];                                          // FOCUS ranks: cost 3→2→1
+  const sc = 3;                                          // FOCUS ranks: cost 3→2→1
   if (mn < sc) { fly(pl.x, pl.y - 12, 'need ✦' + sc, '#f9c'); return; }
   mn -= sc; sfx(700, 1300, .12, 'sawtooth', .09);
-  shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * su[2] });   // base range SHORT; RANGE ranks extend (.55s→1.3s)
+  shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * (su[1] + su[2]) });   // base range SHORT; RANGE ranks extend (.55s→1.3s)
 }
 function dash() {                                               // THE attack verb: burst + strike-through; air use resets on landing
   if (!started || choosing || deathT > 0 || dashCd > 0) return;
-  if (!pl.ground) { if (adash >= (su[16] ? 2 : 1)) return; adash++; }   // AERIAL: +1 air dash
+  if (!pl.ground) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
-  dashT = su[15] ? .15 : .075;                                  // base = HALF distance; DASH+ doubles it (gates the spike lake)
-  dashCd = .45 * (su[18] ? .75 : 1); pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE: -25% cd
+  dashT = su[14] ? .15 : .075;                                  // base = HALF distance; DASH+ doubles it (gates the spike lake)
+  dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12); // NIMBLE: -25% cd
 }
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max(1, n - df - eqB[3]);                            // DEFENSE — stat + hooves eq bonus
-  hp -= n; pl.inv = su[12] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
+  hp -= n; pl.inv = su[11] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
   for (const f of foes) if (f.bit) f.hit = 1;                    // any hit disqualifies UNTOUCHABLE for the active boss(es)
   sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // THICK MANE grace inside pl.inv
 
@@ -709,9 +716,9 @@ const step = (dt) => {
   const canHeal = (abil & 2) && mn >= 5 && hp < mHP() && pl.ground && !onPlat;
   if (canHeal && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.3 - .1 * he) { const hm = 3 + 2 * su[8]; chT = 0; mn -= 5; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // MEND+ ranks: 3→5→7
+    if (chT > 1.2) { const hm = 3 + 2 * (su[5] + su[6]); chT = 0; mn -= 5; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // MEND+ ranks: 3→5→7
   } else chT = 0;
-  if (su[10] && hp < mHP()) { regT += dt; if (regT >= 8) { regT -= 8; hp++; fly(pl.x, pl.y - 12, '+1', '#9fe89a'); } } else regT = 0;
+  // (REGEN skill + its regT timer removed 2026-08-29)
   const rooted = chT > 0;
 
   // -- run --
@@ -723,7 +730,7 @@ const step = (dt) => {
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0 && !rooted) {
     if (pl.coyote > 0) { pl.vy = -V0(); pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); burst(pl.x, pl.y + PH, 4, '#ccc'); }
-    else if ((abil & 1) && pl.air < 1 + su[14]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // JUMP+1 rank = triple jump
+    else if ((abil & 1) && pl.air < 1 + su[13]) { pl.vy = -(V0() - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(390, 760, .12, 'triangle'); burst(pl.x, pl.y + PH, 6, '#f9c'); }   // JUMP+1 rank = triple jump
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash overrides physics: flat burst
@@ -731,7 +738,7 @@ const step = (dt) => {
     parts.push({ x: pl.x + PW / 2, y: pl.y + 8, vx: 0, vy: 0, t: .3, c: `hsl(${(time * 500) % 360} 80% 65%)` });
     for (const f of [...foes]) {                                // DASH ATTACK — dashing through a foe IS the strike; hits generate mana
       const fz = fsz(f);
-      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, roll(1) + (su[0] ? 2 : 0), 1, 0);   // IMPALE: +2
+      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, roll(), 1, 0);   // dash strike — flat d20; power scales via STR/gear
     }
   } else {
     pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
@@ -811,7 +818,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
     } else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
-      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { if (!su[5]) s.t = 0; strike(f, roll(0), 0, 0); break; } // PIERCE keeps flying
+      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { if (!su[3]) s.t = 0; strike(f, roll(), 0, 0); break; } // SHOT THRU keeps flying
     }
   }
   for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
@@ -874,7 +881,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
     // (visible red flash). Cooldown holds .wt < 0 until the strike can re-arm.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && pl.y + PH - f.y < 10) {
-      strike(f, roll(0), 0, 1);
+      strike(f, roll(), 0, 1);
       // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center.
       // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
@@ -957,22 +964,14 @@ const draw = () => {
   cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
-  ctx.fillStyle = '#4a90d9'; ctx.fillRect(0, 0, VW, VH);                    // upper sky
-  ctx.fillStyle = '#6bb3e8'; ctx.fillRect(0, VH * .4, VW, VH * .3);         // mid sky (lighter)
-  ctx.fillStyle = '#a0d4f0'; ctx.fillRect(0, VH * .7, VW, VH * .3);         // horizon glow
+  // BACKGROUND = ONE flat blue + clouds (2026-08-29: bands + hills removed — all
+  // visual detail lives in the ground layer; simpler zones, fewer color combos)
+  ctx.fillStyle = '#6bc5ff'; ctx.fillRect(0, 0, VW, VH);                    // sky
   // CLOUDS — 5 soft white puffs, parallax scroll
   for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
     const sx = ((cx - cam.x * .15) % (VW + 100)) - 50;
     ctx.fillStyle = 'rgba(255,255,255,.6)';
     ctx.fillRect(sx, cy, cw, 8); ctx.fillRect(sx + 4, cy - 4, cw - 8, 6); ctx.fillRect(sx + 8, cy + 6, cw - 16, 5);
-  }
-  // Distant hills (parallax, green)
-  for (const [par, base, amp, l] of [[.2, 80, 18, 35], [.4, 55, 14, 28]]) {
-    ctx.fillStyle = `hsl(120 40% ${l}%)`;
-    for (let x = 0; x < VW; x += 8) {
-      const wx = x + cam.x * par;
-      ctx.fillRect(x, VH - (base + Math.sin(wx * .011) * amp + Math.sin(wx * .027 + 5) * amp * .5), 8, VH);
-    }
   }
 
   // SCREEN SHAKE — offset the world translate, not the HUD (which draws after the untranslate)
@@ -995,13 +994,13 @@ const draw = () => {
       ctx.fillStyle = 'hsl(290 80% 60%)'; ctx.fillRect(i * T + 5, j * T + 5, 6, 6);
     } else {
       // SPIKES — universal danger color
-      ctx.fillStyle = '#8a3060';
+      ctx.fillStyle = '#e05555';
       for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(i * T + k * 4, j * T + T); ctx.lineTo(i * T + k * 4 + 2, j * T + 8); ctx.lineTo(i * T + k * 4 + 4, j * T + T); ctx.fill(); }
     }
   }
 
   // Hearth: campfire + SAGE wizard NPC (dialogue on approach)
-  ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
   for (const [fx, fy] of seeds.fires) {
     const cxp = fx * T, cyp = fy * T;
     // -- fire --
@@ -1025,7 +1024,7 @@ const draw = () => {
     ctx.fillStyle = '#000';                                                   // eyes
     ctx.fillRect(wx - 1, wy - 5, 1, 1); ctx.fillRect(wx + 1, wy - 5, 1, 1);
     ctx.fillStyle = '#ffd75e'; ctx.fillRect(wx, wy - 13 + wb, 1, 1);        // gold star on hat
-    ctx.fillStyle = '#2a1f3c';                                                // boots — at wy+8: sunk into the tile, unmistakably grounded
+    ctx.fillStyle = '#3a2f5c';                                                // boots — at wy+8: sunk into the tile, unmistakably grounded
     ctx.fillRect(wx - 3, wy + 8, 2, 1); ctx.fillRect(wx + 1, wy + 8, 2, 1);
     ctx.fillStyle = '#3a2f5c';                                                // legs — 2× height (2026-08-29: was 2px, read as floating)
     ctx.fillRect(wx - 2, wy + 4, 1, 4); ctx.fillRect(wx + 1, wy + 4, 1, 4);
@@ -1044,7 +1043,7 @@ const draw = () => {
     if (!opened && nearChest === c.i && !dialog) {          // proximity prompt
       const pf = 1 + Math.sin(time * 5) * .3;
       ctx.fillStyle = '#ffd75e'; ctx.textAlign = 'center';
-      ctx.font = 'bold 6px monospace'; ctx.fillText('▲ OPEN', c.x, c.y - 10 - pf);
+      ctx.font = 'bold 8px monospace'; ctx.fillText('▲ OPEN', c.x, c.y - 10 - pf);
     }
   }
 
@@ -1057,7 +1056,7 @@ const draw = () => {
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
     if (dt === 0) { // TREE — brown trunk, green canopy
       ctx.fillStyle = '#5a3a1e'; ctx.fillRect(px + 6, py - 12, 4, 12);
-      ctx.fillStyle = '#3a8a30'; ctx.fillRect(px + 1, py - 20, 14, 9);
+      ctx.fillStyle = '#4a9a3a'; ctx.fillRect(px + 1, py - 20, 14, 9);
       ctx.fillStyle = '#4a9a3a'; ctx.fillRect(px + 3, py - 23, 10, 5);
     } else if (dt === 1) { // GRASS — green blades swaying
       const sw = Math.sin(time * 2.5 + dx) * 1.5;
@@ -1169,7 +1168,7 @@ const draw = () => {
     ctx.restore();
     if (chT > 0) {                                               // heal channel ring
       ctx.strokeStyle = '#9fe89a'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(pl.x + PW / 2, pl.y + 6, 12, -1.57, -1.57 + 6.28 * chT / (1.3 - .1 * he)); ctx.stroke();
+      ctx.beginPath(); ctx.arc(pl.x + PW / 2, pl.y + 6, 12, -1.57, -1.57 + 6.28 * chT / 1.2); ctx.stroke();  // denominator MUST match the heal tick threshold
     }
   }
 
@@ -1215,13 +1214,13 @@ const draw = () => {
     T2(hp + '/' + mHP(), bx + bw / 2, 15);
     T2((mn | 0) + '/' + mMN(), bx + bw / 2, 26);
     // TOP-RIGHT — pause icon (48px+ tap zone handled in pointerdown)
-    ctx.textAlign = 'right'; ctx.fillStyle = '#aaa'; ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'right'; ctx.fillStyle = '#888'; ctx.font = 'bold 13px monospace';
     T2('☰', VW - 10, 18);
     // Overlay narrator removed per design pivot. NPC dialog uses its own bubble.
     if (time < bann) {                                          // BOSS BANNER — arena-entry announcement (fonts reuse existing literals)
       ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace';
       T2(bTxt, VW / 2, 58);
-      if (bSub) { ctx.font = 'bold 6px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
+      if (bSub) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
     }
     if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
   }
@@ -1230,16 +1229,16 @@ const draw = () => {
   if (dialog && started) {
     const rows = ['1 TALK', '2 REST'];
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(20,15,30,.95)'; ctx.fillRect(VW / 2 - 70, 44, 140, 46);
+    ctx.fillStyle = 'rgba(8,6,12,.96)'; ctx.fillRect(VW / 2 - 70, 44, 140, 46);
     ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(VW / 2 - 70, 44, 140, 46);
-    ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 9px monospace'; ctx.fillText('THE SAGE', VW / 2, 54);
+    ctx.fillStyle = '#ffe08a'; ctx.font = 'bold 8px monospace'; ctx.fillText('THE SAGE', VW / 2, 54);
     ctx.font = 'bold 8px monospace';
     for (let i = 0; i < 2; i++) {
-      if (dialog === i + 1) { ctx.fillStyle = 'rgba(255,215,94,.18)'; ctx.fillRect(VW / 2 - 60, 58 + i * 14, 120, 12); }
+      if (dialog === i + 1) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(VW / 2 - 60, 58 + i * 14, 120, 12); }
       ctx.fillStyle = dialog === i + 1 ? '#ffd75e' : '#ccc';
       ctx.fillText(rows[i], VW / 2, 67 + i * 14);
     }
-    ctx.fillStyle = '#888'; ctx.font = '6px monospace';
+    ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace';
     ctx.fillText(touch ? 'tap row · ← back' : '↕ select · ▲ confirm · ⚔ back', VW / 2, 100);
   }
 
@@ -1252,8 +1251,10 @@ const draw = () => {
     ctx.textAlign = 'center';
     // EQUIPMENT — 4 slots INSIDE the gold box, cornered around the unicorn
     // (anatomy map: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right)
-    ctx.font = '6px monospace';
-    [['MANE', 24, 74, 1], ['HORN', 116, 74, 2], ['BODY', 24, 122, 0], ['HOOVES', 116, 122, 3]].forEach(([lb, ex, ey, s]) => {
+    ctx.font = 'bold 8px monospace';
+    // Mirror-symmetric: left boxes 10px from left wall (x24), right boxes 10px from
+    // right wall (x130 = 154−10−14). Labels center under each box → length self-adjusts.
+    [['MANE', 24, 74, 1], ['HORN', 130, 74, 2], ['BODY', 24, 122, 0], ['HOOVES', 130, 122, 3]].forEach(([lb, ex, ey, s]) => {
       ctx.fillStyle = eq[s] ? PAL[eq[s].c] : '#2a2a33'; ctx.fillRect(ex, ey, 14, 14);
       ctx.strokeStyle = eq[s] && eq[s].b ? TC[eq[s].b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 14, 14);
       ctx.fillStyle = '#888'; T2(lb, ex + 7, ey + 21);
@@ -1264,8 +1265,8 @@ const draw = () => {
     SL.forEach(([l, v, c], i) => {
       const sx = 22 + i * 26, sel = alloc && i === aRow;
       if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 162, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 162, 25, 23); }
-      ctx.fillStyle = c; ctx.font = '6px monospace'; T2(l, sx + 9, 170);
-      ctx.font = 'bold 9px monospace'; T2(v, sx + 9, 181);
+      ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 170);
+      ctx.font = 'bold 8px monospace'; T2(v, sx + 9, 181);
     });
     // INVENTORY — visible bag squares UNDER the gold box (5 per row; SADDLEBAGS adds row 2)
     for (let i = 0; i < invMax; i++) {
@@ -1273,28 +1274,33 @@ const draw = () => {
       ctx.fillStyle = it ? PAL[it.c] : 'rgba(255,255,255,.05)'; ctx.fillRect(ix, iy, 12, 12);
       ctx.strokeStyle = it && it.b ? TC[it.b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ix, iy, 12, 12);
     }
-    ctx.fillStyle = '#888'; ctx.font = '6px monospace';
-    T2('BAG ' + inv.length + ' / ' + invMax, 84, 196 + (invMax > 5 ? 2 : 1) * 18 + 8);
+    // (BAG count label removed 2026-08-29 — the empty squares ARE the count)
     // 3-COLUMN SKILL TREE — the ENTIRE right side is the tree's now
     ctx.textAlign = 'left'; ctx.font = 'bold 8px monospace';
-    const TX = [164, 268, 370], BI = [I_SW, I_SH, I_BT]; // column x + branch icons
-    for (let b = 0; b < 3; b++) { spr(BI[b], TX[b], 44, 5, BCOL[b]); ctx.fillStyle = BCOL[b]; ctx.fillText(BNAME[b], TX[b] + 7, 50); }
-    if (spts) { ctx.fillStyle = '#ffd75e'; ctx.font = '7px monospace'; ctx.fillText(spts + ' PT' + (spts > 1 ? 'S' : ''), 420, 50); }
-    const bri = [0, 0, 0];                          // per-branch row counter
-    ctx.font = 'bold 7px monospace';
-    TREE.forEach(([nm, br, req, mx], i) => {
-      const cx = TX[br], cy = 62 + bri[br] * 18;
-      bri[br]++;
-      const locked = req >= 0 && !su[req], can = spts > 0 && su[i] < mx && !locked;
-      ctx.fillStyle = locked ? '#555' : BCOL[br]; ctx.textAlign = 'left';
-      ctx.fillText((req >= 0 ? ' ' : '') + nm, cx, cy);          // indent prereq nodes
-      for (let p = 0; p < mx; p++) { ctx.fillStyle = p < su[i] ? '#ffd75e' : locked ? '#2a2a33' : '#3a3a44'; ctx.fillRect(cx + 52 + p * 6, cy - 4, 4, 4); }
-      if (can) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(cx - 2, cy - 9, 68, 14); }
+    if (spts) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 8px monospace'; ctx.fillText(spts + ' PT' + (spts > 1 ? 'S' : ''), 420, 42); }
+    // ONE CONSTELLATION TREE: pass 1 draws every prereq line (under), pass 2 the boxes
+    // (over) — diagonals tuck behind boxes. Tier rows top→bottom, no branch anything.
+    ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
+    ctx.lineWidth = 1;
+    TREE.forEach(([nm, req], i) => {
+      if (req < 0) return;
+      const [cx, cy] = TPOS[i], [px, py] = TPOS[req];
+      ctx.strokeStyle = su[req] ? '#888' : '#2a2a33';              // paths LIGHT UP as prereqs are bought (Elder-Scrolls reveal); unlit ≈ invisible
+      ctx.beginPath(); ctx.moveTo(px + 36, py + 3); ctx.lineTo(cx + 36, cy - 9); ctx.stroke();
+    });
+    TREE.forEach(([nm, req], i) => {
+      const [cx, cy] = TPOS[i];
+      const locked = req >= 0 && !su[req], can = spts > 0 && !su[i] && !locked, col = locked ? '#555' : '#ccc';
+      ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx - 2, cy - 9, 76, 12);                 // OPAQUE base — pathway lines hide behind boxes
+      ctx.fillStyle = su[i] ? 'rgba(255,215,94,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx - 2, cy - 9, 76, 12);
+      ctx.strokeStyle = su[i] ? '#ffd75e' : col; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx - 2, cy - 9, 76, 12);
+      ctx.fillStyle = su[i] ? '#ffd75e' : col; ctx.fillText(nm, cx + 2, cy);
+      if (can) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(cx - 3, cy - 10, 78, 14); }   // buyable glow ring
     });
     // Footer — shard tally under the tree; equipment + bag now live on the LEFT side
-    ctx.textAlign = 'center'; ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + shards() + ' / 5', 300, 250);
-    ctx.fillStyle = '#666'; ctx.font = '7px monospace';
+    ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
     T2(alloc ? '↑↓ pick · ↵ spend' : 'tap skill to buy · P close', VW / 2, VH - 4);
   }
 
@@ -1316,7 +1322,7 @@ const draw = () => {
       ctx.fillStyle = b.col; ctx.font = 'bold 18px monospace';    // glyph fills the disc (was 14px — read as tiny)
       ctx.fillText(b.l, b.x, b.y + 6);
       if (!touch && b.h) {                                        // key hint for desktop users
-        ctx.globalAlpha = .7; ctx.fillStyle = '#ccc'; ctx.font = '6px monospace';
+        ctx.globalAlpha = .7; ctx.fillStyle = '#ccc'; ctx.font = 'bold 8px monospace';
         ctx.fillText(b.h, b.x, b.y - b.r - 3);
       }
     }
@@ -1346,7 +1352,7 @@ const draw = () => {
     }
     // Rainbow arc
     ctx.lineWidth = 3;
-    ['#ff5d6c', '#ff9d3c', '#ffd75e', '#9fe89a', '#8cf', '#7a8cff', '#c9a6f7'].forEach((c, i) => {
+    ['#ff5d6c', '#ff9d3c', '#ffd75e', '#9fe89a', '#8cf', '#c47fe0', '#c9a6f7'].forEach((c, i) => {
       ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(VW / 2, 130, 78 - i * 3, Math.PI, 0); ctx.stroke();
     });
     // Centered white unicorn silhouette (default palette look — pre-customization)
@@ -1365,47 +1371,40 @@ const draw = () => {
     ctx.save(); ctx.translate(VW / 2, 168); ctx.scale(br, br);
     ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 30px monospace'; ctx.fillText('UNI-CORN', 0, 0);
     ctx.restore();
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'italic 10px monospace'; ctx.fillText('the last savior', VW / 2, 188);
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; ctx.fillText('the last savior', VW / 2, 188);
     // Menu
     // NEW GAME · CONTINUE · DELETE SAVE. DELETE arms on first press, wipes on second.
     const has = hasSave();
     const opts = has ? ['NEW GAME', 'CONTINUE', delConf ? 'DELETE? PRESS AGAIN' : 'DELETE SAVE'] : ['NEW GAME'];
     opts.forEach((o, i) => {
       const y = 208 + i * 16, on = mSel === i, isDel = i === 2;
-      ctx.fillStyle = on ? (isDel ? (delConf ? '#ff5d6c' : '#ff9d3c') : '#ffd75e') : (isDel ? '#a55' : '#aaa');
-      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = on ? (isDel ? (delConf ? '#ff5d6c' : '#ff9d3c') : '#ffd75e') : (isDel ? '#888' : '#888');
+      ctx.font = 'bold 13px monospace';
       ctx.fillText(o, VW / 2, y);                                  // word itself dead-center (numbers removed 2026-08-29)
       if (on) ctx.fillText('▶', VW / 2 - 72, y);                   // cursor in a fixed column — can't skew centering
     });
-    if (has) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 260); }
-    ctx.fillStyle = '#666'; ctx.font = '7px monospace';
+    if (has) { ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 260); }
+    ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
     ctx.fillText('↑↓ select · ENTER accept · A/D move · SPACE jump · J dash · L shot · S heal', VW / 2, 266);
   }
   // CHARACTER CREATE screen (phase 1) — same split-panel look as pause
   if (phase === 1) {
     portraitPanel('NEW CHARACTER');
-    // SAME LAYOUT AS THE PAUSE SHEET: color choices live ON the corner part-slots
-    // around the unicorn — tap/←→ cycles the color, gold ring = selected part.
-    ctx.textAlign = 'center'; ctx.font = '6px monospace';
-    [['MANE', 24, 74, man, 2], ['HORN', 116, 74, hrn, 3], ['BODY', 24, 122, bod, 1], ['HOOVES', 116, 122, hof, 4]].forEach(([lb, ex, ey, ci, r]) => {
-      ctx.fillStyle = PAL[ci]; ctx.fillRect(ex, ey, 14, 14);
-      ctx.strokeStyle = cRow === r ? '#ffd75e' : '#555'; ctx.lineWidth = cRow === r ? 1.5 : .5; ctx.strokeRect(ex, ey, 14, 14);
-      ctx.fillStyle = cRow === r ? '#ffd75e' : '#888'; T2(lb, ex + 7, ey + 21);
-    });
-    // NAME — under the gold box (where the sheet shows the bag)
-    const nmVal = ent + (cRow === 0 && Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
-    ctx.font = 'bold 10px monospace';
-    ctx.fillStyle = cRow === 0 ? '#ffd75e' : '#888'; T2('NAME', 84, 202);
-    ctx.fillStyle = cRow === 0 ? '#fff' : '#aaa'; T2(nmVal || '(type A–Z)', 84, 216);
+    // NAME-ONLY creation (2026-08-29): every unicorn starts the same neutral white.
+    // Colors are earned — equipment recolors the part it equips. One decision: your name.
+    const nmVal = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
+    ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace';
+    ctx.fillStyle = '#ffd75e'; T2('NAME', 84, 202);
+    ctx.fillStyle = '#fff'; T2(nmVal || '(type A–Z)', 84, 216);
     // BEGIN NEW GAME button — bottom-center, clickable (tap area matches BEGIN_BTN below)
     const bx = VW / 2 - 70, by = VH - 42;
     ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
     ctx.fillStyle = 'rgba(255,215,94,.14)';
     ctx.fillRect(bx, by, 140, 26); ctx.strokeRect(bx, by, 140, 26);
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
     T2('▶ BEGIN NEW GAME', VW / 2, by + 17);
-    ctx.fillStyle = '#666'; ctx.font = '7px monospace';
-    ctx.fillText('↑↓ row · A–Z name · ←→ color · ENTER or tap BEGIN', VW / 2, VH - 6);
+    ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace';
+    ctx.fillText('A–Z name · ENTER or tap BEGIN', VW / 2, VH - 6);
   }
   ctx.restore();
 };

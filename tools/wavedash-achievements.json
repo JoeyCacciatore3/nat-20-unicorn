@@ -11,7 +11,7 @@
     { "identifier": "WELL_RESTED",   "display_name": "Well Rested",     "description": "Rest at the hearth while already at full health", "stat_requirement": null },
     { "identifier": "HOARDER",       "display_name": "Seasoned Savior", "description": "Reach level 10", "stat_requirement": null },
     { "identifier": "BELIEVER",      "display_name": "Believer",        "description": "Learn every ability", "stat_requirement": null },
-    { "identifier": "ARCHITECT",     "display_name": "Architect",       "description": "Customize all four parts of your unicorn", "stat_requirement": null },
+    { "identifier": "ARCHITECT",     "display_name": "Architect",       "description": "Recolor all four parts of your unicorn with equipment", "stat_requirement": null },
     { "identifier": "PRISMATIC",     "display_name": "Prismatic",       "description": "Collect all five golden rainbow shards and lift the gloom", "stat_requirement": null }
   ],
   "stats": []
