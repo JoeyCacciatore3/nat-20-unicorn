@@ -1374,7 +1374,8 @@ const draw = () => {
       const y = 208 + i * 16, on = mSel === i, isDel = i === 2;
       ctx.fillStyle = on ? (isDel ? (delConf ? '#ff5d6c' : '#ff9d3c') : '#ffd75e') : (isDel ? '#a55' : '#aaa');
       ctx.font = 'bold 11px monospace';
-      ctx.fillText((on ? '▶ ' : '  ') + (i + 1) + '. ' + o, VW / 2 + (on ? 6 : 0), y);
+      ctx.fillText(o, VW / 2, y);                                  // word itself dead-center (numbers removed 2026-08-29)
+      if (on) ctx.fillText('▶', VW / 2 - 72, y);                   // cursor in a fixed column — can't skew centering
     });
     if (has) { ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.fillText('saved: ' + pName + ' · LV' + lvl, VW / 2, 260); }
     ctx.fillStyle = '#666'; ctx.font = '7px monospace';

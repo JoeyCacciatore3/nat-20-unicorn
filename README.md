@@ -36,9 +36,9 @@ Rainbow (rare full heal, separate check). Golden rainbow shard is the ONE except
 guaranteed on a boss's first kill only, and the game-completion item (collect all 5).
 
 ## Skill Tree (3 branches, 19 nodes)
-**⚔ FURY:** LUNGE · SHOT · RANGE(×2) · FOCUS(×2) · PRECISE(×3) · PIERCE · BLEED
+**⚔ FURY:** IMPALE · SHOT · RANGE(×2) · FOCUS(×2) · PRECISE(×3) · PIERCE · BLEED
 **🛡 VIGOR:** HEAL · MEND+(×2) · TOUGH(×2) · REGEN · SIPHON(×2) · WARD
-**💨 FINESSE:** DBL JMP · JMP+1 · DASH · RAZOR · SWIFT(×2) · NIMBLE
+**💨 FINESSE:** DBL JMP · JMP+1 · DASH+ · AERIAL · SWIFT(×2) · NIMBLE
 
 ## Controls
 | | Keyboard | Touch |
@@ -59,7 +59,7 @@ Joystick also navigates menus (up/down to select, right to confirm).
 ## World
 One connected map, five zones — Gloom Meadow, Root Caves, West Cliffs,
 Treetops/Summit, and the wide-open Gloom Heart boss arena. Blue sky, parallax
-clouds, rolling hills; trees, grass, rocks, flowers, mushrooms. Universal danger
+clouds, rolling hills; trees, grass, rocks (scenery never looks like loot). Universal danger
 color: pink-red spikes. Enemies and bosses respawn. Opening all 6 chests earns
 SADDLEBAGS (bag 5→10); collecting all 5 shards lifts the gloom (victory).
 
