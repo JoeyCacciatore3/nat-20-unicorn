@@ -18,11 +18,7 @@
 //   npm run build   (also runs map audit, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save format v13:
-//   { v, e, h, x, l, s, a, n, q, g, p,
-//     t:[STR,HP,MAG,DEF,LUCK], c:[cpx,cpy], m:name, f:seenFlags,
-//     o:openedChestBits, u:[bod,man,hrn,hof] }
-//   Version bumps discard prior saves — early-access, no migration path.
+// Save: version-gated JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, regions, regionAt, seeds } from './world.js';
 
@@ -212,8 +208,8 @@ addEventListener('pointerdown', (e) => {
   // DIALOG overlay taps: JUMP btn = confirm · MELEE btn = back · bubble row = pick · else close
   if (dialog) {
     if (touch && e.pointerType === 'touch' && vx < VW * .3) { grabJoy(vx, vy, e.pointerId); return; }   // stick navigates
-    const bs = btns();
-    const jb = bs.find(b => b.c === 'TBtnJ'), mb = bs.find(b => b.c === 'TBtnM');
+    const bts = btns();
+    const jb = bts.find(b => b.c === 'TBtnJ'), mb = bts.find(b => b.c === 'TBtnM');
     if (jb && Math.hypot(vx - jb.x, vy - jb.y) < jb.r + 6) { dialogDo(); return; }
     if (mb && Math.hypot(vx - mb.x, vy - mb.y) < mb.r + 6) { dialog = 0; return; }
     if (vx >= VW / 2 - 70 && vx <= VW / 2 + 70 && vy >= 56 && vy <= 86) {
@@ -250,8 +246,8 @@ addEventListener('pointermove', (e) => {
   const s = m > JMX ? JMX / m : 1;
   joy.dx = dx * s; joy.dy = dy * s; joySet();
 });
-addEventListener('pointerup', (e) => { if (e.pointerId === joy.id) joyEnd(); const c = ptrs.get(e.pointerId); if (c) { keys.delete(c); ptrs.delete(e.pointerId); } });
-addEventListener('pointercancel', (e) => { if (e.pointerId === joy.id) joyEnd(); const c = ptrs.get(e.pointerId); if (c) { keys.delete(c); ptrs.delete(e.pointerId); } });
+const ptrUp = (e) => { if (e.pointerId === joy.id) joyEnd(); const c = ptrs.get(e.pointerId); if (c) { keys.delete(c); ptrs.delete(e.pointerId); } };
+addEventListener('pointerup', ptrUp); addEventListener('pointercancel', ptrUp);
 addEventListener('blur', () => { keys.clear(); ptrs.clear(); if (joy.id !== -1) joyEnd(); });   // focus loss = release everything (stuck-key guard)
 addEventListener('contextmenu', (e) => e.preventDefault());                                     // long-press menu suppression (mobile)
 
@@ -401,7 +397,7 @@ const load = () => {
     d.e.forEach((v, i) => earned[i] = v);
     hp = d.h; xp = d.x; lvl = d.l; abil = d.a; mn = d.n;
     (d.g || []).forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
-    // seenT removed — earned[7] carries the SILVER_TONGUE flag directly
+
     [ho, he, sp, df, lk] = d.t;
     [bod, man, hrn, hof] = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
@@ -412,8 +408,9 @@ const load = () => {
 
 // ---------- player ----------
 const PW = 10, PH = 14;
-const pl = { x: 126 * T, y: 57 * T, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
-let cp = [126 * T, 57 * T], lastSafe = [126 * T, 57 * T], deathT = 0;
+const SX = 126 * T, SY = 57 * T;                  // spawn point (paddock)
+const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
+let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
 let atkCd = 0, swT = 0, chT = 0, nearFire = 0;
 let paused = 0;                                   // pause overlay open — freezes sim, character sheet renders
 // hearth dialog: 0 = closed, 1 = TALK, 2 = REST.
@@ -462,7 +459,7 @@ const fresh = () => {
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; bod = man = hrn = hof = 0;
   oc = 0; pName = 'HORSE'; earned.fill(0);
   spts = 0; su.fill(0); regT = 0; abilSync();
-  cp = [126 * T, 57 * T]; lastSafe = [126 * T, 57 * T]; pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0;
+  cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
 const FOECOL = ['', '#cba6f7', '#5aa0e0', '#e05555'];
 // SPAWN LAW — every non-boss foe carries: dm (contact damage), el (elite roll),
@@ -488,7 +485,7 @@ const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.ran
 // ITEM DROPS — physical pickups from kills/chests. Replaces the removed spark currency.
 // Types: 0 heart (+3 HP), 1 mana crystal (+2 ✦), 2 XP gem (+lvl XP), 3 rainbow (full heal, rare).
 // LUCK adds +1 drop per pip — making it one of the best stats in the game.
-const DCOL = ['#ff5d6c', '#c9a6f7', '#9fe89a', '#ffd75e'];
+
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
 const spr = (d, x, y, w, c) => { ctx.fillStyle = c; for (let r = 0; r < d.length; r++) for (let b = w; b--;) d[r] >> b & 1 && ctx.fillRect(x + w - 1 - b, y + r, 1, 1); };
 // HEART 6×6
@@ -501,6 +498,11 @@ const I_XP = [0b011110, 0b111111, 0b111111, 0b011110, 0b001100, 0b001100, 0b0000
 const I_SW = [0b00001, 0b00010, 0b10100, 0b01000, 0b10000]; // sword (FURY)
 const I_SH = [0b01110, 0b11111, 0b11111, 0b01110, 0b00100]; // shield (VIGOR)
 const I_BT = [0b01100, 0b01110, 0b11111, 0b11110, 0b01100]; // boot (FINESSE)
+// Multi-color string sprite decoder: each char = palette index (0=transparent)
+const sprC = (s, x, y, w, p) => { for (let i = 0; i < s.length; i++) { const c = +s[i]; if (c) { ctx.fillStyle = p[c]; ctx.fillRect(x + i % w, y + (i / w | 0), 1, 1); } } };
+// WIZARD NPC 10×18: 0=clear 1=robe 2=skin 3=beard 4=gold 5=dark 6=staff 7=cyan 8=eyes
+const WIZ = "0000000070" + "0040000060" + "0011000060" + "0111100060" + "1111110060" + "0028280060" + "0023320060" + "0033330060" + "0111111160" + "0111111060" + "0011111060" + "0011110060" + "0001111000" + "0000550000" + "0000500500" + "0005500550";
+const WIZP = [, '#4a3a7c', '#f5e0c8', '#e8e8f0', '#ffd75e', '#2a1f3c', '#8a6a3a', '#8cf', '#111'];
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const r = Math.random(), t = r < .03 ? 3 : r < .33 ? 0 : r < .58 ? 1 : 2;
@@ -713,8 +715,6 @@ sfx(110, 55, .5, 'sawtooth', .18);
     }
   });
 
-
-
   // -- shots --
   for (const s of shots) {
     s.t -= dt; s.x += s.vx * dt;
@@ -898,34 +898,8 @@ const draw = () => {
     const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-    // -- DM wizard NPC (stands to the right of the fire, feet on the ground) --
-    // wy = head anchor. Fire base bottom = cyp+8 (ground level); boot bottoms sit exactly there.
-    const wx = cxp + 14, wy = cyp - 10, wob = Math.sin(time * 2) * .3;
-    ctx.fillStyle = '#4a3a7c';                                    // deep purple robe torso
-    ctx.fillRect(wx - 3, wy + 6, 6, 7);                           // torso
-    ctx.fillRect(wx - 4, wy + 11, 8, 3);                          // robe skirt (flare down to knees)
-    ctx.fillStyle = '#3a2f5c';                                    // pants — darker purple, longer legs
-    ctx.fillRect(wx - 2, wy + 14, 1, 3);                          // left leg
-    ctx.fillRect(wx + 1, wy + 14, 1, 3);                          // right leg
-    ctx.fillStyle = '#f5e0c8';                                    // face
-    ctx.fillRect(wx - 2, wy + 3, 4, 3);
-    ctx.fillStyle = '#e8e8f0';                                    // white beard
-    ctx.fillRect(wx - 2, wy + 5, 4, 2);
-    ctx.fillStyle = '#4a3a7c';                                    // pointed hat (stepped triangle)
-    ctx.fillRect(wx - 3, wy + 1, 6, 2);
-    ctx.fillRect(wx - 2, wy - 1, 4, 2);
-    ctx.fillRect(wx - 1, wy - 3, 2, 2);
-    ctx.fillStyle = '#ffd75e';                                    // gold star on hat tip (bobs gently)
-    ctx.fillRect(wx, wy - 4 + wob, 1, 1);
-    ctx.fillStyle = '#111';                                       // eyes
-    ctx.fillRect(wx - 1, wy + 4, 1, 1); ctx.fillRect(wx + 1, wy + 4, 1, 1);
-    ctx.fillStyle = '#2a1f3c';                                    // boots — planted on the ground line (cyp+8)
-    ctx.fillRect(wx - 3, wy + 17, 3, 1);                          // left boot
-    ctx.fillRect(wx + 1, wy + 17, 3, 1);                          // right boot
-    ctx.fillStyle = '#8a6a3a';                                    // wooden staff (taller now to match)
-    ctx.fillRect(wx + 5, wy + 2, 1, 15);
-    ctx.fillStyle = '#8cf'; ctx.fillRect(wx + 5, wy + 1, 1, 1);   // cyan crystal tip
-    // Prompt-above-head removed — JUMP button glyph (☰) already signals interact when nearby.
+    // WIZARD NPC — multi-color string sprite (with arms holding staff)
+    sprC(WIZ, cxp + 11, cyp - 8, 10, WIZP);
   }
   // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
   // Prompt "▲ OPEN" pulses above the nearest unopened chest. (Design pivot v9.)
