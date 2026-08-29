@@ -872,16 +872,20 @@ const draw = () => {
     const v = tile(i, j); if (!v) continue;
     const r = regionAt(i * T + 8, j * T + 8), hue = r.h * 360;
     if (v === 1) {
-      ctx.fillStyle = `hsl(${hue} 40% 32%)`; ctx.fillRect(i * T, j * T, T + .5, T + .5);
-      if (tile(i, j - 1) !== 1) { ctx.fillStyle = `hsl(${hue} 55% 54%)`; ctx.fillRect(i * T, j * T, T + .5, 4); }
+      // SOLID GROUND — brown earth body, green grass top layer when exposed to air
+      ctx.fillStyle = `hsl(${hue} 30% 22%)`; ctx.fillRect(i * T, j * T, T + .5, T + .5);
+      if (tile(i, j - 1) !== 1) { ctx.fillStyle = `hsl(${hue} 50% 42%)`; ctx.fillRect(i * T, j * T, T + .5, 5); }
     } else if (v === 2) {
-      ctx.fillStyle = `hsl(${hue} 50% 53%)`; ctx.fillRect(i * T, j * T, T + .5, 4);
-    } else if (v === 4) {                                       // gloom crystal — pulses, begs to be shot
+      // PLATFORM — thicker: green grass top + brown dirt underside (not just a thin line)
+      ctx.fillStyle = `hsl(${hue} 30% 22%)`; ctx.fillRect(i * T, j * T + 3, T + .5, 5);
+      ctx.fillStyle = `hsl(${hue} 50% 42%)`; ctx.fillRect(i * T, j * T, T + .5, 4);
+    } else if (v === 4) {                                       // gloom crystal — pulses
       ctx.fillStyle = `hsl(280 60% ${26 + Math.sin(time * 4 + i + j) * 8}%)`;
       ctx.fillRect(i * T, j * T, T + .5, T + .5);
       ctx.fillStyle = 'hsl(290 80% 60%)'; ctx.fillRect(i * T + 5, j * T + 5, 6, 6);
     } else {
-      ctx.fillStyle = 'hsl(280 40% 40%)';
+      // SPIKES — always same danger color (red-purple), universal across all zones
+      ctx.fillStyle = '#8a3060';
       for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(i * T + k * 4, j * T + T); ctx.lineTo(i * T + k * 4 + 2, j * T + 8); ctx.lineTo(i * T + k * 4 + 4, j * T + T); ctx.fill(); }
     }
   }
@@ -939,20 +943,20 @@ const draw = () => {
   // WORLD DECORATIONS — trees, grass, rocks. Region-hued, data-driven from DECO seeds.
   // type 0=tree, 1=grass tuft, 2=rock. Nearly free: positions are data, draw is shared.
   for (const [dx, dy, dt] of DECO) {
-    const px = dx * T, py = dy * T;
+    const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
     const rg = regionAt(px, py), hue = rg.h * 360;
-    if (dt === 0) { // TREE — trunk + canopy, same style as tile art
-      ctx.fillStyle = `hsl(${hue} 30% 22%)`; ctx.fillRect(px + 6, py - 8, 4, 12);
-      ctx.fillStyle = `hsl(${hue} 50% 35%)`; ctx.fillRect(px + 1, py - 18, 14, 11);
-      ctx.fillStyle = `hsl(${hue} 55% 42%)`; ctx.fillRect(px + 3, py - 21, 10, 6);
-    } else if (dt === 1) { // GRASS — 3 blades swaying
+    if (dt === 0) { // TREE — trunk rooted on ground, canopy above
+      ctx.fillStyle = `hsl(${hue} 25% 18%)`; ctx.fillRect(px + 6, py - 12, 4, 12);
+      ctx.fillStyle = `hsl(${hue} 45% 32%)`; ctx.fillRect(px + 1, py - 20, 14, 9);
+      ctx.fillStyle = `hsl(${hue} 50% 40%)`; ctx.fillRect(px + 3, py - 23, 10, 5);
+    } else if (dt === 1) { // GRASS — 3 blades rooted at ground
       const sw = Math.sin(time * 2.5 + dx) * 1.5;
       ctx.fillStyle = `hsl(${hue} 45% 38%)`;
       ctx.fillRect(px + 3 + sw, py - 5, 1, 5); ctx.fillRect(px + 7 + sw * .7, py - 7, 1, 7); ctx.fillRect(px + 11 + sw * .4, py - 4, 1, 4);
-    } else { // ROCK — small boulder
-      ctx.fillStyle = `hsl(${hue} 15% 30%)`; ctx.fillRect(px + 3, py - 3, 10, 4);
-      ctx.fillStyle = `hsl(${hue} 12% 38%)`; ctx.fillRect(px + 4, py - 5, 8, 3);
+    } else { // ROCK — sits on ground surface
+      ctx.fillStyle = `hsl(${hue} 12% 28%)`; ctx.fillRect(px + 3, py - 4, 10, 4);
+      ctx.fillStyle = `hsl(${hue} 10% 35%)`; ctx.fillRect(px + 4, py - 6, 8, 3);
     }
   }
 

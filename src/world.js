@@ -132,21 +132,22 @@ export const seeds = {
     [60, 68, 3], [40, 68, 3], [22, 68, 2],
   ],
 };
-// DECORATIONS — [x, y, type]. type: 0=tree, 1=grass, 2=rock. Placed on solid ground.
-// Nearly free in bytes — draw code is shared, these are just coordinates.
+// DECORATIONS — [x, y, type]. type: 0=tree, 1=grass, 2=rock. Placed on verified solid ground.
+// y = the air tile ABOVE ground (tile(x,y)=0, tile(x,y+1)=1). No decorations near spikes.
 export const DECO = [
-  // Meadow (right side, main platform)
-  [142, 59, 0], [155, 59, 0], [170, 59, 1], [178, 59, 1], [195, 59, 0], [210, 59, 1],
-  [238, 59, 0], [250, 59, 1], [265, 59, 0], [275, 59, 1],
-  [145, 59, 1], [162, 59, 2], [202, 59, 2], [228, 59, 1], [255, 59, 2],
-  // Root caves (underground, rows 66-70)
-  [168, 70, 2], [190, 70, 1], [210, 70, 2], [235, 70, 1], [255, 70, 2],
-  [175, 70, 1], [220, 70, 1], [245, 70, 2],
-  // West cliffs & treetops
-  [85, 52, 0], [95, 52, 1], [70, 48, 0], [60, 44, 1],
-  [50, 24, 0], [45, 24, 1], [38, 24, 2],
-  // Summit area
-  [18, 10, 2], [10, 10, 1], [25, 10, 1],
-  // Gloom caves
-  [30, 70, 2], [45, 70, 1], [55, 70, 2], [15, 70, 1],
+  // Meadow (main platform, y=59 verified ground)
+  [142, 59, 0], [155, 59, 0], [182, 59, 1], [190, 59, 1], [202, 59, 2],
+  [212, 59, 0], [228, 59, 1], [238, 59, 0], [250, 59, 1], [255, 59, 2],
+  [145, 59, 1], [152, 59, 1], [220, 59, 1], [243, 59, 2],
+  // Upper meadow platforms
+  [206, 55, 1], [241, 55, 1], [176, 56, 0], [266, 57, 1],
+  // Caves (y=69 verified ground)
+  [20, 69, 2], [35, 69, 1], [50, 69, 2], [100, 69, 1], [120, 69, 2],
+  [160, 69, 1], [190, 69, 2], [210, 69, 1], [240, 69, 2], [170, 69, 1],
+  // West cliffs (verified: 84-95 at y=53, 72-83 at y=50)
+  [86, 53, 0], [92, 53, 1], [73, 50, 0], [78, 50, 1],
+  // Treetops (verified: 52-59 at y=25, 46-47 at y=23)
+  [53, 25, 0], [57, 25, 1], [46, 23, 1],
+  // Summit (verified: 10-18 at y=11)
+  [12, 11, 2], [16, 11, 1],
 ];
