@@ -72,7 +72,7 @@ npm run build    # map-audit → esbuild → terser → roadroller → zip → E
 Build gates: map traversal audit (no stuck spots), 13,312 byte limit,
 no external URLs, no unprefixed localStorage.
 
-**Current: 12,439 / 13,312 B (93.4%)**
+**Current: 12,429 / 13,312 B (93.4%)**
 
 ## Save format
 Key: `localStorage.n20_save`. Version: **v21** — auto-discards older saves.

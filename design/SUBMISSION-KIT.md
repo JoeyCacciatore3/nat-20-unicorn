@@ -69,8 +69,8 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 4. `05_character_create.png` — customization
 5. `01_title.png` — branding (last)
 
-**Achievements:** import `tools/wavedash-achievements.json` (Portal → Achievements →
-Import JSON) — required or setAchievement is a silent no-op.
+**Achievements:** ✅ DONE (verified 2026-08-29 via CLI — all 13 identifiers exist on the
+platform). Optional: glance at display text in the portal to confirm it matches this JSON.
 
 ---
 
@@ -79,7 +79,7 @@ Import JSON) — required or setAchievement is a silent no-op.
 |---|---|---|---|
 | 1 | Register draft, claim name | js13kgames.com/submit | NOW (locks name; tests roadroller zip early) |
 | 2 | Firefox console check | local | before submit (hard rule) |
-| 3 | Import achievements JSON | Wavedash Portal | with metadata |
+| 3 | ~~Import achievements JSON~~ ✅ done 08-29 (13 IDs live; optional text glance) | Wavedash Portal | — |
 | 4 | Store page: title/desc/tags/cover/screens | Wavedash Portal | any time (review lag — don't leave for Sep 20) |
 | 5 | Final zip + GitHub submit | js13k form | ≤ Sep 13 13:00 CEST |
 | 6 | `wavedash update && wavedash build push` | CLI | after final build |
