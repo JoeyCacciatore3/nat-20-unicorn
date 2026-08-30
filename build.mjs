@@ -23,7 +23,7 @@ run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
 console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
 // inventory keys used via quoted strings, namespaced localStorage key)
-const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","n20_save"';
+const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"';
 run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true,toplevel=true,pure_getters=true,unsafe_math=true,unsafe_comps=true,hoist_funs=true -m toplevel=true --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 -o dist/min.js`);
 
 // Rules compliance: no external URLs may ship (js13k rule #2)
@@ -64,17 +64,11 @@ const js = readFileSync('dist/packed.js', 'utf8');
 if (js.includes('</script')) throw new Error('packed stream contains </script — would break HTML parsing');
 writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 
-// Wavedash variant: same competition HTML + platform glue (host injects window.Wavedash).
-// init() is REQUIRED to reveal the game behind Wavedash's loading screen; achievement
-// unlocks are mirrored by polling the game's own save (zero bytes added to the compo zip).
-const WD_IDS = 'HOMEBODY,FIRST_LIGHT,GLOOMBUSTER,NATURAL_20,UNTOUCHABLE,GREEN_HOOVES,SUMMIT,SILVER_TONGUE,WELL_RESTED,HOARDER,BELIEVER,ARCHITECT,PRISMATIC';
-// init() is the whole load contract per docs.wavedash.com/sdk/setup: "init() calls
-// loadComplete() internally… required for every game". Progress reporting is
-// optional for JS games and redundant when load is instant.
-const WD_GLUE = `<script>(()=>{const W=window.Wavedash;if(!W)return;W.init({});
-const A='${WD_IDS}'.split(',');const sent={};
-setInterval(()=>{try{const d=JSON.parse(localStorage.n20_save||'0');
-d&&d.e&&d.e.forEach((v,i)=>{if(v&&!sent[i]){sent[i]=1;W.setAchievement(A[i],true)}})}catch(e){}},3000)})()</scr` + `ipt>`;
+// Wavedash variant: same competition HTML + minimum platform contract.
+// Per docs.wavedash.com/sdk/setup: init() calls loadComplete() internally and is
+// required for every game to reveal the play area. No achievement polling — the
+// game does not yet track per-achievement state in a shape the SDK can consume.
+const WD_GLUE = `<script>window.Wavedash&&Wavedash.init({})</scr` + `ipt>`;
 mkdirSync('dist/wavedash', { recursive: true });
 writeFileSync('dist/wavedash/index.html', readFileSync('dist/index.html', 'utf8') + WD_GLUE);
 

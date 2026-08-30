@@ -477,7 +477,7 @@ const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 |
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
-// Chests: exploration rewards. `oc` bitfield tracks opened state (persisted v9).
+// Chests: exploration rewards. `oc` bitfield tracks opened state (persisted in save v31).
 const chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
@@ -747,7 +747,7 @@ const step = (dt) => {
         hp: fresh ? 24 + 10 * i : st.hp,
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
-sfx(110, 55, .5, 'sawtooth', .18);
+      sfx(110, 55, .5, 'sawtooth', .18);
       // BANNER — announce the arena; "keeper" line only while its shard is unclaimed
       bann = time + 2.2; bTxt = BN[i] + ' MARE'; bSub = st === 2 ? '' : 'KEEPER OF THE GOLDEN SHARD';
     }
@@ -967,7 +967,7 @@ const draw = () => {
     ctx.fillRect(wx - 2, wy + 4, 1, 4); ctx.fillRect(wx + 1, wy + 4, 1, 4);
   }
   // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
-  // Prompt "▲ OPEN" pulses above the nearest unopened chest. (Design pivot v9.)
+  // Prompt "▲ OPEN" pulses above the nearest unopened chest.
   for (const c of chests) {
     const opened = oc & (1 << c.i);
     ctx.fillStyle = '#6b4a2b';                              // dark oak base
