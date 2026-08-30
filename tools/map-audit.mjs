@@ -15,10 +15,10 @@
 import { W, H, grid, seeds, loadZone } from '../src/world.js';
 
 const TIERS = [
-  { name: 'base       ', up: 2, h: 5, gloom: 0 },
-  { name: '+doublejump', up: 4, h: 6, gloom: 0 },
-  { name: '+dash      ', up: 4, h: 9, gloom: 0 },
-  { name: '+shot      ', up: 4, h: 9, gloom: 1 },
+  { name: 'base       ', up: 2, h: 5, dark: 0 },
+  { name: '+doublejump', up: 4, h: 6, dark: 0 },
+  { name: '+dash      ', up: 4, h: 9, dark: 0 },
+  { name: '+shot      ', up: 4, h: 9, dark: 1 },
 ];
 
 // Per-zone spawn positions (tile where player stands after entry-fall).
@@ -53,7 +53,7 @@ const auditZone = (zi, meta) => {
   const gates = {};                                    // first tier that reaches each named target
 
   for (const tr of tiersToRun) {
-    const solidV = (v) => v === 1 || (v === 4 && !tr.gloom);
+    const solidV = (v) => v === 1 || (v === 4 && !tr.dark);   // v=4 dark crystal is solid until SHOT breaks it
     const blockV = (v) => solidV(v) || v === 3;
     const stand = (c, r) => r >= 0 && !blockV(at(c, r)) && (solidV(at(c, r + 1)) || at(c, r + 1) === 2);
 

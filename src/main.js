@@ -62,7 +62,7 @@ const stars = Array.from({ length: 22 }, () => ({
   s: 1 + (Math.random() * 1.5 | 0), v: 4 + Math.random() * 14, a: .3 + Math.random() * .5,
 }));
 // 3 SAVE SLOTS (n20_s0..2). sMeta reads name+level for the slot list without loading.
-const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 31 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 32 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 const hasSave = () => [0, 1, 2].some(sMeta);
 // Character create: UP/DOWN pick row (name/body/mane/horn), then row-specific input:
 //   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
