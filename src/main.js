@@ -551,10 +551,10 @@ const drawPart = (s, x, y, c) => {
 // Boss shard (t=4, full heal) is the ONLY drop outside this table, pushed on boss kill.
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
-    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 6 };
+    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 10, grace: .6 };
     const r = (Math.random() * 100 | 0) + Math.min(lk, 10) * 4;  // % roll + LUCK
     // GEAR TIER = d20 + LUCK/2 + LEVEL/4 vs DC 17 (gold) / DC 24 (prismatic).
-    if (r >= 85) { d.t = 5; d.life = 10; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 11) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
+    if (r >= 85) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 11) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
     else if (r >= 58) d.t = 1;                  // MP POTION (else t=0: HP POTION)
     drops.push(d);
   }
@@ -594,7 +594,7 @@ const strike = (f, r, gen, viaStomp) => {
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE GLOOM LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory via the boss-banner system — zero new structure
         }
-        drops.push({ x: f.x, y: f.y - 12, vx: 0, vy: -130, t: 4, life: 15 });
+        drops.push({ x: f.x, y: f.y - 12, vx: 0, vy: -130, t: 4, life: 10, grace: .6 });
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
@@ -858,21 +858,29 @@ sfx(110, 55, .5, 'sawtooth', .18);
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
-    d.life -= dt; d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
-    if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }
-    if (Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 18) {
+    d.life -= dt;
+    if (d.mag > 0) {                                             // MAGNETIZE — fly to player, then trigger effects
+      d.mag -= dt;
+      d.x += (pl.x + PW / 2 - d.x) * .3; d.y += (pl.y + PH / 2 - d.y) * .3;
+      if (d.mag > 0) continue;
       d.life = 0;
       // Consumables auto-consume if their stat isn't full, else land in inventory (click later).
       // Gear ALWAYS lands in inventory — player picks when to equip.
       const bag = () => { if (inv.length < invMax()) { inv.push({ t: d.t, s: d.s, c: d.c, b: d.b }); fly(d.x, d.y, '+BAG', PAL[d.c] || '#ffd75e'); } else fly(d.x, d.y, 'BAG FULL', '#ff5d6c'); };
-      // Potions: t=0 = HP (red), t=1 = MP (blue). Auto-consume if that stat isn't full, else land in inventory.
       if (d.t === 0) hp < mHP() ? (hp = Math.min(mHP(), hp + 3), fly(d.x, d.y, '+3 HP', '#ff5d6c')) : bag();
       else if (d.t === 1) mn < mMN() ? (mn = Math.min(mMN(), mn + 3), fly(d.x, d.y, '+3 MP', '#4a76ff')) : bag();
       else if (d.t === 4) {                                      // BOSS SHARD (only) — full heal + fanfare, distinct rainbow visual
         (hp < mHP() || mn < mMN()) ? (hp = mHP(), mn = mMN(), fly(d.x, d.y, 'FULL HEAL!', '#ffd75e', 1), burst(d.x, d.y, 12, '#ffd75e'), sfx(784, 1568, .3, 'triangle', .15, .24)) : bag();
       }
       else if (d.t === 5) bag();                                 // GEAR always goes to bag
-      sfx(520, 1040, .06, 'triangle', .08);
+      continue;
+    }
+    d.grace -= dt;
+    d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
+    if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }
+    if (d.grace <= 0 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 18) {
+      d.mag = .2;                                                // start 200ms fly-in to player
+      sfx(520, 1040, .1, 'triangle', .12);                       // pickup sound at magnet start (audible confirmation)
     }
   }
   for (let i = drops.length; i--;) if (drops[i].life <= 0) drops.splice(i, 1);
