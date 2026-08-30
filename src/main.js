@@ -283,7 +283,6 @@ const useItem = (i) => {
   if (it.t === 5) { inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1); }
   else if (it.t === 0 && hp < mHP()) { hp = Math.min(mHP(), hp + 3); inv.splice(i, 1); sfx(520, 1040, .1, 'triangle', .1); }
   else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 3); inv.splice(i, 1); sfx(440, 880, .1, 'triangle', .1); }
-  else if (it.t === 4 && (hp < mHP() || mn < mMN())) { hp = mHP(); mn = mMN(); inv.splice(i, 1); sfx(784, 1568, .3, 'triangle', .15); }
   invSel = -1;
 };
 // Cached equipment bonuses (additive on top of base stats)
@@ -529,7 +528,7 @@ const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
 // ITEM DROPS — physical pickups from kills/chests.
-// Types: 0 HP potion (+3 HP), 1 MP potion (+3 MP), 4 golden rainbow shard (boss only), 5 gear.
+// Types: 0 HP potion (+3 HP), 1 MP potion (+3 MP), 5 gear. Shards are progression-only (bs[i]=2, not drops).
 // LUCK adds +1 drop per pip.
 
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
@@ -548,7 +547,7 @@ const drawPart = (s, x, y, c) => {
   else mane3(c).forEach((mc, i) => { ctx.fillStyle = mc; ctx.fillRect(x + 4 - i * 2, y + i * 2, 2, 3); });
 };
 // ONE loot table: HP POTION floor → MP POTION → GEAR (LUCK lifts roll, raising tier & frequency).
-// Boss shard (t=4, full heal) is the ONLY drop outside this table, pushed on boss kill.
+// Bosses grant their shard as a progression token on first kill (auto-collected, not a drop).
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 10, grace: .6 };
@@ -589,12 +588,13 @@ const strike = (f, r, gen, viaStomp) => {
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
-      if (bs[f.bi] !== 2) {                                     // FIRST KILL — golden rainbow shard
+      if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect golden shard automatically (progression token, not an item)
         bs[f.bi] = 2;
+        hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
+        burst(f.x, f.y, 20, '#ffd75e'); fly(f.x, f.y - 8, 'SHARD ' + shards() + ' / 5', '#ffd75e', 1);
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE GLOOM LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory via the boss-banner system — zero new structure
         }
-        drops.push({ x: f.x, y: f.y - 12, vx: 0, vy: -130, t: 4, life: 10, grace: .6 });
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
@@ -869,10 +869,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
       const bag = () => { if (inv.length < invMax()) { inv.push({ t: d.t, s: d.s, c: d.c, b: d.b }); fly(d.x, d.y, '+BAG', PAL[d.c] || '#ffd75e'); } else fly(d.x, d.y, 'BAG FULL', '#ff5d6c'); };
       if (d.t === 0) hp < mHP() ? (hp = Math.min(mHP(), hp + 3), fly(d.x, d.y, '+3 HP', '#ff5d6c')) : bag();
       else if (d.t === 1) mn < mMN() ? (mn = Math.min(mMN(), mn + 3), fly(d.x, d.y, '+3 MP', '#4a76ff')) : bag();
-      else if (d.t === 4) {                                      // BOSS SHARD (only) — full heal + fanfare, distinct rainbow visual
-        (hp < mHP() || mn < mMN()) ? (hp = mHP(), mn = mMN(), fly(d.x, d.y, 'FULL HEAL!', '#ffd75e', 1), burst(d.x, d.y, 12, '#ffd75e'), sfx(784, 1568, .3, 'triangle', .15, .24)) : bag();
-      }
-      else if (d.t === 5) bag();                                 // GEAR always goes to bag
+      else bag();                                                // GEAR (t=5) always goes to bag
       continue;
     }
     d.grace -= dt;
@@ -1114,8 +1111,7 @@ const draw = () => {
     ctx.globalAlpha = Math.min(1, d.life);
     const dy = Math.sin(d.life * 5) * 1.5, dx = d.x - 3, ddy = d.y - 3 + dy;
     if (d.t < 2) { spr(I_MP, dx, ddy, 6, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(dx + 2, ddy, 2, 1); }   // POTION — t=0 red HP, t=1 blue MP, dark-brown cork
-    else if (d.t === 4) for (let i = 5; i--;) { ctx.beginPath(); ctx.strokeStyle = `hsl(${40 + i * 8} 90% ${55 + i * 8}%)`; ctx.lineWidth = 1.5; ctx.arc(dx + 3, ddy + 4 + dy, 3 + i, Math.PI, 0); ctx.stroke(); }   // BOSS SHARD — distinctive golden rainbow arc
-    else if (d.t === 5) { drawPart(d.s, dx - 1, ddy - 1, d.c); ctx.strokeStyle = TC[d.b]; ctx.lineWidth = .5; ctx.strokeRect(dx - 2, ddy - 2, 10, 10); }   // GEAR — drawU primitives + tier ring
+    else { drawPart(d.s, dx - 1, ddy - 1, d.c); ctx.strokeStyle = TC[d.b]; ctx.lineWidth = .5; ctx.strokeRect(dx - 2, ddy - 2, 10, 10); }   // GEAR (t=5) — drawU primitives + tier ring
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
   ctx.globalAlpha = 1;
@@ -1190,14 +1186,13 @@ const draw = () => {
       ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, 18, 18);
       if (it) {                                        // draw item icon centered
         if (it.t < 2) { spr(I_MP, ix + 6, iy + 5, 6, it.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(ix + 8, iy + 5, 2, 1); }   // POTION — red HP or blue MP, dark cork
-        else if (it.t === 4) { ctx.beginPath(); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.arc(ix + 9, iy + 12, 4, Math.PI, 0); ctx.stroke(); }
-        else if (it.t === 5) drawPart(it.s, ix + 5, iy + 6, it.c);
+        else drawPart(it.s, ix + 5, iy + 6, it.c);                                       // GEAR (t=5)
       }
     }
     // Tooltip: item name+effect above the grid (in the 6px band under the gold box). Action hint replaces the keybind line at the bottom.
     if (invSel >= 0 && inv[invSel]) {
       const it = inv[invSel];
-      const desc = it.t === 0 ? 'HP POTION · +3 HP' : it.t === 1 ? 'MP POTION · +3 MP' : it.t === 4 ? 'RAINBOW SHARD · FULL HEAL' : it.t === 5 ? SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0] : '';
+      const desc = it.t === 0 ? 'HP POTION · +3 HP' : it.t === 1 ? 'MP POTION · +3 MP' : SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // t=5 GEAR
       ctx.fillStyle = '#ffd75e'; T2(desc, 84, 192);
     }
     // 3-COLUMN SKILL TREE — the ENTIRE right side is the tree's now
