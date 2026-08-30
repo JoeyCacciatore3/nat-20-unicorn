@@ -280,7 +280,7 @@ const equip = (item) => {
   col[item.s] = item.c;                            // update unicorn color
   eqB = eq.map(e => e ? e.b : 0);
 };
-// Use an inventory slot — equip gear, consume potion/heart/rainbow. Returns true if consumed.
+// Use an inventory slot — equip gear (t=5), consume HP/MP potion (t=0/1). Returns true if consumed.
 const useItem = (i) => {
   const it = inv[i]; if (!it) return;
   if (it.t === 5) { inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1); }
@@ -631,7 +631,7 @@ const strike = (f, r, gen, viaStomp) => {
 // ---------- verbs ----------
 // DASH is the attack verb: available from the start at half distance, strikes foes it
 // passes through, and hits GENERATE mana. LONG DASH doubles distance.
-function shoot() {                                              // rainbow shot: 3 mana
+function shoot() {                                              // magic bolt (gold): 3 mana
   if (!started || choosing || deathT > 0 || !su[0]) return;
   if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#f9c'); return; }   // flat 3 MP
   mn -= 3; sfx(700, 1300, .12, 'triangle', .09);
@@ -755,7 +755,7 @@ const step = (dt) => {
   nearChest = -1;
   for (const c of chests) if (!(oc & (1 << (curZone * 6 + c.i))) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
-  // -- bosses: each drops a golden rainbow shard on first kill --
+  // -- bosses: each grants a golden rainbow shard on first kill (auto-collected progression token, no drop) --
   seeds.bosses.forEach(([bx, by]) => {                          // each zone has 1 boss; boss id = curZone (indexes bs[], BN[], P2[])
     const bi = curZone, bit = 1 << bi;
     if (bs[bi] === 1) return;
@@ -836,7 +836,7 @@ const step = (dt) => {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
       // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
       if (f.cap & 8 && !wasGr) {
-        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 16, '#e08ae0'); sfx(90, 40, .3, 'sawtooth', .18);
+        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 16, '#fff'); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
         if (pl.ground && Math.abs(pl.x - f.x) < 64) hurt(3, 0);
       }
     }
@@ -1032,7 +1032,7 @@ const draw = () => {
     if (f.bit) {                                                // DARK HORSE — reflection of the player unicorn: same shape,
       // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
-      const ec = f.ph ? '#fff' : ['#ff5d6c', '#c9a6f7', '#9fe89a', '#8cf', '#ffd75e'][f.bi];   // horn + eye — rage-white in phase 2
+      const ec = f.ph ? '#fff' : ['#ff9d3c', '#5a3a1e', '#f5f1f4', '#8cf', '#c47fe0'][f.bi];   // horn + eye per boss theme — DUSK orange, MURK brown, GALE white, FROST cyan, GLOOM purple (rage-white in phase 2)
       const sc = fs / 14, ph = Math.sin(f.t * 8) * 3;            // scale player unicorn bbox → fs; walk cycle
       ctx.scale(sc, sc);
       ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3);              // leg L (steps)
