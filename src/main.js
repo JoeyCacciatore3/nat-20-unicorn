@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v31 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v32 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, loadZone } from './world.js';
 
@@ -44,7 +44,7 @@ const M_KEYS = ['KeyJ', 'KeyX'], SH_KEYS = ['KeyL'], HE_KEYS = ['KeyH'];  // DAS
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
-// phase 0 = title (tMode: menu/name/slots), 2 = playing (started=1). Phase 1 no longer exists.
+// phase 0 = title (tMode: menu/name/slots), 2 = playing (started=1).
 let phase = 0, ent = '', pName = 'HORSE', mSel = 0;
 let tMode = 0, sSel = 0, slot = 0, slotNew = 0, svT = 0; // title mode 0 menu · 1 name · 2 slots; active save slot; SAVED toast clock
 // HIDDEN NAME INPUT — the standard mobile-canvas technique: focusing a real <input>
@@ -117,7 +117,7 @@ addEventListener('keydown', (e) => {
   if (J_KEYS.includes(e.code) && nearDoor >= 0) { const d = seeds.doors[nearDoor]; enterZone(d[2], d[3], d[4]); return; }
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
-  if (M_KEYS.includes(e.code)) dash();                          // J/X = dash (the attack verb) — old swipe muscle memory preserved
+  if (M_KEYS.includes(e.code)) dash();                          // J/X = dash — the attack verb (contact damage during dash)
   if (SH_KEYS.includes(e.code)) shoot();
   if ((e.code === 'KeyP' || e.code === 'Escape') && deathT <= 0) paused = paused ? 0 : 1;   // no pause during death anim — softlock guard
   if (paused && e.code === 'KeyX' && invSel >= 0 && inv[invSel]) { inv.splice(invSel, 1); invSel = -1; }   // DISCARD selected inv item (silent; item vanish is visual feedback)
@@ -147,7 +147,7 @@ const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
 // Persistent base at a home position (operator preference: always visible), but any
 // touch in the LEFT 40% re-anchors it under the thumb (Dead Cells floating pattern,
 // ~80% player preference per Playdigious postmortem). Snaps home on release.
-// Y-axis push-down = crouch/drop — replaces the old ◀ ▼ ▶ button trio.
+// Y-axis push-down on joystick = crouch/drop-through platform.
 const JHX = 52, JHY = VH - 52, JR = 26, KR = 11, JMX = JR - 8;   // home, base r, knob r, max knob throw
 const joy = { x: JHX, y: JHY, dx: 0, dy: 0, id: -1 };
 let dHP = 0;                                                     // HUD damage-chip ghost value
@@ -243,7 +243,7 @@ function boot() { if (!AC) AC = new AudioContext(); AC.resume(); }        // aud
 let mute = 0;                                     // bit 1 = sfx mute
 // PB — pause-sheet button strip (shared by draw + click). [x, w, labelFn, actionFn]
 // Positioned on the RIGHT column at y=18 (top of pause sheet, above skill tree).
-// Inventory grid now owns the bottom-left band (rows under the gold box).
+// Inventory grid: bottom-left band (rows under the gold box).
 const PB = [
   [200, 60, () => 'SAVE', () => { save(); svT = time + 1.2; sfx(660, 990, .15, 'triangle', .12); }],
   [265, 70, () => 'SAVE & EXIT', () => { save(); paused = 0; started = 0; phase = 0; tMode = 0; mSel = 0; }],
@@ -587,7 +587,7 @@ const spawnDrop = (x, y, n) => {
 // damage a foe: dmg = die + MOD, crit doubles. Full D&D damage line, visible.
 // Feel pass: knockback on non-boss/non-stomp hits, hitstop + shake on crit, boss
 // phase-2 trigger at half HP, minion cleanup on boss death. Drops: one shared loot
-// roll for all kills (elites/bosses just roll more times); golden shard is the only
+// roll for all kills (elites/bosses just roll more times); rainbow shard is the only
 // guaranteed boss drop.
 const strike = (f, r, gen, viaStomp) => {
   const crit = isCrit(r), dmg = (r + MOD()) * (crit ? 2 : 1);
@@ -609,14 +609,14 @@ const strike = (f, r, gen, viaStomp) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 rate — k4+ are variants, not a farm ladder
-    spawnDrop(f.x, f.y, f.el || f.bit ? 3 : 1);                 // elites & bosses share ONE "higher chance" tier (more rolls) — never a guaranteed gear drop. Golden shard (below) is the ONLY boss guarantee.
+    spawnDrop(f.x, f.y, f.el || f.bit ? 3 : 1);                 // elites & bosses share ONE "higher chance" tier (more rolls) — never a guaranteed gear drop. Rainbow shard (below) is the ONLY boss guarantee.
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
-      if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect golden shard automatically (progression token, not an item)
+      if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
-        burst(f.x, f.y, 20, '#ffd75e'); fly(f.x, f.y - 8, 'SHARD ' + shards() + ' / 5', '#ffd75e', 1);
+        burst(f.x, f.y, 20, '#ffd75e'); fly(f.x, f.y - 8, 'RAINBOW SHARD ' + shards() + ' / 5', '#ffd75e', 1);
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
@@ -756,7 +756,7 @@ const step = (dt) => {
   nearChest = -1;
   for (const c of chests) if (!(oc & (1 << (curZone * 6 + c.i))) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
-  // -- bosses: each grants a golden rainbow shard on first kill (auto-collected progression token, no drop) --
+  // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
   seeds.bosses.forEach(([bx, by]) => {                          // each zone has 1 boss; boss id = curZone (indexes bs[], BN[], P2[])
     const bi = curZone, bit = 1 << bi;
     if (bs[bi] === 1) return;
@@ -771,7 +771,7 @@ const step = (dt) => {
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
-      bann = time + 2.2; bTxt = BN[bi] + ' MARE'; bSub = st === 2 ? '' : 'KEEPER OF THE GOLDEN SHARD';
+      bann = time + 2.2; bTxt = BN[bi] + ' MARE'; bSub = st === 2 ? '' : 'KEEPER OF A RAINBOW SHARD';
     }
   });
 
@@ -1030,7 +1030,7 @@ const draw = () => {
     ctx.translate(-fs / 2, -fs);
     // colour: white flash on hit > red pre-strike wind-up tell > tier base
     ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#000' : FOECOL[f.k];
-    if (f.bit) {                                                // DARK HORSE — reflection of the player unicorn: same shape,
+    if (f.bit) {                                                // DARK MARE — reflection of the player unicorn: same shape,
       // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
       const ec = f.ph ? '#fff' : ['#ff9d3c', '#5a3a1e', '#f5f1f4', '#8cf', '#c47fe0'][f.bi];   // horn + eye per boss theme — DUSK orange, MURK brown, GALE white, FROST cyan, DARK purple (rage-white in phase 2)
@@ -1094,7 +1094,7 @@ const draw = () => {
       ctx.fillStyle = '#ffd75e'; ctx.fillRect(f.x, f.y - 3, fs * f.hp / f.mx, 1);
     }
   }
-  for (const s of shots) { ctx.fillStyle = '#ffd75e'; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }   // magic bolt: solid gold (matches unicorn horn + shard gold)
+  for (const s of shots) { ctx.fillStyle = '#ffd75e'; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }   // magic bolt: solid gold (matches unicorn horn + shard visuals)
   for (const b of fbolts) {                                     // foe bolt: purple diamond with a pale core
     ctx.fillStyle = '#c47fe0'; ctx.fillRect(b.x - 3, b.y - 3, 6, 6);
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
@@ -1207,7 +1207,7 @@ const draw = () => {
       const desc = it.t === 0 ? 'HP POTION · +3 HP' : it.t === 1 ? 'MP POTION · +3 MP' : SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // t=5 GEAR
       ctx.fillStyle = '#ffd75e'; T2(desc, 84, 192);
     }
-    // 3-COLUMN SKILL TREE — the ENTIRE right side is the tree's now
+    // 3-COLUMN SKILL TREE — occupies the entire right side of the pause sheet
     ctx.textAlign = 'left'; ctx.font = 'bold 8px monospace';
     if (spts) { ctx.fillStyle = '#ffd75e'; ctx.fillText(spts + ' PT' + (spts > 1 ? 'S' : ''), 420, 42); }
     // Two-pass render: pass 1 draws prereq lines UNDER the boxes, pass 2 draws the boxes.
@@ -1227,7 +1227,7 @@ const draw = () => {
       ctx.fillStyle = su[i] ? '#ffd75e' : col; ctx.fillText(nm, cx + 2, cy);
       if (can) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 3, cy - 10, 78, 14); }   // buyable ring — CYAN so purchased (gold) reads as distinct
     });
-    // Footer — shard tally under the tree; equipment + bag now live on the LEFT side
+    // Footer — shard tally under the tree (equipment + bag live on the left side)
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + shards() + ' / 5', 300, 228);
     // Pause-sheet clickable strip: SAVE · SAVE&EXIT · ♪MUSIC · ♫SFX (shared data with click handler above)

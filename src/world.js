@@ -91,7 +91,7 @@ const Z0 = {
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
   ],
-  // doors: [x, y, targetZone, spawnX, spawnY] — 4 rainbow portals where old bosses stood
+  // doors: [x, y, targetZone, spawnX, spawnY] — 4 rainbow portals to the other zones
   doors: [
     [226, 66.5, 1, 40, 57],   // Zone 1 (CAVE) — cave east loop
     [56, 22.5, 2, 40, 40],    // Zone 2 (CLIFFS) — canopy ledge
