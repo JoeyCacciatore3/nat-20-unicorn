@@ -18,7 +18,7 @@
 //
 // Save: strict v31 JSON to localStorage. Version bumps discard prior saves.
 
-import { T, W, H, grid, tile, seeds, DECO } from './world.js';
+import { T, W, H, grid, tile, seeds, DECO, loadZone } from './world.js';
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -114,6 +114,7 @@ addEventListener('keydown', (e) => {
   // Near hearth: JUMP is the universal INTERACT (auto REST)
   if (J_KEYS.includes(e.code) && nearFire) { rest(); return; }
   if (J_KEYS.includes(e.code) && nearChest >= 0) { openChest(nearChest); return; }
+  if (J_KEYS.includes(e.code) && nearDoor >= 0) { const d = seeds.doors[nearDoor]; enterZone(d[2], d[3], d[4]); return; }
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) dash();                          // J/X = dash (the attack verb) — old swipe muscle memory preserved
@@ -130,7 +131,7 @@ const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('bH');
 // No dedicated hearth buttons — JUMP is the universal interact/confirm, MELEE is back/cancel.
 const btns = () => {
   // JUMP ring recolors near interactables (gold = actionable)
-  const jc = nearFire || nearChest >= 0 ? '#ffd75e' : '#8cf';
+  const jc = nearFire || nearChest >= 0 || nearDoor >= 0 ? '#ffd75e' : '#8cf';
   // Fan-arc around bottom-right corner = landscape thumb-reach pattern.
   const b = [
     { x: VW - 36, y: VH - 34, r: 24, c: 'bJ', col: jc },
@@ -217,6 +218,7 @@ addEventListener('pointerdown', (e) => {
     // JUMP button contextualizes: near NPC it's INTERACT, not jump
     if (b.c === 'bJ' && nearFire) { rest(); return; }
     if (b.c === 'bJ' && nearChest >= 0) { openChest(nearChest); return; }
+    if (b.c === 'bJ' && nearDoor >= 0) { const d = seeds.doors[nearDoor]; enterZone(d[2], d[3], d[4]); return; }
     ptrs.set(e.pointerId, b.c); keys.add(b.c);
     if (b.c === 'bJ') jbuf = .12;
     if (b.c === 'bM') dash();
@@ -416,9 +418,9 @@ const allocate = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 31, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 32, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
-    m: pName, o: oc,
+    m: pName, o: oc, z: curZone,
     u: col,
     q: eq, i: inv, p: mute,
   });
@@ -426,10 +428,12 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 31) return;                               // strict v31 gate — no cross-version compat.
+    if (!d || d.v !== 32) return;                               // strict v32 gate — no cross-version compat.
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
-
+    curZone = d.z | 0; loadZone(curZone);
+    chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+    foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
     [ho, he, sp, df, lk] = d.t;
     col = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
@@ -446,7 +450,8 @@ const PW = 10, PH = 14;
 const SX = 126 * T, SY = 57 * T;                  // spawn point (paddock)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
-let chT = 0, nearFire = 0;
+let chT = 0, nearFire = 0, nearDoor = -1;         // proximity flags: hearth, doorway
+let curZone = 0, zBann = 0, zFade = 0;            // active zone id, banner timer, fade timer
 let paused = 0;                                   // pause overlay open — freezes sim, character sheet renders
 let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
 // HEARTH ACTION — JUMP-near-fire = auto REST: full heal + checkpoint + save + welcome-boon on first touch.
@@ -457,10 +462,22 @@ const rest = () => {
   fly(pl.x, pl.y - 16, 'SAVED', '#9fe89a', 1);
   save();
 };
+// ZONE TRANSITION — swap grid to target zone, teleport player, reset transient state.
+// Called from doorway JUMP-interact. Boss/chest persistence lives in bs[] / oc bitfield.
+const enterZone = (tz, sx, sy) => {
+  loadZone(tz); curZone = tz;
+  chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+  foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
+  pl.x = sx * T; pl.y = sy * T; pl.vx = pl.vy = 0; pl.ground = 0;
+  cp = [pl.x, pl.y]; lastSafe = [pl.x, pl.y];
+  drops.length = shots.length = fbolts.length = flies.length = parts.length = 0;
+  zBann = time + 2.5; zFade = time + .3;             // banner + brief fade
+  save();
+};
 // Chest reward: item shower + full heal. LUCK adds drops.
 const openChest = (i) => {
-  if (oc & (1 << i)) return;
-  oc |= 1 << i;
+  if (oc & (1 << (curZone * 6 + i))) return;
+  oc |= 1 << (curZone * 6 + i);
   const c = chests[i]; hp = mHP();
   spawnDrop(c.x, c.y, 5);
   burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
@@ -476,8 +493,8 @@ const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 |
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
-// Chests: exploration rewards. `oc` bitfield tracks opened state (persisted in save v31).
-const chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+// Chests: exploration rewards. `oc` bitfield tracks opened state per-zone (bit = zone*8 + i).
+let chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
@@ -486,6 +503,9 @@ const fresh = () => {
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
+  curZone = 0; loadZone(0);
+  chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+  foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
 // FOECOL — k1..k6 body colors. Sky #6bc5ff and grass #5ac878 are RESERVED for background
@@ -515,6 +535,7 @@ const P2 = [32, 4, 1, 8, 37];
 // Boss names by index — all dark mirrors of the player; ' MARE' composed once at
 // display (one shared literal). Banner state: bann = time deadline, set on arena entry.
 const BN = ['DUSK', 'MURK', 'GALE', 'FROST', 'GLOOM'];
+const ZN = ['DAWNFIELD', 'DIM BURROW', 'CLIFFMANE', 'SILVERFROST', 'GLOOM HEART'];
 let bann = 0, bTxt = '', bSub = '';
 // ZONE TIER — west=hard, east=easy. Starting Meadow (tile 140+) = tier 0 (base), Gloom Heart (tile <15) = tier 4 (+80% HP, +4 DM).
 // Data-driven from world x, no per-foe field. Anchored so starting spawns (tile 174-260) are unmodified.
@@ -525,7 +546,7 @@ const mkFoe = (x, y, k) => {
   // per-spawn speed jitter (±15%) — same kind, individual gait; the cheap "randomness" that reads fair
   return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + b - 1 + t, el, fl: 0, t: Math.random() * 7, cz: el ? fz + 1 : fz };
 };
-const foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
+let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
@@ -733,26 +754,24 @@ const step = (dt) => {
 
   // -- chest proximity — JUMP-to-open handled in keydown; here just flag the nearest --
   nearChest = -1;
-  for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
+  for (const c of chests) if (!(oc & (1 << (curZone * 6 + c.i))) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- bosses: each drops a golden rainbow shard on first kill --
-  seeds.bosses.forEach(([bx, by], i) => {
-    const bit = 1 << i;
-    // bs[i]: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,...}=leash stash
-    if (bs[i] === 1) return;                                     // already on screen
+  seeds.bosses.forEach(([bx, by]) => {                          // each zone has 1 boss; boss id = curZone (indexes bs[], BN[], P2[])
+    const bi = curZone, bit = 1 << bi;
+    if (bs[bi] === 1) return;
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
-      const st = bs[i], fresh = !st || st === 2;               // 0=new, 2=killed before → fresh spawn
-      bs[i] = 1;
+      const st = bs[bi], fresh = !st || st === 2;
+      bs[bi] = 1;
       foes.push({
-        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi: i, bit, cz: 4, dm: 4 + i,
-        fl: 0, t: 0, hit: 0, mx: 24 + 10 * i,
-        cap: 18 | (fresh ? 0 : st.ph && P2[i]),  // boss base = hop+chase; re-entry restores phase-2 grants
-        hp: fresh ? 24 + 10 * i : st.hp,
+        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 4 + bi,
+        fl: 0, t: 0, hit: 0, mx: 24 + 10 * bi,
+        cap: 18 | (fresh ? 0 : st.ph && P2[bi]),
+        hp: fresh ? 24 + 10 * bi : st.hp,
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
-      // BANNER — announce the arena; "keeper" line only while its shard is unclaimed
-      bann = time + 2.2; bTxt = BN[i] + ' MARE'; bSub = st === 2 ? '' : 'KEEPER OF THE GOLDEN SHARD';
+      bann = time + 2.2; bTxt = BN[bi] + ' MARE'; bSub = st === 2 ? '' : 'KEEPER OF THE GOLDEN SHARD';
     }
   });
 
@@ -856,8 +875,9 @@ const step = (dt) => {
   }
 
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
-  nearFire = 0;
+  nearFire = 0; nearDoor = -1;
   for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
+  if (seeds.doors) for (let i = 0; i < seeds.doors.length; i++) { const [dx, dy] = seeds.doors[i]; if (Math.hypot(pl.x - dx * T, pl.y - dy * T) <= 22) { nearDoor = i; break; } }
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
@@ -948,10 +968,15 @@ const draw = () => {
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
   }
+  // RAINBOW PORTAL DOORWAYS — animated swirl of rainbow colors, JUMP-near to enter target zone.
+  if (seeds.doors) for (const [dx, dy] of seeds.doors) {
+    const cxp = dx * T, cyp = dy * T - 4;
+    for (let i = 5; i >= 0; i--) { ctx.fillStyle = `hsl(${(time * 90 + i * 60) % 360} 85% 60%)`; ctx.beginPath(); ctx.arc(cxp, cyp, 11 - i * 1.6, 0, 7); ctx.fill(); }
+  }
   // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
   // Prompt "▲ OPEN" pulses above the nearest unopened chest.
   for (const c of chests) {
-    const opened = oc & (1 << c.i);
+    const opened = oc & (1 << (curZone * 6 + c.i));
     ctx.fillStyle = '#6b4a2b';                              // dark oak base
     ctx.fillRect(c.x - 6, c.y - 2, 12, 7);                  // body
     ctx.fillStyle = '#8a6a3a';                              // lighter oak (lid or interior)
@@ -1132,6 +1157,11 @@ const draw = () => {
       T2(bTxt, VW / 2, 58);
       if (bSub) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
     }
+    if (time < zBann) {                                         // ZONE BANNER — zone-entry announcement (top of screen, gold)
+      ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#ffd75e';
+      T2(ZN[curZone], VW / 2, 44);
+    }
+    if (time < zFade) { ctx.fillStyle = `rgba(0,0,0,${(zFade - time) / .3})`; ctx.fillRect(0, 0, VW, VH); }
     if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
   }
 
