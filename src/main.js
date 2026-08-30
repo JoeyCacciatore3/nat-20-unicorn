@@ -1257,7 +1257,7 @@ const draw = () => {
       // colored outer ring
       ctx.strokeStyle = b.col; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.stroke();
-      // glyph placeholder — sprites TBD (disc + ring remain as hit zones)
+      // disc + colored ring — the intentional button design (icon-free for byte economy)
       ctx.globalAlpha = pressed ? 1 : .9;
     }
     ctx.globalAlpha = 1;

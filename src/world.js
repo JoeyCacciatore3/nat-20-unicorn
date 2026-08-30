@@ -91,12 +91,12 @@ const Z0 = {
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
   ],
-  // doors: [x, y, targetZone, spawnX, spawnY] — 4 rainbow portals to the other zones
+  // doors: [x, y, targetZone, spawnX, spawnY] — 4 rainbow portals at standing height
   doors: [
-    [226, 66.5, 1, 40, 57],   // Zone 1 (CAVE) — cave east loop
-    [56, 22.5, 2, 40, 40],    // Zone 2 (CLIFFS) — canopy ledge
-    [14, 10.5, 3, 40, 30],    // Zone 3 (PEAK) — peak ledge
-    [55, 66.5, 4, 40, 57],    // Zone 4 (DEPTHS) — deep west arena
+    [226, 69, 1, 40, 57],   // Zone 1 (CAVE)   — cave corridor floor (row 69, standable)
+    [56, 25, 2, 40, 40],    // Zone 2 (CLIFFS) — canopy ledge top (row 25, standing on ledge)
+    [14, 11, 3, 40, 30],    // Zone 3 (PEAK)   — peak ledge top (row 11, standing on ledge)
+    [55, 69, 4, 40, 57],    // Zone 4 (DEPTHS) — depths corridor floor (row 69, standable)
   ],
   DECO: [
     [142, 59, 0], [155, 59, 0], [212, 59, 0], [238, 59, 0],
@@ -119,10 +119,10 @@ const Z1 = {
     [210, 58, 20, 2, 0],                               // arena depression before boss
   ],
   fires: [[45, 59.5]],
-  bosses: [[240, 57]],
+  bosses: [[220, 59]],                              // boss stands inside its arena carve (cols 210-229)
   chests: [[110, 56.3]],
   foes: [[100, 58, 1], [150, 58, 2], [180, 58, 6]],
-  doors: [[35, 58.5, 0, 226, 65]],
+  doors: [[35, 59, 0, 226, 68]],                    // return portal at standing height (row 59)
   DECO: [[70, 59, 2], [160, 59, 2], [200, 59, 2]],
 };
 
@@ -137,10 +137,10 @@ const Z2 = {
     [220, 40, 40, 2, 0],                               // boss arena depression
   ],
   fires: [[45, 41.5]],
-  bosses: [[240, 39]],
+  bosses: [[240, 41]],                              // boss on arena floor (row 41)
   chests: [[145, 28.3]],
   foes: [[90, 37, 5], [140, 29, 6], [190, 37, 5]],
-  doors: [[35, 40.5, 0, 56, 21]],
+  doors: [[35, 41, 0, 56, 24]],                     // return portal at standing height (row 41)
   DECO: [[100, 41, 1], [200, 41, 1]],
 };
 
@@ -155,10 +155,10 @@ const Z3 = {
     [200, 30, 40, 2, 0],                               // boss arena
   ],
   fires: [[45, 31.5]],
-  bosses: [[220, 29]],
+  bosses: [[220, 31]],                              // boss on arena floor (row 31)
   chests: [[155, 22.3]],
   foes: [[100, 29, 4], [140, 25, 3], [190, 29, 4]],
-  doors: [[35, 30.5, 0, 14, 9]],
+  doors: [[35, 31, 0, 14, 10]],                     // return portal at standing height (row 31)
   DECO: [[80, 31, 2], [180, 31, 2]],
 };
 
@@ -168,15 +168,14 @@ const Z4 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],   // envelope + floor
     [30, 55, 5, 5],                                    // spawn ledge
-    [70, 68, 8, 1, 3], [110, 68, 8, 1, 3],            // spike hazards
-    [150, 55, 6, 1, 2], [180, 52, 6, 1, 2],           // elevated platforms
-    [210, 58, 40, 2, 0],                               // boss arena
+    [150, 55, 6, 1, 2], [180, 52, 6, 1, 2],           // elevated platforms (arena approach)
+    [210, 58, 40, 2, 0],                               // boss arena (2-tile depression)
   ],
   fires: [[45, 59.5]],
-  bosses: [[240, 57]],
+  bosses: [[240, 59]],                              // DARK MARE on arena floor (row 59)
   chests: [[185, 50.3]],
   foes: [[100, 58, 3], [140, 58, 6], [175, 51, 4], [200, 58, 3]],
-  doors: [[35, 58.5, 0, 55, 65]],
+  doors: [[35, 59, 0, 55, 68]],                     // return portal at standing height (row 59)
   DECO: [[80, 59, 2], [130, 59, 2], [170, 59, 2]],
 };
 
