@@ -706,7 +706,6 @@ const step = (dt) => {
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash overrides physics: flat burst
     pl.vx = pl.face * 400; pl.vy = 0;
-    parts.push({ x: pl.x + PW / 2, y: pl.y + 8, vx: 0, vy: 0, t: .3, c: `hsl(${(time * 500) % 360} 80% 65%)` });
     for (const f of [...foes]) {                                // DASH ATTACK — dashing through a foe IS the strike; hits generate mana
       const fz = fsz(f);
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, roll(), 1, 0);   // dash strike — flat die roll; power scales via STR/gear
@@ -778,7 +777,6 @@ const step = (dt) => {
   // -- shots --
   for (const s of shots) {
     s.t -= dt; s.x += s.vx * dt;
-    parts.push({ x: s.x, y: s.y + Math.sin(time * 30) * 2, vx: 0, vy: 0, t: .25, c: `hsl(${(time * 500) % 360} 80% 65%)` });
     const tc = s.x / T | 0, tr = s.y / T | 0;
     if (tile(tc, tr) === 4) {                                   // shatter gloom crystal (3x3)
       for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++)
@@ -1095,7 +1093,7 @@ const draw = () => {
       ctx.fillStyle = '#ffd75e'; ctx.fillRect(f.x, f.y - 3, fs * f.hp / f.mx, 1);
     }
   }
-  for (const s of shots) { ctx.fillStyle = `hsl(${(time * 500) % 360} 85% 65%)`; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }
+  for (const s of shots) { ctx.fillStyle = '#ffd75e'; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }   // magic bolt: solid gold (matches unicorn horn + shard gold)
   for (const b of fbolts) {                                     // foe bolt: purple diamond with a pale core
     ctx.fillStyle = '#c47fe0'; ctx.fillRect(b.x - 3, b.y - 3, 6, 6);
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
