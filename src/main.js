@@ -118,7 +118,7 @@ addEventListener('keydown', (e) => {
     else if (e.code === 'Enter' || e.code === 'Space') allocate();
   }
   else if ((e.code === 'KeyP' || e.code === 'Escape') && deathT <= 0) paused = paused ? 0 : 1;   // no pause during death anim — softlock guard
-  else if (paused && e.code === 'KeyX' && invSel >= 0 && inv[invSel]) { inv.splice(invSel, 1); invSel = -1; sfx(140, 55, .08, 'sawtooth', .1); }   // DISCARD selected inv item
+  else if (paused && e.code === 'KeyX' && invSel >= 0 && inv[invSel]) { inv.splice(invSel, 1); invSel = -1; }   // DISCARD selected inv item (silent; item vanish is visual feedback)
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
@@ -465,7 +465,7 @@ const openChest = (i) => {
   oc |= 1 << i;
   const c = chests[i]; hp = mHP();
   spawnDrop(c.x, c.y, 5);
-  burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .18, 'triangle', .12);
+  burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
   fly(c.x + 6, c.y - 4, '+HEAL', '#9fe89a');
   save();
 };
@@ -586,7 +586,7 @@ const strike = (f, r, gen, viaStomp) => {
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 rate — k4+ are variants, not a farm ladder
     spawnDrop(f.x, f.y, f.el || f.bit ? 3 : 1);                 // elites & bosses share ONE "higher chance" tier (more rolls) — never a guaranteed gear drop. Golden shard (below) is the ONLY boss guarantee.
-    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(880, 1760, .3, 'triangle', .14); }
+    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — golden rainbow shard
@@ -640,7 +640,7 @@ const step = (dt) => {
     navT -= dt;
     const lt = keys.has('bL') || keys.has('bU'), rt = keys.has('bR') || keys.has('bD'), jp = keys.has('bJ');
     if (navT <= 0 && (lt || rt || jp)) {
-      navT = .3; sfx(520, 640, .05, 'square', .05);
+      navT = .3;
       if (jp) allocate(); else aRow = (aRow + (rt ? 1 : 4)) % 5;
     }
     if (!lt && !rt && !jp) navT = 0;
@@ -833,7 +833,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
       // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
       pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
-      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .12);
+      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(150, 70, .06, 'square', .07);
       // NOTE: stomp no longer resets .wt — repeat-bouncing accumulates threat (exploit fix)
     } else if (hit && (f.wt || 0) >= 0) {
       f.wt = (f.wt || 0) + dt;
