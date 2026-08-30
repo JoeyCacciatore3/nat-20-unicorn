@@ -369,14 +369,15 @@ const roll = () => 1 + (Math.random() * DIE() | 0);   // one honest die
 const isCrit = (r) => r >= DIE();                             // crit = max face of the die, always
 // SILVER_TONGUE — +10 XP one-time boon on first sage-hearth interact.
 let welcomed = 0;
-const need = () => 8 + lvl * 6;
+const need = () => lvl * lvl + 12;                             // quadratic: L1=13, L5=37, L10=112, L14=208 (was linear 8+lvl*6 = flat 14..92)
 const gainXp = (n, x, y) => {
   if (lvl >= CAP) return;
   xp += n; fly(x, y, '+' + n + ' XP', '#9fe89a');
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
-    fly(pl.x, pl.y - 34, '+1 SKILL', '#8cf');
-    if (lvl === CAP) { fly(pl.x, pl.y - 28, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); }
+    fly(pl.x, pl.y - 40, 'LEVEL UP · LV ' + lvl, '#ffd75e', 1);
+    fly(pl.x, pl.y - 28, '+1 SKILL', '#8cf');
+    if (lvl === CAP) { fly(pl.x, pl.y - 52, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); }
   }
   if (lvl >= CAP) xp = 0;
   if (pending && !choosing) { choosing = 1; aRow = 0; navT = .4; S_NAT(); }   // navT swallows held stick input on open
@@ -517,10 +518,14 @@ const P2 = [32, 4, 1, 8, 37];
 // display (one shared literal). Banner state: bann = time deadline, set on arena entry.
 const BN = ['DUSK', 'HOLLOW', 'GALE', 'FROST', 'GLOOM'];
 let bann = 0, bTxt = '', bSub = '';
+// ZONE TIER — west=hard, east=easy. Starting Meadow (tile 140+) = tier 0 (base), Gloom Heart (tile <15) = tier 4 (+80% HP, +4 DM).
+// Data-driven from world x, no per-foe field. Anchored so starting spawns (tile 174-260) are unmodified.
+const zT = x => Math.max(0, Math.min(4, (150 - x / T) / 35 | 0));
 const mkFoe = (x, y, k) => {
-  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, el = !fr && Math.random() < .17;
+  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, el = !fr && Math.random() < .17, t = zT(x), b = el ? 2 : 1;
+  const zh = fh * b * (5 + t) / 5 | 0;                          // tier HP: t=0 base, t=4 +80%
   // per-spawn speed jitter (±15%) — same kind, individual gait; the cheap "randomness" that reads fair
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: fh * (el ? 2 : 1), mx: fh * (el ? 2 : 1), dm: fd + (el ? 1 : 0), el, fl: 0, t: Math.random() * 7, cz: el ? fz + 1 : fz };
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + b - 1 + t, el, fl: 0, t: Math.random() * 7, cz: el ? fz + 1 : fz };
 };
 const foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
@@ -623,7 +628,7 @@ function dash() {                                               // THE attack ve
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
-  n = Math.max(1, n - df - eqB[3]);                            // DEFENSE — stat + hooves eq bonus
+  n = Math.max((n >> 2) || 1, n - df - eqB[3]);                // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
   hp -= n; pl.inv = su[9] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
   sfx(140, 55, .25, 'sawtooth', .12); burst(pl.x, pl.y + 7, 10, '#e05555'); // GUARD TIME extends pl.inv
 
