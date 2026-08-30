@@ -104,6 +104,13 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
   boot();                                                    // resume audio on any key (autoplay policy)
   if (phase === 0) return titleKey(e);
+  if (choosing) {                                              // LEVEL-UP menu owns input first — no world-interact swallow (Space/W/ArrowUp near hearth/chest)
+    const n = STATS.length;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + n - 1) % n;
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % n;
+    else if (e.code === 'Enter' || e.code === 'Space') allocate();
+    return;
+  }
   // Near hearth: JUMP is the universal INTERACT (auto REST)
   if (J_KEYS.includes(e.code) && nearFire) { rest(); return; }
   if (J_KEYS.includes(e.code) && nearChest >= 0) { openChest(nearChest); return; }
@@ -111,14 +118,8 @@ addEventListener('keydown', (e) => {
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) dash();                          // J/X = dash (the attack verb) — old swipe muscle memory preserved
   if (SH_KEYS.includes(e.code)) shoot();
-  if (choosing) {
-    const n = STATS.length;
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + n - 1) % n;
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % n;
-    else if (e.code === 'Enter' || e.code === 'Space') allocate();
-  }
-  else if ((e.code === 'KeyP' || e.code === 'Escape') && deathT <= 0) paused = paused ? 0 : 1;   // no pause during death anim — softlock guard
-  else if (paused && e.code === 'KeyX' && invSel >= 0 && inv[invSel]) { inv.splice(invSel, 1); invSel = -1; }   // DISCARD selected inv item (silent; item vanish is visual feedback)
+  if ((e.code === 'KeyP' || e.code === 'Escape') && deathT <= 0) paused = paused ? 0 : 1;   // no pause during death anim — softlock guard
+  if (paused && e.code === 'KeyX' && invSel >= 0 && inv[invSel]) { inv.splice(invSel, 1); invSel = -1; }   // DISCARD selected inv item (silent; item vanish is visual feedback)
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
@@ -1178,7 +1179,8 @@ const draw = () => {
     const SL = [['STR', ho, '#ffd75e'], ['HP', he, '#ff5d6c'], ['MAG', sp, '#4a76ff'], ['DEF', df, '#8cf'], ['LCK', lk, '#9fe89a']];
     SL.forEach(([l, v, c], i) => {
       const sx = 22 + i * 26, sel = alloc && i === aRow;
-      if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 162, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 162, 25, 23); }
+      if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 162, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 162, 25, 23);
+        ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 160); }   // Diablo-style delta preview — makes clear pressing SPACE adds one
       ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 170);
       T2(v, sx + 9, 181);
     });
@@ -1218,7 +1220,7 @@ const draw = () => {
       ctx.fillStyle = su[i] ? 'rgba(255,215,94,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx - 2, cy - 9, 76, 12);
       ctx.strokeStyle = su[i] ? '#ffd75e' : col; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx - 2, cy - 9, 76, 12);
       ctx.fillStyle = su[i] ? '#ffd75e' : col; ctx.fillText(nm, cx + 2, cy);
-      if (can) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(cx - 3, cy - 10, 78, 14); }   // buyable glow ring
+      if (can) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 3, cy - 10, 78, 14); }   // buyable ring — CYAN so purchased (gold) reads as distinct
     });
     // Footer — shard tally under the tree; equipment + bag now live on the LEFT side
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
@@ -1232,9 +1234,9 @@ const draw = () => {
       ctx.fillStyle = '#ffd75e'; T2(lb(), bx + bw / 2, 29);
     });
     if (time < svT) { ctx.fillStyle = '#9fe89a'; T2('SAVED', 230, 12); }
-    // Single controls reference — swaps to inventory action hints when an item is selected.
+    // Single controls reference — swaps to level-up / inventory action hints as context demands.
     ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace';
-    T2(invSel >= 0 && inv[invSel] ? 'click again USE · X DROP · click empty area to CLOSE' : 'MOVE A D · JUMP SPACE · DASH J · SHOT L · HEAL S · PAUSE ESC', VW / 2, VH - 4);
+    T2(choosing ? 'MOVE ← → · SPEND SPACE' : invSel >= 0 && inv[invSel] ? 'click again USE · X DROP · click empty area to CLOSE' : 'MOVE A D · JUMP SPACE · DASH J · SHOT L · HEAL S · PAUSE ESC', VW / 2, VH - 4);
   }
 
   // action buttons — hidden during pause / level-up (dedicated overlays own the input)
