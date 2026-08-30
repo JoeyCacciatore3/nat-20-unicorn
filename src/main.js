@@ -51,8 +51,8 @@ let tMode = 0, sSel = 0, slot = 0, slotNew = 0, svT = 0; // title mode 0 menu ·
 // inside the tap gesture summons the OS keyboard (iOS requires the gesture).
 // It is the single source of truth for `ent` while focused; window keydown defers.
 const NI = document.body.appendChild(document.createElement('input'));
-NI.autocapitalize = 'characters';
-NI.style.cssText = 'position:fixed;left:-99px;opacity:0';
+NI.autocapitalize = 'characters'; NI.autocorrect = 'off'; NI.spellcheck = false;
+NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // Stardust particles for the title screen — 22 dots falling at varied speeds, wrap
 // at bottom, procedural (no assets). Ambient motion = "living world," the single
@@ -68,8 +68,8 @@ const hasSave = () => [0, 1, 2].some(sMeta);
 //   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume/create transitions can't drift.
-const beginGame = () => { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); M_start(); };
-const resumeGame = () => { load(); phase = 2; started = 1; M_start(); };
+const beginGame = () => { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); };
+const resumeGame = () => { load(); phase = 2; started = 1; };
 const toName  = () => { fresh(); ent = ''; slotNew = 1; tMode = 1; };  // NEW GAME → type name (title art stays)
 const toSlots = (nw) => { slotNew = nw; sSel = 0; tMode = 2; };        // then/or pick a slot
 const pickSlot = (i) => {                                              // row 3 = BACK
@@ -113,9 +113,9 @@ addEventListener('keydown', (e) => {
   if (SH_KEYS.includes(e.code)) shoot();
   if (choosing) {
     const n = STATS.length;
-    if (e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + n - 1) % n;
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % n;
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'Enter' || e.code === 'Space') allocate();
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + n - 1) % n;
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % n;
+    else if (e.code === 'Enter' || e.code === 'Space') allocate();
   }
   else if ((e.code === 'KeyP' || e.code === 'Escape') && deathT <= 0) paused = paused ? 0 : 1;   // no pause during death anim — softlock guard
   else if (paused && e.code === 'KeyX' && invSel >= 0 && inv[invSel]) { inv.splice(invSel, 1); invSel = -1; sfx(140, 55, .08, 'sawtooth', .1); }   // DISCARD selected inv item
@@ -237,15 +237,14 @@ addEventListener('contextmenu', (e) => e.preventDefault());                     
 // ---------- audio ----------
 let AC;
 function boot() { if (!AC) AC = new AudioContext(); AC.resume(); }        // audio-only wake — the game only starts when the title menu is accepted
-let mute = 0;                                     // bit 0 = music mute · bit 1 = sfx mute
+let mute = 0;                                     // bit 1 = sfx mute
 // PB — pause-sheet button strip (shared by draw + click). [x, w, labelFn, actionFn]
 // Positioned on the RIGHT column at y=18 (top of pause sheet, above skill tree).
 // Inventory grid now owns the bottom-left band (rows under the gold box).
 const PB = [
   [200, 60, () => 'SAVE', () => { save(); svT = time + 1.2; sfx(660, 990, .15, 'triangle', .12); }],
-  [265, 70, () => 'SAVE & EXIT', () => { save(); paused = 0; started = 0; phase = 0; tMode = 0; mSel = 0; M_stop(); }],
-  [340, 44, () => '♪ M · ' + (mute & 1 ? 'OFF' : 'ON'), () => { mute ^= 1; mute & 1 ? M_stop() : M_start(); save(); }],
-  [389, 44, () => '♫ S · ' + (mute & 2 ? 'OFF' : 'ON'), () => { mute ^= 2; save(); }],
+  [265, 70, () => 'SAVE & EXIT', () => { save(); paused = 0; started = 0; phase = 0; tMode = 0; mSel = 0; }],
+  [340, 60, () => '♫ SFX · ' + (mute & 2 ? 'OFF' : 'ON'), () => { mute ^= 2; save(); }],
 ];
 const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
   if (mute & 2) return; if (!AC) return; const r = .97 + Math.random() * .06;
@@ -256,17 +255,6 @@ const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
   o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d);
 };
 const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 * (1 + i * .25), .1, 'square', .12, i * .07); };
-
-// Bytebeat music — rez's "4451" arpeggio pre-rendered at 8000Hz, 25% gain, loops 8s
-let musicBuf, musicSrc;
-const M_ren = () => {
-  if (musicBuf) return; AC = AC || new AudioContext();
-  const sr = 8000, len = sr * 8, d = (musicBuf = AC.createBuffer(1, len, sr)).getChannelData(0);
-  for (let t = 0; t < len; t++) d[t] = ((t * (1 + '4451'[t >> 13 & 3] / 10) & t >> 9 + (t * .003 & 3) & 255) / 128 - 1) * .25;
-};
-const M_start = () => { if (mute & 1 || musicSrc) return; M_ren(); musicSrc = AC.createBufferSource();
-  musicSrc.buffer = musicBuf; musicSrc.loop = true; musicSrc.connect(AC.destination); musicSrc.start(); };
-const M_stop = () => { if (musicSrc) { musicSrc.stop(); musicSrc = null; } };
 
 // ---------- RPG (researched): milestone dice, modifier stats, skill tree ----------
 // 5-stat system: STR (dmg) HP (max ♥) MAG (max ✦) DEF (dmg reduction) LUCK (drop bonus)
@@ -648,14 +636,14 @@ const hurt = (n, safe) => {
 let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
-  if (choosing) {                                  // JOYSTICK MENU NAV — stick up/down moves, push right allocates (level-up allocation only now)
+  if (choosing) {                                  // JOYSTICK MENU NAV — stick moves between horizontal stats, JUMP allocates
     navT -= dt;
-    const up = keys.has('bU'), dn = keys.has('bD'), rt = keys.has('bR');
-    if (navT <= 0 && (up || dn || rt)) {
+    const lt = keys.has('bL') || keys.has('bU'), rt = keys.has('bR') || keys.has('bD'), jp = keys.has('bJ');
+    if (navT <= 0 && (lt || rt || jp)) {
       navT = .3; sfx(520, 640, .05, 'square', .05);
-      if (rt) allocate(); else aRow = (aRow + (dn ? 1 : 4)) % 5;
+      if (jp) allocate(); else aRow = (aRow + (rt ? 1 : 4)) % 5;
     }
-    if (!up && !dn && !rt) navT = 0;
+    if (!lt && !rt && !jp) navT = 0;
   }
   if (paused || choosing) return;                  // pause / level-up freezes sim; render still draws
   time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
