@@ -1,4 +1,4 @@
-// world.js — UNI-CORN, Hooves of Hope: the full connected map (audited).
+// world.js — UNI-CORN: Zone 0 (Dawnfield hub) — connects via doorways to Zones 1-4.
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes, 4 gloom crystal (shot breaks).
 //
 // ============================ MAP LAWS (Joe, locked) ============================
@@ -31,7 +31,7 @@ const MAP = [
 [0, 0, 3, H], [277, 0, 3, H],
 [3, 60, 274, 12],                      // ground + underground mass
 
-// ---- GLOOM MEADOW (surface, x158-277) ----
+// ---- DAWNFIELD (surface, x158-277) — Zone 0, DUSK MARE resides here ----
 [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],   // pits: 2 deep (L1), spikes, floor below
 [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
 [233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
@@ -42,7 +42,7 @@ const MAP = [
 [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4], // stepped tower
 [274, 58, 3, 1, 2],                    // rung behind the tower (audit: stuck corner)
 
-// ---- ROOT CAVES (x150-256, carved) ----
+// ---- DIM BURROW ENTRY (x150-256, carved) — leads to Zone 1 doorway ----
 [150, 66, 107, 4, 0],                  // main corridor
 [175, 63, 18, 7, 0],                   // tall room W
 [215, 64, 20, 6, 0],                   // tall room E
@@ -55,7 +55,7 @@ const MAP = [
 [222, 61, 8, 3, 0], [224, 63, 6, 1], [219, 66, 3, 1, 2],
 [184, 69, 3, 1, 3], [228, 69, 3, 1, 3],   // floor spike patches (3 wide, tall rooms)
 
-// ---- WEST CLIFFS (x40-118, DJ terraces) ----
+// ---- CLIFFMANE APPROACH (x40-118, DJ terraces) — leads to Zone 2 doorway ----
 [114, 56, 2, 4],                       // 4-tile DJ gate wall
 [100, 57, 8, 3], [88, 54, 8, 6], [76, 51, 8, 9], [64, 48, 8, 12], [52, 45, 8, 15],
 // audit fix: fill the canyons between terrace towers (were 12-deep no-exit traps)
@@ -68,11 +68,11 @@ const MAP = [
 // ---- TREETOPS (x40-118): L3-compliant zig-zag, rises 3 / gaps <=5 ----
 [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
 [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
-[52, 26, 8, 2],                        // summit ledge + campfire
+[52, 26, 8, 2],                        // silverfrost approach ledge
 // descent-only detour (fall east off the climb; always exits to the surface)
 [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
 
-// ---- SUMMIT (x10-60): bridge platform after the crystal, then tight chain ----
+// ---- SILVERFROST APPROACH (x10-60): bridge platform after the crystal — leads to Zone 3 doorway ----
 [48, 18, 2, 10, 4],                    // GLOOM CRYSTAL barrier (shot breaks 3x3)
 [46, 24, 3, 1, 2],                     // bridge — first step past the barrier
 [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
@@ -103,21 +103,21 @@ export const seeds = {
   // heal + a shower of (4 + LUCK) item drops. Bit index = position in array.
   chests: [
     [219.5, 48.3],  // 0 — Meadow high route (DJ-only)
-    [186, 68.3],    // 1 — Root Caves W tall room
-    [252, 67.3],    // 2 — Root Caves E loop
-    [83, 50.3],     // 3 — West Cliffs terrace
+    [186, 68.3],    // 1 — Dim Burrow entry W
+    [252, 67.3],    // 2 — Dim Burrow entry E
+    [83, 50.3],     // 3 — Cliffmane approach terrace
     [56, 25.3],     // 4 — Treetops crest (SHOT-gated area)
-    [12, 11.3],     // 5 — Summit peak (post-DASH)
+    [12, 11.3],     // 5 — Silverfrost approach peak (post-SHOT)
   ],
   foes: [
     // Meadow — k4 sprinter on the platform route, k5 hopper by the tower
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
-    // Root Caves — k6 ranged jelly ambushes the E room, k5 hopper in the corridor
+    // Dim Burrow approach — k6 ranged jelly ambushes the E room, k5 hopper in the corridor
     [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
-    // West Cliffs — hopper on the terraces (jumps close the height gaps)
+    // Cliffmane approach — hopper on the terraces (jumps close the height gaps)
     [92, 52, 1], [78, 49, 2], [86, 53, 5],
     [75, 35, 2],
-    // Summit approach — ranged jelly guards the climb
+    // Silverfrost approach — ranged jelly guards the climb
     [34, 19, 6],
     // Gloom Heart — GAUNTLET at the east entry only; arena x30-80 stays EMPTY
     // ("almost nothing there" — the open dread before the GLOOM MARE at x55)
@@ -140,6 +140,6 @@ export const DECO = [
   [86, 53, 0], [73, 50, 0], [78, 50, 1],
   // Treetops
   [53, 25, 0], [46, 23, 1],
-  // Summit
+  // Silverfrost approach
   [12, 11, 2], [16, 11, 1],
 ];

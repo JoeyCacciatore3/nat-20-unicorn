@@ -368,8 +368,6 @@ const DIE = () => [4,4,6,6,6,8,8,8,10,10,10,12,12,12,12][lvl - 1]; // die = LEVE
 const MOD = () => ho + eqB[2] - 1 + (lvl >= CAP ? 2 : 0); // horn eq boosts STR
 const roll = () => 1 + (Math.random() * DIE() | 0);   // one honest die
 const isCrit = (r) => r >= DIE();                             // crit = max face of the die, always
-// SILVER_TONGUE — +10 XP one-time boon on first sage-hearth interact.
-let welcomed = 0;
 const need = () => lvl * lvl + 12;                             // quadratic: L1=13, L5=37, L10=112, L14=208 (was linear 8+lvl*6 = flat 14..92)
 const gainXp = (n, x, y) => {
   if (lvl >= CAP) return;
@@ -420,7 +418,7 @@ const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
     v: 31, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
-    m: pName, o: oc, w: welcomed,
+    m: pName, o: oc,
     u: col,
     q: eq, i: inv, p: mute,
   });
@@ -430,7 +428,7 @@ const load = () => {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
     if (!d || d.v !== 31) return;                               // strict v31 gate — no cross-version compat.
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
-    d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o; welcomed = d.w | 0;
+    d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
 
     [ho, he, sp, df, lk] = d.t;
     col = d.u;
@@ -456,9 +454,8 @@ const rest = () => {
   const [fx, fy] = seeds.fires[0];
   hp = mHP(); cp = [fx * T - 20, (fy - 1) * T];
   burst(fx * T, fy * T - 8, 12, '#ffd75e'); sfx(500, 900, .3, 'triangle', .1);
-  if (!welcomed) { welcomed = 1; gainXp(10, pl.x, pl.y - 14); fly(pl.x, pl.y - 16, '+10 XP · WELCOME', '#9fe89a', 1); }
-  else fly(pl.x, pl.y - 16, 'SAVED', '#9fe89a', 1);
-  save();   // save AFTER welcomed update so the boon-once flag persists
+  fly(pl.x, pl.y - 16, 'SAVED', '#9fe89a', 1);
+  save();
 };
 // Chest reward: item shower + full heal. LUCK adds drops.
 const openChest = (i) => {
@@ -487,7 +484,7 @@ const fresh = () => {
   hp = 10; xp = 0; lvl = 1; mn = 5; bs.fill(0);
   eq.fill(null); inv.length = 0; eqB = [0, 0, 0, 0];
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
-  oc = 0; pName = 'HORSE'; welcomed = 0;
+  oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
@@ -517,7 +514,7 @@ const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], 
 const P2 = [32, 4, 1, 8, 37];
 // Boss names by index — all dark mirrors of the player; ' MARE' composed once at
 // display (one shared literal). Banner state: bann = time deadline, set on arena entry.
-const BN = ['DUSK', 'HOLLOW', 'GALE', 'FROST', 'GLOOM'];
+const BN = ['DUSK', 'MURK', 'GALE', 'FROST', 'GLOOM'];
 let bann = 0, bTxt = '', bSub = '';
 // ZONE TIER — west=hard, east=easy. Starting Meadow (tile 140+) = tier 0 (base), Gloom Heart (tile <15) = tier 4 (+80% HP, +4 DM).
 // Data-driven from world x, no per-foe field. Anchored so starting spawns (tile 174-260) are unmodified.
@@ -943,34 +940,13 @@ const draw = () => {
     }
   }
 
-  // Hearth: campfire + SAGE wizard NPC (dialogue on approach)
-  ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+  // Hearth: campfire only — save/checkpoint/full-heal on JUMP-near (rest())
   for (const [fx, fy] of seeds.fires) {
     const cxp = fx * T, cyp = fy * T;
-    // -- fire --
     ctx.fillStyle = '#6b4a2b'; ctx.fillRect(cxp - 8, cyp + 4, 16, 4);
     const fl = 8 + Math.sin(time * 13) * 2 + Math.sin(time * 31) * 1.5;
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp + 5 - fl * .6); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill();
-    // WIZARD NPC — procedural, same fillRect quality as the unicorn drawU
-    const wx = cxp + 16, wy = cyp;   // wy=cyp plants boots INTO the grass cap
-    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(wx + 5, wy - 13, 1, 17);         // staff
-    ctx.fillStyle = '#8cf'; ctx.fillRect(wx + 4, wy - 14, 3, 2);             // crystal tip (glow)
-    ctx.fillStyle = '#3a2f5c';                                                // robe
-    ctx.fillRect(wx - 3, wy - 3, 6, 8);                                      // torso
-    ctx.fillRect(wx - 4, wy + 3, 8, 3);                                      // skirt flare
-    ctx.fillRect(wx + 2, wy - 2, 4, 2);                                      // right arm → staff
-    ctx.fillRect(wx - 3, wy - 8, 6, 2);                                      // hat brim
-    ctx.fillRect(wx - 2, wy - 10, 4, 2);                                     // hat mid
-    ctx.fillRect(wx - 1, wy - 12, 2, 2);                                     // hat tip
-    ctx.fillStyle = '#f7d9c0'; ctx.fillRect(wx - 2, wy - 6, 4, 3);          // face
-    ctx.fillStyle = '#d8d8e0'; ctx.fillRect(wx - 2, wy - 4, 4, 2);          // beard
-    ctx.fillStyle = '#000';                                                   // eyes
-    ctx.fillRect(wx - 1, wy - 5, 1, 1); ctx.fillRect(wx + 1, wy - 5, 1, 1);
-    ctx.fillStyle = '#ffd75e'; ctx.fillRect(wx, wy - 13 + Math.sin(time * 2) * .4, 1, 1);   // gold star on hat
-    ctx.fillStyle = '#3a2f5c';                                                // boots + legs — same robe purple, one fillStyle set
-    ctx.fillRect(wx - 3, wy + 8, 2, 1); ctx.fillRect(wx + 1, wy + 8, 2, 1);
-    ctx.fillRect(wx - 2, wy + 4, 1, 4); ctx.fillRect(wx + 1, wy + 4, 1, 4);
   }
   // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
   // Prompt "▲ OPEN" pulses above the nearest unopened chest.
