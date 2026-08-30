@@ -489,7 +489,7 @@ let dashT = 0, dashCd = 0, adash = 0, dropT = 0, navT = 0;   // navT = menu-nav 
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = () => 115 * (1 + (su[13] + su[14]) * .12), V0 = () => 250;  // SPEED nodes boost run speed
 
-const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // gloom crystal is solid until shot
+const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // dark crystal is solid until shot
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
@@ -512,7 +512,7 @@ const fresh = () => {
 // (per PICO-8 fg/bg separation): enemies use saturated warms + darker cools so silhouettes read against the sky.
 const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a', '#8cf'];
 // SPAWN LAW — every non-boss foe carries: dm (contact damage), el (elite roll),
-// rc (ranged clock if tier 3 = RUNECAST). Boss adds ph / spd / rc at 50%-HP
+// rc (ranged clock if tier 3 = CASTER). Boss adds ph / spd / rc at 50%-HP
 // phase 2, plus wt (wind-up-tell clock) filled on first contact.
 // FOE TYPE TABLE — row index = kind k: [hp, dm, speed, size, cap, shape].
 // cap = capability bits, SAME vocabulary as P2 (see there) — compose freely.
@@ -520,9 +520,9 @@ const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a', '#8cf
 // variant (players learn color = behavior), sprites are reused for free.
 // New enemy type = ONE row + a FOECOL color + seeds.foes entries with that k.
 // Elites (17%, non-ranged kinds only): 2x hp, +1 dm, +1 size. XP capped at k=3 rate.
-// Enemy taxonomy — 6 lesser corrupted creatures (bosses are MAREs). Unified -LING suffix + color-accurate:
-// k1 DUSKLING purple crawler · k2 EMBERDROP orange jelly · k3 RUNECAST red caster (ranged)
-// k4 SPRINTLING pink fast crawler · k5 HOPLING green jumping crawler · k6 GALELING cyan ranged jelly (matches GALE MARE)
+// Enemy taxonomy — 6 lesser dark creatures (form-based names). Bosses are the 5 DARK MARES.
+// k1 CRAWLER purple 4-legged · k2 BLOB orange jelly · k3 CASTER red hooded (ranged)
+// k4 RUNNER pink fast crawler · k5 HOPPER green jumper · k6 PUFF cyan floating (ranged)
 const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 2, 0, 1], [6, 4, 36, 3, 2, 1], [9, 4, 22, 3, 1, 2]];
 // BOSS PHASE-2 TABLE — capability bits per boss index: 1 speed · 2 summon ·
 // 4 ranged · 8 landing shockwave. New boss = seeds.bosses row + bits here.
@@ -535,10 +535,10 @@ const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], 
 const P2 = [32, 4, 1, 8, 37];
 // Boss names by index — all dark mirrors of the player; ' MARE' composed once at
 // display (one shared literal). Banner state: bann = time deadline, set on arena entry.
-const BN = ['DUSK', 'MURK', 'GALE', 'FROST', 'GLOOM'];
-const ZN = ['DAWNFIELD', 'DIM BURROW', 'CLIFFMANE', 'SILVERFROST', 'GLOOM HEART'];
+const BN = ['DUSK', 'MURK', 'GALE', 'FROST', 'DARK'];        // 5 DARK MARES — the dark unicorns who stole the world's color
+const ZN = ['MEADOW', 'CAVE', 'CLIFFS', 'PEAK', 'DEPTHS'];    // 5 zones — simple environments
 let bann = 0, bTxt = '', bSub = '';
-// ZONE TIER — west=hard, east=easy. Starting Dawnfield (tile 140+) = tier 0 (base), Gloom Heart (tile <15) = tier 4 (+80% HP, +4 DM).
+// ZONE TIER — west=hard, east=easy. Starting Meadow (tile 140+) = tier 0 (base), Depths (tile <15) = tier 4 (+80% HP, +4 DM).
 // Data-driven from world x, no per-foe field. Anchored so starting spawns (tile 174-260) are unmodified.
 const zT = x => Math.max(0, Math.min(4, (150 - x / T) / 35 | 0));
 const mkFoe = (x, y, k) => {
@@ -618,7 +618,7 @@ const strike = (f, r, gen, viaStomp) => {
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
         burst(f.x, f.y, 20, '#ffd75e'); fly(f.x, f.y - 8, 'SHARD ' + shards() + ' / 5', '#ffd75e', 1);
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
-          bann = time + 6; bTxt = 'THE GLOOM LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory via the boss-banner system — zero new structure
+          bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
@@ -779,7 +779,7 @@ const step = (dt) => {
   for (const s of shots) {
     s.t -= dt; s.x += s.vx * dt;
     const tc = s.x / T | 0, tr = s.y / T | 0;
-    if (tile(tc, tr) === 4) {                                   // shatter gloom crystal (3x3)
+    if (tile(tc, tr) === 4) {                                   // shatter dark crystal (3x3)
       for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++)
         if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 5, '#c9a6f7'); }
       s.t = 0; sfx(900, 220, .2, 'square', .1);
@@ -790,7 +790,7 @@ const step = (dt) => {
     }
   }
   for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
-  // -- foe bolts (RUNECAST + boss phase 2): hit the player, die on solid --
+  // -- foe bolts (CASTER + boss phase 2): hit the player, die on solid --
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
@@ -948,7 +948,7 @@ const draw = () => {
       // PLATFORM — chunky: green grass top + brown dirt underside
       ctx.fillStyle = '#5a3a1e'; ctx.fillRect(i * T, j * T + 2, T + .5, 7);
       ctx.fillStyle = '#4a9a3a'; ctx.fillRect(i * T, j * T, T + .5, 4);
-    } else if (v === 4) {                                       // gloom crystal — pulses
+    } else if (v === 4) {                                       // dark crystal — pulses
       ctx.fillStyle = `hsl(280 60% ${26 + Math.sin(time * 4 + i + j) * 8}%)`;
       ctx.fillRect(i * T, j * T, T + .5, T + .5);
       ctx.fillStyle = 'hsl(290 80% 60%)'; ctx.fillRect(i * T + 5, j * T + 5, 6, 6);
@@ -1033,7 +1033,7 @@ const draw = () => {
     if (f.bit) {                                                // DARK HORSE — reflection of the player unicorn: same shape,
       // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
-      const ec = f.ph ? '#fff' : ['#ff9d3c', '#5a3a1e', '#f5f1f4', '#8cf', '#c47fe0'][f.bi];   // horn + eye per boss theme — DUSK orange, MURK brown, GALE white, FROST cyan, GLOOM purple (rage-white in phase 2)
+      const ec = f.ph ? '#fff' : ['#ff9d3c', '#5a3a1e', '#f5f1f4', '#8cf', '#c47fe0'][f.bi];   // horn + eye per boss theme — DUSK orange, MURK brown, GALE white, FROST cyan, DARK purple (rage-white in phase 2)
       const sc = fs / 14, ph = Math.sin(f.t * 8) * 3;            // scale player unicorn bbox → fs; walk cycle
       ctx.scale(sc, sc);
       ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3);              // leg L (steps)
@@ -1059,7 +1059,7 @@ const draw = () => {
       ctx.fillRect(fs - s * 1.7, s * 1.6, s * .7, s * .7);
       ctx.fillStyle = '#000';
       ctx.fillRect(fs - s * 1.4, s * 1.8, s * .3, s * .3);
-    } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (EMBERDROP / GALELING family)
+    } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (BLOB / PUFF family)
       const flt = wob * 1.5;
       for (let i = 0; i < 3; i++) {                              // tendrils sway
         const tx = s * (.5 + i * 1.5);
@@ -1071,7 +1071,7 @@ const draw = () => {
       ctx.fillStyle = '#fff';                                    // paired eyes
       ctx.fillRect(s, s + flt, s * .6, s * .6);
       ctx.fillRect(fs - s * 1.6, s + flt, s * .6, s * .6);
-    } else {                                                    // CASTER shape — hooded robe + glowing rune-eye (RUNECAST family)
+    } else {                                                    // CASTER shape — hooded robe + glowing rune-eye
       ctx.fillRect(s * .2, s * 1.5, fs - s * .4, s * 2.7);       // robe
       ctx.fillRect(0, s * 2, s * .4, s * 1.5);                   // shoulders
       ctx.fillRect(fs - s * .4, s * 2, s * .4, s * 1.5);

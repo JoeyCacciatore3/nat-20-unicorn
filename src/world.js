@@ -1,6 +1,6 @@
 // world.js — UNI-CORN: 5-zone hub-and-spoke world.
-// Zone 0 = DAWNFIELD (hub, current geometry). Zones 1-4 reached via rainbow portals.
-// Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes, 4 gloom crystal (shot breaks).
+// Zone 0 = MEADOW (hub, current geometry). Zones 1-4 reached via rainbow portals.
+// Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes, 4 dark crystal (shot breaks).
 //
 // ============================ MAP LAWS (Joe, locked) ============================
 // L1 TWO-TILE LAW    — hazard pits are <=2 tiles deep: always jumpable out.
@@ -23,13 +23,13 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- ZONE 0: DAWNFIELD (hub, unchanged geometry, DUSK MARE only) ----------
+// ---------- ZONE 0: MEADOW (hub, unchanged geometry, DUSK MARE only) ----------
 const Z0 = {
   MAP: [
     // envelope
     [0, 0, 3, H], [277, 0, 3, H],
     [3, 60, 274, 12],                      // ground + underground mass
-    // Dawnfield surface (x158-277) — pits, platforms, DJ high route, stepped tower
+    // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
     [233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
@@ -39,7 +39,7 @@ const Z0 = {
     [210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route
     [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4],
     [274, 58, 3, 1, 2],
-    // Dim Burrow entry (x150-256, carved) — leads to Zone 1 portal
+    // Cave entry (x150-256, carved) — leads to Zone 1 portal
     [150, 66, 107, 4, 0],
     [175, 63, 18, 7, 0],
     [215, 64, 20, 6, 0],
@@ -49,23 +49,23 @@ const Z0 = {
     [246, 62, 3, 1, 2], [246, 64, 3, 1, 2], [246, 66, 3, 1, 2], [246, 68, 3, 1, 2],
     [222, 61, 8, 3, 0], [224, 63, 6, 1], [219, 66, 3, 1, 2],
     [184, 69, 3, 1, 3], [228, 69, 3, 1, 3],
-    // Cliffmane approach (x40-118) — DJ terraces leading to Zone 2 portal
+    // Cliffs approach (x40-118) — DJ terraces leading to Zone 2 portal
     [114, 56, 2, 4],
     [100, 57, 8, 3], [88, 54, 8, 6], [76, 51, 8, 9], [64, 48, 8, 12], [52, 45, 8, 15],
     [60, 48, 4, 12], [72, 51, 4, 9], [84, 54, 4, 6],
     [49, 57, 3, 1, 2], [49, 55, 3, 1, 2], [49, 53, 3, 1, 2], [49, 51, 3, 1, 2],
     [49, 49, 3, 1, 2], [49, 47, 3, 1, 2], [49, 45, 3, 1, 2],
-    // Cliffmane canopy approach (x40-118) — zig-zag climb up to the Zone 2 portal
+    // Cliffs canopy approach (x40-118) — zig-zag climb up to the Zone 2 portal
     [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
     [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
     [52, 26, 8, 2],
     [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
-    // Silverfrost approach (x10-60) — post-SHOT peak leads to Zone 3 portal
+    // Peak approach (x10-60) — post-SHOT climb leads to Zone 3 portal
     [48, 18, 2, 10, 4],
     [46, 24, 3, 1, 2],
     [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
     [10, 12, 9, 2],
-    // Gloom Heart approach (x10-139, deep west) — post-DASH corridor to Zone 4 portal
+    // Depths approach (x10-139, deep west) — post-DASH corridor to Zone 4 portal
     [10, 64, 130, 6, 0],
     [108, 60, 3, 4, 0],
     [108, 62, 3, 1, 2], [108, 64, 3, 1, 2], [108, 66, 3, 1, 2], [108, 68, 3, 1, 2],
@@ -77,11 +77,11 @@ const Z0 = {
   bosses: [[258, 57]],       // Only DUSK MARE (bi = curZone = 0)
   chests: [
     [219.5, 48.3],  // 0 — high route (DJ-only)
-    [186, 68.3],    // 1 — burrow entry W
-    [252, 67.3],    // 2 — burrow entry E
-    [83, 50.3],     // 3 — cliffmane terrace
+    [186, 68.3],    // 1 — cave entry W
+    [252, 67.3],    // 2 — cave entry E
+    [83, 50.3],     // 3 — cliffs terrace
     [56, 25.3],     // 4 — treetops crest
-    [12, 11.3],     // 5 — silverfrost peak
+    [12, 11.3],     // 5 — peak ledge
   ],
   foes: [
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
@@ -93,10 +93,10 @@ const Z0 = {
   ],
   // doors: [x, y, targetZone, spawnX, spawnY] — 4 rainbow portals where old bosses stood
   doors: [
-    [226, 66.5, 1, 40, 57],   // Zone 1 (Dim Burrow) — Dim Burrow east loop
-    [56, 22.5, 2, 40, 40],    // Zone 2 (Cliffmane) — canopy ledge portal
-    [14, 10.5, 3, 40, 30],    // Zone 3 (Silverfrost) — Peak ledge
-    [55, 66.5, 4, 40, 57],    // Zone 4 (Gloom Heart) — Deep west arena
+    [226, 66.5, 1, 40, 57],   // Zone 1 (CAVE) — cave east loop
+    [56, 22.5, 2, 40, 40],    // Zone 2 (CLIFFS) — canopy ledge
+    [14, 10.5, 3, 40, 30],    // Zone 3 (PEAK) — peak ledge
+    [55, 66.5, 4, 40, 57],    // Zone 4 (DEPTHS) — deep west arena
   ],
   DECO: [
     [142, 59, 0], [155, 59, 0], [212, 59, 0], [238, 59, 0],
@@ -109,8 +109,8 @@ const Z0 = {
   ],
 };
 
-// ---------- ZONE 1: DIM BURROW (Zone 1, MURK MARE) ----------
-// Small underground chamber. Return portal at west edge → Dawnfield burrow east loop.
+// ---------- ZONE 1: CAVE (MURK MARE) ----------
+// Small underground chamber. Return portal at west edge → Meadow cave east loop.
 const Z1 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],   // envelope + floor
@@ -126,8 +126,8 @@ const Z1 = {
   DECO: [[70, 59, 2], [160, 59, 2], [200, 59, 2]],
 };
 
-// ---------- ZONE 2: CLIFFMANE (Zone 2, GALE MARE) ----------
-// Sky arena — wind-swept cliff top. Return portal at west edge → Dawnfield treetops ledge.
+// ---------- ZONE 2: CLIFFS (GALE MARE) ----------
+// Sky arena — wind-swept cliff top. Return portal at west edge → Meadow canopy ledge.
 const Z2 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 42, 274, 30],   // envelope + high floor at y=42
@@ -144,8 +144,8 @@ const Z2 = {
   DECO: [[100, 41, 1], [200, 41, 1]],
 };
 
-// ---------- ZONE 3: SILVERFROST (Zone 3, FROST MARE) ----------
-// Icy plateau. Return portal at west edge → Dawnfield peak ledge.
+// ---------- ZONE 3: PEAK (FROST MARE) ----------
+// Icy plateau. Return portal at west edge → Meadow peak ledge.
 const Z3 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 32, 274, 40],   // envelope + floor at y=32
@@ -162,8 +162,8 @@ const Z3 = {
   DECO: [[80, 31, 2], [180, 31, 2]],
 };
 
-// ---------- ZONE 4: GLOOM HEART (Zone 4, GLOOM MARE, final boss) ----------
-// Corrupted arena. Return portal at west edge → Dawnfield deep gloom corridor.
+// ---------- ZONE 4: DEPTHS (DARK MARE, final boss) ----------
+// Corrupted arena. Return portal at west edge → Meadow deep corridor.
 const Z4 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],   // envelope + floor
@@ -195,5 +195,5 @@ export const loadZone = (i) => {
   return i;
 };
 
-// Initial load — Zone 0 (Dawnfield hub) on module import.
+// Initial load — Zone 0 (Meadow hub) on module import.
 loadZone(0);
