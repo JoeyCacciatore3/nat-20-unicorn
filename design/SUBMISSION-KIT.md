@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-08-30 — build 11,700 B, save v32, 5-zone hub-and-spoke world.**
+Copy is paste-ready. **State snapshot: 2026-08-30 — build 11,703 B, save v32, 5-zone hub-and-spoke world, all assets current, achievement slate clean.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -68,24 +68,53 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 **Tags (accuracy over reach):** `platformer` · `rpg` · `pixel-art` · `action` · `adventure` · `singleplayer`
 
 **Cover art (RULES: 1:1 square · MUST show title · NO other text · no letterboxing):**
-- ⚠️ `design/cover_square_draft.png` (720×720) — from earlier build. **Needs regeneration** to reflect current title screen (static gold, no rainbow strobe).
+- ✅ `design/cover_square.png` (720×720, ~18 KB) — CURRENT. Rainbow arc + pixel unicorn +
+  gold `UNI-CORN` title + `Hooves of Hope` subtitle on starry black background.
+  Composed programmatically (PIL) to match current title screen style (static gold,
+  no rainbow strobe). Compliant with Wavedash content rules.
+- Old draft `cover_square_draft.png` (Aug 29, letterboxed, green strobe frame) — kept
+  in tree as historical reference only. **Do NOT upload the draft.**
 
 **Screenshots (3–5 PNG, native res, lead with gameplay):** `design/screenshots/`
-- ⚠️ Existing 4 screenshots are from earlier build state (before Phase B zones / naming refactor / rainbow-strobe removal). **Regenerate before final submission.**
+- ✅ ALL CURRENT (regenerated 2026-08-30, 960×540 native 16:9):
+  - `01_title.png` — title screen (gold static, rainbow arc, unicorn)
+  - `02_name_entry.png` — name-your-unicorn flow
+  - `03_slot_select.png` — 3-slot save picker (shows `STAR · LV1` for a saved slot)
+  - `04_meadow.png` — open exploration (sky, clouds, trees, cave shaft with rungs)
+  - `05_gameplay_enemies.png` — combat frame (elite CRAWLER with crown, BLOB in the
+    cave below, spike hazard, DJ platform above) — LEAD WITH THIS
+  - `06_pause_menu.png` — full RPG UI (character portrait, 5 stats, 4 equipment slots,
+    16-node skill tree, empty inventory grid, RAINBOW SHARDS 0/5 counter, controls hint)
+- Recommend the 5-pick order for the store: **05 → 04 → 06 → 01 → 03**
+  (lead gameplay-first per Wavedash guideline, then meadow, then RPG UI, then title,
+  then save picker)
 
 ---
 
-## Achievements — DEFERRED
+## Achievements — SLATE CLEAN (2026-08-30 purge)
 
-**Current status: intentionally NOT connected.** WD_GLUE was rewritten to the minimum
-Wavedash SDK contract (`Wavedash.init({})`) in a prior cleanup pass. The stale
-achievement polling was removed. The 13 achievement IDs on the platform have no
-in-game hooks yet.
+**Current status: all 13 stale achievements DELETED from Wavedash** (2026-08-30). They
+described a completely different game concept ("Kevin the troll", "gather 50 flowers",
+"build home modules", "gloomlings") that never existed here — leftovers from a template.
+Verified `wavedash achievement list` returns "No achievements found."
 
-**Operator decision (still valid):** hold achievements until game scope is locked.
-When ready to revisit: decide (a) rebuild the achievement-watcher pipeline against
-current save format v32, (b) delete the 13 dead IDs from the portal, or (c) leave
-deferred through submission.
+**In-game code has zero achievement calls.** Only `Wavedash.init({})` fires on load.
+
+**When ready to add achievements:** define them fresh in the Developer Portal (or bulk
+import via Portal → Add achievement → Import JSON). Match current game exactly. Then
+add `Wavedash.setAchievement("ID", true)` calls in `dist/wavedash/index.html` build
+glue (build.mjs) — costs zero game.zip bytes since the SDK integration lives only in
+the Wavedash-wrapped build.
+
+**Suggested first slate** (all achievable in current game, no design work needed):
+- `FIRST_LIGHT` — Free your first Rainbow Shard *(triggers on any boss kill)*
+- `HALFWAY` — Free 3 Rainbow Shards
+- `PRISMATIC` — Free all 5 Rainbow Shards *(win the game)*
+- `NATURAL_20` — Land a critical hit *(natural die-max)*
+- `APOTHEOSIS` — Reach level 15
+- `FULLY_GEARED` — Equip all 4 slots simultaneously
+- `EXPLORER` — Enter all 5 zones
+- `HOARDER` — Open all 16 chests
 
 ---
 
@@ -104,8 +133,7 @@ deferred through submission.
 ### ⏸ Deferred (operator decision)
 | # | Action | Why |
 |---|---|---|
-| ⏸ | Achievements pipeline | Holding until game scope is locked |
-| ⏸ | Cover art + screenshots regeneration | Regenerate closer to submission (avoid re-doing after further build changes) |
+| ⏸ | Achievements pipeline (define + SDK integration) | Slate is clean; add together when scope locked |
 | ⏸ | Zone visual theming (per-zone sky/ground palettes) | Phase C — 1,600+ B free, feature-level decision |
 | ⏸ | Wavedash PUBLISH (not playtest) | One-way commit — save for post-scope-lock, ≤ Sep 20 |
 
@@ -114,24 +142,22 @@ deferred through submission.
 |---|---|---|---|
 | 1 | Register js13k draft, claim name | js13kgames.com/submit | NOW — locks name; tests roadroller zip early. Deadline Sep 13 |
 | 2 | Firefox console check on `dist/game.zip` | local | Before each js13k re-upload (hard rule) |
-| 3 | Regenerate cover + screenshots | local capture from latest build | Before final submission |
-| 4 | Store page (Wavedash portal): paste title/desc/tags, upload cover + screenshots | Wavedash Portal | Anytime — but store review has a lag, don't leave for Sep 20 |
-| 5 | Playtest the current build via Wavedash URL | current playtest link (see recent commits) | After each meaningful build change |
-| 6 | (Re-)push Wavedash build | `wavedash build push -m "…"` | After each finalized build |
-| 7 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
-| 8 | Wavedash PUBLISH | Portal dashboard | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
+| 3 | Wavedash store page: paste title/desc/tags, upload `design/cover_square.png` + 5 screenshots | Wavedash Developer Portal (game settings → Metadata) | Anytime — review has lag, don't leave for Sep 20 |
+| 4 | Playtest the current build via Wavedash URL | most-recent `wavedash build push` output | After each meaningful build change |
+| 5 | (Re-)push Wavedash build after any code change | `node build.mjs && wavedash build push -m "…"` | Immediately after final commit |
+| 6 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
+| 7 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
 
-### 📋 Assets inventory (current state on disk)
+### 📋 Assets inventory (current state on disk, 2026-08-30)
 ```
 design/
-├── cover_square_draft.png       (720×720, stale — regenerate before submission)
-└── screenshots/
-    ├── 01_title.png             (stale — regenerate)
-    ├── 02_gameplay_meadow.png   (stale — regenerate; also rename to reflect current MEADOW zone)
-    ├── 03_gameplay_cliff.png    (stale — regenerate)
-    └── 04_character_sheet.png   (stale — regenerate; UI has evolved)
+├── cover_square.png             ✅ CURRENT (720×720, 18 KB — upload this)
+├── cover_square_draft.png       ❌ old draft (Aug 29, letterboxed, wrong title color)
+└── screenshots/                 ✅ ALL CURRENT (regenerated 2026-08-30, native 960×540)
+    ├── 01_title.png             (gold static title, rainbow arc, unicorn)
+    ├── 02_name_entry.png        (name-your-unicorn input)
+    ├── 03_slot_select.png       (3-slot save picker showing STAR · LV1)
+    ├── 04_meadow.png            (meadow exploration — trees, clouds, cave shaft)
+    ├── 05_gameplay_enemies.png  (combat: elite crown crawler + blob + spikes) [LEAD]
+    └── 06_pause_menu.png        (full RPG UI: stats, gear, skill tree, shard tracker)
 ```
-
-**Note:** all design assets predate the 5-zone refactor, naming cleanup, rainbow-strobe
-removal, and visual polish passes. Old ones still convey the concept but should be
-refreshed before final store-page upload.
