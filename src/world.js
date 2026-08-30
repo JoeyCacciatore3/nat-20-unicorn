@@ -29,7 +29,7 @@ const Z0 = {
     // envelope
     [0, 0, 3, H], [277, 0, 3, H],
     [3, 60, 274, 12],                      // ground + underground mass
-    // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
+    // Dawnfield surface (x158-277) — pits, platforms, DJ high route, stepped tower
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
     [233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
@@ -55,7 +55,7 @@ const Z0 = {
     [60, 48, 4, 12], [72, 51, 4, 9], [84, 54, 4, 6],
     [49, 57, 3, 1, 2], [49, 55, 3, 1, 2], [49, 53, 3, 1, 2], [49, 51, 3, 1, 2],
     [49, 49, 3, 1, 2], [49, 47, 3, 1, 2], [49, 45, 3, 1, 2],
-    // Treetops (x40-118) — zig-zag climb
+    // Cliffmane canopy approach (x40-118) — zig-zag climb up to the Zone 2 portal
     [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
     [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
     [52, 26, 8, 2],
@@ -94,7 +94,7 @@ const Z0 = {
   // doors: [x, y, targetZone, spawnX, spawnY] — 4 rainbow portals where old bosses stood
   doors: [
     [226, 66.5, 1, 40, 57],   // Zone 1 (Dim Burrow) — Dim Burrow east loop
-    [56, 22.5, 2, 40, 40],    // Zone 2 (Cliffmane) — Treetops ledge
+    [56, 22.5, 2, 40, 40],    // Zone 2 (Cliffmane) — canopy ledge portal
     [14, 10.5, 3, 40, 30],    // Zone 3 (Silverfrost) — Peak ledge
     [55, 66.5, 4, 40, 57],    // Zone 4 (Gloom Heart) — Deep west arena
   ],

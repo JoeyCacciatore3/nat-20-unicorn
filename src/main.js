@@ -512,7 +512,7 @@ const fresh = () => {
 // (per PICO-8 fg/bg separation): enemies use saturated warms + darker cools so silhouettes read against the sky.
 const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a', '#8cf'];
 // SPAWN LAW — every non-boss foe carries: dm (contact damage), el (elite roll),
-// rc (ranged clock if tier 3 = Gloomcast). Boss adds ph / spd / rc at 50%-HP
+// rc (ranged clock if tier 3 = RUNECAST). Boss adds ph / spd / rc at 50%-HP
 // phase 2, plus wt (wind-up-tell clock) filled on first contact.
 // FOE TYPE TABLE — row index = kind k: [hp, dm, speed, size, cap, shape].
 // cap = capability bits, SAME vocabulary as P2 (see there) — compose freely.
@@ -520,8 +520,9 @@ const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a', '#8cf
 // variant (players learn color = behavior), sprites are reused for free.
 // New enemy type = ONE row + a FOECOL color + seeds.foes entries with that k.
 // Elites (17%, non-ranged kinds only): 2x hp, +1 dm, +1 size. XP capped at k=3 rate.
-// k1 DOUBTLING purple crawler · k2 GLOOMER blue jelly · k3 GLOOMCAST red caster (ranged)
-// k4 SPRINTLING pink fast crawler · k5 HOPLING green jumping crawler · k6 GALEJELLY cyan ranged jelly
+// Enemy taxonomy — 6 lesser corrupted creatures (bosses are MAREs). Unified -LING suffix + color-accurate:
+// k1 DUSKLING purple crawler · k2 EMBERDROP orange jelly · k3 RUNECAST red caster (ranged)
+// k4 SPRINTLING pink fast crawler · k5 HOPLING green jumping crawler · k6 GALELING cyan ranged jelly (matches GALE MARE)
 const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 2, 0, 1], [6, 4, 36, 3, 2, 1], [9, 4, 22, 3, 1, 2]];
 // BOSS PHASE-2 TABLE — capability bits per boss index: 1 speed · 2 summon ·
 // 4 ranged · 8 landing shockwave. New boss = seeds.bosses row + bits here.
@@ -537,7 +538,7 @@ const P2 = [32, 4, 1, 8, 37];
 const BN = ['DUSK', 'MURK', 'GALE', 'FROST', 'GLOOM'];
 const ZN = ['DAWNFIELD', 'DIM BURROW', 'CLIFFMANE', 'SILVERFROST', 'GLOOM HEART'];
 let bann = 0, bTxt = '', bSub = '';
-// ZONE TIER — west=hard, east=easy. Starting Meadow (tile 140+) = tier 0 (base), Gloom Heart (tile <15) = tier 4 (+80% HP, +4 DM).
+// ZONE TIER — west=hard, east=easy. Starting Dawnfield (tile 140+) = tier 0 (base), Gloom Heart (tile <15) = tier 4 (+80% HP, +4 DM).
 // Data-driven from world x, no per-foe field. Anchored so starting spawns (tile 174-260) are unmodified.
 const zT = x => Math.max(0, Math.min(4, (150 - x / T) / 35 | 0));
 const mkFoe = (x, y, k) => {
@@ -789,7 +790,7 @@ const step = (dt) => {
     }
   }
   for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
-  // -- foe bolts (Gloomcast + boss phase 2): hit the player, die on solid --
+  // -- foe bolts (RUNECAST + boss phase 2): hit the player, die on solid --
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
@@ -1058,7 +1059,7 @@ const draw = () => {
       ctx.fillRect(fs - s * 1.7, s * 1.6, s * .7, s * .7);
       ctx.fillStyle = '#000';
       ctx.fillRect(fs - s * 1.4, s * 1.8, s * .3, s * .3);
-    } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (Gloomer family)
+    } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (EMBERDROP / GALELING family)
       const flt = wob * 1.5;
       for (let i = 0; i < 3; i++) {                              // tendrils sway
         const tx = s * (.5 + i * 1.5);
@@ -1070,7 +1071,7 @@ const draw = () => {
       ctx.fillStyle = '#fff';                                    // paired eyes
       ctx.fillRect(s, s + flt, s * .6, s * .6);
       ctx.fillRect(fs - s * 1.6, s + flt, s * .6, s * .6);
-    } else {                                                    // CASTER shape — hooded robe + glowing rune-eye (Gloomcast family)
+    } else {                                                    // CASTER shape — hooded robe + glowing rune-eye (RUNECAST family)
       ctx.fillRect(s * .2, s * 1.5, fs - s * .4, s * 2.7);       // robe
       ctx.fillRect(0, s * 2, s * .4, s * 1.5);                   // shoulders
       ctx.fillRect(fs - s * .4, s * 2, s * .4, s * 1.5);
