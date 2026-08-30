@@ -124,7 +124,7 @@ export const seeds = {
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
   ],
 };
-// DECORATIONS — [x, y, type]. 0=tree, 1=grass, 2=rock, 3=flower, 4=mushroom.
+// DECORATIONS — [x, y, type]. 0=tree, 1=grass, 2=rock.
 // y = air tile ABOVE ground (tile(x,y)=0, tile(x,y+1)=1). No decos near spikes.
 // Scenery types: trees, grass tufts, rocks. Nothing that could be misread as a collectible.
 export const DECO = [

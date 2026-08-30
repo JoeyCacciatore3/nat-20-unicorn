@@ -68,8 +68,8 @@ const hasSave = () => [0, 1, 2].some(sMeta);
 //   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume/create transitions can't drift.
-const beginGame = () => { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); };
-const resumeGame = () => { load(); phase = 2; started = 1; };
+const beginGame = () => { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); M_start(); };
+const resumeGame = () => { load(); phase = 2; started = 1; M_start(); };
 const toName  = () => { fresh(); ent = ''; slotNew = 1; tMode = 1; };  // NEW GAME → type name (title art stays)
 const toSlots = (nw) => { slotNew = nw; sSel = 0; tMode = 2; };        // then/or pick a slot
 const pickSlot = (i) => {                                              // row 3 = BACK
@@ -128,19 +128,15 @@ const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('bH');
 // ---------- touch overlay (minimal: dpad + JUMP + MELEE + earned skills; JUMP + MELEE contextualize) ----------
 // No dedicated hearth buttons — JUMP is the universal interact/confirm, MELEE is back/cancel.
 const btns = () => {
-  // JUMP contextualizes: nearFire = ☰ rest · nearChest = ▣ open · else = ▲ jump
-  const jl = nearFire ? '☰' : nearChest >= 0 ? '▣' : '▲';
+  // JUMP ring recolors near interactables (gold = actionable)
   const jc = nearFire || nearChest >= 0 ? '#ffd75e' : '#8cf';
-  const ml = '»';
-  // Unified button system: primary JUMP r=24, ALL secondary r=20.
-  // Fan-arc around bottom-right corner = landscape thumb-reach pattern (Brawl Stars /
-  // Dead Cells mobile). Movement lives on the left joystick — dpad buttons removed.
+  // Fan-arc around bottom-right corner = landscape thumb-reach pattern.
   const b = [
-    { x: VW - 36, y: VH - 34, r: 24, l: jl, c: 'bJ', col: jc },
-    { x: VW - 92, y: VH - 30, r: 20, l: ml, c: 'bM', col: '#ffd75e' },
+    { x: VW - 36, y: VH - 34, r: 24, c: 'bJ', col: jc },
+    { x: VW - 92, y: VH - 30, r: 20, c: 'bM', col: '#ffd75e' },
   ];
-  if (su[0]) b.push({ x: VW - 78,  y: VH - 78, r: 20, l: '✦', c: 'bS', col: '#c9a6f7' });
-  if (su[2]) b.push({ x: VW - 36,  y: VH - 88, r: 20, l: '＋', c: 'bH', col: '#9fe89a' });
+  if (su[0]) b.push({ x: VW - 78,  y: VH - 78, r: 20, c: 'bS', col: '#c9a6f7' });
+  if (su[2]) b.push({ x: VW - 36,  y: VH - 88, r: 20, c: 'bH', col: '#9fe89a' });
   return b;
 };
 const ptrs = new Map();
@@ -195,8 +191,8 @@ addEventListener('pointerdown', (e) => {
         return;
       }
     }
-    // Pause-sheet buttons (y 170-186): SAVE · SAVE&EXIT · ♪MUSIC · ♫SFX — shared PB data drives both draw + click
-    if (vy >= 170 && vy <= 186) for (const [bx, bw, , fn] of PB) if (vx >= bx && vx <= bx + bw) { fn(); return; }
+    // Pause-sheet buttons (y 18-34): SAVE · SAVE&EXIT · ♪MUSIC · ♫SFX — shared PB data drives both draw + click
+    if (vy >= 18 && vy <= 34) for (const [bx, bw, , fn] of PB) if (vx >= bx && vx <= bx + bw) { fn(); return; }
     // INVENTORY slot click: 5×3 grid at (33, 194), 18×18 boxes + 3px gap. First click selects, second on SAME slot uses/equips.
     if (vy >= 194 && vy < 194 + 21 * 3 && vx >= 33 && vx < 33 + 21 * 5) {
       const iC = ((vx - 33) / 21) | 0, iR = ((vy - 194) / 21) | 0, iI = iR * 5 + iC;
@@ -241,29 +237,36 @@ addEventListener('contextmenu', (e) => e.preventDefault());                     
 // ---------- audio ----------
 let AC;
 function boot() { if (!AC) AC = new AudioContext(); AC.resume(); }        // audio-only wake — the game only starts when the title menu is accepted
-let mute = 0;                                     // bit 0 = music mute · bit 1 = sfx mute (pre-plumbed for music lane)
+let mute = 0;                                     // bit 0 = music mute · bit 1 = sfx mute
 // PB — pause-sheet button strip (shared by draw + click). [x, w, labelFn, actionFn]
-// Positioned on the RIGHT column at y=170 (below skill tree, above shard tally).
+// Positioned on the RIGHT column at y=18 (top of pause sheet, above skill tree).
 // Inventory grid now owns the bottom-left band (rows under the gold box).
 const PB = [
   [200, 60, () => 'SAVE', () => { save(); svT = time + 1.2; sfx(660, 990, .15, 'triangle', .12); }],
-  [265, 70, () => 'SAVE & EXIT', () => { save(); paused = 0; started = 0; phase = 0; tMode = 0; mSel = 0; }],
-  [340, 44, () => '♪ M · ' + (mute & 1 ? 'OFF' : 'ON'), () => { mute ^= 1; save(); }],
+  [265, 70, () => 'SAVE & EXIT', () => { save(); paused = 0; started = 0; phase = 0; tMode = 0; mSel = 0; M_stop(); }],
+  [340, 44, () => '♪ M · ' + (mute & 1 ? 'OFF' : 'ON'), () => { mute ^= 1; mute & 1 ? M_stop() : M_start(); save(); }],
   [389, 44, () => '♫ S · ' + (mute & 2 ? 'OFF' : 'ON'), () => { mute ^= 2; save(); }],
 ];
 const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
-  if (mute & 2) return;
-  if (!AC) return;
+  if (mute & 2) return; if (!AC) return; const r = .97 + Math.random() * .06;
   const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime + dl;
-  o.type = type; o.frequency.setValueAtTime(f0, t);
-  o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + d);
+  o.type = type; o.frequency.setValueAtTime(f0 * r, t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(f1 * r, 1), t + d);
   g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
   o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d);
 };
-// S_SHARD inlined at its single call site (boss death)
 const S_NAT = () => { for (let i = 0; i < 4; i++) sfx(440 * (1 + i * .25), 440 * (1 + i * .25), .1, 'square', .12, i * .07); };
 
-// Narrator overlay removed — feedback comes via fly() text over the player/NPC.
+// Bytebeat music — rez's "4451" arpeggio pre-rendered at 8000Hz, 25% gain, loops 8s
+let musicBuf, musicSrc;
+const M_ren = () => {
+  if (musicBuf) return; AC = AC || new AudioContext();
+  const sr = 8000, len = sr * 8, d = (musicBuf = AC.createBuffer(1, len, sr)).getChannelData(0);
+  for (let t = 0; t < len; t++) d[t] = ((t * (1 + '4451'[t >> 13 & 3] / 10) & t >> 9 + (t * .003 & 3) & 255) / 128 - 1) * .25;
+};
+const M_start = () => { if (mute & 1 || musicSrc) return; M_ren(); musicSrc = AC.createBufferSource();
+  musicSrc.buffer = musicBuf; musicSrc.loop = true; musicSrc.connect(AC.destination); musicSrc.start(); };
+const M_stop = () => { if (musicSrc) { musicSrc.stop(); musicSrc = null; } };
 
 // ---------- RPG (researched): milestone dice, modifier stats, skill tree ----------
 // 5-stat system: STR (dmg) HP (max ♥) MAG (max ✦) DEF (dmg reduction) LUCK (drop bonus)
@@ -291,7 +294,7 @@ const useItem = (i) => {
   const it = inv[i]; if (!it) return;
   if (it.t === 5) { inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1); }
   else if (it.t === 0 && hp < mHP()) { hp = Math.min(mHP(), hp + 3); inv.splice(i, 1); sfx(520, 1040, .1, 'triangle', .1); }
-  else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 3); inv.splice(i, 1); sfx(520, 1040, .1, 'triangle', .1); }
+  else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 3); inv.splice(i, 1); sfx(440, 880, .1, 'triangle', .1); }
   else if (it.t === 4 && (hp < mHP() || mn < mMN())) { hp = mHP(); mn = mMN(); inv.splice(i, 1); sfx(784, 1568, .3, 'triangle', .15); }
   invSel = -1;
 };
@@ -400,8 +403,7 @@ const STATS = [
   ['LUCK', () => lk++],
 ];
 
-// UNIFIED SKILL TREE — 3 branches, 19 nodes, 24 ranks. Perks folded in.
-// SKILL TREE — a single constellation. Each node = one purchase; the name states its
+// SKILL TREE — a single open constellation. Each node = one purchase; the name states its
 // effect (no tooltips needed). Rows: [name, prereqIndex or -1]. 16 nodes.
 const TREE = [
   ['SHOT',      -1],['FAR SHOT',   0],                                       // 0-1  bolt (3MP) · range chain
@@ -539,8 +541,7 @@ const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
 // ITEM DROPS — physical pickups from kills/chests.
-// Types: 0 heart (+3 HP), 1 mana (+2 MP), 2 XP gem, 3 rainbow (3% rare full heal).
-// Type 4 = GOLDEN RAINBOW SHARD (boss first-kill ONLY — game objective, 5 total).
+// Types: 0 HP potion (+3 HP), 1 MP potion (+3 MP), 4 golden rainbow shard (boss only), 5 gear.
 // LUCK adds +1 drop per pip.
 
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
@@ -621,7 +622,7 @@ const strike = (f, r, gen, viaStomp) => {
 function shoot() {                                              // rainbow shot: 3 mana
   if (!started || choosing || deathT > 0 || !su[0]) return;
   if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#f9c'); return; }   // flat 3 MP
-  mn -= 3; sfx(700, 1300, .12, 'sawtooth', .09);
+  mn -= 3; sfx(700, 1300, .12, 'triangle', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * su[1] });   // base range SHORT; FAR SHOT extends (.55s→.80s)
 }
 function dash() {                                               // THE attack verb: burst + strike-through; air use resets on landing
@@ -636,7 +637,7 @@ const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max(1, n - df - eqB[3]);                            // DEFENSE — stat + hooves eq bonus
   hp -= n; pl.inv = su[9] ? 1.8 : 1.2; chT = 0; shk = Math.max(shk, .22);
-  sfx(140, 55, .25, 'sawtooth', .2); burst(pl.x, pl.y + 7, 10, '#e05555'); // GUARD TIME extends pl.inv
+  sfx(140, 55, .25, 'sawtooth', .12); burst(pl.x, pl.y + 7, 10, '#e05555'); // GUARD TIME extends pl.inv
 
   if (hp <= 0) { deathT = 1.6; return; }
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
@@ -772,7 +773,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
     if (tile(tc, tr) === 4) {                                   // shatter gloom crystal (3x3)
       for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++)
         if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 5, '#c9a6f7'); }
-      s.t = 0; sfx(900, 200, .2, 'square', .15);
+      s.t = 0; sfx(900, 220, .2, 'square', .1);
     } else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
@@ -844,7 +845,7 @@ sfx(110, 55, .5, 'sawtooth', .18);
       // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
       pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
-      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .2);
+      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(200, 55, .1, 'square', .12);
       // NOTE: stomp no longer resets .wt — repeat-bouncing accumulates threat (exploit fix)
     } else if (hit && (f.wt || 0) >= 0) {
       f.wt = (f.wt || 0) + dt;
@@ -992,7 +993,7 @@ const draw = () => {
 
 
 
-  // WORLD DECORATIONS — trees, grass, rocks, flowers, mushrooms. Data-driven from DECO seeds.
+  // WORLD DECORATIONS — trees, grass, rocks. Data-driven from DECO seeds.
   // type 0=tree, 1=grass tuft, 2=rock. Nearly free: positions are data, draw is shared.
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
@@ -1123,7 +1124,7 @@ const draw = () => {
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
   ctx.globalAlpha = 1;
   for (const f of flies) {
-    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = (f.big ? 'bold 12px' : '9px') + ' monospace';
+    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = (f.big ? 'bold 13px' : 'bold 8px') + ' monospace';
     ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x | 0, f.y | 0);
   }
   ctx.globalAlpha = 1;
@@ -1152,7 +1153,6 @@ const draw = () => {
     // TOP-RIGHT — pause icon (48px+ tap zone handled in pointerdown)
     ctx.textAlign = 'right'; ctx.fillStyle = '#888'; ctx.font = 'bold 13px monospace';
     T2('☰', VW - 10, 18);
-    // Overlay narrator removed per design pivot. NPC dialog uses its own bubble.
     if (time < bann) {                                          // BOSS BANNER — arena-entry announcement (font already set to bold 13px above at ☰; reuse)
       ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e';
       T2(bTxt, VW / 2, 58);
@@ -1232,10 +1232,10 @@ const draw = () => {
     ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
     PB.forEach(([bx, bw, lb]) => {
       ctx.fillStyle = 'rgba(255,215,94,.14)';
-      ctx.fillRect(bx, 170, bw, 16); ctx.strokeRect(bx, 170, bw, 16);
-      ctx.fillStyle = '#ffd75e'; T2(lb(), bx + bw / 2, 181);
+      ctx.fillRect(bx, 18, bw, 16); ctx.strokeRect(bx, 18, bw, 16);
+      ctx.fillStyle = '#ffd75e'; T2(lb(), bx + bw / 2, 29);
     });
-    if (time < svT) { ctx.fillStyle = '#9fe89a'; T2('SAVED', 230, 164); }
+    if (time < svT) { ctx.fillStyle = '#9fe89a'; T2('SAVED', 230, 12); }
     // Single controls reference — swaps to inventory action hints when an item is selected.
     ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace';
     T2(invSel >= 0 && inv[invSel] ? 'click again USE · X DROP · click empty area to CLOSE' : 'MOVE A D · JUMP SPACE · DASH J · SHOT L · HEAL S · PAUSE ESC', VW / 2, VH - 4);
@@ -1254,10 +1254,8 @@ const draw = () => {
       // colored outer ring
       ctx.strokeStyle = b.col; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.stroke();
-      // glyph in ring color (pressed = full brightness)
+      // glyph placeholder — sprites TBD (disc + ring remain as hit zones)
       ctx.globalAlpha = pressed ? 1 : .9;
-      ctx.fillStyle = b.col; ctx.font = 'bold 18px monospace';    // glyph fills the disc
-      ctx.fillText(b.l, b.x, b.y + 6);
     }
     ctx.globalAlpha = 1;
   }
@@ -1295,12 +1293,9 @@ const draw = () => {
     ['#ff5d6c', '#ffd75e', '#6bc5ff'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });
     ctx.restore();
     // Title + subtitle
-    const hue = (time * 30) % 360, br = 1 + Math.sin(time * 2) * .02;
-    ctx.textAlign = 'center';
-    ctx.save(); ctx.translate(VW / 2, 168); ctx.scale(br, br);
-    ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 30px monospace'; ctx.fillText('UNI-CORN', 0, 0);
-    ctx.restore();
-    ctx.fillStyle = `hsl(${hue} 70% 62%)`; ctx.font = 'bold 13px monospace'; ctx.fillText('Hooves of Hope', VW / 2, 188);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e';
+    ctx.font = 'bold 30px monospace'; ctx.fillText('UNI-CORN', VW / 2, 168);
+    ctx.font = 'bold 13px monospace'; ctx.fillText('Hooves of Hope', VW / 2, 188);
     // Title art above stays in EVERY mode — menu / name entry / slot select swap below it.
     if (tMode === 1) {                                             // NAME ENTRY
       const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
