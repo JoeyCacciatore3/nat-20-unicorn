@@ -39,8 +39,8 @@ fit();
 let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer mapping)
 
 // ---------- input: BOTH conventions (WASD+Space/J/L/S and arrows+Z/X/C/I) ----------
-const J_KEYS = ['Space', 'KeyK', 'KeyZ', 'KeyW', 'ArrowUp'];
-const M_KEYS = ['KeyJ', 'KeyX', 'ShiftLeft', 'ShiftRight', 'KeyO'], SH_KEYS = ['KeyL', 'KeyC'], HE_KEYS = ['KeyS', 'KeyI'];  // M = dash (the attack verb)
+const J_KEYS = ['Space', 'KeyW', 'ArrowUp'];        // JUMP — Space canonical, W (WASD up), ArrowUp (arcade tradition)
+const M_KEYS = ['KeyJ', 'KeyX'], SH_KEYS = ['KeyL'], HE_KEYS = ['KeyH'];  // DASH J/X (Celeste + Hollow Knight std) · SHOT L · HEAL H (matches touch btn bH, no drop-thru conflict)
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
@@ -1236,7 +1236,7 @@ const draw = () => {
     if (time < svT) { ctx.fillStyle = '#9fe89a'; T2('SAVED', 230, 12); }
     // Single controls reference — swaps to level-up / inventory action hints as context demands.
     ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace';
-    T2(choosing ? 'MOVE ← → · SPEND SPACE' : invSel >= 0 && inv[invSel] ? 'click again USE · X DROP · click empty area to CLOSE' : 'MOVE A D · JUMP SPACE · DASH J · SHOT L · HEAL S · PAUSE ESC', VW / 2, VH - 4);
+    T2(choosing ? 'MOVE ← → · SPEND SPACE' : invSel >= 0 && inv[invSel] ? 'click again USE · X DROP · click empty area to CLOSE' : 'MOVE WASD · JUMP SPACE · DASH J · SHOT L · HEAL H · PAUSE ESC', VW / 2, VH - 4);
   }
 
   // action buttons — hidden during pause / level-up (dedicated overlays own the input)
