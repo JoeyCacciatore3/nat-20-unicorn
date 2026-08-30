@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// UNI-CORN, the last savior — build pipeline:
+// UNI-CORN, Hooves of Hope — build pipeline:
 // esbuild → terser (full prop-mangle) → roadroller (pinned flags) → inline → zip → ECT → 13,312-byte gate
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, statSync, appendFileSync } from 'node:fs';
@@ -9,8 +9,9 @@ const run = (cmd) => execSync(cmd, { stdio: ['ignore', 'pipe', 'inherit'] }).toS
 
 mkdirSync('dist', { recursive: true });
 
-console.log('0/6 map audit (Return Law)…');
+console.log('0/6 map audit (Return Law) + TPOS drift check…');
 run('node tools/map-audit.mjs');   // FAILS the build if any reachable spot cannot return to a campfire
+run('node tools/tpos-check.mjs');  // FAILS the build if TREE was edited but TPOS was not regenerated
 
 console.log('1/6 bundle (esbuild)…');
 run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
@@ -18,7 +19,6 @@ run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
 // NOTE (measured, do not "optimize"): aliasing Math.* to 1-char names made the
 // PACKED zip 45 B BIGGER despite -1KB raw. Roadroller models verbose repetition
 // nearly free; consistency > brevity. Same law killed the CSS-token experiment.
-// (GLSL squeeze step removed 2026-08-28: this project ships no shaders.)
 
 console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
@@ -68,9 +68,9 @@ writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 // init() is REQUIRED to reveal the game behind Wavedash's loading screen; achievement
 // unlocks are mirrored by polling the game's own save (zero bytes added to the compo zip).
 const WD_IDS = 'HOMEBODY,FIRST_LIGHT,GLOOMBUSTER,NATURAL_20,UNTOUCHABLE,GREEN_HOOVES,SUMMIT,SILVER_TONGUE,WELL_RESTED,HOARDER,BELIEVER,ARCHITECT,PRISMATIC';
-// init() is the whole load contract — docs.wavedash.com/sdk/setup: "init() calls
+// init() is the whole load contract per docs.wavedash.com/sdk/setup: "init() calls
 // loadComplete() internally… required for every game". Progress reporting is
-// optional for JS games and redundant when load is instant (verified 2026-08-29).
+// optional for JS games and redundant when load is instant.
 const WD_GLUE = `<script>(()=>{const W=window.Wavedash;if(!W)return;W.init({});
 const A='${WD_IDS}'.split(',');const sent={};
 setInterval(()=>{try{const d=JSON.parse(localStorage.n20_save||'0');

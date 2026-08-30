@@ -1,4 +1,4 @@
-// world.js — UNI-CORN, the last savior: the full connected map (audited).
+// world.js — UNI-CORN, Hooves of Hope: the full connected map (audited).
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes, 4 gloom crystal (shot breaks).
 //
 // ============================ MAP LAWS (Joe, locked) ============================
@@ -82,7 +82,7 @@ const MAP = [
 [10, 64, 130, 6, 0],
 [108, 60, 3, 4, 0],                    // entry shaft (L2 rungs)
 [108, 62, 3, 1, 2], [108, 64, 3, 1, 2], [108, 66, 3, 1, 2], [108, 68, 3, 1, 2],
-[80, 69, 7, 1, 3],                     // spike lake, 7 wide — DASH gate (audit: 10 was uncrossable even with dash)
+[80, 69, 7, 1, 3],                     // spike lake, 7 wide — DASH gate
 
 // ---- PADDOCK extras ----
 [124, 54, 4, 1, 2],                    // DJ hub perch
@@ -126,9 +126,8 @@ export const seeds = {
 };
 // DECORATIONS — [x, y, type]. 0=tree, 1=grass, 2=rock, 3=flower, 4=mushroom.
 // y = air tile ABOVE ground (tile(x,y)=0, tile(x,y+1)=1). No decos near spikes.
+// Scenery types: trees, grass tufts, rocks. Nothing that could be misread as a collectible.
 export const DECO = [
-  // Flowers/mushrooms REMOVED 2026-08-29: they read as collectible items, and
-  // items only come from foes/chests. Scenery = trees, grass tufts, rocks only.
   // Meadow (y=59)
   [142, 59, 0], [155, 59, 0], [212, 59, 0], [238, 59, 0],
   [150, 59, 1], [183, 59, 1], [225, 59, 1], [255, 59, 1],

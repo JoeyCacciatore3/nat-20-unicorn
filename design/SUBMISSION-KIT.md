@@ -1,9 +1,9 @@
-# Submission Kit — UNI-CORN, the last savior
+# Submission Kit — UNI-CORN, Hooves of Hope
 All specs verified from primary sources 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Copy below is paste-ready.
 
 ## Names (keep identical everywhere)
-- **Title:** `UNI-CORN, the last savior`
+- **Title:** `UNI-CORN, Hooves of Hope`
 - js13k draft registration LOCKS the unique name — register early to claim it.
 - Wavedash: title must be primarily Latin script ✅; URL slug is permanent, pick once.
 
@@ -25,11 +25,13 @@ root caves, cliffs, treetops and the Gloom Heart — to defeat the five dark Mar
 claim the five golden rainbow shards that bring the color back.
 
 - 🎲 **D&D combat** — every hit is a die roll: d4 at level 1, d12 at the cap. Max roll = CRIT.
-- 📈 **Full RPG** — 5 stats, a 19-node skill tree in 3 branches, and gear that appears
-  on your unicorn's body, piece by piece.
+- 📈 **Full RPG** — 5 stats, a 16-node open skill tree, and gear that appears on
+  your unicorn's body, piece by piece (body/mane/horn/hooves).
 - ⚔️ **6 enemy kinds + elites** — sprinters, hoppers, casters… learn the colors, learn the moves.
 - 👑 **5 named boss Mares** — dark mirrors of yourself, each guarding a shard, each with a phase-2 twist.
-- 💾 Saves your progress. 🏆 13 achievements on Wavedash.
+- 🎒 **10-slot inventory** (+5 via SADDLEBAGS skill) — HP potions, MP potions, gear drops.
+  Click to use / equip, X to discard. Consumables auto-consume when applicable.
+- 💾 Saves your progress across 3 slots. 🏆 13 achievements on Wavedash.
 
 **Controls:** WASD/arrows + Space jump · J dash-attack · L shot · S heal — or
 touch: floating joystick + action buttons. Works on desktop and mobile from one build.
@@ -50,7 +52,7 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 > shadowed reflections — and recover the five golden rainbow shards.
 >
 > Every strike is a real die roll, d4 to d12, with crits on the max face. Spend stat
-> points, climb a 19-node skill tree, and wear the gear you win — every piece shows
+> points, climb a 16-node open skill tree, and wear the gear you win — every piece shows
 > on your unicorn's body. Six enemy kinds with readable color-coded behaviors, elites
 > with crowns, and boss arenas that announce their keeper.
 >
@@ -60,14 +62,15 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 
 **Cover art (RULES: 1:1 square · MUST show title · NO other text · no letterboxing):**
 - ✅ `design/cover_square_draft.png` (720×720, from the real title screen) — compliant draft.
+- ⚠️ REGENERATE if the title text changed since — verify tagline reads "Hooves of Hope".
 - ❌ `design/title_mockup.png` — OLD BRANDING ("NAT 20 UNICORN" + tagline), not square. Do not use.
 
 **Screenshots (3–5 PNG, native res, lead with gameplay):** `design/screenshots/`
 1. `02_gameplay_meadow.png` — platforming + enemies (LEAD)
 2. `03_gameplay_caves_edge.png` — world variety
-3. `04_character_sheet.png` — RPG depth
+3. `04_character_sheet.png` — RPG depth (verify shows current inventory grid + skill tree)
 4. `05_character_create.png` — name entry on the title screen
-5. `01_title.png` — branding (last)
+5. `01_title.png` — branding (last — verify shows "Hooves of Hope")
 
 **Achievements:** ✅ DONE (verified 2026-08-29 via CLI — all 13 identifiers exist on the
 platform). Optional: glance at display text in the portal to confirm it matches this JSON.
