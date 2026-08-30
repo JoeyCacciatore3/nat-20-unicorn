@@ -523,7 +523,7 @@ let bann = 0, bTxt = '', bSub = '';
 const zT = x => Math.max(0, Math.min(4, (150 - x / T) / 35 | 0));
 const mkFoe = (x, y, k) => {
   const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, el = !fr && Math.random() < .17, t = zT(x), b = el ? 2 : 1;
-  const zh = fh * b * (5 + t) / 5 | 0;                          // tier HP: t=0 base, t=4 +80%
+  const zh = fh * b * (2 + t) / 2 | 0;                          // tier HP: t=0 base, t=4 +200% (DQ1-style zone ramp)
   // per-spawn speed jitter (±15%) — same kind, individual gait; the cheap "randomness" that reads fair
   return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + b - 1 + t, el, fl: 0, t: Math.random() * 7, cz: el ? fz + 1 : fz };
 };
