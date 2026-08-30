@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
-  "description": "NAT 20 UNICORN — js13kGames 2026 entry (theme: Unicorns and Rainbows)",
+  "description": "UNI-CORN, Hooves of Hope — js13kGames 2026 entry (theme: Unicorns and Rainbows)",
   "engines": {
     "node": ">=20"
   },
