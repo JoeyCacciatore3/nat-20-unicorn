@@ -536,6 +536,7 @@ const P2 = [32, 4, 1, 8, 37];
 // Boss names by index — all dark mirrors of the player; ' MARE' composed once at
 // display (one shared literal). Banner state: bann = time deadline, set on arena entry.
 const BN = ['DUSK', 'MURK', 'GALE', 'FROST', 'DARK'];        // 5 DARK MARES — the dark unicorns who stole the world's color
+const RBC = ['#ff5d6c', '#ff9d3c', '#ffd75e', '#4a76ff', '#c47fe0'];   // 5 rainbow bands the mares hold (R-O-Y-B-V), boss-index-aligned
 const ZN = ['MEADOW', 'CAVE', 'CLIFFS', 'PEAK', 'DEPTHS'];    // 5 zones — simple environments
 let bann = 0, bTxt = '', bSub = '';
 // ZONE TIER — west=hard, east=easy. Starting Meadow (tile 140+) = tier 0 (base), Depths (tile <15) = tier 4 (+80% HP, +4 DM).
@@ -616,7 +617,7 @@ const strike = (f, r, gen, viaStomp) => {
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
-        burst(f.x, f.y, 20, '#ffd75e'); fly(f.x, f.y - 8, 'RAINBOW SHARD ' + shards() + ' / 5', '#ffd75e', 1);
+        burst(f.x, f.y, 20, RBC[f.bi]); fly(f.x, f.y - 8, 'RAINBOW SHARD ' + shards() + ' / 5', RBC[f.bi], 1);
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
@@ -1033,7 +1034,7 @@ const draw = () => {
     if (f.bit) {                                                // DARK MARE — reflection of the player unicorn: same shape,
       // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
-      const ec = f.ph ? '#fff' : ['#ff9d3c', '#5a3a1e', '#f5f1f4', '#8cf', '#c47fe0'][f.bi];   // horn + eye per boss theme — DUSK orange, MURK brown, GALE white, FROST cyan, DARK purple (rage-white in phase 2)
+      const ec = f.ph ? '#fff' : RBC[f.bi];   // horn + eye = the rainbow band this mare holds (rage-white in phase 2)
       const sc = fs / 14, ph = Math.sin(f.t * 8) * 3;            // scale player unicorn bbox → fs; walk cycle
       ctx.scale(sc, sc);
       ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3);              // leg L (steps)
@@ -1227,9 +1228,10 @@ const draw = () => {
       ctx.fillStyle = su[i] ? '#ffd75e' : col; ctx.fillText(nm, cx + 2, cy);
       if (can) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 3, cy - 10, 78, 14); }   // buyable ring — CYAN so purchased (gold) reads as distinct
     });
-    // Footer — shard tally under the tree (equipment + bag live on the left side)
+    // Footer — 5 rainbow shards under the tree, each dot colored by boss's band (grey = not yet held)
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ffd75e'; T2('RAINBOW SHARDS · ' + shards() + ' / 5', 300, 228);
+    for (let i = 0; i < 5; i++) { ctx.fillStyle = bs[i] === 2 ? RBC[i] : '#2a2a33'; ctx.fillRect(280 + i * 8, 232, 5, 5); }
     // Pause-sheet clickable strip: SAVE · SAVE&EXIT · ♪MUSIC · ♫SFX (shared data with click handler above)
     ctx.font = 'bold 8px monospace';
     ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
