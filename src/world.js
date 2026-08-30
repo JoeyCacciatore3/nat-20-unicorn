@@ -76,12 +76,10 @@ const Z0 = {
   fires: [[132.5, 59.5]],
   bosses: [[258, 57]],       // Only DUSK MARE (bi = curZone = 0)
   chests: [
-    [219.5, 48.3],  // 0 — high route (DJ-only)
-    [186, 68.3],    // 1 — cave entry W
-    [252, 67.3],    // 2 — cave entry E
-    [83, 50.3],     // 3 — cliffs terrace
-    [56, 25.3],     // 4 — treetops crest
-    [12, 11.3],     // 5 — peak ledge
+    [186, 68.3],    // 0 — cave entry W (base tier discovery)
+    [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
+    [56, 25.3],     // 2 — canopy crest (climbing route reward)
+    [12, 11.3],     // 3 — peak ledge (SHOT-gated summit reward)
   ],
   foes: [
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
@@ -115,14 +113,17 @@ const Z1 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],   // envelope + floor
     [30, 55, 5, 5],                                    // small ledge west (spawn area)
-    [90, 58, 30, 2, 0], [95, 57, 20, 1, 2],           // sunken area with platform crossing
-    [210, 58, 20, 2, 0],                               // arena depression before boss
+    [95, 57, 20, 1, 2],                                // one-way platform bridge (cols 95-114, row 57)
   ],
   fires: [[45, 59.5]],
-  bosses: [[220, 59]],                              // boss stands inside its arena carve (cols 210-229)
-  chests: [[110, 56.3]],
+  bosses: [[220, 59]],
+  chests: [
+    [60, 59.3],     // near-spawn discovery
+    [110, 56.3],    // atop the platform bridge (requires jumping up)
+    [250, 59.3],    // east side, past the boss arena
+  ],
   foes: [[100, 58, 1], [150, 58, 2], [180, 58, 6]],
-  doors: [[35, 59, 0, 226, 68]],                    // return portal at standing height (row 59)
+  doors: [[35, 59, 0, 226, 68]],
   DECO: [[70, 59, 2], [160, 59, 2], [200, 59, 2]],
 };
 
@@ -132,15 +133,17 @@ const Z2 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 42, 274, 30],   // envelope + high floor at y=42
     [30, 38, 5, 4],                                    // spawn ledge
-    [80, 38, 8, 1, 2], [110, 34, 8, 1, 2], [140, 30, 8, 1, 2],   // ascending platforms
-    [170, 34, 8, 1, 2], [200, 38, 8, 1, 2],
-    [220, 40, 40, 2, 0],                               // boss arena depression
+    [80, 38, 8, 1, 2],                                 // one climb platform (DJ from ground)
   ],
   fires: [[45, 41.5]],
-  bosses: [[240, 41]],                              // boss on arena floor (row 41)
-  chests: [[145, 28.3]],
+  bosses: [[240, 41]],
+  chests: [
+    [60, 41.3],     // ground near spawn (base tier)
+    [85, 37.3],     // atop the climb platform (DJ reward)
+    [250, 41.3],    // east floor, past the boss (base tier)
+  ],
   foes: [[90, 37, 5], [140, 29, 6], [190, 37, 5]],
-  doors: [[35, 41, 0, 56, 24]],                     // return portal at standing height (row 41)
+  doors: [[35, 41, 0, 56, 24]],
   DECO: [[100, 41, 1], [200, 41, 1]],
 };
 
@@ -150,15 +153,17 @@ const Z3 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 32, 274, 40],   // envelope + floor at y=32
     [30, 28, 5, 4],                                    // spawn ledge
-    [70, 30, 20, 2, 0], [75, 29, 10, 1, 2],           // small crevasse
-    [120, 26, 10, 1, 2], [150, 24, 10, 1, 2],         // ice platforms
-    [200, 30, 40, 2, 0],                               // boss arena
+    [75, 29, 10, 1, 2],                                // one crossing platform (DJ from ground)
   ],
   fires: [[45, 31.5]],
-  bosses: [[220, 31]],                              // boss on arena floor (row 31)
-  chests: [[155, 22.3]],
+  bosses: [[220, 31]],
+  chests: [
+    [60, 31.3],     // ground near spawn (base tier)
+    [80, 28.3],     // atop the crossing platform (DJ reward)
+    [240, 31.3],    // east floor, past the boss (base tier)
+  ],
   foes: [[100, 29, 4], [140, 25, 3], [190, 29, 4]],
-  doors: [[35, 31, 0, 14, 10]],                     // return portal at standing height (row 31)
+  doors: [[35, 31, 0, 14, 10]],
   DECO: [[80, 31, 2], [180, 31, 2]],
 };
 
@@ -168,14 +173,17 @@ const Z4 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],   // envelope + floor
     [30, 55, 5, 5],                                    // spawn ledge
-    [150, 55, 6, 1, 2], [180, 52, 6, 1, 2],           // elevated platforms (arena approach)
-    [210, 58, 40, 2, 0],                               // boss arena (2-tile depression)
+    [150, 57, 8, 1, 2],                                // climb platform (DJ from ground, reaches row 56)
   ],
   fires: [[45, 59.5]],
-  bosses: [[240, 59]],                              // DARK MARE on arena floor (row 59)
-  chests: [[185, 50.3]],
+  bosses: [[240, 59]],                              // DARK MARE on ground floor
+  chests: [
+    [60, 59.3],     // ground near spawn (base tier)
+    [155, 56.3],    // atop the climb platform (DJ reward)
+    [255, 59.3],    // east floor, past the boss (base tier)
+  ],
   foes: [[100, 58, 3], [140, 58, 6], [175, 51, 4], [200, 58, 3]],
-  doors: [[35, 59, 0, 55, 68]],                     // return portal at standing height (row 59)
+  doors: [[35, 59, 0, 55, 68]],
   DECO: [[80, 59, 2], [130, 59, 2], [170, 59, 2]],
 };
 

@@ -49,7 +49,7 @@ const auditZone = (zi, meta) => {
   const doors = seeds.doors || [];
   console.log(`\n=== ZONE ${zi}: ${meta.name.trim()} ${meta.hub ? '(HUB)' : ''} ===`);
 
-  const tiersToRun = meta.hub ? TIERS : [TIERS[0]];   // non-hub zones: base tier only (no ability gates inside)
+  const tiersToRun = TIERS;                            // audit ALL tiers per zone — chests may be climb-rewards requiring DJ+
   const gates = {};                                    // first tier that reaches each named target
 
   for (const tr of tiersToRun) {
@@ -107,6 +107,10 @@ const auditZone = (zi, meta) => {
     };
 
     if (bossPos && !gates.boss && reach(bossPos[0], bossPos[1])) gates.boss = tr.name;
+    seeds.chests.forEach((c, i) => {   // every chest must be reachable at SOME tier (records first)
+      const k = 'chest ' + i;
+      if (!gates[k] && reach(c[0], c[1])) gates[k] = tr.name;
+    });
     if (meta.hub) {
       doors.forEach((d, i) => {
         const nm = HUB_PORTAL_NAMES[i];
@@ -133,6 +137,7 @@ const auditZone = (zi, meta) => {
   };
 
   if (bossPos) line('boss', gates.boss);
+  seeds.chests.forEach((c, i) => line('chest ' + i, gates['chest ' + i]));
   if (meta.hub) {
     HUB_PORTAL_NAMES.forEach((nm, i) => line(nm, gates[nm], HUB_PORTAL_EXPECT[i]));
   } else {

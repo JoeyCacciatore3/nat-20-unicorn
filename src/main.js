@@ -973,7 +973,7 @@ const draw = () => {
     const cxp = dx * T, cyp = dy * T - 4;
     for (let i = 5; i >= 0; i--) { ctx.fillStyle = `hsl(${(time * 90 + i * 60) % 360} 85% 60%)`; ctx.beginPath(); ctx.arc(cxp, cyp, 11 - i * 1.6, 0, 7); ctx.fill(); }
   }
-  // CHESTS — 6 hand-placed exploration rewards. Opened chests render with lid up.
+  // CHESTS — hand-placed per zone (3-4 each). Opened chests render with lid up.
   // Prompt "▲ OPEN" pulses above the nearest unopened chest.
   for (const c of chests) {
     const opened = oc & (1 << (curZone * 6 + c.i));
