@@ -24,7 +24,7 @@ console.log('2/6 minify (terser)…');
 // full property mangling; reserved = runtime-string names (key codes, DM pools,
 // inventory keys used via quoted strings, namespaced localStorage key)
 const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"';
-run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true,toplevel=true,pure_getters=true,unsafe_math=true,unsafe_comps=true,hoist_funs=true -m toplevel=true --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 -o dist/min.js`);
+run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true,toplevel=true,pure_getters=true,unsafe_math=true,unsafe_comps=true,hoist_funs=true -m toplevel=true --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 --comments false -o dist/min.js`);
 
 // Rules compliance: no external URLs may ship (js13k rule #2)
 const min = readFileSync('dist/min.js', 'utf8');

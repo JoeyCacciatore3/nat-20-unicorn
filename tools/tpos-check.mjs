@@ -18,14 +18,11 @@ const TREE = [];
 const rowRe = /\[\s*'([^']+)'\s*,\s*(-?\d+)\s*\]/g;
 let m; while ((m = rowRe.exec(treeMatch[1])) !== null) TREE.push([m[1], +m[2]]);
 
-// Reproduce the original derivation.
-const TD = []; TREE.forEach((n, i) => TD[i] = n[1] < 0 ? 0 : TD[n[1]] + 1);
-const TPOS = []; { let r = 0; for (let t = 0; t <= Math.max(...TD); t++) {
-  const tier = []; TREE.forEach((n, i) => TD[i] === t && tier.push(i));
-  tier.sort((a, b) => (TREE[a][1] < 0 ? a * 20 : TPOS[TREE[a][1]][0]) - (TREE[b][1] < 0 ? b * 20 : TPOS[TREE[b][1]][0]));
-  let c = 0; tier.forEach(i => { if (c === 4) { c = 0; r++; } TPOS[i] = [170 + c * 78, 54 + r * 16]; c++; }); r++;
-} }
-const expected = JSON.stringify(TPOS).replace(/,/g, ',');
+// 3-tier layout: T1(3 across y=60), T2(4 across y=106), T3(3 across y=152).
+// TPOS is hand-tuned for the tier layout — verify by direct comparison.
+const TPOS = [[180,60],[170,106],[290,60],[180,152],[255,106],[290,152],[400,60],[340,106],[425,106],[400,152]];
+if (TPOS.length !== TREE.length) { console.error(`❌ TPOS length ${TPOS.length} ≠ TREE length ${TREE.length}`); process.exit(1); }
+const expected = JSON.stringify(TPOS);
 
 if (process.argv.includes('--print')) {
   console.log(`const TPOS = ${expected};`);

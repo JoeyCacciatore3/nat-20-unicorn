@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-08-30 — build 11,703 B, save v32, 5-zone hub-and-spoke world, all assets current, achievement slate clean.**
+Copy is paste-ready. **State snapshot: 2026-08-31 — build 12,160 B, save v34, 5-zone hub-and-spoke world, all assets current, achievement slate clean.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -27,8 +27,8 @@ Name your unicorn and cross five themed zones — MEADOW, CAVE, CLIFFS, PEAK, an
 — to defeat the five dark Mares and reclaim the five RAINBOW SHARDS that bring the
 color back.
 
-- 🎲 **D&D combat** — every hit is a die roll: d4 at level 1, d12 at the cap. Max roll = CRIT.
-- 📈 **Full RPG** — 5 stats, a 16-node open skill tree, quadratic XP curve, and gear that
+- ⚔️ **STR-based combat** — damage scales with your stats and gear. LUCK boosts crit chance.
+- 📈 **Full RPG** — 5 stats, a 10-node tiered skill tree, quadratic XP curve, and gear that
   appears on your unicorn's body, piece by piece (body/mane/horn/hooves).
 - ⚔️ **6 enemy kinds + elites** — sprinters, hoppers, casters… learn the colors, learn the moves.
   Zone tier scales enemy HP (up to 3×) and damage (+1 per zone).
@@ -36,11 +36,11 @@ color back.
   (R-O-Y-B-V), each with a phase-2 twist.
 - 🌈 **Rainbow portals** connect the 5 zones from the MEADOW hub. Ability gates
   (double-jump, dash, magic bolt) control progression order.
-- 🎒 **10-slot inventory** (+5 via SADDLEBAGS skill) — HP potions, MP potions, gear drops.
+- 🎒 **5-slot inventory** (expands to 15 via skill tree) — HP potions, MP potions, gear drops.
   Click to use / equip, X to discard. Consumables auto-consume when applicable.
 - 💾 Saves your progress across 3 slots.
 
-**Controls:** WASD/arrows + Space jump · J or X dash-attack · L shot · H heal — or
+**Controls:** WASD/arrows + Space jump · P pause · J or X dash-attack · L shot · H heal — or
 touch: floating joystick + action buttons. Works on desktop and mobile from one build.
 ```
 
@@ -52,14 +52,14 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 
 **Description (lead hook + skimmable beats):**
 
-> A lone unicorn rolls dice against the DARKNESS in this pastel pixel platformer-RPG.
+> A lone unicorn fights the DARKNESS in this pastel pixel platformer-RPG.
 >
 > The Darkness has stolen the world's color. Name your unicorn and cross five themed
 > zones — meadow, cave, cliffs, peak, and depths — to defeat five dark Mares (your own
 > shadowed reflections) and reclaim the five rainbow shards.
 >
-> Every strike is a real die roll, d4 to d12, with crits on the max face. Spend stat
-> points, climb a 16-node open skill tree, and wear the gear you win — every piece shows
+> Every strike scales with your STR stat and gear, with LUCK-driven crits. Spend stat
+> points, climb a 10-node tiered skill tree, and wear the gear you win — every piece shows
 > on your unicorn's body. Six enemy kinds with readable color-coded behaviors, elites
 > with crowns, and boss arenas that announce their keeper.
 >
@@ -69,22 +69,22 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 
 **Cover art (RULES: 1:1 square · MUST show title · NO other text · no letterboxing):**
 - ✅ `design/cover_square.png` (720×720, ~18 KB) — CURRENT. Rainbow arc + pixel unicorn +
-  gold `UNI-CORN` title + `Hooves of Hope` subtitle on starry black background.
-  Composed programmatically (PIL) to match current title screen style (static gold,
-  no rainbow strobe). Compliant with Wavedash content rules.
+  `UNI-CORN` title + `Hooves of Hope` subtitle on starry black background.
+  ⚠ Title screen now uses rainbow per-character title + green subtitle — cover
+  art may need regeneration to match. Compliant with Wavedash content rules.
 - Old draft `cover_square_draft.png` (Aug 29, letterboxed, green strobe frame) — kept
   in tree as historical reference only. **Do NOT upload the draft.**
 
 **Screenshots (3–5 PNG, native res, lead with gameplay):** `design/screenshots/`
 - ✅ ALL CURRENT (regenerated 2026-08-30, 960×540 native 16:9):
-  - `01_title.png` — title screen (gold static, rainbow arc, unicorn)
+  - `01_title.png` — title screen (rainbow title, green subtitle, rainbow arc, unicorn) ⚠ may need re-capture
   - `02_name_entry.png` — name-your-unicorn flow
   - `03_slot_select.png` — 3-slot save picker (shows `STAR · LV1` for a saved slot)
   - `04_meadow.png` — open exploration (sky, clouds, trees, cave shaft with rungs)
   - `05_gameplay_enemies.png` — combat frame (elite CRAWLER with crown, BLOB in the
     cave below, spike hazard, DJ platform above) — LEAD WITH THIS
   - `06_pause_menu.png` — full RPG UI (character portrait, 5 stats, 4 equipment slots,
-    16-node skill tree, empty inventory grid, RAINBOW SHARDS 0/5 counter, controls hint)
+    10-node skill tree, inventory grid, SHARDS 0/5 counter)
 - Recommend the 5-pick order for the store: **05 → 04 → 06 → 01 → 03**
   (lead gameplay-first per Wavedash guideline, then meadow, then RPG UI, then title,
   then save picker)
@@ -124,10 +124,10 @@ the Wavedash-wrapped build.
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 11,700 / 13,312 B (1,612 free, 12.1% headroom) |
+| ✓ | Build under budget | 12,160 / 13,312 B (1,152 free, 8.7% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
-| ✓ | Save format v32 | Multi-zone aware, strict version gate |
+| ✓ | Save format v34 | Multi-zone aware, strict version gate |
 | ✓ | GitHub `main` pushed | Latest commit up-to-date |
 
 ### ⏸ Deferred (operator decision)
@@ -154,7 +154,7 @@ design/
 ├── cover_square.png             ✅ CURRENT (720×720, 18 KB — upload this)
 ├── cover_square_draft.png       ❌ old draft (Aug 29, letterboxed, wrong title color)
 └── screenshots/                 ✅ ALL CURRENT (regenerated 2026-08-30, native 960×540)
-    ├── 01_title.png             (gold static title, rainbow arc, unicorn)
+    ├── 01_title.png             (rainbow title, green subtitle, arc, unicorn)
     ├── 02_name_entry.png        (name-your-unicorn input)
     ├── 03_slot_select.png       (3-slot save picker showing STAR · LV1)
     ├── 04_meadow.png            (meadow exploration — trees, clouds, cave shaft)
