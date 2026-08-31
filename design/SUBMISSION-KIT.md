@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-08-31 — build 12,160 B, save v34, 5-zone hub-and-spoke world, all assets current, achievement slate clean.**
+Copy is paste-ready. **State snapshot: 2026-08-31 — build 12,325 B, save v34, 5-zone hub-and-spoke world, all assets current, achievement slate clean.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -124,7 +124,7 @@ the Wavedash-wrapped build.
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,160 / 13,312 B (1,152 free, 8.7% headroom) |
+| ✓ | Build under budget | 12,325 / 13,312 B (987 free, 7.4% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |

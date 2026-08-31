@@ -40,7 +40,7 @@ let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer 
 
 // ---------- input: BOTH conventions (WASD+Space/J/L/S and arrows+Z/X/C/I) ----------
 const J_KEYS = ['Space', 'KeyW', 'ArrowUp'];        // JUMP — Space canonical, W (WASD up), ArrowUp (arcade tradition)
-const M_KEYS = ['KeyJ'], SH_KEYS = ['KeyL'], HE_KEYS = ['KeyH'];  // DASH J · SHOT L · HEAL H · X reserved for inv discard (pause only)
+const M_KEYS = ['KeyJ'], SH_KEYS = ['KeyL'], HE_KEYS = ['KeyH'];
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
@@ -121,7 +121,7 @@ addEventListener('keydown', (e) => {
   if (M_KEYS.includes(e.code)) dash();                          // J = dash — the attack verb (contact damage during dash)
   if (SH_KEYS.includes(e.code)) shoot();
   if (e.code === 'KeyP' && deathT <= 0) paused = paused ? 0 : 1;   // P only — Escape exits fullscreen in browsers/Wavedash
-  if (paused && e.code === 'KeyX' && invSel >= 0 && inv[invSel]) { inv.splice(invSel, 1); invSel = -1; }   // DISCARD selected inv item (silent; item vanish is visual feedback)
+
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
@@ -198,21 +198,26 @@ addEventListener('pointerdown', (e) => {
   if (started && vx > VW - 22 && vy < 20) { helpOn = 1; return; }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
   if (paused) {
+    if (vx > VW - 18 && vy < 20) { paused = 0; return; }
+    if (vx > VW - 38 && vx < VW - 20 && vy < 20) { helpOn = 1; return; }
     const tot = su.reduce((a,v)=>a+v,0);
     for (let i = 0; i < TREE.length; i++) {
       const req = TREE[i][1], [cx, cy] = TPOS[i];
-      if (vx >= cx - 2 && vx <= cx + 74 && vy >= cy - 9 && vy <= cy + 3) {
+      if (vx >= cx && vx <= cx + 30 && vy >= cy && vy <= cy + 30) {
         const locked = req === -2 ? tot < 2 : req === -3 ? tot < 5 : false;
         if (spts > 0 && !su[i] && !locked) { su[i] = 1; spts--; sfx(660, 990, .15, 'triangle', .12); save(); }
         return;
       }
     }
     // (save/exit on HUD floppy; SFX in help overlay)
-    // INVENTORY slot click: 5×3 grid at (33, 194), 18×18 boxes + 3px gap. First click selects, second on SAME slot uses/equips.
-    if (vy >= 194 && vy < 194 + 21 * 3 && vx >= 33 && vx < 33 + 21 * 5) {
-      const iC = ((vx - 33) / 21) | 0, iR = ((vy - 194) / 21) | 0, iI = iR * 5 + iC;
-      if (iI < invMax() && inv[iI]) { if (invSel === iI) useItem(iI); else invSel = iI; return; }
+    if (vy >= 184 && vy < 184 + 28 * 3 && vx >= 18 && vx < 18 + 28 * 5) {
+      const iC = ((vx - 18) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
+      if (iI < invMax() && inv[iI]) { invSel = iI; return; }
       invSel = -1; return;
+    }
+    if (invSel >= 0 && inv[invSel] && vy >= 250 && vy <= 264) {
+      if (vx >= 30 && vx <= 80) { useItem(invSel); return; }
+      if (vx >= 90 && vx <= 140) { inv.splice(invSel, 1); invSel = -1; return; }
     }
     paused = 0; return;
   }
@@ -222,7 +227,7 @@ addEventListener('pointerdown', (e) => {
     // selects (cursor moves); tap the SELECTED column again to spend — no accidental one-tap.
     // Check BEFORE joystick grab so touch taps on stats aren't intercepted.
     const col = ((vx - 19) / 26) | 0;
-    if (vy > 160 && vy < 190 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) allocate(); else aRow = col; return; }
+    if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) allocate(); else aRow = col; return; }
     // SPEND button — circular tap target at bottom-right (same position as JUMP)
     if (Math.hypot(vx - (VW - 36), vy - (VH - 44)) < 36) { allocate(); return; }
     if (e.pointerType === 'touch' && vx < VW * .3) { grabJoy(vx, vy, e.pointerId); return; }   // stick navigates
@@ -320,32 +325,25 @@ const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1;
 // Shared portrait panel — renders the identity card (title bar, bordered box with
 // HP bar at top, live unicorn silhouette) used by both the PAUSE overlay and the
 // CHARACTER-CREATE screen. Title = player name on PAUSE, 'NEW CHARACTER' on create.
-const portraitPanel = (title) => {
-  ctx.fillStyle = 'rgba(30,25,40,.96)'; ctx.fillRect(0, 0, VW, VH);
+const portraitPanel = (title, showLv) => {
+  ctx.fillStyle = '#1e1928'; ctx.fillRect(0, 0, VW, VH);
   ctx.textAlign = 'center';
-  // NAME — right above the gold box (the whole left side is the unicorn's domain)
-  ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2(title, 84, 28);
-  // Gold box (enlarged) — holds HP+LVL, XP gauge, the unicorn, gear corners, stats
-  ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
-  ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(14, 34, 140, 154); ctx.strokeRect(14, 34, 140, 154);
-  // Identity block: LVL stacked at the LEFT · HP bar · MP bar beneath it · XP strip under both.
-  // All inside the gold box, aligned x48-146.
-  ctx.font = 'bold 8px monospace';
-  ctx.fillStyle = '#ffd75e'; T2('LVL', 33, 48); T2(lvl, 33, 60);
-  ctx.fillStyle = '#2a2a33'; ctx.fillRect(48, 42, 98, 9);
-  ctx.fillStyle = '#ff5d6c'; ctx.fillRect(48, 42, 98 * hp / mHP(), 9);
-  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(47.5, 41.5, 99, 10);
-  ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), 97, 50);
-  ctx.fillStyle = '#2a2a33'; ctx.fillRect(48, 54, 98, 9);
-  ctx.fillStyle = '#4a76ff'; ctx.fillRect(48, 54, 98 * mn / mMN(), 9);
-  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(47.5, 53.5, 99, 10);
-  ctx.fillStyle = '#fff'; T2(mn + '/' + mMN(), 97, 62);
-  // XP gauge — under both bars, above the unicorn
+  ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2(title, 84, 24);
+  if (showLv) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#999'; T2('LV ' + lvl, 84, 36); }
+  ctx.font = 'bold 7px monospace';
+  const bx2 = 50, bw2 = 68;
+  ctx.fillStyle = '#2a2a33'; ctx.fillRect(bx2, 34, bw2, 10);
+  ctx.fillStyle = '#ff5d6c'; ctx.fillRect(bx2, 34, bw2 * hp / mHP(), 10);
+  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(bx2 - .5, 33.5, bw2 + 1, 11);
+  ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), bx2 + bw2 / 2, 42);
+  ctx.fillStyle = '#2a2a33'; ctx.fillRect(bx2, 47, bw2, 8);
+  ctx.fillStyle = '#4a76ff'; ctx.fillRect(bx2, 47, bw2 * mn / mMN(), 8);
+  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(bx2 - .5, 46.5, bw2 + 1, 9);
+  ctx.fillStyle = '#fff'; T2(mn + '/' + mMN(), bx2 + bw2 / 2, 54);
   const atCap = lvl >= CAP;
-  ctx.fillStyle = '#2a2a33'; ctx.fillRect(48, 67, 98, 3);   // same track color as HP/MP
-  ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(48, 67, atCap ? 98 : 98 * xp / need(), 3);
-  // Unicorn — 2.6× scale, gentle bob, centered in the middle band
-  ctx.save(); ctx.translate(84, 108); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
+  ctx.fillStyle = '#2a2a33'; ctx.fillRect(bx2, 58, bw2, 3);
+  ctx.fillStyle = atCap ? '#ffd75e' : '#9fe89a'; ctx.fillRect(bx2, 58, atCap ? bw2 : bw2 * xp / need(), 3);
+  ctx.save(); ctx.translate(84, 96); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(Math.sin(time * 1.4) * .8);
   ctx.restore();
 };
@@ -410,14 +408,14 @@ const TREE = [
   ['SADDLE BAG',-2],['SADDLE BAGS',-3],                    // 8-9  inventory
 ];
 // Tier positions: T1 y=60 (3), T2 y=106 (4), T3 y=152 (3). Validated by tpos-check.
-const TPOS = [[180,60],[170,106],[290,60],[180,152],[255,106],[290,152],[400,60],[340,106],[425,106],[400,152]];
+const TPOS = [[195,48],[178,94],[285,48],[195,140],[262,94],[285,140],[375,48],[346,94],[430,94],[375,140]];
 let spts = 0; const su = Array(TREE.length).fill(0);
 let aRow = 0;
 const allocate = () => {
   if (!pending) return;
   STATS[aRow][1](); pending--;
   fly(pl.x, pl.y - 14, STATS[aRow][0] + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
-  if (!pending) { choosing = 0; save(); }
+  if (!pending) { choosing = 0; if (spts > 0) paused = 1; save(); }
 };
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
@@ -437,7 +435,7 @@ const load = () => {
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     curZone = d.z | 0; loadZone(curZone);
-    chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+    chests = seeds.chests.map(snapChest);
     foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
     [ho, he, sp, df, lk] = d.t;
     col = d.u;
@@ -471,7 +469,7 @@ const rest = () => {
 // Called from doorway JUMP-interact. Boss/chest persistence lives in bs[] / oc bitfield.
 const enterZone = (tz, sx, sy) => {
   loadZone(tz); curZone = tz;
-  chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+  chests = seeds.chests.map(snapChest);
   foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   pl.x = sx * T; pl.y = sy * T; pl.vx = pl.vy = 0; pl.ground = 0;
   cp = [pl.x, pl.y]; lastSafe = [pl.x, pl.y];
@@ -484,7 +482,7 @@ const openChest = (i) => {
   if (oc & (1 << (curZone * 6 + i))) return;
   oc |= 1 << (curZone * 6 + i);
   const c = chests[i]; hp = mHP();
-  spawnDrop(c.x, c.y, 5);
+  spawnDrop(c.x, c.y, 2);
   burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
   fly(c.x + 6, c.y - 4, '+HEAL', '#9fe89a');
   save();
@@ -500,7 +498,8 @@ const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
 // Chests: exploration rewards. `oc` bitfield tracks opened state per-zone (bit = zone*8 + i).
-let chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+const snapChest = ([x, y], i) => { let py = y * T; const tx = (x * T + 4) / T | 0; for (let ty = (py / T | 0); ty < 72; ty++) { const v = tile(tx, ty); if (v === 3) continue; if (v === 1 || v === 2) { py = ty * T - 8; break; } } return { x: x * T, y: py, i }; };
+let chests = seeds.chests.map(snapChest);
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
@@ -510,7 +509,7 @@ const fresh = () => {
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
   curZone = 0; loadZone(0);
-  chests = seeds.chests.map(([x, y], i) => ({ x: x * T, y: y * T, i }));
+  chests = seeds.chests.map(snapChest);
   foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
@@ -597,7 +596,7 @@ const strike = (f, gen, viaStomp) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 rate — k4+ are variants, not a farm ladder
-    spawnDrop(f.x, f.y, f.el || f.bit ? 3 : 1);                 // elites & bosses share ONE "higher chance" tier (more rolls) — never a guaranteed gear drop. Rainbow shard (below) is the ONLY boss guarantee.
+    if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);
     if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
@@ -753,10 +752,10 @@ const step = (dt) => {
       const st = bs[bi], fresh = !st || st === 2;
       bs[bi] = 1;
       foes.push({
-        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 4 + bi,
-        fl: 0, t: 0, hit: 0, mx: 24 + 10 * bi,
+        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 5 + bi * 2,
+        fl: 0, t: 0, hit: 0, mx: 40 + 15 * bi,
         cap: 18 | (fresh ? 0 : st.ph && P2[bi]),
-        hp: fresh ? 24 + 10 * bi : st.hp,
+        hp: fresh ? 40 + 15 * bi : st.hp,
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
@@ -1182,36 +1181,37 @@ const draw = () => {
   if ((paused || choosing) && started) {
     const alloc = !!choosing;
     // Alloc mode borrows the NAME line above the box for its banner
-    portraitPanel(alloc ? 'LEVEL UP · ' + pending + ' PT' + (pending > 1 ? 'S' : '') : pName);
+    portraitPanel(alloc ? 'LV' + lvl + ' · ' + pending + ' PT' + (pending > 1 ? 'S' : '') : pName, !alloc);
     // EQUIPMENT — 4 slots INSIDE the gold box, cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     // portraitPanel's save/restore preserves textAlign='center' + font='bold 8px monospace' — no re-set needed.
     // Mirror-symmetric: left boxes 10px from left wall (x24), right boxes 10px from
     // right wall (x130 = 154−10−14). Labels center under each box → length self-adjusts.
-    [[1, 24, 74], [2, 130, 74], [0, 24, 122], [3, 130, 122]].forEach(([s, ex, ey]) => {
-      ctx.fillStyle = eq[s] ? PAL[eq[s].c] : '#2a2a33'; ctx.fillRect(ex, ey, 14, 14);
-      ctx.strokeStyle = eq[s] ? TC[eq[s].b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 14, 14);
-      ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 7, ey + 21);
-      if (eq[s]) { ctx.fillStyle = '#fff'; T2('+' + eq[s].b, ex + 7, ey + 10); }
+    [[1, 18, 64], [2, 126, 64], [0, 18, 112], [3, 126, 112]].forEach(([s, ex, ey]) => {
+      ctx.fillStyle = eq[s] ? PAL[eq[s].c] : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);
+      ctx.strokeStyle = eq[s] ? TC[eq[s].b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);
+      ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
+      if (eq[s]) { ctx.fillStyle = '#fff'; T2('+' + eq[s].b, ex + 12, ey + 14); }
     });
     // STATS — one row across the bottom of the box; alloc cursor = gold column
     const SL = [['STR', ho, '#ffd75e'], ['HP', he, '#ff5d6c'], ['MAG', sp, '#4a76ff'], ['DEF', df, '#8cf'], ['LCK', lk, '#9fe89a']];
     SL.forEach(([l, v, c], i) => {
       const sx = 22 + i * 26, sel = alloc && i === aRow;
-      if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 162, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 162, 25, 23);
-        ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 160); }   // Diablo-style delta preview — makes clear pressing SPACE adds one
-      ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 170);
-      T2(v, sx + 9, 181);
+      if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 152, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 152, 25, 23);
+        ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 150); }
+      ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 160);
+      T2(v, sx + 9, 171);
     });
     // INVENTORY — 5×3 grid UNDER the gold box (5 base, +5 SADDLE BAG, +5 SADDLE BAGS). Click to select, click again to use/equip.
-    for (let i = 0; i < 15; i++) {
-      const ix = 33 + (i % 5) * 21, iy = 194 + ((i / 5) | 0) * 21, it = inv[i], active = i < invMax();
+    const iMax = invMax(), iSz = 24, iGap = 28;
+    for (let i = 0; i < iMax; i++) {
+      const ix = 18 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.03)';
-      ctx.fillRect(ix, iy, 18, 18);
-      ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? TC[it.b] || '#888' : (active ? '#444' : '#2a2a33'));
-      ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, 18, 18);
-      if (it) {                                        // draw item icon centered
-        if (it.t < 2) { spr(I_MP, ix + 6, iy + 5, 6, it.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(ix + 8, iy + 5, 2, 1); }   // POTION — red HP or blue MP, dark cork
-        else drawPart(it.s, ix + 5, iy + 6, it.c);                                       // GEAR (t=5)
+      ctx.fillRect(ix, iy, iSz, iSz);
+      ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? TC[it.b] || '#888' : '#444');
+      ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, iSz, iSz);
+      if (it) {
+        if (it.t < 2) { spr(I_MP, ix + 9, iy + 8, 6, it.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(ix + 11, iy + 8, 2, 1); }
+        else drawPart(it.s, ix + 8, iy + 9, it.c);
       }
     }
     // Tooltip: item name+effect above the grid (in the 6px band under the gold box). Action hint replaces the keybind line at the bottom.
@@ -1226,18 +1226,21 @@ const draw = () => {
     if (spts) { ctx.fillStyle = '#ffd75e'; T2(spts + ' PTS', 290, 42); }
     // Tier dividers
     ctx.strokeStyle = '#333'; ctx.lineWidth = .5;
-    ctx.beginPath(); ctx.moveTo(165, 82); ctx.lineTo(465, 82); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(165, 128); ctx.lineTo(465, 128); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(170, 86); ctx.lineTo(450, 86); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(170, 132); ctx.lineTo(450, 132); ctx.stroke();
     // Nodes
     const pulse = Math.sin(time * 4) * .2 + .8, tot = su.reduce((a,v)=>a+v,0);
+    const NS = 30;
     TREE.forEach(([nm, req], i) => {
       const [cx, cy] = TPOS[i], locked = req === -2 ? tot < 2 : req === -3 ? tot < 5 : false;
       const can = spts > 0 && !su[i] && !locked;
-      ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx - 2, cy - 9, 76, 12);
-      ctx.fillStyle = su[i] ? 'rgba(255,215,94,.18)' : locked ? 'rgba(0,0,0,.4)' : 'rgba(255,255,255,.06)'; ctx.fillRect(cx - 2, cy - 9, 76, 12);
+      ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx, cy, NS, NS);
+      ctx.fillStyle = su[i] ? 'rgba(255,215,94,.18)' : locked ? 'rgba(0,0,0,.4)' : 'rgba(255,255,255,.06)'; ctx.fillRect(cx, cy, NS, NS);
       ctx.globalAlpha = can ? pulse : 1;
-      ctx.strokeStyle = su[i] ? '#ffd75e' : can ? '#8cf' : locked ? '#2a2a33' : '#555'; ctx.lineWidth = su[i] || can ? 1 : .5; ctx.strokeRect(cx - 2, cy - 9, 76, 12);
-      ctx.fillStyle = su[i] ? '#ffd75e' : locked ? '#444' : '#ccc'; ctx.fillText(locked ? '?' : nm, cx + 36, cy);
+      ctx.strokeStyle = su[i] ? '#ffd75e' : can ? '#8cf' : locked ? '#2a2a33' : '#555'; ctx.lineWidth = su[i] || can ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
+      ctx.fillStyle = su[i] ? '#ffd75e' : locked ? '#444' : '#ccc';
+      if (locked) ctx.fillText('?', cx + NS / 2, cy + 19);
+      else { const w = nm.split(' '); if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 13); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 23); } else ctx.fillText(nm, cx + NS / 2, cy + 19); }
       ctx.globalAlpha = 1;
     });
     // Footer — 5 rainbow shards under the tree, each dot colored by boss's band (grey = not yet held)
@@ -1246,7 +1249,12 @@ const draw = () => {
     for (let i = 0; i < 5; i++) { if (bs[i] === 2) drawGem(278 + i * 10, 232, time + i * .8); else { ctx.fillStyle = '#2a2a33'; ctx.fillRect(280 + i * 10, 233, 5, 5); } }
     ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
     if (choosing) T2('MOVE ← → · SPEND SPACE', VW / 2, VH - 4);
-    else if (invSel >= 0 && inv[invSel]) T2('USE · X DROP', VW / 2, VH - 4);
+    else if (invSel >= 0 && inv[invSel]) {
+      ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
+      ctx.fillRect(30, 250, 50, 14); ctx.strokeRect(30, 250, 50, 14);
+      ctx.fillRect(90, 250, 50, 14); ctx.strokeRect(90, 250, 50, 14);
+      ctx.fillStyle = '#ffd75e'; T2('USE', 55, 260); ctx.fillStyle = '#c33'; T2('DROP', 115, 260);
+    }
   }
 
   // action buttons — hidden during pause / level-up (dedicated overlays own the input)
@@ -1293,8 +1301,13 @@ const draw = () => {
 
   // Help "?" button — persistent when game is active, single draw (avoids duplication)
   if (started) {
-    ctx.fillStyle = '#fff'; ctx.fillRect(VW - 20, 4, 12, 12);
-    ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#cc3333'; ctx.fillText('?', VW - 14, 14);
+    ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+    if (paused) {
+      ctx.fillStyle = '#fff'; ctx.fillRect(VW - 34, 4, 12, 12); ctx.fillStyle = '#cc3333'; ctx.fillText('?', VW - 28, 14);
+      ctx.fillStyle = '#fff'; ctx.fillRect(VW - 16, 4, 12, 12); ctx.fillStyle = '#cc3333'; ctx.fillText('✕', VW - 10, 14);
+    } else {
+      ctx.fillStyle = '#fff'; ctx.fillRect(VW - 20, 4, 12, 12); ctx.fillStyle = '#cc3333'; ctx.fillText('?', VW - 14, 14);
+    }
     // SAVED toast
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {

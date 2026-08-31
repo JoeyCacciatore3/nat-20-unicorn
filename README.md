@@ -5,8 +5,8 @@ Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and R
 
 A 2D pixel-art platformer-RPG. The DARKNESS stole the world's color; you are the last
 unicorn. Name your unicorn, cross five themed zones, defeat five dark Mares, and reclaim
-the five RAINBOW SHARDS that restore the world. D&D-inspired combat with dice rolls,
-crits, and stat allocation.
+the five RAINBOW SHARDS that restore the world. STR-based combat with LUCK-driven crits
+and stat allocation.
 
 **Categories:** Desktop · Mobile · Wavedash
 
@@ -90,7 +90,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: multi-zone map traversal audit (no stuck spots, all portals/bosses/chests reachable at expected tier), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,160 / 13,312 B (91.3%) — 1,152 B free**
+**Current: 12,325 / 13,312 B (92.6%) — 987 B free**
 
 ## Save format
 Keys: `localStorage.n20_s0..2` (3 slots). Version: **v34** — strict version gate, auto-discards older saves.
