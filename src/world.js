@@ -97,50 +97,79 @@ const Z0 = {
     [55, 69, 4, 40, 57],    // Zone 4 (DEPTHS) — depths corridor floor (row 69, standable)
   ],
   DECO: [
-    [142, 59, 0], [155, 59, 0], [212, 59, 0], [238, 59, 0],
-    [150, 59, 1], [183, 59, 1], [225, 59, 1], [255, 59, 1],
-    [206, 55, 1], [176, 56, 0], [266, 57, 1],
+    // MEADOW paddock / title-hero framing (x111-146) — lush, spaced (trees ≥3 tiles
+    // apart so canopies never touch; campfire x131-134 kept clear).
+    [113, 59, 0], [119, 59, 0], [139, 59, 0], [145, 59, 0],                                 // trees
+    [112, 59, 1], [116, 59, 1], [122, 59, 1], [129, 59, 1], [136, 59, 1], [141, 59, 1],     // grass tufts
+    [118, 59, 6], [121, 59, 6], [128, 59, 6], [137, 59, 6], [143, 59, 6],                    // flowers
+    [126, 59, 3], [135, 59, 3],                                                              // mushrooms
+    // MEADOW eastern open run (x142-277)
+    [142, 59, 0], [155, 59, 0], [165, 59, 0], [200, 59, 0], [212, 59, 0], [228, 59, 0], [238, 59, 0],
+    [148, 59, 1], [150, 59, 1], [180, 59, 1], [183, 59, 1], [225, 59, 1], [255, 59, 1], [260, 59, 1],
+    [160, 59, 6], [170, 59, 6], [195, 59, 6], [210, 59, 6], [245, 59, 6], [250, 59, 6],
+    [176, 56, 0], [206, 55, 1], [266, 57, 1],
+    // terraces / cliffs / peak deco (gameplay regions, unchanged)
     [20, 69, 2], [125, 69, 2], [120, 69, 2], [190, 69, 2], [240, 69, 2],
     [86, 53, 0], [73, 50, 0], [78, 50, 1],
     [53, 25, 0], [46, 23, 1],
     [12, 11, 2], [16, 11, 1],
-    [160, 59, 6], [210, 59, 6], [245, 59, 6],
   ],
 };
 
-// ---------- ZONE 1: CAVE (MURK MARE) ----------
-// Enclosed cavern. Base-completable critical path (spawn→MURK→home portal), with a
-// DJ-gated high chest and a DASH-gated spike-lake chest past the boss as rewards.
-// Two shallow spike pits (L1 ≤2 deep, base-jumpable) punish sloppy movement.
+// ---------- ZONE 1: CAVE (MURK MARE) — RICH TEMPLATE ----------
+// Full multi-tier cavern (rows 19-60), designed as the reusable rich-zone template:
+// same geometry can reskin into other zones via palette/backdrop/boss-color swaps.
+// Base-completable critical path (spawn→floor corridor→MURK→home portal). Off the
+// line: a base-climbable mid gallery (DJ chest on a ledge), a DJ-gated hidden pocket
+// near the ceiling, and a DASH spike-lake reward past the boss. Reachability at every
+// ability tier is enforced by tools/map-audit.mjs (RETURN + GATE + SPACING laws).
 const Z1 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H],                      // envelope walls
-    [3, 61, 274, 11],                                  // solid undermass (rows 61-71)
-    [3, 49, 274, 2],                                   // cave ceiling (rows 49-50) — enclosure
-    // surface floor (row 60) carved with two base-jumpable spike pits
-    [3, 60, 45, 1],                                    // A  x3-47
-    [48, 60, 3, 1, 3],                                 //    spikes 48-50
-    [51, 60, 45, 1],                                   // B  x51-95
-    [96, 60, 3, 1, 3],                                 //    spikes 96-98
-    [99, 60, 137, 1],                                  // C  x99-235 (boss arena, MURK at 220)
-    [236, 60, 7, 1, 3],                                //    DASH spike-lake 236-242
-    [243, 60, 34, 1],                                  // F  x243-276 (dash-gated chest shelf)
-    [30, 55, 5, 5],                                    // west spawn ledge / portal bookend
-    // DJ platform climb over B → high chest ledge (row 54)
-    [60, 57, 5, 1, 2], [68, 54, 6, 1, 2], [74, 54, 6, 1],
-    [116, 59, 5, 1],                                   // small 1-tall terrain bump (texture)
+    [3, 60, 274, 12],                                  // floor / undermass (rows 60-71)
+    [3, 0, 274, 14],                                   // cavern ceiling mass (rows 0-13)
+    // floor hazards — flush spike strips (base-jumpable, drift <=5) + DASH spike-lake
+    [86, 60, 3, 1, 3], [132, 60, 3, 1, 3],
+    [236, 60, 8, 1, 3],                                // DASH lake (8 wide) → east reward shelf
+    // CLIMB A (x50-72) — zig-zag rungs, floor row 59 → mid gallery row 43 (base, rise 2)
+    [50, 57, 3, 1, 2], [55, 55, 3, 1, 2], [60, 53, 3, 1, 2], [65, 51, 3, 1, 2], [70, 49, 3, 1, 2],
+    [65, 47, 3, 1, 2], [60, 45, 3, 1, 2], [56, 43, 5, 1, 2],
+    // MID GALLERY (rows 41-43, x56-120) — base-accessible high route, gaps 3 / rises 2
+    [64, 43, 4, 1, 2], [71, 43, 4, 1, 2], [78, 41, 4, 1, 2], [85, 41, 4, 1, 2],
+    [92, 43, 4, 1, 2], [99, 43, 4, 1, 2], [106, 41, 5, 1, 2], [114, 42, 6, 1],   // solid ledge → DJ chest 1
+    // CLIMB B (x104-110) — gallery → hidden upper pocket (rises 3 = DJ-gated)
+    [110, 38, 3, 1, 2], [104, 35, 3, 1, 2], [110, 32, 3, 1, 2], [104, 29, 3, 1, 2], [110, 26, 3, 1, 2],
+    // HIDDEN POCKET (rows 19-25, x104-123) — roof block + floor shelf → hidden chest 2
+    [104, 19, 20, 3], [110, 25, 8, 1, 2],
+    // UPPER TRAVERSE (x122-153) — high route continuing east off the mid gallery: a parallel
+    // exploration layer above the floor corridor (rises <=2 / gaps 3 = base-walkable).
+    [122, 43, 4, 1, 2], [129, 44, 4, 1, 2], [136, 42, 4, 1, 2], [143, 44, 4, 1, 2], [150, 42, 4, 1, 2],
+    // MID-CORRIDOR STEPS (x124-141) — low platforms over the floor spike strip, giving the
+    // base path vertical texture between gallery and boss.
+    [124, 55, 4, 1, 2], [138, 54, 4, 1, 2],
+    // BOSS ARENA (x150-212) — floating combat platforms (aerial verticality), MURK on floor
+    [158, 55, 6, 1, 2], [172, 51, 5, 1, 2], [184, 48, 5, 1, 2], [196, 51, 5, 1, 2], [206, 55, 6, 1, 2],
+    // HIGH EAST LEDGE (x198-209) — upper platforms above the boss arena east side (verticality).
+    [198, 44, 4, 1, 2], [206, 46, 4, 1, 2],
+    // EAST APPROACH (x214-231) — stepping stones bridging the boss arena toward the DASH lake
+    // (still dash-gated: the 8-wide lake past x235 needs a dash launch off the floor).
+    [214, 55, 4, 1, 2], [221, 52, 5, 1, 2], [228, 55, 4, 1, 2],
   ],
   fires: [[45, 59.5]],
-  bosses: [[220, 59]],
+  bosses: [[185, 59]],
   chests: [
-    [58, 59.3],     // base — B floor discovery
-    [76, 53.3],     // DJ — atop the platform climb
-    [130, 59.3],    // base — mid corridor
-    [247, 59.3],    // DASH — across the spike-lake, past the boss
+    [18, 59.3],     // 0 base   — west floor discovery
+    [117, 41.3],    // 1 DJ     — mid-gallery solid ledge
+    [113, 24.3],    // 2 hidden — upper pocket near the ceiling (DJ climb)
+    [258, 59.3],    // 3 DASH   — east shelf across the spike-lake
   ],
-  foes: [[58, 58, 1], [88, 58, 2], [120, 58, 6], [150, 58, 3], [180, 58, 2], [205, 58, 4]],
+  foes: [[60, 58, 1], [100, 58, 2], [130, 58, 6], [78, 40, 4], [172, 50, 3], [165, 58, 2], [210, 58, 5], [250, 58, 4], [136, 41, 5], [150, 41, 4], [221, 51, 6]],
   doors: [[35, 59, 0, 226, 68]],
-  DECO: [[65, 59, 2], [90, 59, 3], [105, 59, 3], [125, 59, 3], [145, 59, 2], [175, 59, 3], [200, 59, 2], [250, 59, 2]],
+  DECO: [
+    [65, 59, 2], [125, 59, 3], [160, 59, 2], [200, 59, 2], [250, 59, 2],
+    [114, 41, 3], [78, 40, 3], [113, 24, 3],
+    [136, 41, 3], [150, 41, 2], [143, 43, 3], [206, 45, 2], [221, 51, 3],
+  ],
 };
 
 // ---------- ZONE 2: CLIFFS (GALE MARE) ----------

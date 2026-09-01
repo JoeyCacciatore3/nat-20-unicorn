@@ -302,7 +302,7 @@ let eqB = [0, 0, 0, 0];
 // tools/tpos-check.mjs guards against drift between the two.
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
-// Stat bar: dark track + coloured fill to `frac` (0..1). Shared by portrait, HUD, boss/elite bars.
+// Stat bar: dark track + coloured fill to `frac` (0..1). Shared by portrait, HUD, boss/tier bars.
 const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * frac, h); };
 // Shared portrait panel — renders the identity card (title bar, bordered box with
 // HP bar at top, live unicorn silhouette) used by both the PAUSE overlay and the
@@ -482,14 +482,16 @@ const fresh = () => {
   foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
-// Enemy/boss data (FOECOL, FT, P2, BN, RBC, RC, ZN) → data.js. 17% elite chance (non-ranged).
+// Enemy/boss data (FOECOL, FT, P2, BN, RBC, RC, ZN) → data.js. Non-ranged foes roll a strength tier in mkFoe (0 base / 1 tough / 2 select).
 let bann = 0, bTxt = '', bSub = '';
 // Zone tier 0-4 from world x position. Scales enemy HP and damage.
 const zT = x => Math.max(0, Math.min(4, (150 - x / T) / 35 | 0));
 const mkFoe = (x, y, k) => {
-  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, el = !fr && Math.random() < .17, t = curZone || zT(x), b = el ? 2 : 1;
-  const zh = fh * b * (2 + t) / 2 | 0;
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + b - 1 + t, el, fl: 0, t: Math.random() * 7, cz: el ? fz + 1 : fz };
+  // ENEMY TIER (tr): 0 base · 1 tough · 2 select — a random strength organization layered ON TOP of
+  // zone tier t. Non-ranged only (ranged foes stay base). ~75% base / 19% tough / 6% select (tunable).
+  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, t = curZone || zT(x), tr = fr ? 0 : Math.random() < .06 ? 2 : Math.random() < .2 ? 1 : 0;
+  const zh = fh * (1 + tr) * (2 + t) / 2 | 0;                    // HP ×(1+tr): tough 2×, select 3×
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + tr + t, tr, fl: 0, t: Math.random() * 7, cz: fz + (tr > 1 ? 1 : 0) };
 };
 let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
@@ -550,8 +552,8 @@ const strike = (f, gen, viaStomp) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 rate — k4+ are variants, not a farm ladder
-    if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);
-    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }
+    if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.tr || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // tier>0 guarantees a drop
+    if (f.tr) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }   // tier kill reward flourish
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
@@ -710,7 +712,7 @@ const step = (dt) => {
       bs[bi] = 1;
       foes.push({
         x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 5 + bi * 2,
-        fl: 0, t: 0, hit: 0, mx: 40 + 15 * bi,
+        fl: 0, t: 0, mx: 40 + 15 * bi,
         cap: 18 | (fresh ? 0 : st.ph && P2[bi]),
         hp: fresh ? 40 + 15 * bi : st.hp,
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
@@ -804,7 +806,12 @@ const step = (dt) => {
       // NOTE: stomp no longer resets .wt — repeat-bouncing accumulates threat (exploit fix)
     } else if (hit && (f.wt || 0) >= 0) {
       f.wt = (f.wt || 0) + dt;
-      if (f.wt > .22) { hurt(f.dm, 0); f.wt = -.7; }
+      // Arm on 0.22s of slow contact (telegraph / red-flash for standing melee) OR immediately on a
+      // FAST impact: a quick pass-by (fast foe, or you moving) can't sustain 0.22s in the ~20px
+      // overlap window, so relative speed >90px/s registers on the FIRST overlap frame — no more
+      // running through / behind enemies for free. Guarded to !dashT so the offensive dash-through
+      // stays a clean engage; the 1.2s hurt() i-frame prevents any double-dip.
+      if (f.wt > .22 || (dashT <= 0 && Math.abs((pl.vx || 0) - (f.vx || 0)) > 90)) { hurt(f.dm, 0); f.wt = -.7; }
     } else if (!hit && (f.wt || 0) > 0) f.wt = Math.max(0, f.wt - dt * 2);  // DECAY, not reset — brief separation keeps threat
     if (f.wt < 0) f.wt = Math.min(0, f.wt + dt);
   }
@@ -972,24 +979,17 @@ const draw = () => {
   }
 
   // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds. One draw per tier,
-  // boss shares the silhouette scaled up. cz = elite/boss cell multiplier.
+  // boss shares the silhouette scaled up. cz = select-tier/boss cell multiplier.
   for (const f of foes) {
     const s = f.cz || 1 + f.k, fs = 5 * s, wob = Math.sin(f.t * 6) * 1.5, sh = FT[f.k][5]; // sh = body shape from the type table
     const step = Math.sin(f.t * 8) * s * .35;                   // leg-step animation, shared
-    if (f.el) {                                                 // ELITE — small gold crown ABOVE head (no box, sprite-integrated read)
-      ctx.fillStyle = '#ffd75e';
-      const cx = f.x + fs / 2, cy = f.y - 4 + Math.sin(time * 4) * .5; // gentle bob
-      ctx.fillRect(cx - 3, cy + 1, 6, 1);                         // crown base
-      ctx.fillRect(cx - 3, cy, 1, 1);                             // three spikes
-      ctx.fillRect(cx - 1, cy - 1, 1, 2);
-      ctx.fillRect(cx + 2, cy, 1, 1);
-    }
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
     ctx.translate(-fs / 2, -fs);
     // colour: white flash on hit > red pre-strike wind-up tell > tier base
-    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : FOECOL[f.k]; // boss = dark charcoal (reuses bar-track literal; reads on near-black DEPTHS backdrop, still menacing elsewhere)
+    // TIER color: select(2)=flat aqua PAL[9] (bigger too) · tough(1)=darkened base via dim() · base=FOECOL. boss=charcoal.
+    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.tr === 2 ? PAL[9] : f.tr ? dim(FOECOL[f.k], .62) : FOECOL[f.k];
     if (f.bit) {                                                // DARK MARE — reflection of the player unicorn: same shape,
       // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
@@ -1047,7 +1047,7 @@ const draw = () => {
     }
     ctx.restore();
     if (f.bit) bar(f.x, f.y - 8, fs, 3, f.hp / f.mx, f.ph ? '#ffd75e' : '#e05555');   // boss HP bar
-    else if (f.el && f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#ffd75e');   // elite HP tick (hidden until first hit)
+    else if (f.tr && f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, f.tr === 2 ? PAL[9] : '#ff5d6c');   // tier HP tick (select=aqua, tough=red; hidden until first hit)
   }
   for (const s of shots) { ctx.fillStyle = `hsl(${s.x * 4 % 360} 80% 60%)`; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }   // magic bolt head: spatial-hue rainbow (matches its comet trail; hue by position, not time)
   for (const b of fbolts) {                                     // foe bolt: purple diamond with a pale core
@@ -1055,8 +1055,9 @@ const draw = () => {
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
   }
 
-  // unicorn
-  if (pl.inv <= 0 || Math.sin(time * 40) > 0) {
+  // unicorn — hidden on the title (phase 0) so the meadow backdrop shows no duplicate
+  // player under the big branding unicorn; the spawn framing is otherwise clean.
+  if (started && (pl.inv <= 0 || Math.sin(time * 40) > 0)) {
     ctx.save();
     ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale((2 - pl.sq) * pl.face, pl.sq); ctx.translate(-PW / 2, -PH);
     drawU(pl.ground && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.ground ? 0 : 2));
@@ -1249,7 +1250,6 @@ const draw = () => {
     }
     ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';   // ? — help (always, incl. level-up)
     ctx.fillStyle = '#fff'; ctx.fillRect(VW - 20, 4, 12, 12); ctx.fillStyle = '#c33'; ctx.fillText('?', VW - 14, 14);
-    // SAVED toast
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {
       ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(0, 0, VW, VH);
@@ -1263,9 +1263,11 @@ const draw = () => {
       ctx.font = 'bold 13px monospace'; T2('EXIT GAME', VW / 2, 175);
     }
   }
-  // TITLE screen (phase 0) — branded start: black sky, rainbow arc, unicorn
+  // TITLE screen (phase 0) — the live MEADOW renders behind this (sim frozen while
+  // !started), so the opening zone doubles as the title backdrop. A light scrim dims
+  // the scene just enough to keep the branding legible over the lively foliage.
   if (phase === 0) {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.fillRect(0, 0, VW, VH);
     // Rainbow arc — uses module-level RC palette (shared with title + effects)
     ctx.lineWidth = 3;
     RC.forEach((c, i) => {
@@ -1279,28 +1281,29 @@ const draw = () => {
     ctx.restore();
     // Title — rainbow per-character matching the arc; subtitle in white
     ctx.font = 'bold 30px monospace'; ctx.textAlign = 'left';
+    ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
     const tc = 'UNI-CORN', tw = ctx.measureText(tc).width, cw = tw / 8;
-    for (let i = 0; i < 8; i++) { ctx.fillStyle = RC[i % 7]; ctx.fillText(tc[i], VW / 2 - tw / 2 + cw * i, 168); }
-    ctx.textAlign = 'center'; ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 13px monospace'; ctx.fillText('Hooves of Hope', VW / 2, 188);
+    for (let i = 0; i < 8; i++) { const cx = VW / 2 - tw / 2 + cw * i; ctx.strokeText(tc[i], cx, 168); ctx.fillStyle = RC[i % 7]; ctx.fillText(tc[i], cx, 168); }
+    ctx.textAlign = 'center'; ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 13px monospace'; T2('Hooves of Hope', VW / 2, 188);
     // Title art above stays in EVERY mode — menu / name entry / slot select swap below it.
     if (tMode === 1) {                                             // NAME ENTRY
       const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; ctx.fillText(nm || '(type A–Z)', VW / 2, 224);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; T2(nm || '(type A–Z)', VW / 2, 224);
       ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,215,94,.14)';
       ctx.fillRect(VW / 2 - 60, 236, 120, 20); ctx.strokeRect(VW / 2 - 60, 236, 120, 20);
-      ctx.fillStyle = '#ffd75e'; ctx.fillText('BEGIN', VW / 2, 250);
+      ctx.fillStyle = '#ffd75e'; T2('BEGIN', VW / 2, 250);
     } else if (tMode === 2) {                                      // SLOT SELECT — name + level per slot
       ctx.font = 'bold 13px monospace';
       for (let i = 0; i < 4; i++) {
         const m = i < 3 ? sMeta(i) : 0, on = sSel === i, y = 206 + i * 16;
         ctx.fillStyle = on ? '#ffd75e' : (i < 3 && !m && !slotNew) ? '#555' : '#888';
-        ctx.fillText(i === 3 ? '← BACK' : 'SLOT ' + (i + 1) + ' · ' + (m || 'EMPTY'), VW / 2, y);
+        T2(i === 3 ? '← BACK' : 'SLOT ' + (i + 1) + ' · ' + (m || 'EMPTY'), VW / 2, y);
       }
     } else {                                                       // MENU — gold highlight IS the selection indicator; ▶ cursor removed as redundant
       const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
       opts.forEach((o, i) => {
         ctx.fillStyle = mSel === i ? '#ffd75e' : '#888'; ctx.font = 'bold 13px monospace';
-        ctx.fillText(o, VW / 2, 208 + i * 16);
+        T2(o, VW / 2, 208 + i * 16);
       });
     }
   }
