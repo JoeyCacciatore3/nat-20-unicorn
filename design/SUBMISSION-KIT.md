@@ -91,30 +91,38 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 
 ---
 
-## Achievements — SLATE CLEAN (2026-08-30 purge)
+## Achievements — LIVE SLATE (2026-08-31, pushed via CLI/API)
 
-**Current status: all 13 stale achievements DELETED from Wavedash** (2026-08-30). They
-described a completely different game concept ("Kevin the troll", "gather 50 flowers",
-"build home modules", "gloomlings") that never existed here — leftovers from a template.
-Verified `wavedash achievement list` returns "No achievements found."
+**Current status: 8 achievements are LIVE on Wavedash**, each with title + description +
+image, pushed via `wavedash achievement create` / `achievement update --image` with the
+API key. Verify with `wavedash achievement list --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv`.
+(The prior 13 "Kevin the troll" template leftovers were deleted 2026-08-30; this slate
+replaces them, matched to the real game.)
 
-**In-game code has zero achievement calls.** Only `Wavedash.init({})` fires on load.
+Icons: `design/achievements/*.png` (256×256, dark starry badge + rainbow ring + distinct
+glyph per achievement; Wavedash transcodes to webp server-side).
 
-**When ready to add achievements:** define them fresh in the Developer Portal (or bulk
-import via Portal → Add achievement → Import JSON). Match current game exactly. Then
-add `Wavedash.setAchievement("ID", true)` calls in `dist/wavedash/index.html` build
-glue (build.mjs) — costs zero game.zip bytes since the SDK integration lives only in
-the Wavedash-wrapped build.
+| Identifier | Title | Threshold | Wavedash ID |
+|---|---|---|---|
+| FIRST_LIGHT | First Light | first boss/Mare kill | md78vr7cr0q2bbe0va7dfprnjn8dhdgb |
+| HALFWAY | Halfway to Whole | 3 of 5 shards | md734evx1rnbs767xx1ea13qvx8dhjmh |
+| PRISMATIC | Prismatic | all 5 shards (win) | md73vrrcjdsbv8aqnd245xb1yd8dgy8e |
+| NATURAL_20 | Natural 20 | land a crit | md7bmz5y4mfq992001s0mtps1x8dgxtt |
+| APOTHEOSIS | Apotheosis | reach level 15 | md74g1g3ad9bp9pje0c41mjeax8dg08n |
+| FULLY_GEARED | Fully Geared | all 4 gear slots equipped | md7cdx015efj6dajdzzw1yk0ks8dgvgv |
+| EXPLORER | Explorer | enter all 5 zones | md7cr7zcxqadste3bjf6rwdtrh8dh3gt |
+| HOARDER | Hoarder | open all 20 chests | md713bgay7b612jt8p4n1dftzh8dhdg9 |
 
-**Suggested first slate** (all achievable in current game, no design work needed):
-- `FIRST_LIGHT` — Free your first Rainbow Shard *(triggers on any boss kill)*
-- `HALFWAY` — Free 3 Rainbow Shards
-- `PRISMATIC` — Free all 5 Rainbow Shards *(win the game)*
-- `NATURAL_20` — Land a critical hit *(natural die-max)*
-- `APOTHEOSIS` — Reach level 15
-- `FULLY_GEARED` — Equip all 4 slots simultaneously
-- `EXPLORER` — Enter all 5 zones
-- `HOARDER` — Open all 16 chests
+**REMAINING STEP — SDK wiring (makes them actually unlock in-play).** The achievements
+EXIST on Wavedash but won't fire until the wrapped build calls
+`Wavedash.setAchievement("ID", true)` at each trigger. This lives ONLY in the
+`dist/wavedash/index.html` build glue (build.mjs) — costs zero game.zip bytes. Needs the
+game to expose the trigger events (boss kill, crit, level-up, gear-equip, zone-enter,
+chest-open) to the wrapper. That is the next task.
+
+**Thresholds to confirm with the operator:** APOTHEOSIS level 15 (verify reachable);
+HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
+`achievement update`.
 
 ---
 

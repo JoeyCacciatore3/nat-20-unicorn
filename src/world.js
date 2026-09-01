@@ -61,7 +61,7 @@ const Z0 = {
     [52, 26, 8, 2],
     [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
     // Peak approach (x10-60) — post-SHOT climb leads to Zone 3 portal
-    [48, 18, 2, 10, 4],
+    [49, 18, 1, 10, 4],
     [46, 24, 3, 1, 2],
     [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
     [10, 12, 9, 2],
@@ -78,7 +78,7 @@ const Z0 = {
   chests: [
     [186, 68.3],    // 0 — cave entry W (base tier discovery)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
-    [56, 25.3],     // 2 — canopy crest (climbing route reward)
+    [59, 25.3],     // 2 — canopy crest (moved off the CLIFFS door at x56 so both read cleanly)
     [12, 11.3],     // 3 — peak ledge (SHOT-gated summit reward)
   ],
   foes: [
@@ -104,88 +104,164 @@ const Z0 = {
     [86, 53, 0], [73, 50, 0], [78, 50, 1],
     [53, 25, 0], [46, 23, 1],
     [12, 11, 2], [16, 11, 1],
-    [160, 59, 6], [200, 59, 6], [245, 59, 6],
+    [160, 59, 6], [210, 59, 6], [245, 59, 6],
   ],
 };
 
 // ---------- ZONE 1: CAVE (MURK MARE) ----------
-// Small underground chamber. Return portal at west edge → Meadow cave east loop.
+// Enclosed cavern. Base-completable critical path (spawn→MURK→home portal), with a
+// DJ-gated high chest and a DASH-gated spike-lake chest past the boss as rewards.
+// Two shallow spike pits (L1 ≤2 deep, base-jumpable) punish sloppy movement.
 const Z1 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],   // envelope + floor
-    [30, 55, 5, 5],                                    // small ledge west (spawn area)
-    [95, 57, 20, 1, 2],                                // one-way platform bridge (cols 95-114, row 57)
+    [0, 0, 3, H], [277, 0, 3, H],                      // envelope walls
+    [3, 61, 274, 11],                                  // solid undermass (rows 61-71)
+    [3, 49, 274, 2],                                   // cave ceiling (rows 49-50) — enclosure
+    // surface floor (row 60) carved with two base-jumpable spike pits
+    [3, 60, 45, 1],                                    // A  x3-47
+    [48, 60, 3, 1, 3],                                 //    spikes 48-50
+    [51, 60, 45, 1],                                   // B  x51-95
+    [96, 60, 3, 1, 3],                                 //    spikes 96-98
+    [99, 60, 137, 1],                                  // C  x99-235 (boss arena, MURK at 220)
+    [236, 60, 7, 1, 3],                                //    DASH spike-lake 236-242
+    [243, 60, 34, 1],                                  // F  x243-276 (dash-gated chest shelf)
+    [30, 55, 5, 5],                                    // west spawn ledge / portal bookend
+    // DJ platform climb over B → high chest ledge (row 54)
+    [60, 57, 5, 1, 2], [68, 54, 6, 1, 2], [74, 54, 6, 1],
+    [116, 59, 5, 1],                                   // small 1-tall terrain bump (texture)
   ],
   fires: [[45, 59.5]],
   bosses: [[220, 59]],
   chests: [
-    [60, 59.3],     // near-spawn discovery
-    [110, 56.3],    // atop the platform bridge (requires jumping up)
-    [250, 59.3],    // east side, past the boss arena
+    [58, 59.3],     // base — B floor discovery
+    [76, 53.3],     // DJ — atop the platform climb
+    [130, 59.3],    // base — mid corridor
+    [247, 59.3],    // DASH — across the spike-lake, past the boss
   ],
-  foes: [[100, 58, 1], [150, 58, 2], [180, 58, 6]],
+  foes: [[58, 58, 1], [88, 58, 2], [120, 58, 6], [150, 58, 3], [180, 58, 2], [205, 58, 4]],
   doors: [[35, 59, 0, 226, 68]],
-  DECO: [[70, 59, 2], [160, 59, 2], [200, 59, 2], [85, 59, 3], [130, 59, 3], [175, 59, 3], [240, 59, 3]],
+  DECO: [[65, 59, 2], [90, 59, 3], [105, 59, 3], [125, 59, 3], [145, 59, 2], [175, 59, 3], [200, 59, 2], [250, 59, 2]],
 };
 
 // ---------- ZONE 2: CLIFFS (GALE MARE) ----------
 // Sky arena — wind-swept cliff top. Return portal at west edge → Meadow canopy ledge.
+// Tier-2, DJ-assumed critical path (hub portal is DJ-gated): spike pits are 4-5 wide
+// (DJ gap-law limit), a rise-3 DJ climb reaches a high chest single-jump can't, and an
+// 8-wide DASH spike-lake spur gates the far-east reward. Boss arena has floating combat
+// platforms for aerial verticality. Home portal sits at spawn → no softlock.
 const Z2 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H], [3, 42, 274, 30],   // envelope + high floor at y=42
-    [30, 38, 5, 4],                                    // spawn ledge
-    [80, 38, 8, 1, 2],                                 // one climb platform (DJ from ground)
+    [0, 0, 3, H], [277, 0, 3, H], [3, 42, 274, 30],    // envelope + floor/undermass (rows 42-71)
+    [30, 38, 5, 4],                                     // spawn ledge (home portal bookend)
+    // Spike pit 1 (x64-67, 4 wide) — first hazard, DJ hop (gap 4 <= DJ limit)
+    [64, 42, 4, 2, 0], [64, 43, 4, 1, 3],
+    // DJ platform climb (x78-108) → high chest ledge row 30. Rise-3 steps = single-jump
+    // can't clear (pre-ability rise <=2), so the climb genuinely requires double jump.
+    [78, 39, 5, 1, 2], [86, 36, 4, 1, 2], [94, 33, 4, 1, 2], [102, 30, 7, 1],
+    // Spike pit 2 (x120-124, 5 wide) — wider, at the DJ gap limit
+    [120, 42, 5, 2, 0], [120, 43, 5, 1, 3],
+    // Boss arena (x134-206) — floating one-way combat platforms (aerial verticality)
+    [144, 37, 6, 1, 2], [166, 34, 5, 1, 2], [156, 30, 5, 1, 2], [188, 37, 5, 1, 2],
+    // Dash spike-lake spur (x236-243, 8 wide) → far-east dash reward shelf (x244-276)
+    [236, 42, 8, 2, 0], [236, 43, 8, 1, 3],
   ],
   fires: [[45, 41.5]],
-  bosses: [[240, 41]],
+  bosses: [[196, 41]],
   chests: [
-    [60, 41.3],     // ground near spawn (base tier)
-    [85, 37.3],     // atop the climb platform (DJ reward)
-    [250, 41.3],    // east floor, past the boss (base tier)
+    [56, 41.3],     // 0 base — west floor discovery
+    [105, 29.3],    // 1 DJ   — top of the rise-3 climb (high reward)
+    [220, 41.3],    // 2 base — east floor, past the boss
+    [268, 41.3],    // 3 DASH — far-east shelf, across the 8-wide spike-lake
   ],
-  foes: [[90, 37, 5], [140, 29, 6], [190, 37, 5]],
+  foes: [[62, 40, 4], [90, 35, 5], [138, 40, 6], [166, 33, 3], [190, 40, 5], [212, 40, 6], [230, 40, 4]],
   doors: [[35, 41, 0, 56, 24]],
-  DECO: [[100, 41, 1], [200, 41, 1], [70, 41, 6], [140, 41, 6], [230, 41, 1], [120, 41, 6], [260, 41, 1]],
+  DECO: [
+    [50, 41, 2], [74, 41, 1], [115, 41, 6], [160, 41, 2],
+    [205, 41, 1], [225, 41, 6], [255, 41, 2], [103, 29, 1],
+  ],
 };
 
 // ---------- ZONE 3: PEAK (FROST MARE) ----------
-// Icy plateau. Return portal at west edge → Meadow peak ledge.
+// Icy plateau. Return portal at west edge → Meadow peak ledge. Tier-3, assumes SHOT+DJ
+// (hub portal is SHOT-gated). Full enriched archetype: 2 spike crevasses, a DJ summit
+// climb to a high chest, an ICE-CAVERN signature (rung shaft down to a hidden pocket
+// chest, mirroring Meadow's cave pattern), a boss arena with 4 aerial platforms, and a
+// SHOT-gated secret alcove behind cracked ice. Home portal at spawn → no softlock.
 const Z3 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H], [3, 32, 274, 40],   // envelope + floor at y=32
-    [30, 28, 5, 4],                                    // spawn ledge
-    [75, 29, 10, 1, 2],                                // one crossing platform (DJ from ground)
+    [0, 0, 3, H], [277, 0, 3, H], [3, 32, 274, 40],    // envelope + floor/undermass (rows 32-71)
+    [30, 28, 5, 4],                                     // spawn ledge (home portal bookend)
+    // Spike crevasse 1 (x58-61, 4 wide) — DJ hop
+    [58, 32, 4, 2, 0], [58, 33, 4, 1, 3],
+    // DJ summit climb (x70-91) UP to a high summit ledge → summit chest (rise-3 = DJ-only)
+    [70, 29, 5, 1, 2], [78, 26, 4, 1, 2], [86, 23, 6, 1],
+    // ICE CHASM signature — a wide spike chasm crossed on floating ice platforms. The
+    // west entry gap is 4 (DJ-gated, base can't fall in → no trap); the middle platform
+    // is a jump higher, so its chest needs the 2nd jump.
+    [102, 32, 20, 2, 0], [102, 33, 20, 1, 3],         // spike chasm (rows 32-33, x102-121)
+    [106, 29, 3, 1, 2], [116, 29, 3, 1, 2],           // DJ side stepping platforms
+    [111, 26, 3, 1, 2],                               // high middle platform → hidden chest
+    // Spike crevasse 2 (x138-142, 5 wide) — DJ limit
+    [138, 32, 5, 2, 0], [138, 33, 5, 1, 3],
+    // Boss arena (x150-206) — 4 floating ice platforms (aerial verticality)
+    [162, 28, 6, 1, 2], [180, 24, 5, 1, 2], [172, 20, 5, 1, 2], [196, 28, 5, 1, 2],
+    // SHOT-gated secret alcove (east of boss) — cracked ice wall seals a bonus chest
+    [232, 26, 1, 7, 4],                                // cracked ice wall (rows 26-32, shot/dash breaks)
+    [233, 27, 12, 5, 0], [233, 26, 12, 1],             // alcove (rows 27-31) + ceiling (row 26)
+    [245, 27, 1, 5],                                   // east seal → only entry is through the cracked wall
   ],
   fires: [[45, 31.5]],
-  bosses: [[220, 31]],
+  bosses: [[200, 31]],
   chests: [
-    [60, 31.3],     // ground near spawn (base tier)
-    [80, 28.3],     // atop the crossing platform (DJ reward)
-    [240, 31.3],    // east floor, past the boss (base tier)
+    [56, 31.3],     // 0 base   — west floor discovery
+    [89, 22.3],     // 1 DJ     — atop the summit climb
+    [112, 25.3],    // 2 hidden — high middle platform mid-chasm (DJ)
+    [239, 31.3],    // 3 SHOT   — secret alcove behind cracked ice
   ],
-  foes: [[100, 29, 4], [140, 25, 3], [190, 29, 4]],
+  foes: [[62, 30, 4], [88, 22, 3], [130, 30, 6], [172, 19, 3], [190, 30, 4], [210, 30, 6], [225, 30, 4]],
   doors: [[35, 31, 0, 14, 10]],
-  DECO: [[80, 31, 2], [180, 31, 2], [60, 31, 5], [110, 31, 5], [150, 31, 5], [230, 31, 5], [100, 31, 2]],
+  DECO: [
+    [50, 31, 5], [76, 31, 2], [130, 31, 5], [160, 31, 5],
+    [212, 31, 5], [250, 31, 2], [89, 22, 5], [112, 25, 5],
+  ],
 };
 
 // ---------- ZONE 4: DEPTHS (DARK MARE, final boss) ----------
 // Corrupted arena. Return portal at west edge → Meadow deep corridor.
 const Z4 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],   // envelope + floor
-    [30, 55, 5, 5],                                    // spawn ledge
-    [150, 57, 8, 1, 2],                                // climb platform (DJ from ground, reaches row 56)
+    [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],    // envelope + floor/undermass (rows 60-71)
+    [30, 56, 5, 4],                                     // spawn ledge (home portal bookend)
+    // Spike crevasse 1 (x58-62, 5 wide) — DJ hop
+    [58, 60, 5, 2, 0], [58, 61, 5, 1, 3],
+    // DJ summit climb (x70-91) UP to a high summit ledge → summit chest (rise-3 = DJ-only)
+    [70, 57, 5, 1, 2], [78, 54, 4, 1, 2], [86, 51, 6, 1],
+    // ABYSS signature — a wide spike chasm (x102-119, 18) crossed by DASH. One middle
+    // platform holds the hidden chest; both approach gaps are 7-8 wide (dash-only, DJ
+    // falls short). Chasm bottom is spikes → a miss is death, never a stuck pocket.
+    [102, 60, 18, 2, 0], [102, 61, 18, 1, 3],          // spike chasm rows 60-61
+    [108, 57, 4, 1, 2],                                // middle dash platform → hidden chest
+    // Spike crevasse 2 (x140-145, 6 wide) — widest DJ limit
+    [140, 60, 6, 2, 0], [140, 61, 6, 1, 3],
+    // Boss arena (x150-205) — 4 floating obsidian platforms (aerial verticality)
+    [160, 56, 6, 1, 2], [178, 52, 5, 1, 2], [170, 48, 5, 1, 2], [194, 56, 5, 1, 2],
+    // DASH spike-lake spur (x210-217, 8 wide) → east reward chest on the far ledge
+    [210, 60, 8, 2, 0], [210, 61, 8, 1, 3],
   ],
   fires: [[45, 59.5]],
-  bosses: [[240, 59]],                              // DARK MARE on ground floor
+  bosses: [[185, 59]],                              // DARK MARE — arena center
   chests: [
-    [60, 59.3],     // ground near spawn (base tier)
-    [155, 56.3],    // atop the climb platform (DJ reward)
-    [255, 59.3],    // east floor, past the boss (base tier)
+    [50, 59.3],     // 0 base   — west floor discovery
+    [89, 50.3],     // 1 DJ     — atop the summit climb
+    [109, 56.3],    // 2 hidden — middle abyss platform (DASH)
+    [223, 59.3],    // 3 DASH   — east ledge past the spike-lake
   ],
-  foes: [[100, 58, 3], [140, 58, 6], [175, 51, 4], [200, 58, 3]],
+  foes: [[64, 58, 4], [88, 50, 3], [128, 58, 6], [170, 47, 3], [185, 58, 4], [200, 58, 6], [218, 58, 3]],
   doors: [[35, 59, 0, 55, 68]],
-  DECO: [[80, 59, 2], [130, 59, 2], [170, 59, 2], [100, 59, 4], [150, 59, 4], [210, 59, 3], [250, 59, 4]],
+  DECO: [
+    [50, 59, 4], [76, 59, 2], [128, 59, 4], [158, 59, 2],
+    [204, 59, 4], [89, 50, 4], [109, 56, 2],
+  ],
 };
 
 const ZONES = [Z0, Z1, Z2, Z3, Z4];
@@ -194,12 +270,33 @@ const ZONES = [Z0, Z1, Z2, Z3, Z4];
 export let seeds = Z0;
 export let DECO = Z0.DECO;
 
-// Rebuild grid from a zone's MAP array, swap active seeds/DECO. Returns zone index.
+// PROCEDURAL FOLIAGE — zero data cost: scatter zone-appropriate deco along the main
+// floor from a tiny per-zone config. "More detail" = tune a density number, not add
+// array entries. FOL[z] = [1-in-N chance per column, ...deco types to pick from].
+// Types: 0 tree 1 grass 2 rock 3 mushroom 4 dead-tree 5 ice 6 flower.
+const FOL = [[3, 1, 1, 6, 1], [4, 3, 2, 3], [3, 1, 6, 1], [5, 5, 2, 5], [5, 2, 4, 2]];
+// Ground-find: first solid/platform surface ROW at or below (tx, ty), skipping air/spikes.
+// One shared "seat on the surface" rule — used by hand-placed deco snapping (loadZone) AND
+// chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.
+export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = grid[y * W + tx]; if (v === 1 || v === 2) return y; } return H; };
+const scatter = (zi) => {
+  const [gap, ...ty] = FOL[zi], d = [];
+  let s = zi * 2749 + 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // deterministic per-zone
+  for (let x = 5; x < W - 5; x++) {
+    if (rnd() * gap >= 1) continue;                              // 1-in-gap column density
+    let surf = -1;
+    for (let y = 2; y < H; y++) if (grid[y * W + x] === 1 && grid[(y - 1) * W + x] === 0) surf = y;   // lowest exposed floor top (skips ceilings)
+    if (surf > 0) d.push([x, surf - 1, ty[rnd() * ty.length | 0]]);
+  }
+  return d;
+};
+
+// Rebuild grid from a zone's MAP array, swap active seeds, merge hand-placed + scattered DECO. Returns zone index.
 export const loadZone = (i) => {
   grid.fill(0);
   seeds = ZONES[i];
-  DECO = seeds.DECO;
   for (const m of seeds.MAP) box(...m);
+  DECO = seeds.DECO.map(([x, y, t]) => [x, groundRow(x, y + 1) - 1, t]).concat(scatter(i));   // snap hand-placed deco to surface, then procedural fill
   return i;
 };
 

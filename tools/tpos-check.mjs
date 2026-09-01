@@ -7,7 +7,10 @@
 // printed line into src/main.js (the TPOS = [...] line).
 import { readFileSync } from 'node:fs';
 
-const src = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+// TREE/TPOS/PAL live in data.js; the gear-range literal lives in main.js (spawnDrop).
+// Concatenate both so every guard regex below still resolves.
+const src = readFileSync(new URL('../src/data.js', import.meta.url), 'utf8')
+  + readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 
 // Extract TREE literal — the block bounded by `const TREE = [` … `];`
 const treeMatch = src.match(/const TREE = \[([\s\S]*?)\n\];/);
@@ -20,7 +23,7 @@ let m; while ((m = rowRe.exec(treeMatch[1])) !== null) TREE.push([m[1], +m[2]]);
 
 // 3-tier layout: T1(3 across y=60), T2(4 across y=106), T3(3 across y=152).
 // TPOS is hand-tuned for the tier layout — verify by direct comparison.
-const TPOS = [[195,48],[178,94],[285,48],[195,140],[262,94],[285,140],[375,48],[346,94],[430,94],[375,140]];
+const TPOS = [[257,48],[252,94],[345,48],[257,140],[314,94],[345,140],[433,48],[376,94],[438,94],[433,140]];
 if (TPOS.length !== TREE.length) { console.error(`❌ TPOS length ${TPOS.length} ≠ TREE length ${TREE.length}`); process.exit(1); }
 const expected = JSON.stringify(TPOS);
 
