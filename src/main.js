@@ -1039,8 +1039,7 @@ const draw = () => {
       ctx.fillRect(fs - s * .5, s * 2.5, s * (.8 + p * .6), s * (.8 + p * .6));
     }
     ctx.restore();
-    if (f.bit) bar(f.x, f.y - 8, fs, 3, f.hp / f.mx, f.ph ? '#ffd75e' : '#e05555');   // boss HP bar
-    else if (f.tr && f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, f.tr === 2 ? PAL[9] : '#ff5d6c');   // tier HP tick (select=aqua, tough=red; hidden until first hit)
+    if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#ff5d6c');   // shared HP bar (all foes + bosses, shown when damaged)
   }
   for (const s of shots) { ctx.fillStyle = `hsl(${s.x * 4 % 360} 80% 60%)`; ctx.fillRect(s.x - 3, s.y - 2, 6, 4); }   // magic bolt head: spatial-hue rainbow (matches its comet trail; hue by position, not time)
   for (const b of fbolts) {                                     // foe bolt: purple diamond with a pale core
