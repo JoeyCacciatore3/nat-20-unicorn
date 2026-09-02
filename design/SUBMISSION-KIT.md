@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,765 B (95.9%, 547 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety + hand-decor + FOL keepout + all 14 deco placement fixes + 5 DARK CORN bosses (color-aligned) + unified HP bar + unified combat text palette + unified top-right icons + unified enemy/boss scaling (player-level factor `lvl>>2`) + tier system collapsed to single ELITE EVENT (~6% rare mini-boss variant, kept the moment, dropped the middle tier), all assets current, 8-achievement slate live on Wavedash.**
+Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,676 B (95.2%, 636 B free · 4.8% headroom), save v34, 5-zone hub-and-spoke world with FOL densify + variety + hand-decor + FOL keepout + all 14 deco placement fixes + 5 DARK CORN bosses (color-aligned, unified scaling formula) + ELITE EVENT (~6% rare mini-boss) + unified visual language across HP bars, combat text (4 semantic colors), particle bursts (all n=12), HUD icons (single box helper), enemy/boss pop-ups; three helper extractions (interact / bars / fade) + magic-point rebalance (10 MP start, dash 1 / shot 2 / heal 3); all assets current, 8-achievement slate live on Wavedash.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -109,7 +109,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |
 | ✓ | Elite event system | ~94% regular / ~6% elite (mini-boss variant: 3× HP, +2 dmg, +1 size, aqua tint, guaranteed drop + gold flourish + XP bonus) — collapsed from 3-tier 2026-09-02 |
-| ✓ | GitHub `main` pushed | Latest commit 2d9502f "Zone decor pass + FOL keepout + all 14 deco placement bugs fixed" (2026-09-02) |
+| ✓ | GitHub `main` pushed | Latest commit e522655 "Three helper extractions: interact() + bars(x,y) + fade(a)" (2026-09-02) · 19 commits shipped this session |
 | ✓ | Achievement icons on disk | 8 PNGs in `design/achievements/` matching Wavedash slate |
 
 ### ⏸ Deferred (operator decision — pre-submission)
@@ -135,7 +135,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | 5 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
 | 6 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
 
-**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest push 2026-09-02: `mn717ksrgt1fgb6bhpvh7bq88s8dmrdz` (de08d89, 12,884 B). Prior `mn76ry78...` (2d9502f, 12,882 B), initial `mn76c8ze...` (aa03119, 12,845 B) had playtest data wiped — wipe still in effect.
+**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest push 2026-09-02: `mn744m87zmwcz9bnzgz06703q98dntyt` (e522655, 12,676 B — three helper extractions). Session shipped 19 consecutive improvements from 12,845 → 12,676 B (net −169 B). Playtest data wipe from 2026-09-01 still in effect (achievement definitions intact).
 
 ### 📋 Assets inventory (verified on disk 2026-09-01)
 ```
