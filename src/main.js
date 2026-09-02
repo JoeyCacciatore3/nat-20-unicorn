@@ -1089,24 +1089,30 @@ const draw = () => {
       ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(tx, ty, tw, 20);
       ctx.fillStyle = '#ffd75e'; T2(desc, tx + tw / 2, ty + 13);
     }
-    // SKILL TREE — 3-tier layout. Tier 1 free, tier 2 needs 2 skills, tier 3 needs 5.
-    // purchased = gold glow · available = pulsing cyan · locked = dark "?"
+    // SKILL TREE — 3-tier layout. Names always visible (locked = dim gray, picked = gold).
+    // Diagonal cosmetic paths draw first (behind nodes), showing positional progression:
+    // each T1 links to the T2 pair it sits between, each T2 links to adjacent T3(s).
     ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
     if (spts) { ctx.fillStyle = '#ffd75e'; T2('+' + spts, 338, 42); }   // skill points available, above the tree
-    // Nodes
-    const tot = su.reduce((a,v)=>a+v,0);
     const NS = 26;
+    // Diagonal connection lines — parent bottom-center → child top-center (purely cosmetic)
+    ctx.strokeStyle = '#444'; ctx.lineWidth = .5;
+    const LINK = [0,1, 0,4, 2,4, 2,7, 6,7, 6,8, 1,3, 4,3, 4,5, 7,5, 7,9, 8,9];
+    for (let k = 0; k < LINK.length; k += 2) {
+      const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
+      ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
+    }
+    // Nodes — always show name; locked/available/purchased differentiated by color/stroke only.
     TREE.forEach(([nm, req], i) => {
-      const [cx, cy] = TPOS[i], locked = req === -2 ? tot < 2 : req === -3 ? tot < 5 : false;
-      // UNIFORM unselected: every unpicked node (available OR locked) reads the same muted
-      // gray; only a PICKED node goes gold — no pulse (the colors + name/"?" already carry state).
+      const [cx, cy] = TPOS[i];
       ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx, cy, NS, NS);
       ctx.fillStyle = su[i] ? 'rgba(255,215,94,.18)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);
       ctx.strokeStyle = su[i] ? '#ffd75e' : '#555'; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
       if (aRow === 5 + iMax + i) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }   // cursor on this skill node
       ctx.fillStyle = su[i] ? '#ffd75e' : '#888';
-      if (locked) ctx.fillText('?', cx + NS / 2, cy + 17);
-      else { const w = nm.split(' '); if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 11); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 21); } else ctx.fillText(nm, cx + NS / 2, cy + 17); }
+      const w = nm.split(' ');
+      if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 11); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 21); }
+      else ctx.fillText(nm, cx + NS / 2, cy + 17);
     });
     // (shards indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // USE/DROP are functional button labels (not a control hint) — control reference lives ONLY in the ? overlay.
