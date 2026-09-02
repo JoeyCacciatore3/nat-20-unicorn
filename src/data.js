@@ -41,11 +41,11 @@ export const BN = ['RED', 'ORANGE', 'YELLOW', 'BLUE', 'VIOLET'];
 export const RBC = ['#ff5d6c', '#ff9d3c', '#ffd75e', '#4a76ff', '#c47fe0'];
 // 7-band rainbow (arc + title + effects).
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
-// 5 zone names.
-export const ZN = ['MEADOW', 'CAVE', 'CLIFFS', 'PEAK', 'DEPTHS'];
-// Per-zone backdrop colour — sky for outdoor zones, dark for cave/void.
-// Clouds are skipped in the dark zones (see draw()). MEADOW · CAVE · CLIFFS · PEAK · DEPTHS.
-export const ZBG = ['#6bc5ff', '#241d2e', '#8fd0ff', '#bfe8ff', '#0d0a14'];
+// Zone names (post-CAVE-absorption: MEADOW hub + 3 satellite zones via portals).
+export const ZN = ['MEADOW', 'CLIFFS', 'PEAK', 'DEPTHS'];
+// Per-zone backdrop colour — sky for outdoor zones, dark for depths/void.
+// Clouds skipped in DEPTHS (see draw()).
+export const ZBG = ['#6bc5ff', '#8fd0ff', '#bfe8ff', '#0d0a14'];
 // STRICT PER-ZONE PALETTE [dirt, surface-top, foliage, accent] — the designated color
 // identity for each map. dirt/top theme the solid+platform tiles; foliage themes the
 // green deco (tree canopy, grass, flower stems); accent is the zone's stone/rock tone
@@ -54,7 +54,6 @@ export const ZBG = ['#6bc5ff', '#241d2e', '#8fd0ff', '#bfe8ff', '#0d0a14'];
 // zone gets a coherent family: cave=stone/fungal, cliffs=windswept, peak=snow, depths=corrupt.
 export const ZG = [
   ['#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888'],   // MEADOW — earthy green, cool-gray stone (dim→#666, original)
-  ['#3a3038', '#5a4a52', '#7a5a8a', '#605868'],   // CAVE   — dark stone, fungal accents
   ['#6a5a3e', '#6ab84a', '#5aa83a', '#9aa4b0'],   // CLIFFS — sunlit green, light windswept stone
   ['#7a8296', '#e8f0ff', '#bfe0ef', '#c8d2e0'],   // PEAK   — snow, pale icy stone
   ['#241a2e', '#3a2a44', '#3a2244', '#5a3a62'],   // DEPTHS — corrupted dark, violet stone

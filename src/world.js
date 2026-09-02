@@ -89,7 +89,7 @@ const Z0 = {
     [458, 55, 6, 1, 2],
   ],
   fires: [[132.5, 59.5]],
-  bosses: [[258, 57]],       // Only DARK RED CORN (bi = curZone = 0)
+  bosses: [[258, 57, 0], [460, 54, 1]],   // DARK RED CORN (west), DARK ORANGE CORN (far east, ex-CAVE boss relocated)
   chests: [
     [181, 68.3],    // 0 — cave entry W (base tier discovery) — shifted W of spike (184-186)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
@@ -104,12 +104,11 @@ const Z0 = {
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
   ],
-  // doors: [x, y, targetZone, spawnX, spawnY] — 4 rainbow portals at standing height
+  // doors: [x, y, targetZone, spawnX, spawnY] — 3 rainbow portals (CAVE absorbed; DARK ORANGE CORN relocated to MEADOW east)
   doors: [
-    [226, 69, 1, 40, 57],   // Zone 1 (CAVE)   — cave corridor floor (row 69, standable)
-    [56, 25, 2, 40, 40],    // Zone 2 (CLIFFS) — canopy ledge top (row 25, standing on ledge)
-    [14, 11, 3, 40, 30],    // Zone 3 (PEAK)   — peak ledge top (row 11, standing on ledge)
-    [55, 69, 4, 40, 57],    // Zone 4 (DEPTHS) — depths corridor floor (row 69, standable)
+    [56, 25, 1, 40, 40],    // Zone 1 (CLIFFS) — canopy ledge top (was zone 2)
+    [14, 11, 2, 40, 30],    // Zone 2 (PEAK)   — peak ledge top (was zone 3)
+    [55, 69, 3, 40, 57],    // Zone 3 (DEPTHS) — depths corridor floor (was zone 4)
   ],
   DECO: [
     // MEADOW paddock / title-hero framing (x111-146) — lush, spaced (trees ≥3 tiles
@@ -131,63 +130,7 @@ const Z0 = {
   ],
 };
 
-// ---------- ZONE 1: CAVE (DARK ORANGE CORN) — RICH TEMPLATE ----------
-// Full multi-tier cavern (rows 19-60), designed as the reusable rich-zone template:
-// same geometry can reskin into other zones via palette/backdrop/boss-color swaps.
-// Base-completable critical path (spawn→floor corridor→boss→home portal). Off the
-// line: a base-climbable mid gallery (DJ chest on a ledge), a DJ-gated hidden pocket
-// near the ceiling, and a DASH spike-lake reward past the boss. Reachability at every
-// ability tier is enforced by tools/map-audit.mjs (RETURN + GATE + SPACING laws).
-const Z1 = {
-  MAP: [
-    [0, 0, 3, H], [277, 0, 203, H],                    // envelope walls (right thickened to x=479 for widened grid)
-    [3, 60, 274, 12],                                  // floor / undermass (rows 60-71)
-    [3, 0, 274, 14],                                   // cavern ceiling mass (rows 0-13)
-    // floor hazards — flush spike strips (base-jumpable, drift <=5) + DASH spike-lake
-    [86, 60, 3, 1, 3], [132, 60, 3, 1, 3],
-    [236, 60, 8, 1, 3],                                // DASH lake (8 wide) → east reward shelf
-    // CLIMB A (x50-72) — zig-zag rungs, floor row 59 → mid gallery row 43 (base, rise 2)
-    [50, 57, 3, 1, 2], [55, 55, 3, 1, 2], [60, 53, 3, 1, 2], [65, 51, 3, 1, 2], [70, 49, 3, 1, 2],
-    [65, 47, 3, 1, 2], [60, 45, 3, 1, 2], [56, 43, 5, 1, 2],
-    // MID GALLERY (rows 41-43, x56-120) — base-accessible high route, gaps 3 / rises 2
-    [64, 43, 4, 1, 2], [71, 43, 4, 1, 2], [78, 41, 4, 1, 2], [85, 41, 4, 1, 2],
-    [92, 43, 4, 1, 2], [99, 43, 4, 1, 2], [106, 41, 5, 1, 2], [114, 42, 6, 1],   // solid ledge → DJ chest 1
-    // CLIMB B (x104-110) — gallery → hidden upper pocket (rises 3 = DJ-gated)
-    [110, 38, 3, 1, 2], [104, 35, 3, 1, 2], [110, 32, 3, 1, 2], [104, 29, 3, 1, 2], [110, 26, 3, 1, 2],
-    // HIDDEN POCKET (rows 19-25, x104-123) — roof block + floor shelf → hidden chest 2
-    [104, 19, 20, 3], [110, 25, 8, 1, 2],
-    // UPPER TRAVERSE (x122-153) — high route continuing east off the mid gallery: a parallel
-    // exploration layer above the floor corridor (rises <=2 / gaps 3 = base-walkable).
-    [122, 43, 4, 1, 2], [129, 44, 4, 1, 2], [136, 42, 4, 1, 2], [143, 44, 4, 1, 2], [150, 42, 4, 1, 2],
-    // MID-CORRIDOR STEPS (x124-141) — low platforms over the floor spike strip, giving the
-    // base path vertical texture between gallery and boss.
-    [124, 55, 4, 1, 2], [138, 54, 4, 1, 2],
-    // BOSS ARENA (x150-212) — floating combat platforms (aerial verticality), boss on floor
-    [158, 55, 6, 1, 2], [172, 51, 5, 1, 2], [184, 48, 5, 1, 2], [196, 51, 5, 1, 2], [206, 55, 6, 1, 2],
-    // HIGH EAST LEDGE (x198-209) — upper platforms above the boss arena east side (verticality).
-    [198, 44, 4, 1, 2], [206, 46, 4, 1, 2],
-    // EAST APPROACH (x214-231) — stepping stones bridging the boss arena toward the DASH lake
-    // (still dash-gated: the 8-wide lake past x235 needs a dash launch off the floor).
-    [214, 55, 4, 1, 2], [221, 52, 5, 1, 2], [228, 55, 4, 1, 2],
-  ],
-  fires: [[45, 59.5]],
-  bosses: [[185, 59]],
-  chests: [
-    [18, 59.3],     // 0 base   — west floor discovery
-    [117, 41.3],    // 1 DJ     — mid-gallery solid ledge
-    [113, 24.3],    // 2 hidden — upper pocket near the ceiling (DJ climb)
-    [258, 59.3],    // 3 DASH   — east shelf across the spike-lake
-  ],
-  foes: [[60, 58, 1], [100, 58, 2], [130, 58, 6], [78, 40, 4], [172, 50, 3], [165, 58, 2], [210, 58, 5], [250, 58, 4], [136, 41, 5], [150, 41, 4], [221, 51, 6]],
-  doors: [[35, 59, 0, 226, 68]],
-  DECO: [
-    [65, 59, 2], [125, 59, 3], [160, 59, 2], [200, 59, 2], [250, 59, 2],
-    [114, 41, 3], [77, 40, 3], [118, 24, 3],
-    [135, 41, 3], [149, 41, 2], [142, 43, 3], [205, 45, 2], [220, 51, 3],
-  ],
-};
-
-// ---------- ZONE 2: CLIFFS (DARK YELLOW CORN) ----------
+// ---------- ZONE 1: CLIFFS (DARK YELLOW CORN, was Z2) ----------
 // Sky arena — wind-swept cliff top. Return portal at west edge → Meadow canopy ledge.
 // Tier-2, DJ-assumed critical path (hub portal is DJ-gated): spike pits are 4-5 wide
 // (DJ gap-law limit), a rise-3 DJ climb reaches a high chest single-jump can't, and an
@@ -302,7 +245,7 @@ const Z4 = {
   ],
 };
 
-const ZONES = [Z0, Z1, Z2, Z3, Z4];
+const ZONES = [Z0, Z2, Z3, Z4];   // Z1 (CAVE) absorbed; array indices now 0=MEADOW, 1=CLIFFS, 2=PEAK, 3=DEPTHS
 
 // Currently active zone data — live binding, importers see updates.
 export let seeds = Z0;
@@ -315,7 +258,7 @@ export let DECO = Z0.DECO;
 // Tuned 2026-09-01: Z1/Z3/Z4 densified to gap=3 (was 4/5/5) and each non-hub zone
 // gained one rock/dead-tree variety type — measured +2 B packed, ~73 scattered
 // tuples/zone (was ~44-55). Densifying further (gap<3) risks visual clutter.
-const FOL = [[3, 1, 1, 6, 1], [3, 3, 2, 3, 2], [3, 1, 6, 1, 2], [3, 5, 2, 5, 2], [3, 2, 4, 2, 4]];
+const FOL = [[3, 1, 1, 6, 1], [3, 1, 6, 1, 2], [3, 5, 2, 5, 2], [3, 2, 4, 2, 4]];   // MEADOW, CLIFFS, PEAK, DEPTHS (CAVE entry removed)
 // Ground-find: first solid/platform surface ROW at or below (tx, ty), skipping air/spikes.
 // One shared "seat on the surface" rule — used by hand-placed deco snapping (loadZone) AND
 // chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.

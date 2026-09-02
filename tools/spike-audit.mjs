@@ -12,7 +12,7 @@ import { loadZone, seeds, DECO, grid, T, W, H, groundRow } from '../src/world.js
 const AIR = 0, SOLID = 1, PLAT = 2, SPIKE = 3;
 const at = (x, y) => (x < 0 || x >= W || y < 0 || y >= H) ? -1 : grid[y * W + x];
 
-const ZN = ['MEADOW', 'CAVE', 'CLIFFS', 'PEAK', 'DEPTHS'];
+const ZN = ['MEADOW', 'CLIFFS', 'PEAK', 'DEPTHS'];
 let violations = 0;
 const report = (z, kind, i, seed, detail) => {
   violations++;
@@ -25,7 +25,7 @@ const spikeBetween = (tx, seedY, stopRow) => {
   return -1;
 };
 
-for (let z = 0; z < 5; z++) {
+for (let z = 0; z < ZN.length; z++) {
   loadZone(z);
   console.log(`\nZone ${z} — ${ZN[z]}`);
   const zBefore = violations;

@@ -391,7 +391,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 34, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 35, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc, z: curZone,
     u: col,
@@ -401,7 +401,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 34) return;                               // strict v34 gate — no cross-version compat.
+    if (!d || d.v !== 35) return;                               // strict v35 gate — no cross-version compat (v34 saves from pre-CAVE-absorption invalid).
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     curZone = d.z | 0; loadZone(curZone);
@@ -694,8 +694,8 @@ const step = (dt) => {
   for (const c of chests) if (!(oc & (1 << (curZone * 6 + c.i))) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
-  seeds.bosses.forEach(([bx, by]) => {                          // each zone has 1 boss; boss id = curZone
-    const bi = curZone, bit = 1 << bi;
+  seeds.bosses.forEach(([bx, by, bi]) => {                      // bi comes from seed (was curZone) — supports multiple bosses per zone
+    const bit = 1 << bi;
     if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
@@ -704,7 +704,7 @@ const step = (dt) => {
       bs[bi] = 1;
       const bhp = 20 * scl() | 0;
       foes.push({
-        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 8 + curZone,
+        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 8 + bi,
         fl: 0, t: 0, mx: bhp,
         cap: 18 | (fresh ? 0 : st.ph && P2[bi]),
         hp: fresh ? bhp : st.hp,
@@ -850,7 +850,7 @@ const draw = () => {
   // BACKGROUND = flat blue sky + parallax clouds. Visual detail lives in the ground layer.
   ctx.fillStyle = ZBG[curZone]; ctx.fillRect(0, 0, VW, VH);                 // per-zone backdrop
   // CLOUDS — parallax puffs, outdoor zones only (caves/depths stay dark)
-  if (curZone !== 1 && curZone !== 4) for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
+  if (curZone !== 3) for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
     const sx = ((cx - cam.x * .15) % (VW + 100)) - 50;
     ctx.fillStyle = 'rgba(255,255,255,.6)';
     ctx.fillRect(sx, cy, cw, 8); ctx.fillRect(sx + 4, cy - 4, cw - 8, 6); ctx.fillRect(sx + 8, cy + 6, cw - 16, 5);

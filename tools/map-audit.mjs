@@ -24,7 +24,6 @@ const TIERS = [
 // Zones 1-4: portal-spawn positions from Z0.doors, each falls to its zone's ground.
 const ZONE_META = [
   { name: 'MEADOW', spawn: [126, 59], hub: true  },
-  { name: 'CAVE  ', spawn: [40, 59],  hub: false },
   { name: 'CLIFFS', spawn: [40, 41],  hub: false },
   { name: 'PEAK  ', spawn: [40, 31],  hub: false },
   { name: 'DEPTHS', spawn: [40, 59],  hub: false },
@@ -32,9 +31,9 @@ const ZONE_META = [
 
 // Zone 0 hub — each portal MUST be reachable at exactly its designed tier.
 // Positions read from seeds.doors[i] at run time (single source of truth).
-// Names + expected tiers indexed to match Z0.doors order in world.js.
-const HUB_PORTAL_NAMES = ['CAVE portal  ', 'CLIFFS portal', 'PEAK portal  ', 'DEPTHS portal'];
-const HUB_PORTAL_EXPECT = ['base       ', '+doublejump', '+doublejump', '+dash      '];
+// Names + expected tiers indexed to match Z0.doors order in world.js (post-CAVE absorption).
+const HUB_PORTAL_NAMES = ['CLIFFS portal', 'PEAK portal  ', 'DEPTHS portal'];
+const HUB_PORTAL_EXPECT = ['+doublejump', '+doublejump', '+dash      '];
 
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
 const idx = (c, r) => r * W + c;
@@ -143,7 +142,7 @@ const auditZone = (zi, meta) => {
   }
 };
 
-for (let z = 0; z < 5; z++) auditZone(z, ZONE_META[z]);
+for (let z = 0; z < ZONE_META.length; z++) auditZone(z, ZONE_META[z]);
 
 if (fail) { console.error('\n❌ MAP AUDIT FAILED'); process.exit(1); }
 console.log('\n✅ map audit passed — all 5 zones verified');
