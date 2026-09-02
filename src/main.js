@@ -426,13 +426,14 @@ let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
 let nearFire = 0;                                 // hearth proximity flag
 let paused = 0, helpOn = 0, savePop = 0;            // pause overlay; help overlay; save popup (shows EXIT GAME)
 let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
-// HEARTH ACTION — JUMP-near-fire = auto REST: full heal + checkpoint + save + welcome-boon on first touch.
+// HEARTH ACTION — JUMP-near-fire = REST: full HP + MP restore, respawn checkpoint set.
+// NOTE: does NOT save the game — the only manual save is the floppy HUD icon (so players
+// can't accidentally save at a bad moment by hitting a checkpoint).
 const rest = () => {
   const [fx, fy] = seeds.fires[0];
-  hp = mHP(); cp = [fx * T - 20, (fy - 1) * T];
+  hp = mHP(); mn = mMN(); cp = [fx * T - 20, (fy - 1) * T];
   burst(fx * T, fy * T - 8, 12, '#ffd75e'); sfx(500, 900, .3, 'triangle', .1);
-  fly(pl.x, pl.y - 16, 'SAVED', '#9fe89a', 1);
-  save();
+  fly(pl.x, pl.y - 16, 'RESTED', '#9fe89a', 1);
 };
 // Chest reward: item shower + full heal. LUCK adds drops.
 const openChest = (i) => {
@@ -862,7 +863,7 @@ const draw = () => {
     }
   }
 
-  // Hearth: campfire only — save/checkpoint/full-heal on JUMP-near (rest())
+  // Hearth: campfire — checkpoint + full HP/MP restore on JUMP-near (rest()). Does NOT save.
   for (const [fx, fy] of seeds.fires) {
     const cxp = fx * T, cyp = fy * T;
     // Campfire: pure static decoration — log + two flame triangles. The shape IS the feature (no animation).
