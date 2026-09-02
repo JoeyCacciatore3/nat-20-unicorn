@@ -360,7 +360,7 @@ const gainXp = (n, x, y) => {
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
     fly(pl.x, pl.y - 40, 'LEVEL UP · LV ' + lvl, '#ffd75e', 1);
-    fly(pl.x, pl.y - 28, '+1 SKILL', '#8cf');
+    fly(pl.x, pl.y - 28, '+1 SKILL', '#ffd75e');
     if (lvl === CAP) { fly(pl.x, pl.y - 52, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); }
   }
   if (lvl >= CAP) xp = 0;
@@ -533,7 +533,7 @@ const strike = (f, gen, viaStomp) => {
   f.hp -= dmg; f.fl = .15;
   if (!f.bit && !viaStomp) f.vx += (crit ? 220 : 140) * (f.x > pl.x ? 1 : -1); // KNOCKBACK — bosses hold their arena
   shk = Math.max(shk, crit ? .22 : .09);
-  fly(f.x, f.y - 8, (crit ? 'CRIT ' : '') + '-' + dmg, crit ? '#ffd75e' : '#ff5d6c', crit);
+  fly(f.x, f.y - 8, (crit ? 'CRIT ' : '') + '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by size (big=1) + word
   if (crit) { hs = .06; fanfare(); burst(f.x, f.y, 24, '#ffd75e'); }
   if (gen) mn = Math.min(mMN(), mn + 1);          // dash hits GENERATE mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
@@ -573,7 +573,7 @@ const strike = (f, gen, viaStomp) => {
 // Strikes foes it passes through, hits GENERATE mana.
 function shoot() {                                              // magic bolt (gold): 3 mana
   if (!started || choosing || deathT > 0 || !su[0]) return;
-  if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#f9c'); return; }   // flat 3 MP
+  if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#ff5d6c'); return; }   // flat 3 MP · warning red
   mn -= 3; sfx(700, 1300, .12, 'triangle', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * su[1] });   // base range SHORT; FAR SHOT extends (.55s→.80s)
 }
@@ -834,8 +834,8 @@ const step = (dt) => {
       d.life = 0;
       // Consumables auto-consume if their stat isn't full, else land in inventory (click later).
       // Gear ALWAYS lands in inventory — player picks when to equip.
-      const bag = () => { if (inv.length < invMax()) { inv.push({ t: d.t, s: d.s, c: d.c, b: d.b }); fly(d.x, d.y, '+BAG', PAL[d.c] || '#ffd75e'); } else fly(d.x, d.y, 'BAG FULL', '#ff5d6c'); };
-      if (d.t === 0) hp < mHP() ? (hp = Math.min(mHP(), hp + 3), fly(d.x, d.y, '+3 HP', '#ff5d6c')) : bag();
+      const bag = () => { if (inv.length < invMax()) { inv.push({ t: d.t, s: d.s, c: d.c, b: d.b }); fly(d.x, d.y, '+BAG', '#ffd75e'); } else fly(d.x, d.y, 'BAG FULL', '#ff5d6c'); };
+      if (d.t === 0) hp < mHP() ? (hp = Math.min(mHP(), hp + 3), fly(d.x, d.y, '+3 HP', '#9fe89a')) : bag();
       else if (d.t === 1) mn < mMN() ? (mn = Math.min(mMN(), mn + 3), fly(d.x, d.y, '+3 MP', '#4a76ff')) : bag();
       else bag();                                                // GEAR (t=5) always goes to bag
       continue;

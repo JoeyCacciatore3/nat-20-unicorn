@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,841 B (96.5%, 471 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety (Z1/Z2/Z3/Z4) + hand-decor extensions on canopy/ledge tiers + FOL keepout around chests/bosses/doors/foes/campfires + all 14 deco placement issues fixed + 5 bosses renamed to DARK RED/ORANGE/YELLOW/BLUE/VIOLET CORN + combat audit cleanup + unified HP bar on all enemies (bosses distinguished by size/silhouette/name banner, not bar shape), enemy tier system live, all assets current, 8-achievement slate live on Wavedash.**
+Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,829 B (96.4%, 483 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety + hand-decor extensions + FOL keepout + all 14 deco placement fixes + 5 DARK CORN bosses (color-aligned) + combat audit cleanup + unified HP bar + unified combat text palette (green=gain, blue=mana, red=damage/warning, gold=milestone), all assets current, 8-achievement slate live on Wavedash.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -104,7 +104,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,841 / 13,312 B (471 free, 3.5% headroom) |
+| ✓ | Build under budget | 12,829 / 13,312 B (483 free, 3.6% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |
