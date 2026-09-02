@@ -300,20 +300,29 @@ const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeSty
 // Shared portrait panel — renders the identity card (title bar, bordered box with
 // HP bar at top, live unicorn silhouette) used by both the PAUSE overlay and the
 // CHARACTER-CREATE screen. Title = player name on PAUSE, 'NEW CHARACTER' on create.
+// PORTRAIT — opaque menu background + centered unicorn art (equipment slots layer on separately in the menu render).
+// Header/bars/HP-MP numbers live in topHUD() now so they're identical between gameplay and menu.
 const portraitPanel = () => {
   ctx.fillStyle = '#1e1928'; ctx.fillRect(0, 0, VW, VH);
-  // Header: "LV n  NAME" drawn once (centered, gold), then the LV part overpainted cyan at the same
-  // left edge — monospace ⇒ it lands exactly on the LV chars. One measure, no gap math, no 2nd string offset.
-  ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
-  const hdr = 'LV' + lvl + ' ' + pName, x0 = 84 - ctx.measureText(hdr).width / 2;
-  ctx.fillStyle = '#ffd75e'; T2(hdr, x0, 24);                         // whole header — gold
-  ctx.fillStyle = '#8cf'; T2('LV' + lvl, x0, 24);                     // LV n overpaint — cyan
-  ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
-  bars(50, 34);
-  ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), 84, 42); T2(mn + '/' + mMN(), 84, 54);
   ctx.save(); ctx.translate(84, 96); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(0);
   ctx.restore();
+};
+// TOP-LEFT PERSISTENT HUD — identical in gameplay AND in the character menu. Renders:
+//   • "LVn NAME" header (LV cyan, name gold — monospace overpaint trick)
+//   • mini rainbow arc + '×N' shard count to the right of the name
+//   • HP/MP/XP triple bars with number overlays
+const topHUD = () => {
+  ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
+  const hdr = 'LV' + lvl + ' ' + pName;
+  ctx.fillStyle = '#ffd75e'; T2(hdr, 8, 14);                          // whole header — gold
+  ctx.fillStyle = '#8cf'; T2('LV' + lvl, 8, 14);                      // LV n overpaint — cyan
+  const rcx = 8 + ctx.measureText(hdr).width + 14;                    // rainbow center = right of name
+  RC.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(rcx, 14, 12 - i, Math.PI, 0); ctx.stroke(); });
+  ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 10px monospace'; T2('×' + shards(), rcx + 15, 14);
+  bars(8, 22);                                                        // HP/MP/XP triple, top-left
+  ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  T2(hp + '/' + mHP(), 42, 30); T2((mn | 0) + '/' + mMN(), 42, 41);
 };
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
 // scale sets pixel scale. All colors come from col[0..3] (body/mane/horn/hooves).
@@ -1010,17 +1019,11 @@ const draw = () => {
   ctx.globalAlpha = 1;
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
-  // ---------- HUD (minimalist: HP / mana / xp bars top-left, pause icon top-right) ----------
+  // ---------- HUD (gameplay-only overlays: boss banner, level-up banner, death vignette) ----------
+  // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
   if (started && !paused) {
-    ctx.textAlign = 'left';
-    // TOP-LEFT CLUSTER — HP · mana · xp bars, one visual language: continuous fill,
-    // numbers INSIDE the bar (WoW/MOBA unit-frame pattern — no extra screen real estate).
-    bars(8, 6);   // top-left HP/MP/XP triple
-    ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff';
-    T2(hp + '/' + mHP(), 42, 14);
-    T2((mn | 0) + '/' + mMN(), 42, 25);
-    if (time < bann) {                                          // BOSS BANNER — arena-entry announcement (font already set to bold 13px above at ☰; reuse)
-      ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e';
+    if (time < bann) {                                          // BOSS BANNER — arena-entry announcement
+      ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#ffd75e';
       T2(bTxt, VW / 2, 58);
       if (bSub) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
     }
@@ -1101,10 +1104,7 @@ const draw = () => {
       if (locked) ctx.fillText('?', cx + NS / 2, cy + 17);
       else { const w = nm.split(' '); if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 11); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 21); } else ctx.fillText(nm, cx + NS / 2, cy + 17); }
     });
-    // Footer — mini rainbow (RC 7-band arc, matches title style at ~1/6 scale) + '×N' shard count
-    const rcx = 290, rcy = 236;
-    RC.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(rcx, rcy, 12 - i, Math.PI, 0); ctx.stroke(); });
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'left'; T2('×' + shards(), rcx + 15, rcy);
+    // (shards indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // USE/DROP are functional button labels (not a control hint) — control reference lives ONLY in the ? overlay.
     if (invSel >= 0 && inv[invSel]) {
       ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
@@ -1144,8 +1144,9 @@ const draw = () => {
     ctx.globalAlpha = 1;
   }
 
-  // ---------- POTION HOT-BAR — bottom-center; persistent HUD (visible in gameplay AND character menu) ----------
+  // ---------- PERSISTENT HUD (top-left header + bottom-center potions) — visible in gameplay AND character menu ----------
   if (started) {
+    topHUD();
     const qslot = (x, t) => {
       const n = t ? mpPot : hpPot;
       ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
