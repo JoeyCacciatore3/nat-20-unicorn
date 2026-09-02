@@ -22,9 +22,9 @@ LUCK-driven crits and stat allocation.
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
 - Everyone starts the same neutral white unicorn — **NEW GAME** jumps straight to the next empty save slot and asks ONE thing (your name — required), then begins; **CONTINUE** (greyed until you have a save) opens the 2-slot screen to pick which save to resume (name + level shown per slot). Both slots full → NEW GAME falls back to the slot screen.
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
-- **5-slot inventory** (+5 SADDLE BAG, +5 SADDLE BAGS = 15 max). Click to select, click again to equip or consume; X to discard.
+- **5-slot inventory** for gear only (+5 SADDLE BAG, +5 SADDLE BAGS = 15 max). Click to select, click again to equip; X to discard. Potions live exclusively in the bottom hot-bar (see below).
 - Gear icons and drops render with the SAME primitives as the unicorn's own body — a HORN drop looks like the horn on the unicorn.
-- **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Potions fill these first; only the overflow spills into the inventory.
+- **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
 
 ## Combat
 `damage = ATK × (crit ? 2 : 1)` where `ATK = STR + horn_gear`
@@ -42,7 +42,7 @@ One loot roll (`d100 + LUCK×4`) for every kill and chest:
 - **MP POTION** (blue bottle, +10 MP) — mid
 - **GEAR PART** (BODY/MANE/HORN/HOOVES) — ceiling, LUCK boosts tier
 
-Drops fall to the ground and **stay there until you die** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume); overflow beyond 5 lands in the inventory. **Gear** goes to the inventory to equip later. If a drop has nowhere to go (hot-bar and bag both full) it simply waits on the ground. XP comes only from kills.
+Drops fall to the ground and **stay there until you die** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume). **Gear** goes to the inventory to equip later. Potions NEVER enter the inventory — if the hot-bar slot is full the drop simply waits on the ground until you drink one. Same for gear if the bag is full. XP comes only from kills.
 
 **RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 5 → THE DARKNESS LIFTS.
 
@@ -99,7 +99,7 @@ Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at
 **Current: 11,403 / 13,312 B (85.7%) — 1909 B free**
 
 ## Save format
-Keys: `localStorage.n20_s0..1` (2 slots). Version: **v37** — strict version gate, auto-discards older saves.
+Keys: `localStorage.n20_s0..1` (2 slots). Version: **v38** — strict version gate, auto-discards older saves.
 Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
 
 ## Structure

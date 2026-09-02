@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v37 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v38 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
 import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_GEM, I_MP } from './data.js'; // static lookup tables
@@ -196,6 +196,9 @@ addEventListener('pointerdown', (e) => {
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
   if (paused) {                                                // CHARACTER MENU — inventory + (when points remain) stat/skill allocation, one screen
     // USE/DROP buttons FIRST — they overlap the grid (y=250-264 sits inside grid y=184-268).
+    // POTION HOT-BAR — tappable in menu too (persistent affordance, matches HUD icon behavior)
+    if (hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
+    if (hit(QMX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
     if (invSel >= 0 && inv[invSel]) {
       if (hit(30, 250, 50, 15)) { useItem(invSel); return; }
       if (hit(90, 250, 50, 15)) { inv.splice(invSel, 1); return; }
@@ -275,13 +278,12 @@ const equip = (item) => {
   eqB = eq.map(e => e ? e.b : 0);
 };
 // Use an inventory slot — equip gear (t=5), consume HP/MP potion (t=0/1). Returns true if consumed.
+// Inventory holds ONLY gear now. Potions live exclusively in the bottom hot-bar (see quaff).
 const useItem = (i) => {
   const it = inv[i]; if (!it) return;
-  if (it.t === 5) { inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1); }
-  else if (it.t === 0 && hp < mHP()) { hp = Math.min(mHP(), hp + 10); inv.splice(i, 1); sfx(520, 1040, .1, 'triangle', .1); }
-  else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 10); inv.splice(i, 1); sfx(440, 880, .1, 'triangle', .1); }
+  inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1);
 };
-// QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter (no bag touch).
+// QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 const quaff = (t) => { if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 10); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 10); sfx(440, 880, .1, 'triangle', .1); } };
 // Cached equipment bonuses (additive on top of base stats)
 let eqB = [0, 0, 0, 0];
@@ -391,7 +393,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 37, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 38, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     u: col,
@@ -401,7 +403,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 37) return;                               // strict v37 gate — no cross-version compat.
+    if (!d || d.v !== 38) return;                               // strict v38 gate — no cross-version compat (inventory now gear-only).
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     chests = seeds.chests.map(snapChest);
@@ -800,11 +802,10 @@ const step = (dt) => {
     d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
     if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ground
     if (Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
-      // Potion fills its hot-bar counter (cap 5), overflow → bag. Gear → bag. bag() returns truthy only if it fit.
-      const bag = () => inv.length < invMax() && (inv.push({ t: d.t, s: d.s, c: d.c, b: d.b }), fly(d.x, d.y, '+BAG', '#ffd75e'), 1);
-      const took = d.t === 0 ? (hpPot < 5 ? (hpPot++, fly(d.x, d.y, '+HP POT', '#ff5d6c'), 1) : bag())
-        : d.t === 1 ? (mpPot < 5 ? (mpPot++, fly(d.x, d.y, '+MP POT', '#4a76ff'), 1) : bag())
-        : bag();
+      // Potion → hot-bar counter (cap 5, drop stays on ground if full). Gear → bag (drop stays on ground if bag full).
+      const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(d.x, d.y, '+HP POT', '#ff5d6c'), 1))
+        : d.t === 1 ? (mpPot < 5 && (mpPot++, fly(d.x, d.y, '+MP POT', '#4a76ff'), 1))
+        : inv.length < invMax() && (inv.push({ s: d.s, c: d.c, b: d.b }), fly(d.x, d.y, '+BAG', '#ffd75e'), 1);
       if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); }   // only vanish when actually collected
     }
   }
@@ -1017,17 +1018,6 @@ const draw = () => {
     // TOP-LEFT CLUSTER — HP · mana · xp bars, one visual language: continuous fill,
     // numbers INSIDE the bar (WoW/MOBA unit-frame pattern — no extra screen real estate).
     bars(8, 6);   // top-left HP/MP/XP triple
-    // POTION QUICK-SLOTS — bottom-center, char-menu item-slot style. Icon + live count; dim when empty.
-    {
-      const qslot = (x, t) => {
-        const n = t ? mpPot : hpPot;
-        ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
-        ctx.strokeStyle = n ? '#555' : '#444'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);
-        ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 9, QSY + 7, 6, t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(x + 11, QSY + 7, 2, 1); ctx.globalAlpha = 1;
-        ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
-      };
-      qslot(QHX, 0); qslot(QMX, 1); ctx.textAlign = 'center';
-    }
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff';
     T2(hp + '/' + mHP(), 42, 14);
     T2((mn | 0) + '/' + mMN(), 42, 25);
@@ -1080,17 +1070,14 @@ const draw = () => {
       ctx.fillRect(ix, iy, iSz, iSz);
       ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? TC[it.b] || '#888' : '#444');
       ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, iSz, iSz);
-      if (it) {
-        if (it.t < 2) { spr(I_MP, ix + 9, iy + 8, 6, it.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(ix + 11, iy + 8, 2, 1); }
-        else drawPart(it.s, ix + 8, iy + 9, it.c);
-      }
+      if (it) drawPart(it.s, ix + 8, iy + 9, it.c);            // inventory holds ONLY gear now — always draws the part
     }
     // Tooltip: opaque panel pops up-right from the selected slot toward screen center.
     // Same box style as skill nodes (#1e1928 bg + gold border). Dynamic per-slot so the
     // popup direction (up + slight right) reads naturally from wherever the user tapped.
     if (invSel >= 0 && inv[invSel]) {
       const it = inv[invSel];
-      const desc = it.t === 0 ? 'HP POTION · +10 HP' : it.t === 1 ? 'MP POTION · +10 MP' : SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // t=5 GEAR
+      const desc = SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // gear only (potions live in the hot-bar)
       const tw = 130, tx = Math.min(VW - tw - 4, 28 + (invSel % 5) * 28);
       const ty = Math.max(4, 156 + ((invSel / 5) | 0) * 28);   // 4px above the selected slot's row
       ctx.fillStyle = '#1e1928'; ctx.fillRect(tx, ty, tw, 20);
@@ -1159,6 +1146,17 @@ const draw = () => {
     ctx.globalAlpha = 1;
   }
 
+  // ---------- POTION HOT-BAR — bottom-center; persistent HUD (visible in gameplay AND character menu) ----------
+  if (started) {
+    const qslot = (x, t) => {
+      const n = t ? mpPot : hpPot;
+      ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
+      ctx.strokeStyle = n ? '#555' : '#444'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);
+      ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 9, QSY + 7, 6, t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(x + 11, QSY + 7, 2, 1); ctx.globalAlpha = 1;
+      ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
+    };
+    qslot(QHX, 0); qslot(QMX, 1);
+  }
   // Top-right icon row — unified 12×12 buttons using the character-menu box style
   // (rgba(255,255,255,.05) fill + #555 0.5-stroke, matching inventory + skill nodes).
   // One helper draws every wrapper; only the glyph inside changes.
