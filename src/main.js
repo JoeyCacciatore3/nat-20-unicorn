@@ -19,7 +19,7 @@
 // Save: strict v40 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
-import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP } from './data.js'; // static lookup tables
+import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -1009,7 +1009,7 @@ const draw = () => {
     ctx.globalAlpha = Math.min(1, d.life);
     const dy = Math.sin(d.life * 5) * 1.5, dx = d.x - 3, ddy = d.y - 3 + dy;
     if (d.t < 2) { spr(I_MP, dx, ddy, 6, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(dx + 2, ddy, 2, 1); }   // POTION — t=0 red HP, t=1 blue MP, dark-brown cork
-    else { drawPart(d.s, dx - 1, ddy - 1, d.c); ctx.strokeStyle = TC[d.b]; ctx.lineWidth = .5; ctx.strokeRect(dx - 2, ddy - 2, 10, 10); }   // GEAR (t=5) — drawU primitives + tier ring
+    else { drawPart(d.s, dx - 1, ddy - 1, d.c); ctx.strokeStyle = SC[SLOT_STAT[d.s]]; ctx.lineWidth = d.b * .5; ctx.strokeRect(dx - 2, ddy - 2, 10, 10); }   // GEAR (t=5) — stat-color stroke; tier via width
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
   ctx.globalAlpha = 1;
@@ -1054,13 +1054,13 @@ const draw = () => {
     ctx.font = 'bold 8px monospace';                          // reset from the 11px pending hint above (if it fired)
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
       ctx.fillStyle = eq[s] ? PAL[eq[s].c] : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);
-      ctx.strokeStyle = eq[s] ? TC[eq[s].b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);
+      ctx.strokeStyle = SC[SLOT_STAT[s]]; ctx.lineWidth = eq[s] ? eq[s].b * .5 : .5; ctx.strokeRect(ex, ey, 24, 24);   // stat-color outline; tier shown via stroke width (0.5 / 1 / 1.5)
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
       if (eq[s]) { ctx.fillStyle = '#fff'; T2('+' + eq[s].b, ex + 12, ey + 14); }
     });
     // STATS — one row across the bottom of the box; cursor = gold column (always visible; "+1" hint only when a point is available)
-    const SL = [['STR', ho, '#ffd75e'], ['HP', he, '#ff5d6c'], ['MAG', sp, '#4a76ff'], ['DEF', df, '#8cf'], ['LCK', lk, '#9fe89a']];
-    SL.forEach(([l, v, c], i) => {
+    const SL = [['STR', ho], ['HP', he], ['MAG', sp], ['DEF', df], ['LCK', lk]];
+    SL.forEach(([l, v], i) => { const c = SC[i];
       const sx = 42 + i * 26, sel = i === aRow;
       if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 152, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 152, 25, 23);
         if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 150); } }
@@ -1073,8 +1073,8 @@ const draw = () => {
       const ix = 38 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.03)';
       ctx.fillRect(ix, iy, iSz, iSz);
-      ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? TC[it.b] || '#888' : '#444');
-      ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, iSz, iSz);
+      ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? SC[SLOT_STAT[it.s]] : '#444');
+      ctx.lineWidth = i === invSel ? 1 : (it ? it.b * .5 : .5); ctx.strokeRect(ix, iy, iSz, iSz);   // stat-color stroke, tier via width
       if (it) drawPart(it.s, ix + 8, iy + 9, it.c);            // inventory holds ONLY gear now — always draws the part
     }
     // Tooltip: opaque panel pops up-right from the selected slot toward screen center.
