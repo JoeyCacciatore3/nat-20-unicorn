@@ -4,7 +4,7 @@
 //   - Stat allocation (STR/HP/MAG/DEF/LUCK), no classes
 //   - 4-slot color-driven equipment gear (BODY/MANE/HORN/HOOVES) — each drop
 //     visually IS the body part it replaces (drawPart uses drawU primitives)
-//   - ONE open skill tree, 10 single-rank nodes, all player-chosen (no auto-learn)
+//   - ONE open skill tree, 12 single-rank nodes, all player-chosen (no auto-learn)
 //   - Rainbow shards = collection goal (5 bosses)
 //   - Unified character sheet: pause + level-up share layout
 //   - 5-slot inventory (+5 via STASH skill, max 10); potions live in a separate hot-bar
@@ -57,7 +57,7 @@ NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // o
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // 2 SAVE SLOTS (n20_s0..1). sMeta reads name+level for the slot list without loading.
-const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 34 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 40 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // Character create: UP/DOWN pick row (name/body/mane/horn), then row-specific input:
 //   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
@@ -346,7 +346,7 @@ let hp = 10, xp = 0, lvl = 1;
 let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 15;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
-// Skills are player-chosen via the 3-tier tree
+// Skills are player-chosen via the prerequisite tree (LINK)
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
 const bs = [0, 0, 0, 0, 0];
@@ -380,6 +380,9 @@ const STATS = [
 
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE.length).fill(0);
+// LINK encodes the prerequisite tree: pairs [parent, child]. A node is buyable when any parent is owned (roots always available).
+const LINK = [0,10, 0,4, 2,4, 2,7, 6,7, 6,8, 10,9, 4,9, 4,5, 7,5, 7,11, 8,11, 9,3, 5,3, 5,1, 11,1];
+const canBuy = i => { let r = 1; for (let k = 1; k < LINK.length; k += 2) if (LINK[k] === i) { if (su[LINK[k-1]]) return 1; r = 0; } return r; };
 let aRow = 0;
 const SN = () => 5 + invMax() + TREE.length;                  // unified cursor span: stats(0-4) → inv(5..5+iMax-1) → skills(5+iMax..end)
 // setRow: assign cursor + auto-sync invSel so existing tooltip / USE-DROP button logic works unchanged.
@@ -393,8 +396,8 @@ const spend = () => {
     if (!inv[aRow - 5]) return;
     useItem(aRow - 5); return;                                // useItem plays its own sfx + splices; do NOT double-save
   } else {                                                    // SKILL node — costs a skill point (respects lock/owned)
-    const i = aRow - 5 - iMax, req = TREE[i][1], tot = su.reduce((a, v) => a + v, 0);
-    if (!spts || su[i] || (req === -2 ? tot < 2 : req === -3 && tot < 5)) return;
+    const i = aRow - 5 - iMax;
+    if (!spts || su[i] || !canBuy(i)) return;
     su[i] = 1; spts--;
   }
   sfx(660, 990, .15, 'triangle', .12); save();                // no auto-close — you stay in the character menu (☰/P/tap-out closes)
@@ -476,6 +479,7 @@ const fresh = () => {
   pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
+  shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seeds.chests.map(snapChest);
   foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
@@ -1089,21 +1093,20 @@ const draw = () => {
       ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(tx, ty, tw, 20);
       ctx.fillStyle = '#ffd75e'; T2(desc, tx + tw / 2, ty + 13);
     }
-    // SKILL TREE — 3-tier layout. Names always visible (locked = dim gray, picked = gold).
+    // SKILL TREE — prerequisite layout (4 rows). Names always visible (locked = dim gray, picked = gold).
     // Diagonal cosmetic paths draw first (behind nodes), showing positional progression:
     // each T1 links to the T2 pair it sits between, each T2 links to adjacent T3(s).
     ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
     if (spts) { ctx.fillStyle = '#ffd75e'; T2('+' + spts, 338, 42); }   // skill points available, above the tree
     const NS = 26;
-    // Diagonal connection lines — parent bottom-center → child top-center (purely cosmetic)
+    // Diagonal connection lines — prerequisite tree (LINK) parent→child paths
     ctx.strokeStyle = '#444'; ctx.lineWidth = .5;
-    const LINK = [0,10, 0,4, 2,4, 2,7, 6,7, 6,8, 10,9, 4,9, 4,5, 7,5, 7,11, 8,11, 9,3, 5,3, 5,1, 11,1];
     for (let k = 0; k < LINK.length; k += 2) {
       const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
       ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
     }
     // Nodes — always show name; locked/available/purchased differentiated by color/stroke only.
-    TREE.forEach(([nm, req], i) => {
+    TREE.forEach((nm, i) => {
       const [cx, cy] = TPOS[i];
       ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx, cy, NS, NS);
       ctx.fillStyle = su[i] ? 'rgba(255,215,94,.18)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);
@@ -1138,6 +1141,13 @@ const draw = () => {
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
       ctx.strokeStyle = rc; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.stroke();
+      // HEAL glyph — green cross, darker border with bright center
+      if (c === 'bH') {
+        ctx.fillStyle = '#2d7a3a'; // dark green edge
+        ctx.fillRect(x - 3, y - 8, 6, 16); ctx.fillRect(x - 8, y - 3, 16, 6);
+        ctx.fillStyle = rc; // bright green (or #555 if locked)
+        ctx.fillRect(x - 2, y - 7, 4, 14); ctx.fillRect(x - 7, y - 2, 14, 4);
+      }
     }
     ctx.globalAlpha = 1;
   }

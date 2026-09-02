@@ -12,16 +12,14 @@ import { readFileSync } from 'node:fs';
 const src = readFileSync(new URL('../src/data.js', import.meta.url), 'utf8')
   + readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 
-// Extract TREE literal — the block bounded by `const TREE = [` … `];`
-const treeMatch = src.match(/const TREE = \[([\s\S]*?)\n\];/);
+// Extract TREE literal — flat string array bounded by `const TREE = [` … `];`
+const treeMatch = src.match(/const TREE = \[(.*?)\];/);
 if (!treeMatch) { console.error('❌ TPOS check: TREE literal not found'); process.exit(1); }
 
-// Grab each row as ['NAME', N] tuples. Comments/whitespace ignored.
-const TREE = [];
-const rowRe = /\[\s*'([^']+)'\s*,\s*(-?\d+)\s*\]/g;
-let m; while ((m = rowRe.exec(treeMatch[1])) !== null) TREE.push([m[1], +m[2]]);
+// Count skill names in the flat string array.
+const TREE = treeMatch[1].match(/'[^']+'/g) || [];
 
-// 3-tier layout: T1(3 across y=60), T2(4 across y=106), T3(3 across y=152).
+// 4-row layout: Row1 y=48 (3), Row2 y=94 (4), Row3 y=140 (3), Row4 y=186 (2).
 // TPOS is hand-tuned for the tier layout — verify by direct comparison.
 const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[418,94],[263,140],[232,94],[387,140]];
 if (TPOS.length !== TREE.length) { console.error(`❌ TPOS length ${TPOS.length} ≠ TREE length ${TREE.length}`); process.exit(1); }

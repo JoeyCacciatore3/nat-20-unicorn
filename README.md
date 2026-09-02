@@ -12,7 +12,7 @@ LUCK-driven crits and stat allocation.
 
 ## Progression
 - **Every level:** +3 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point
-- **Skill tree:** 3-tier gated tree, 10 single-rank skills — all player-chosen
+- **Skill tree:** prerequisite-based tree, 12 single-rank skills — all player-chosen
 - **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn, wears a tier trim (silver/gold/prismatic), AND gives stat bonuses
 - **Level 15 cap** — all stat gains come from level-up points, no hidden cap bonus
 - **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
@@ -47,13 +47,13 @@ Drops fall to the ground and **stay there until you die** — no despawn timer, 
 **RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 5 → THE DARKNESS LIFTS.
 
 ## Skill Tree
-3-tier gated tree, 10 skills. Tiers unlock by total skills purchased:
-- **Tier 1** (free): SHOT, HEAL, DASH
-- **Tier 2** (need 2): MP +5, DBL JUMP, LONG DASH, STASH
-- **Tier 3** (need 5): HP +5, TRI JUMP, POT +5
-- **Tier 4** (endgame capstones, need 5): SUPER HEAL, FAR SHOT
+Prerequisite-based tree, 12 skills across 4 visual rows. Unlocking a node opens its connected downstream nodes:
+- **Row 1** (always available): SHOT, HEAL, DASH
+- **Row 2**: MP +5, DBL JUMP, LONG DASH, STASH
+- **Row 3**: HP +5, TRI JUMP, POT +5
+- **Row 4** (endgame capstones): SUPER HEAL, FAR SHOT
 
-Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray (no divider lines between tiers). Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
+Picked nodes go gold; unpicked read a uniform muted gray. Diagonal connection lines show which nodes unlock which. Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
 
 ## Controls
 | | Keyboard | Touch |
