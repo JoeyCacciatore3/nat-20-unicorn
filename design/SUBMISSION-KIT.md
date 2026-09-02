@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,884 B (96.8%, 428 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety (Z1/Z2/Z3/Z4) + hand-decor extensions on canopy/ledge tiers + FOL keepout around chests/bosses/doors/foes/campfires + all 14 deco placement issues fixed + 5 bosses renamed to DARK RED/ORANGE/YELLOW/BLUE/VIOLET CORN (color-aligned to rainbow band held), enemy tier system live, all assets current, 8-achievement slate live on Wavedash, code audit pass complete.**
+Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,858 B (96.6%, 454 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety (Z1/Z2/Z3/Z4) + hand-decor extensions on canopy/ledge tiers + FOL keepout around chests/bosses/doors/foes/campfires + all 14 deco placement issues fixed + 5 bosses renamed to DARK RED/ORANGE/YELLOW/BLUE/VIOLET CORN + combat audit cleanup (dead fsz fallback + MEADOW positional-tier gradient removed), enemy tier system live, all assets current, 8-achievement slate live on Wavedash.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -104,7 +104,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,884 / 13,312 B (428 free, 3.2% headroom) |
+| ✓ | Build under budget | 12,858 / 13,312 B (454 free, 3.4% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |
@@ -135,7 +135,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | 5 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
 | 6 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
 
-**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest push 2026-09-02: `mn76ry78b9j2feh3pf1shm8wb98dm01r` (2d9502f, 12,882 B). Prior push `mn76c8ze...` (2026-09-01, aa03119, 12,845 B) had playtest data wiped — wipe still in effect.
+**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest push 2026-09-02: `mn717ksrgt1fgb6bhpvh7bq88s8dmrdz` (de08d89, 12,884 B). Prior `mn76ry78...` (2d9502f, 12,882 B), initial `mn76c8ze...` (aa03119, 12,845 B) had playtest data wiped — wipe still in effect.
 
 ### 📋 Assets inventory (verified on disk 2026-09-01)
 ```

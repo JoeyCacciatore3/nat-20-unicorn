@@ -482,17 +482,15 @@ const fresh = () => {
 };
 // Non-ranged foes roll a strength tier in mkFoe (0 base / 1 tough / 2 select). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
-// Zone tier 0-4 from world x position. Scales enemy HP and damage.
-const zT = x => Math.max(0, Math.min(4, (150 - x / T) / 35 | 0));
 const mkFoe = (x, y, k) => {
-  // ENEMY TIER (tr): 0 base · 1 tough · 2 select — a random strength organization layered ON TOP of
-  // zone tier t. Non-ranged only (ranged foes stay base). ~75% base / 19% tough / 6% select (tunable).
-  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, t = curZone || zT(x), tr = fr ? 0 : Math.random() < .06 ? 2 : Math.random() < .2 ? 1 : 0;
+  // ENEMY TIER (tr): 0 base · 1 tough · 2 select — random strength ON TOP of zone tier `t` (= curZone).
+  // Non-ranged only (ranged foes stay base). ~75% base / 19% tough / 6% select (tunable).
+  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, t = curZone, tr = fr ? 0 : Math.random() < .06 ? 2 : Math.random() < .2 ? 1 : 0;
   const zh = fh * (1 + tr) * (2 + t) / 2 | 0;                    // HP ×(1+tr): tough 2×, select 3×
   return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + tr + t, tr, fl: 0, t: Math.random() * 7, cz: fz + (tr > 1 ? 1 : 0) };
 };
 let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
-const fsz = (f) => 5 * (f.cz || 1 + f.k);          // one size rule for sprites + collision
+const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
@@ -976,7 +974,7 @@ const draw = () => {
   // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds. One draw per tier,
   // boss shares the silhouette scaled up. cz = select-tier/boss cell multiplier.
   for (const f of foes) {
-    const s = f.cz || 1 + f.k, fs = 5 * s, wob = Math.sin(f.t * 6) * 1.5, sh = FT[f.k][5]; // sh = body shape from the type table
+    const s = f.cz, fs = 5 * s, wob = Math.sin(f.t * 6) * 1.5, sh = FT[f.k][5];   // sh = body shape from the type table
     const step = Math.sin(f.t * 8) * s * .35;                   // leg-step animation, shared
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
