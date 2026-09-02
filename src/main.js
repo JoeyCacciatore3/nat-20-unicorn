@@ -200,18 +200,18 @@ addEventListener('pointerdown', (e) => {
     if (hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
     if (hit(QMX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
     if (invSel >= 0 && inv[invSel]) {
-      if (hit(30, 250, 50, 15)) { useItem(invSel); return; }
-      if (hit(90, 250, 50, 15)) { inv.splice(invSel, 1); return; }
+      if (hit(50, 250, 50, 15)) { useItem(invSel); return; }
+      if (hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
     }
     // Inventory grid — tap moves cursor to slot; tap USE/DROP button (above) to act
-    if (hit(18, 184, 140, 84)) {
-      const iC = ((vx - 18) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
+    if (hit(38, 184, 140, 84)) {
+      const iC = ((vx - 38) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
       if (iI < invMax() && inv[iI]) { setRow(5 + iI); return; }
       return;                                                  // tap on empty inv area — no-op, keeps menu open
     }
     // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
-    const col = ((vx - 19) / 26) | 0;
-    if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else setRow(col); return; }
+    const col = ((vx - 39) / 26) | 0;
+    if (vy > 150 && vy < 180 && vx > 39 && vx < 169 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else setRow(col); return; }
     for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + invMax() + i; if (aRow === r) spend(); else setRow(r); return; } }
     paused = 0; return;                                        // tap anywhere else closes
   }
@@ -304,7 +304,7 @@ const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeSty
 // Header/bars/HP-MP numbers live in topHUD() now so they're identical between gameplay and menu.
 const portraitPanel = () => {
   ctx.fillStyle = '#1e1928'; ctx.fillRect(0, 0, VW, VH);
-  ctx.save(); ctx.translate(84, 96); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
+  ctx.save(); ctx.translate(104, 96); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(0);
   ctx.restore();
 };
@@ -1048,7 +1048,7 @@ const draw = () => {
     // portraitPanel's save/restore preserves textAlign='center' + font='bold 8px monospace' — no re-set needed.
     // Mirror-symmetric: left boxes 10px from left wall (x24), right boxes 10px from
     // right wall (x130 = 154−10−14). Labels center under each box → length self-adjusts.
-    [[1, 18, 64], [2, 126, 64], [0, 18, 112], [3, 126, 112]].forEach(([s, ex, ey]) => {
+    [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
       ctx.fillStyle = eq[s] ? PAL[eq[s].c] : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);
       ctx.strokeStyle = eq[s] ? TC[eq[s].b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
@@ -1057,7 +1057,7 @@ const draw = () => {
     // STATS — one row across the bottom of the box; cursor = gold column (always visible; "+1" hint only when a point is available)
     const SL = [['STR', ho, '#ffd75e'], ['HP', he, '#ff5d6c'], ['MAG', sp, '#4a76ff'], ['DEF', df, '#8cf'], ['LCK', lk, '#9fe89a']];
     SL.forEach(([l, v, c], i) => {
-      const sx = 22 + i * 26, sel = i === aRow;
+      const sx = 42 + i * 26, sel = i === aRow;
       if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 152, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 152, 25, 23);
         if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 150); } }
       ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 160);
@@ -1066,7 +1066,7 @@ const draw = () => {
     // INVENTORY — 5×3 grid UNDER the gold box (5 base, +5 SADDLE BAG, +5 SADDLE BAGS). Click to select, click again to use/equip.
     const iMax = invMax(), iSz = 24, iGap = 28;
     for (let i = 0; i < iMax; i++) {
-      const ix = 18 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
+      const ix = 38 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.03)';
       ctx.fillRect(ix, iy, iSz, iSz);
       ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? TC[it.b] || '#888' : '#444');
@@ -1079,7 +1079,7 @@ const draw = () => {
     if (invSel >= 0 && inv[invSel]) {
       const it = inv[invSel];
       const desc = SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // gear only (potions live in the hot-bar)
-      const tw = 130, tx = Math.min(VW - tw - 4, 28 + (invSel % 5) * 28);
+      const tw = 130, tx = Math.min(VW - tw - 4, 48 + (invSel % 5) * 28);
       const ty = Math.max(4, 156 + ((invSel / 5) | 0) * 28);   // 4px above the selected slot's row
       ctx.fillStyle = '#1e1928'; ctx.fillRect(tx, ty, tw, 20);
       ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(tx, ty, tw, 20);
@@ -1088,7 +1088,7 @@ const draw = () => {
     // SKILL TREE — 3-tier layout. Tier 1 free, tier 2 needs 2 skills, tier 3 needs 5.
     // purchased = gold glow · available = pulsing cyan · locked = dark "?"
     ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-    if (spts) { ctx.fillStyle = '#ffd75e'; T2('+' + spts, 358, 42); }   // skill points available, above the tree
+    if (spts) { ctx.fillStyle = '#ffd75e'; T2('+' + spts, 338, 42); }   // skill points available, above the tree
     // Nodes
     const tot = su.reduce((a,v)=>a+v,0);
     const NS = 26;
@@ -1109,9 +1109,9 @@ const draw = () => {
     if (invSel >= 0 && inv[invSel]) {
       ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
-      ctx.fillRect(30, 250, 50, 14); ctx.strokeRect(30, 250, 50, 14);
-      ctx.fillRect(90, 250, 50, 14); ctx.strokeRect(90, 250, 50, 14);
-      ctx.fillStyle = '#ffd75e'; T2('USE', 55, 260); ctx.fillStyle = '#c33'; T2('DROP', 115, 260);
+      ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
+      ctx.fillRect(110, 250, 50, 14); ctx.strokeRect(110, 250, 50, 14);
+      ctx.fillStyle = '#ffd75e'; T2('USE', 75, 260); ctx.fillStyle = '#c33'; T2('DROP', 135, 260);
     }
   }
 

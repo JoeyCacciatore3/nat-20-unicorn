@@ -23,7 +23,7 @@ let m; while ((m = rowRe.exec(treeMatch[1])) !== null) TREE.push([m[1], +m[2]]);
 
 // 3-tier layout: T1(3 across y=60), T2(4 across y=106), T3(3 across y=152).
 // TPOS is hand-tuned for the tier layout — verify by direct comparison.
-const TPOS = [[257,48],[252,94],[345,48],[257,140],[314,94],[345,140],[433,48],[376,94],[438,94],[433,140]];
+const TPOS = [[237,48],[232,94],[325,48],[237,140],[294,94],[325,140],[413,48],[356,94],[418,94],[413,140]];
 if (TPOS.length !== TREE.length) { console.error(`❌ TPOS length ${TPOS.length} ≠ TREE length ${TREE.length}`); process.exit(1); }
 const expected = JSON.stringify(TPOS);
 

@@ -57,7 +57,7 @@ export const TREE = [
   ['SADDLE BAG',-2],['SADDLE BAGS',-3],                   // 8-9  inventory
 ];
 // Tier positions, centered in the RIGHT half (x≈252–464, mid 358): T1 y=48 (3), T2 y=94 (4), T3 y=140 (3). Validated by tpos-check.
-export const TPOS = [[257,48],[252,94],[345,48],[257,140],[314,94],[345,140],[433,48],[376,94],[438,94],[433,140]];
+export const TPOS = [[237,48],[232,94],[325,48],[237,140],[294,94],[325,140],[413,48],[356,94],[418,94],[413,140]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [0b001100, 0b001100, 0b011110, 0b111111, 0b111111, 0b011110, 0b000000];  // POTION 6×7 — narrow neck, rounded body
