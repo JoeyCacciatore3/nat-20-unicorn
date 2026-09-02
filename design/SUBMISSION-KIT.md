@@ -104,7 +104,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,765 / 13,312 B (547 free, 4.1% headroom) |
+| ✓ | Build under budget | 12,758 / 13,312 B (554 free, 4.2% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |

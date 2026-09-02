@@ -52,7 +52,7 @@ let tMode = 0, sSel = 0, slot = 0, slotNew = 0; // title mode 0 menu · 1 name �
 // inside the tap gesture summons the OS keyboard (iOS requires the gesture).
 // It is the single source of truth for `ent` while focused; window keydown defers.
 const NI = document.body.appendChild(document.createElement('input'));
-NI.autocapitalize = 'characters'; NI.autocorrect = 'off'; NI.spellcheck = false;
+NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // oninput uppercases; no need to latch the mobile shift key
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // 3 SAVE SLOTS (n20_s0..2). sMeta reads name+level for the slot list without loading.
@@ -166,7 +166,7 @@ addEventListener('pointerdown', (e) => {
   if (phase === 0) {
     if (tMode === 1) {                                             // name entry
       if (vx >= VW / 2 - 60 && vx <= VW / 2 + 60 && vy >= 236 && vy <= 256) { toSlots(1); return; }  // ▶ BEGIN
-      if (vy > 198 && vy < 230) { NI.value = ent; NI.focus(); return; }  // tap the name = OS keyboard (in-gesture)
+      if (vy > 198 && vy < 230) { NI.value = ent; NI.focus(); e.preventDefault(); return; }  // tap the name = OS keyboard (preventDefault stops mobile follow-up events from stealing focus back)
       tMode = 0; return;                                           // tap elsewhere = back
     }
     if (tMode === 2) {                                             // slot select: rows at y=206+i*16
