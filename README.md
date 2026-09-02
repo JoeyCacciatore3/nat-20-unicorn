@@ -1,4 +1,4 @@
-# UNI-CORN
+# UNICORN
 ### Hooves of Hope
 
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
@@ -16,6 +16,7 @@ and stat allocation.
 - **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn, wears a tier trim (silver/gold/prismatic), AND gives stat bonuses
 - **Level 15 cap:** APOTHEOSIS (+2 ATK, +2 max HP)
 - **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
+- **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Open it to allocate — **one cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Tap ☰ again to close; it auto-closes when nothing is left to spend. The pause view (no points) is read-only.
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
@@ -50,7 +51,7 @@ Drops fall to the ground and **stay there until you die or leave the zone** — 
 - **Tier 2** (need 2): FAR SHOT, DBL JUMP, LONG DASH, SADDLE BAG
 - **Tier 3** (need 5): SUPER HEAL, TRI JUMP, SADDLE BAGS
 
-Locked tiers show "?". Purchased = gold glow, available = pulsing cyan.
+Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray. Skills are spent in the allocation screen (the glowing ☰) via the same left/right cursor as stats — no separate skill-buying mode.
 
 ## Controls
 | | Keyboard | Touch |
@@ -61,7 +62,7 @@ Locked tiers show "?". Purchased = gold glow, available = pulsing cyan.
 | Shoot (skill-gated) | L | SHOT button |
 | Heal (skill-gated, hold) | H | HEAL button |
 | Interact (hearth / chest / portal) | Space (near) | JUMP (near) |
-| Pause / character sheet | P | Scroll icon |
+| Menu / allocate / character sheet | P | ☰ icon (glows when points to spend) |
 | Save + exit option | — | Floppy icon |
 | Mute toggle | — | Speaker icon |
 | Controls help | — | ? icon |
@@ -91,7 +92,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: multi-zone map traversal audit (no stuck spots, all portals/bosses/chests reachable at expected tier), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,736 / 13,312 B (95.7%) — 576 B free**
+**Current: 12,746 / 13,312 B (95.7%) — 566 B free**
 
 ## Save format
 Keys: `localStorage.n20_s0..2` (3 slots). Version: **v34** — strict version gate, auto-discards older saves.

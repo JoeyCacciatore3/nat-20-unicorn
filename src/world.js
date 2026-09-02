@@ -1,4 +1,4 @@
-// world.js — UNI-CORN: 5-zone hub-and-spoke world.
+// world.js — UNICORN: 5-zone hub-and-spoke world.
 // Zone 0 = MEADOW (hub, current geometry). Zones 1-4 reached via rainbow portals.
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes, 4 cracked wall (dash/shot breaks).
 //

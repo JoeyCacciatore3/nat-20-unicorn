@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,736 B (95.7%, 576 B free · 4.3% headroom), save v34, 5-zone hub-and-spoke world with FOL densify + variety + hand-decor + FOL keepout + all 14 deco placement fixes + 5 DARK CORN bosses (color-aligned, unified scaling formula) + ELITE EVENT (~6% rare mini-boss) + unified visual language across HP bars, combat text (4 semantic colors), particle bursts (all n=12), HUD icons (single box helper), enemy/boss pop-ups; three helper extractions (interact / bars / fade) + magic-point rebalance (10 MP start, dash 1 / shot 2 / heal 3); all assets current, 8-achievement slate live on Wavedash.**
+Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,746 B (95.7%, 566 B free · 4.3% headroom), save v34, 5-zone hub-and-spoke world with FOL densify + variety + hand-decor + FOL keepout + all 14 deco placement fixes + 5 DARK CORN bosses (color-aligned, unified scaling formula) + ELITE EVENT (~6% rare mini-boss) + unified visual language across HP bars, combat text (4 semantic colors), particle bursts (all n=12), HUD icons (single box helper), enemy/boss pop-ups; three helper extractions (interact / bars / fade) + magic-point rebalance (10 MP start, dash 1 / shot 2 / heal 3); all assets current, 8-achievement slate live on Wavedash. SINCE (source, re-push pending): potion hot-bar (tap-to-drink HP/MP, stack 5) + persistent ground drops + respawn/chest/elite unification + raised camera framing + uniform always-present action buttons + UNI-CORN→UNICORN rename + no-auto-pause leveling (glowing ☰, full HP+MP restore) + unified stat+skill allocation cursor.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -104,7 +104,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,736 / 13,312 B (576 free, 4.3% headroom) |
+| ✓ | Build under budget | 12,746 / 13,312 B (566 free, 4.3% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |
@@ -135,7 +135,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | 5 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
 | 6 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
 
-**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest Wavedash push 2026-09-02: `mn744m87zmwcz9bnzgz06703q98dntyt` (e522655, 12,676 B — three helper extractions). Session shipped 19 consecutive improvements from 12,845 → 12,676 B (net −169 B). **NOTE: source has since advanced to 12,736 B** (potion hot-bar + persistent ground drops + respawn/chest/elite unification + raised camera framing) — Wavedash deploy re-push pending to re-align with source. Playtest data wipe from 2026-09-01 still in effect (achievement definitions intact).
+**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest Wavedash deploy 2026-09-02: `mn74zh6shx2zzpz3h0q4g7mdm58dns38` (12,736 B — potion hot-bar + persistent drops + respawn/chest/elite + raised camera). **NOTE: source has since advanced to 12,746 B** (UNI-CORN→UNICORN rename, no-auto-pause leveling with glowing ☰, full HP+MP restore on level, unified stat+skill allocation cursor) — Wavedash re-push pending to re-align. Store title still reads "NAT 20 UNICORN" (portal-only edit). Playtest data wipe from 2026-09-01 still in effect (achievement definitions intact).
 
 ### 📋 Assets inventory (verified on disk 2026-09-01)
 ```

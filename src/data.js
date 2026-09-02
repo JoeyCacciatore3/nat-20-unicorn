@@ -1,4 +1,4 @@
-// data.js — UNI-CORN static lookup tables: palette, gear/enemy/boss data, skill
+// data.js — UNICORN static lookup tables: palette, gear/enemy/boss data, skill
 // tree, sprite bitmaps. PURE constants + pure helpers only (no canvas, no mutable
 // game state). esbuild inlines these back into the single bundle, so this split is
 // byte-neutral — it exists purely to keep main.js focused on behaviour. Anything

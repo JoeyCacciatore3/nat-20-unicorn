@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// UNI-CORN, Hooves of Hope — build pipeline:
+// UNICORN, Hooves of Hope — build pipeline:
 // esbuild → terser (full prop-mangle) → roadroller (pinned flags) → inline → zip → ECT → 13,312-byte gate
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, statSync, appendFileSync } from 'node:fs';
@@ -37,7 +37,7 @@ console.log('3/6 pack (roadroller)…');
 // -D (dirty decoder) is safe: canvas id is 2 chars (cv), no single-letter DOM globals.
 // Single viewport meta with viewport-fit=cover (the second one superseded the first — measured: removing the
 // duplicate saves 5 B post-zip). -webkit-user-select dropped (user-select alone covers all 2020+ browsers).
-const SHELL = '<title>UNI-CORN</title>'
+const SHELL = '<title>UNICORN</title>'
   + '<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">'
   + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}canvas{width:100%;height:100%;display:block;touch-action:none}</style>'
   + '<canvas id=cv></canvas>';

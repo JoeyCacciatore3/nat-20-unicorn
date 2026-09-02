@@ -1,4 +1,4 @@
-// UNI-CORN, Hooves of Hope — 2D pixel-art platformer. Canvas 2D, no WebGL.
+// UNICORN, Hooves of Hope — 2D pixel-art platformer. Canvas 2D, no WebGL.
 //
 // Design pillars (see OneStone project "uni-corn" for full history + rationale):
 //   - Stat allocation (STR/HP/MAG/DEF/LUCK), no classes
@@ -100,11 +100,10 @@ addEventListener('keydown', (e) => {
   if (savePop) { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyP') savePop = 0; return; }
   if (helpOn) { helpOn = 0; return; }
   if (phase === 0) return titleKey(e);
-  if (choosing) {                                              // LEVEL-UP menu owns input first — no world-interact swallow (Space/W/ArrowUp near hearth/chest)
-    const n = STATS.length;
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + n - 1) % n;
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % n;
-    else if (e.code === 'Enter' || e.code === 'Space') allocate();
+  if (choosing) {                                              // ALLOCATION menu owns input first — cursor spans stats+skills (SN)
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + SN - 1) % SN;
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % SN;
+    else if (e.code === 'Enter' || e.code === 'Space') spend();
     return;
   }
   // Near hearth: JUMP is the universal INTERACT (auto REST)
@@ -186,21 +185,13 @@ addEventListener('pointerdown', (e) => {
   if (helpOn) { helpOn = 0; return; }
   // HUD icon taps: Menu | Save | Mute | ? — SAME row in play AND menu.
   // Menu TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
-  if (started && !choosing && hit(VW - 78, 0, 18, 20)) { paused ^= 1; return; }
+  if (started && hit(VW - 78, 0, 18, 20)) { if (choosing) choosing = 0; else if (pending || spts) { choosing = 1; aRow = 0; navT = .4; } else paused ^= 1; return; }
   if (started && hit(VW - 60, 0, 18, 20)) { save(); sfx(660, 990, .15, 'triangle', .12); savePop = 1; return; }
   if (started && hit(VW - 42, 0, 20, 20)) { mute ^= 2; save(); return; }
   if (started && hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
   if (paused) {
-    const tot = su.reduce((a,v)=>a+v,0);
-    for (let i = 0; i < TREE.length; i++) {
-      const req = TREE[i][1], [cx, cy] = TPOS[i];
-      if (hit(cx, cy, 26, 26)) {
-        const locked = req === -2 ? tot < 2 : req === -3 ? tot < 5 : false;
-        if (spts > 0 && !su[i] && !locked) { su[i] = 1; spts--; sfx(660, 990, .15, 'triangle', .12); save(); }
-        return;
-      }
-    }
+    // Skills are spent in the allocation screen (☰ when points pending) — pause is view + inventory only.
     // USE/DROP buttons FIRST — they visually overlap the inventory grid area (y=250-264 sits inside grid y=184-268), so grid check would eat them.
     if (invSel >= 0 && inv[invSel]) {
       if (hit(30, 250, 50, 15)) { useItem(invSel); return; }
@@ -219,9 +210,11 @@ addEventListener('pointerdown', (e) => {
     // selects (cursor moves); tap the SELECTED column again to spend — no accidental one-tap.
     // Check BEFORE joystick grab so touch taps on stats aren't intercepted.
     const col = ((vx - 19) / 26) | 0;
-    if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) allocate(); else aRow = col; return; }
+    if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else aRow = col; return; }
+    // SKILL nodes — tap to select, tap the selected node again to spend (same as stats)
+    for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { if (aRow === 5 + i) spend(); else aRow = 5 + i; return; } }
     // SPEND button — circular tap target at bottom-right (same position as JUMP)
-    if (Math.hypot(vx - (VW - 36), vy - (VH - 44)) < 36) { allocate(); return; }
+    if (Math.hypot(vx - (VW - 36), vy - (VH - 44)) < 36) { spend(); return; }
     if (e.pointerType === 'touch' && vx < VW * .3) { grabJoy(vx, vy, e.pointerId); return; }   // stick navigates
     return;
   }
@@ -359,12 +352,13 @@ const gainXp = (n, x, y) => {
   xp += n; fly(x, y, '+' + n + ' XP', '#9fe89a');
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
+    hp = mHP(); mn = mMN(); fanfare();            // full HP+MP restore + celebratory sting each level
     fly(pl.x, pl.y - 40, 'LEVEL UP · LV ' + lvl, '#ffd75e', 1);
-    fly(pl.x, pl.y - 28, '+1 SKILL', '#ffd75e');
-    if (lvl === CAP) { fly(pl.x, pl.y - 52, 'APOTHEOSIS', '#ffd75e', 1); hp = mHP(); }
+    if (lvl === CAP) fly(pl.x, pl.y - 52, 'APOTHEOSIS', '#ffd75e', 1);
   }
   if (lvl >= CAP) xp = 0;
-  if (pending && !choosing) { choosing = 1; aRow = 0; navT = .4; fanfare(); }   // navT swallows held stick input on open
+  // NO auto-pause: leveling never freezes play. The ☰ menu button glows (see HUD) to
+  // signal pending points; tapping it opens the allocation screen deliberately.
 };
 // STATS — [name, applyFn]. Colors live inline in the SL render array (below).
 const STATS = [
@@ -378,11 +372,18 @@ const STATS = [
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE.length).fill(0);
 let aRow = 0;
-const allocate = () => {
-  if (!pending) return;
-  STATS[aRow][1](); pending--;
-  fly(pl.x, pl.y - 14, STATS[aRow][0] + '!', '#ffd75e', 1); sfx(660, 990, .15, 'triangle', .12);
-  if (!pending) { choosing = 0; if (spts > 0) paused = 1; save(); }
+const SN = 5 + TREE.length;                                   // unified cursor span: 5 stats then the skill nodes
+const spend = () => {
+  if (aRow < 5) {                                             // STAT — costs a pending point
+    if (!pending) return;
+    STATS[aRow][1](); pending--;
+  } else {                                                    // SKILL node — costs a skill point (respects lock/owned)
+    const i = aRow - 5, req = TREE[i][1], tot = su.reduce((a, v) => a + v, 0);
+    if (!spts || su[i] || (req === -2 ? tot < 2 : req === -3 && tot < 5)) return;
+    su[i] = 1; spts--;
+  }
+  sfx(660, 990, .15, 'triangle', .12); save();
+  if (!pending && !spts) choosing = 0;                        // nothing left to spend → auto-close (else tap ☰ to leave)
 };
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
@@ -407,7 +408,7 @@ const load = () => {
     [ho, he, sp, df, lk] = d.t;
     col = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
-    pending = d.d; if (pending) { choosing = 1; aRow = 0; }        // unspent stat points survive reload
+    pending = d.d;                                                 // unspent stat points survive reload — ☰ glows, no auto-open
     spts = d.k; d.y.forEach((v, i) => su[i] = v);
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
@@ -562,7 +563,7 @@ const strike = (f, gen, viaStomp) => {
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
         rburst(f.x, f.y, 12); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / 5', RBC[f.bi], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
-          bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
+          bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNICORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
@@ -605,12 +606,12 @@ const hurt = (n, safe) => {
 let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
-  if (choosing) {                                  // JOYSTICK MENU NAV — stick moves between horizontal stats, JUMP allocates
+  if (choosing) {                                  // MENU NAV — stick/keys move the cursor across stats+skills, JUMP spends
     navT -= dt;
     const lt = keys.has('bL') || keys.has('bU'), rt = keys.has('bR') || keys.has('bD'), jp = keys.has('bJ');
     if (navT <= 0 && (lt || rt || jp)) {
       navT = .3;
-      if (jp) allocate(); else aRow = (aRow + (rt ? 1 : 4)) % 5;
+      if (jp) spend(); else aRow = (aRow + (rt ? 1 : SN - 1)) % SN;
     }
     if (!lt && !rt && !jp) navT = 0;
   }
@@ -1164,6 +1165,7 @@ const draw = () => {
       ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx, cy, NS, NS);
       ctx.fillStyle = su[i] ? 'rgba(255,215,94,.18)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);
       ctx.strokeStyle = su[i] ? '#ffd75e' : '#555'; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
+      if (alloc && aRow === 5 + i) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }   // unified cursor on this skill node
       ctx.fillStyle = su[i] ? '#ffd75e' : '#888';
       if (locked) ctx.fillText('?', cx + NS / 2, cy + 17);
       else { const w = nm.split(' '); if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 11); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 21); } else ctx.fillText(nm, cx + NS / 2, cy + 17); }
@@ -1230,9 +1232,11 @@ const draw = () => {
       ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x, iy, isz, isz);
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, iy, isz, isz);
     };
-    if (!choosing) {                                            // Menu · Save · Mute (hidden during level-up)
-      const px = VW - 74; box(px); ctx.fillStyle = '#c8b888';   // Menu (hamburger) — char-sheet toggle
-      for (let i = 0; i < 3; i++) ctx.fillRect(px + 3, iy + 3 + i * 3, 6, 1);
+    const px = VW - 74; box(px);                               // Menu (hamburger) — ALWAYS shown; toggles sheet / closes allocation
+    if (!choosing && (pending || spts)) { ctx.strokeStyle = RC[(time * 6 | 0) % 7]; ctx.lineWidth = 1; ctx.strokeRect(px, iy, isz, isz); }   // rainbow glow = points to spend (stat OR skill)
+    ctx.fillStyle = '#c8b888';
+    for (let i = 0; i < 3; i++) ctx.fillRect(px + 3, iy + 3 + i * 3, 6, 1);
+    if (!choosing) {                                            // Save · Mute — hidden during allocation
       const sx = VW - 56; box(sx);                              // Floppy — save
       ctx.fillStyle = '#ccc'; ctx.fillRect(sx + 3, iy + 2, 6, 5); ctx.fillStyle = '#555'; ctx.fillRect(sx + 6, iy + 3, 2, 3);
       ctx.fillStyle = '#888'; ctx.fillRect(sx + 2, iy + 8, 8, 3);
@@ -1274,8 +1278,8 @@ const draw = () => {
     // Title — rainbow per-character matching the arc; subtitle in white
     ctx.font = 'bold 30px monospace'; ctx.textAlign = 'left';
     ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
-    const tc = 'UNI-CORN', tw = ctx.measureText(tc).width, cw = tw / 8;
-    for (let i = 0; i < 8; i++) { const cx = VW / 2 - tw / 2 + cw * i; ctx.strokeText(tc[i], cx, 168); ctx.fillStyle = RC[i % 7]; ctx.fillText(tc[i], cx, 168); }
+    const tc = 'UNICORN', tw = ctx.measureText(tc).width, cw = tw / tc.length;
+    for (let i = 0; i < tc.length; i++) { const cx = VW / 2 - tw / 2 + cw * i; ctx.strokeText(tc[i], cx, 168); ctx.fillStyle = RC[i % 7]; ctx.fillText(tc[i], cx, 168); }
     ctx.textAlign = 'center'; ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 13px monospace'; T2('Hooves of Hope', VW / 2, 188);
     // Title art above stays in EVERY mode — menu / name entry / slot select swap below it.
     if (tMode === 1) {                                             // NAME ENTRY
