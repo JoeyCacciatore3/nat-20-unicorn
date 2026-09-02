@@ -356,7 +356,7 @@ const gainXp = (n, x, y) => {
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
     hp = mHP(); mn = mMN(); fanfare();            // full HP+MP restore + celebratory sting each level
-    fly(pl.x, pl.y - 40, 'LEVEL UP · LV ' + lvl, '#ffd75e', 1);
+    luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font)
     if (lvl === CAP) fly(pl.x, pl.y - 52, 'APOTHEOSIS', '#ffd75e', 1);
   }
   if (lvl >= CAP) xp = 0;
@@ -424,7 +424,7 @@ const SX = 126 * T, SY = 57 * T;                  // spawn point (paddock)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
 let nearFire = 0;                                 // hearth proximity flag
-let paused = 0, helpOn = 0, savePop = 0;            // pause overlay; help overlay; save popup (shows EXIT GAME)
+let paused = 0, helpOn = 0, savePop = 0, luT = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline
 let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
 // HEARTH ACTION — JUMP-near-fire = REST: full HP + MP restore, respawn checkpoint set.
 // NOTE: does NOT save the game — the only manual save is the floppy HUD icon (so players
@@ -442,7 +442,6 @@ const openChest = (i) => {
   const c = chests[i]; hp = mHP();
   spawnDrop(c.x, c.y, 2);
   burst(c.x, c.y - 4, 12, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
-  fly(c.x + 6, c.y - 4, '+HEAL', '#9fe89a');
   save();
 };
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
@@ -566,7 +565,7 @@ const strike = (f, gen, viaStomp) => {
 // Strikes foes it passes through, hits GENERATE mana.
 function shoot() {                                              // magic bolt (gold): 2 mana
   if (!started || paused || deathT > 0 || !su[0]) return;
-  if (mn < 2) { fly(pl.x, pl.y - 12, 'need ✦2', '#ff5d6c'); return; }   // flat 2 MP · warning red
+  if (mn < 2) return;                                              // silent fail — matches HEAL/DASH convention (MP bar shows the answer)
   mn -= 2; sfx(700, 1300, .12, 'triangle', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * su[1] });   // base range SHORT; FAR SHOT extends (.55s→.80s)
 }
@@ -1036,6 +1035,14 @@ const draw = () => {
       ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e';
       T2(bTxt, VW / 2, 58);
       if (bSub) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
+    }
+    if (time < luT) {                                           // LEVEL UP BANNER — rainbow per-char, matches title 'UNICORN' font/style
+      ctx.font = 'bold 30px monospace'; ctx.textAlign = 'left';
+      ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
+      const lu = 'LEVEL UP', lw = ctx.measureText(lu).width, lch = lw / lu.length;
+      ctx.globalAlpha = Math.min(1, (luT - time) * 3);          // pop in, fade last .33s
+      for (let i = 0; i < lu.length; i++) { const cx = VW / 2 - lw / 2 + lch * i; ctx.strokeText(lu[i], cx, 48); ctx.fillStyle = RC[i % 7]; ctx.fillText(lu[i], cx, 48); }
+      ctx.globalAlpha = 1;
     }
     fade(1 - Math.abs(deathT - .8) / .8);
   }
