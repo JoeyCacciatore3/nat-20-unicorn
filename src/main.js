@@ -118,13 +118,13 @@ addEventListener('keydown', (e) => {
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (e.code === 'KeyJ') dash();                          // J = dash — the attack verb (contact damage during dash)
   if (e.code === 'KeyL') shoot();
+  if (e.code === 'KeyH') heal();
   if (e.code === 'KeyP' && deathT <= 0) { paused = 1; aRow = 0; }   // P opens the menu (close handled in the paused block above)
 
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
 const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('bJ'); // button jump gets full hold-height too
-const healHeld = () => keys.has('KeyH') || keys.has('bH');
 
 // ---------- touch overlay (minimal: dpad + JUMP + MELEE + earned skills; JUMP + MELEE contextualize) ----------
 // No dedicated hearth buttons — JUMP is the universal interact/confirm, MELEE is back/cancel.
@@ -228,6 +228,7 @@ addEventListener('pointerdown', (e) => {
     if (c === 'bJ') jbuf = .12;
     if (c === 'bM') dash();
     if (c === 'bS') shoot();
+    if (c === 'bH') heal();
   }
 });
 addEventListener('pointermove', (e) => {
@@ -423,7 +424,7 @@ const PW = 10, PH = 14;
 const SX = 126 * T, SY = 57 * T;                  // spawn point (paddock)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
-let chT = 0, nearFire = 0, nearDoor = -1;         // proximity flags: hearth, doorway
+let nearFire = 0, nearDoor = -1;                 // proximity flags: hearth, doorway
 let curZone = 0, zBann = 0, zFade = 0;            // active zone id, banner timer, fade timer
 let paused = 0, helpOn = 0, savePop = 0;            // pause overlay; help overlay; save popup (shows EXIT GAME)
 let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
@@ -587,15 +588,20 @@ function shoot() {                                              // magic bolt (g
 function dash() {                                               // THE attack verb: burst + strike-through; 1 mana (dash-hits refund it via `gen` in strike)
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 1) return;
   if (!pl.ground) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
-  chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
   dashCd = .45; pl.sq = .6; mn -= 1; sfx(600, 200, .12, 'sawtooth', .12);
+}
+function heal() {                                               // instant tap-to-cast; 3 mana, +3 HP base (+6 with SUPER HEAL)
+  if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
+  const hm = 3 + su[3] * 3;
+  mn -= 3; hp = Math.min(mHP(), hp + hm);
+  burst(pl.x + PW / 2, pl.y + 4, 12, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1);
 }
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max((n >> 2) || 1, n - df - eqB[3]);                // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp -= n; pl.inv = 1.2; chT = 0; shk = Math.max(shk, .22);
+  hp -= n; pl.inv = 1.2; shk = Math.max(shk, .22);
   sfx(140, 55, .25, 'sawtooth', .12); burst(pl.x, pl.y + 7, 12, '#e05555');
 
   if (hp <= 0) { deathT = 1.6; return; }
@@ -618,26 +624,18 @@ const step = (dt) => {
   }
   if (!started) return;
 
-  // -- drop-through: DOWN on a one-way platform falls through it (S doubles as
-  // down here — movement wins over heal on platforms; heal works on solid ground) --
+  // -- drop-through: DOWN on a one-way platform falls through it (S doubles as down here) --
   const onPlat = pl.ground && tile((pl.x + PW / 2) / T | 0, (pl.y + PH + 1) / T | 0) === 2;
-  if (onPlat && held('ArrowDown', 'KeyS', 'bD')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
-
-  // -- heal channel: rooted, costs 5 mana, restores 3 HP (HEAL +2/+4 nodes → 5/7) --
-  if (su[2] && mn >= 3 && hp < mHP() && pl.ground && !onPlat && healHeld()) {
-    chT += dt; pl.vx = 0;
-    if (chT > 1.2) { const hm = 3 + su[3] * 3; chT = 0; mn -= 3; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 12, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // HEAL: 3, SUPER HEAL: 6 (costs 3 MP)
-  } else chT = 0;
-  const rooted = chT > 0;
+  if (onPlat && held('ArrowDown', 'KeyS', 'bD')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; }
 
   // -- run --
-  const dir = rooted ? 0 : (held('KeyD', 'ArrowRight', 'bR') ? 1 : 0) - (held('KeyA', 'ArrowLeft', 'bL') ? 1 : 0);
+  const dir = (held('KeyD', 'ArrowRight', 'bR') ? 1 : 0) - (held('KeyA', 'ArrowLeft', 'bL') ? 1 : 0);
   pl.vx += (dir * RUN - pl.vx) * Math.min(1, dt * 12 * (pl.ground ? 1 : .65));
   if (dir) pl.face = dir;
 
   // -- jump: buffer + coyote + variable + double --
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
-  if (jbuf > 0 && !rooted) {
+  if (jbuf > 0) {
     if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 12); }
     else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 12); }   // TRI JUMP — same sound as ground jump (unified)
   }
@@ -1034,10 +1032,6 @@ const draw = () => {
     ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale((2 - pl.sq) * pl.face, pl.sq); ctx.translate(-PW / 2, -PH);
     drawU(pl.ground && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.ground ? 0 : 2));
     ctx.restore();
-    if (chT > 0) {                                               // heal channel ring
-      ctx.strokeStyle = '#9fe89a'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(pl.x + PW / 2, pl.y + 6, 12, -1.57, -1.57 + 6.28 * chT / 1.2); ctx.stroke();  // denominator MUST match the heal tick threshold
-    }
   }
 
   // Item drops — pixel sprites, bob gently, fade near end of life
@@ -1284,7 +1278,7 @@ const draw = () => {
     ctx.fillStyle = 'rgba(0,0,0,.88)'; ctx.fillRect(0, 0, VW, VH);
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ffd75e'; T2('CONTROLS', VW / 2, 60);
-    [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H (hold)'],['PAUSE','P']].forEach(([a, b], i) => {
+    [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H'],['PAUSE','P']].forEach(([a, b], i) => {
       const y = 82 + i * 22;
       ctx.fillStyle = '#c8a830'; ctx.textAlign = 'right'; T2(a, VW / 2 - 10, y);
       ctx.fillStyle = '#ffd75e'; ctx.textAlign = 'left'; T2(b, VW / 2 + 10, y);
