@@ -452,7 +452,7 @@ const openChest = (i) => {
   oc |= 1 << (curZone * 6 + i);
   const c = chests[i]; hp = mHP();
   spawnDrop(c.x, c.y, 2);
-  burst(c.x, c.y - 4, 18, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
+  burst(c.x, c.y - 4, 12, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
   fly(c.x + 6, c.y - 4, '+HEAL', '#9fe89a');
   save();
 };
@@ -462,7 +462,7 @@ const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = 115, V0 = 250;
 
 const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // cracked wall (4) is solid until hit
-const smash = (px, py) => { const tc = px / T | 0, tr = py / T | 0; if (tile(tc, tr) !== 4) return; for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++) if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 5, '#a08060'); } sfx(900, 220, .2, 'square', .1); };
+const smash = (px, py) => { const tc = px / T | 0, tr = py / T | 0; if (tile(tc, tr) !== 4) return; for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++) if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 6, '#a08060'); } sfx(900, 220, .2, 'square', .1); };
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
@@ -539,7 +539,7 @@ const strike = (f, gen, viaStomp) => {
   if (!f.bit && !viaStomp) f.vx += (crit ? 220 : 140) * (f.x > pl.x ? 1 : -1); // KNOCKBACK — bosses hold their arena
   shk = Math.max(shk, crit ? .22 : .09);
   fly(f.x, f.y - 8, (crit ? 'CRIT ' : '') + '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by size (big=1) + word
-  if (crit) { hs = .06; fanfare(); burst(f.x, f.y, 24, '#ffd75e'); }
+  if (crit) { hs = .06; fanfare(); burst(f.x, f.y, 12, '#ffd75e'); }
   if (gen) mn = Math.min(mMN(), mn + 1);          // dash hits GENERATE mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
   if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
@@ -552,9 +552,9 @@ const strike = (f, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 (k4+ are variants); elite bonus rewards the mini-boss fight
+    burst(f.x, f.y, 12, f.el ? PAL[9] : FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 (k4+ are variants); elite bonus rewards the mini-boss fight
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // elite guarantees a drop
-    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }   // elite kill flourish
+    if (f.el) sfx(784, 1568, .3, 'triangle', .15);   // elite kill flourish (aqua death burst above signals visually)
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
@@ -567,7 +567,7 @@ const strike = (f, gen, viaStomp) => {
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
-      gainXp(12 + 6 * f.bi, f.x, f.y - 26); burst(f.x, f.y, 30, '#fff');
+      gainXp(12 + 6 * f.bi, f.x, f.y - 26);
     }
     return 1;
   }
@@ -594,7 +594,7 @@ const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max((n >> 2) || 1, n - df - eqB[3]);                // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
   hp -= n; pl.inv = 1.2; chT = 0; shk = Math.max(shk, .22);
-  sfx(140, 55, .25, 'sawtooth', .12); burst(pl.x, pl.y + 7, 10, '#e05555');
+  sfx(140, 55, .25, 'sawtooth', .12); burst(pl.x, pl.y + 7, 12, '#e05555');
 
   if (hp <= 0) { deathT = 1.6; return; }
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
@@ -633,7 +633,7 @@ const step = (dt) => {
   // -- heal channel: rooted, costs 5 mana, restores 3 HP (HEAL +2/+4 nodes → 5/7) --
   if (su[2] && mn >= 3 && hp < mHP() && pl.ground && !onPlat && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.2) { const hm = 3 + su[3] * 3; chT = 0; mn -= 3; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // HEAL: 3, SUPER HEAL: 6 (costs 3 MP)
+    if (chT > 1.2) { const hm = 3 + su[3] * 3; chT = 0; mn -= 3; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 12, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // HEAL: 3, SUPER HEAL: 6 (costs 3 MP)
   } else chT = 0;
   const rooted = chT > 0;
 
@@ -645,7 +645,7 @@ const step = (dt) => {
   // -- jump: buffer + coyote + variable + double --
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0 && !rooted) {
-    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 4); }
+    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 6); }
     else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 6); }   // TRI JUMP — same sound as ground jump (unified)
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
@@ -679,7 +679,7 @@ const step = (dt) => {
       const tv = tile((pl.x + ox) / T | 0, ty);
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
         pl.y = top - PH;
-        if (!wasGround && pl.vy > 250) { pl.sq = 1.35; rburst(pl.x + PW / 2, feet, 5); sfx(150, 70, .06, 'square', .07); }
+        if (!wasGround && pl.vy > 250) { pl.sq = 1.35; rburst(pl.x + PW / 2, feet, 6); sfx(150, 70, .06, 'square', .07); }
         pl.vy = 0; pl.ground = 1; pl.air = 0; break;
       }
     }
@@ -786,7 +786,7 @@ const step = (dt) => {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
       // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
       if (f.cap & 8 && !wasGr) {
-        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 16, '#fff'); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
+        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 20, '#fff'); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
         if (pl.ground && Math.abs(pl.x - f.x) < 64) hurt(3, 0);
       }
     }
