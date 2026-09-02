@@ -1,5 +1,5 @@
-// world.js — UNICORN: 5-zone hub-and-spoke world.
-// Unified world — one map (MEADOW). All 5 CORN bosses live in it; no portals.
+// world.js — UNICORN: unified single-map world.
+// All 5 CORN bosses live in one contiguous MEADOW; no portals, no zone transitions.
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes.
 //
 // ============================ MAP LAWS (Joe, locked) ============================

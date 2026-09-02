@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v34 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v37 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
 import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_GEM, I_MP } from './data.js'; // static lookup tables
@@ -296,7 +296,7 @@ let eqB = [0, 0, 0, 0];
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
 // Stat bar: dark track + coloured fill to `frac` (0..1). Shared by portrait, HUD, boss/tier bars.
 const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * frac, h); };
-// Full-screen dim overlay — shared by zone transition + death vignette.
+// Full-screen dim overlay — death vignette.
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
 // Shared HP/MP/XP triple stack at (x, y): red HP + blue mana + green/gold XP.
 const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = 1; ctx.strokeRect(x - .5, y - .5, 69, 11); bar(x, y + 12, 68, 8, mn / mMN(), '#4a76ff'); ctx.strokeRect(x - .5, y + 11.5, 69, 9); bar(x, y + 22, 68, 3, lvl >= CAP ? 1 : xp / need(), lvl >= CAP ? '#ffd75e' : '#9fe89a'); };
@@ -401,7 +401,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 37) return;                               // strict v37 gate — no cross-version compat (removes curZone/z field).
+    if (!d || d.v !== 37) return;                               // strict v37 gate — no cross-version compat.
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     chests = seeds.chests.map(snapChest);
@@ -603,7 +603,7 @@ const step = (dt) => {
 
   if (deathT > 0) {
     deathT -= dt;
-    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k)); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn = soft zone reset: full HP+MP, reseed foes, reset ALL non-dead bosses in this zone (multi-boss support), clear drops
+    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k)); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn: full HP+MP, reseed foes, reset ALL non-dead bosses, clear drops
     return;
   }
   if (!started) return;
@@ -679,13 +679,13 @@ const step = (dt) => {
   for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
-  seeds.bosses.forEach(([bx, by, bi]) => {                      // bi comes from seed (was curZone) — supports multiple bosses per zone
+  seeds.bosses.forEach(([bx, by, bi]) => {                      // bi (rainbow band 0-4) from seed — 5 bosses share the world
     const bit = 1 << bi;
     if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
-      // BOSS = tier-3 foe (one above 'select') with fh_boss=10, fd_boss=5 in shared scl() formula:
-      // hp = 20*scl() · dm = 8+bi (per-boss progression: RED=8, ORANGE=9, YELLOW=10, BLUE=11, VIOLET=12).
+      // BOSS stat formula: hp = 20*scl() (player-level scaled); dm = 8+bi (per-boss ramp:
+      // RED=8, ORANGE=9, YELLOW=10, BLUE=11, VIOLET=12). cz=4 = 4× foe cell size (visual+hit).
       bs[bi] = 1;
       const bhp = 20 * scl() | 0;
       foes.push({
@@ -796,7 +796,7 @@ const step = (dt) => {
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
-    d.life += dt;   // age (float/bob only) — NO despawn: drops leave the world only on death or zone-leave, exactly like foes
+    d.life += dt;   // age (float/bob only) — NO despawn: drops leave the world only on player death, exactly like foes
     d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
     if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ground
     if (Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
@@ -848,11 +848,11 @@ const draw = () => {
   for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
     const v = tile(i, j); if (!v) continue;
     if (v === 1) {
-      // SOLID GROUND — zone dirt body, lighter surface-top where exposed to air
+      // SOLID GROUND — dirt body, lighter surface-top where exposed to air
       ctx.fillStyle = GD; ctx.fillRect(i * T, j * T, T + .5, T + .5);
       if (tile(i, j - 1) !== 1) { ctx.fillStyle = GT; ctx.fillRect(i * T, j * T, T + .5, 5); }
     } else if (v === 2) {
-      // PLATFORM — chunky: zone surface-top + dirt underside
+      // PLATFORM — chunky: surface-top + dirt underside
       ctx.fillStyle = GD; ctx.fillRect(i * T, j * T + 2, T + .5, 7);
       ctx.fillStyle = GT; ctx.fillRect(i * T, j * T, T + .5, 4);
     } else {
@@ -886,14 +886,14 @@ const draw = () => {
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
-    if (dt === 0 || dt === 4) { // TREE — shared geometry; 0 live (zone palette), 4 dead (gray+purple)
+    if (dt === 0 || dt === 4) { // TREE — shared geometry; 0 live (foliage palette), 4 dead (gray+purple)
       ctx.fillStyle = dt ? '#444' : GD; ctx.fillRect(px + 6, py - 12, 4, 12);
       ctx.fillStyle = dt ? '#3a2244' : GF;                                   // canopy (two rects, one fillStyle)
       ctx.fillRect(px + 1, py - 20, 14, 9); ctx.fillRect(px + 3, py - 23, 10, 5);
-    } else if (dt === 1) { // GRASS — zone-foliage blades (static)
+    } else if (dt === 1) { // GRASS — foliage blades (static)
       ctx.fillStyle = GF;
       ctx.fillRect(px + 3, py - 5, 1, 5); ctx.fillRect(px + 7, py - 7, 1, 7); ctx.fillRect(px + 11, py - 4, 1, 4);
-    } else if (dt === 2) { // ROCK — zone-accent boulder (base = derived-darker accent)
+    } else if (dt === 2) { // ROCK — accent boulder (base = derived-darker accent)
       ctx.fillStyle = RB; ctx.fillRect(px + 3, py - 4, 10, 4);
       ctx.fillStyle = GA; ctx.fillRect(px + 4, py - 6, 8, 3);
     } else if (dt === 3) { // MUSHROOM — glowing cave fungus
@@ -1187,8 +1187,8 @@ const draw = () => {
       ctx.font = 'bold 13px monospace'; T2('EXIT GAME', VW / 2, 175);
     }
   }
-  // TITLE screen (phase 0) — the live MEADOW renders behind this (sim frozen while
-  // !started), so the opening zone doubles as the title backdrop. A light scrim dims
+  // TITLE screen (phase 0) — the live world renders behind this (sim frozen while
+  // !started), so the paddock view doubles as the title backdrop. A light scrim dims
   // the scene just enough to keep the branding legible over the lively foliage.
   if (phase === 0) {
     ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.fillRect(0, 0, VW, VH);

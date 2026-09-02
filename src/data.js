@@ -15,7 +15,7 @@ export const PAL = [
   '#d8d8e0','#fff','#2a1f14','#4a3828'
 ];
 // Derive a darker shade of any hex color (each channel * f). Used for the mane sweep
-// AND per-zone rock shading (base = dim(accent)) so we store one accent, not two tones.
+// AND rock shading (base = dim(accent)) so we store one accent, not two tones.
 export const dim = (h, f) => '#' + h.slice(1).match(/../g).map(c => (Math.max(0, parseInt(c, 16) * f | 0)).toString(16).padStart(2, '0')).join('');
 export const mane3 = i => [PAL[i], dim(PAL[i], .85), dim(PAL[i], .7)];
 // Gear tier trim colour — shared by the unicorn's worn accents AND the ground-drop

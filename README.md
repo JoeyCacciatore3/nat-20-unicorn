@@ -4,9 +4,9 @@
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
 
 A 2D pixel-art platformer-RPG. The DARKNESS stole the world's color; you are the last
-unicorn. Name your unicorn, cross five themed zones, defeat five DARK CORNS, and reclaim
-the five RAINBOW SHARDS that restore the world. STR-based combat with LUCK-driven crits
-and stat allocation.
+unicorn. Name your unicorn, explore one contiguous world, defeat five DARK CORNS, and
+reclaim the five RAINBOW SHARDS that restore the world. STR-based combat with
+LUCK-driven crits and stat allocation.
 
 **Categories:** Desktop · Mobile · Wavedash
 
@@ -30,10 +30,11 @@ and stat allocation.
 `damage = ATK × (crit ? 2 : 1)` where `ATK = STR + horn_gear + apotheosis`
 - Crit chance: 8% + LUCK × 2% (LUCK-driven, no dice)
 - Defense: `max(incoming/4, incoming - DEF)` — bosses always deal ≥25%
-- 6 enemy kinds built from one capability-bit system + elite variants
-- Enemies scale by zone tier (HP ×1-3, +0-4 damage)
-- 5 named boss Mares — each holds one rainbow band (R-O-Y-B-V):
-  - **DARK RED CORN** (Meadow) → **DARK ORANGE CORN** (Cave) → **DARK YELLOW CORN** (Cliffs) → **DARK BLUE CORN** (Peak) → **DARK VIOLET CORN** (Depths, final)
+- 6 enemy kinds built from one capability-bit system + elite variants (~6% roll, 3× HP)
+- Enemies scale with player level (`2 + lvl>>2`) — stay a threat as you level
+- 5 named boss Mares — each holds one rainbow band (R-O-Y-B-V), all in the unified world:
+  - **DARK RED CORN** (paddock east) · **DARK ORANGE CORN** (far east walkway) · **DARK YELLOW CORN** (canopy ledge, DJ) · **DARK BLUE CORN** (peak ledge, DJ) · **DARK VIOLET CORN** (depths west, DASH)
+- Per-boss damage ramp: RED 8, ORANGE 9, YELLOW 10, BLUE 11, VIOLET 12
 
 ## Item Drops
 One loot roll (`d100 + LUCK×4`) for every kill and chest:
@@ -41,7 +42,7 @@ One loot roll (`d100 + LUCK×4`) for every kill and chest:
 - **MP POTION** (blue bottle, +3 MP) — mid
 - **GEAR PART** (BODY/MANE/HORN/HOOVES) — ceiling, LUCK boosts tier
 
-Drops fall to the ground and **stay there until you die or leave the zone** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume); overflow beyond 5 lands in the inventory. **Gear** goes to the inventory to equip later. If a drop has nowhere to go (hot-bar and bag both full) it simply waits on the ground. XP comes only from kills.
+Drops fall to the ground and **stay there until you die** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume); overflow beyond 5 lands in the inventory. **Gear** goes to the inventory to equip later. If a drop has nowhere to go (hot-bar and bag both full) it simply waits on the ground. XP comes only from kills.
 
 **RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 5 → THE DARKNESS LIFTS.
 
@@ -60,29 +61,32 @@ Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray 
 | Jump (hold = higher) | Space / W / ↑ | JUMP button |
 | Dash (skill-gated) | J | DASH button |
 | Shoot (skill-gated) | L | SHOT button |
-| Heal (skill-gated, hold) | H | HEAL button |
-| Interact (hearth / chest / portal) | Space (near) | JUMP (near) |
+| Heal (skill-gated) | H | HEAL button |
+| Interact (hearth / chest) | Space (near) | JUMP (near) |
 | Menu / allocate / character sheet | P | ☰ icon (glows when points to spend) |
 | Save + exit option | — | Floppy icon |
 | Mute toggle | — | Speaker icon |
 | Controls help | — | ? icon |
 
-Dash starts at half distance; LONG DASH doubles it. Dash also breaks cracked walls (tile 4).
+Dash starts at half distance; LONG DASH doubles it.
 
 ## World
-Five themed zones connected by rainbow portals:
-- **MEADOW** (hub) — starting field, holds DARK RED CORN + 4 portals to the other zones
-- **CAVE** — underground burrow, DARK ORANGE CORN
-- **CLIFFS** — wind-swept heights, DARK YELLOW CORN
-- **PEAK** — icy summit, DARK BLUE CORN
-- **DEPTHS** — corrupted core, DARK VIOLET CORN (final)
+**One unified map (600×120 tiles = 7,680×1,920 px).** No portals, no zone transitions —
+walk from any boss to any other. The 5 DARK CORNS live in different regions:
 
-The hub's ability-gated paths (double-jump wall, dark-crystal barrier, spike lake requiring dash) control the order you reach each portal. Every portal, boss, and chest is verified reachable by a build-time audit tool.
+- **Paddock** (center, x≈120) — spawn point, campfire, DARK RED CORN just east
+- **Descent corridor** (x150-256) — subterranean pocket carved into the ground
+- **East run** (x280-475) — DJ terraces, DASH gaps, TRI-JUMP stack, DARK ORANGE CORN far east
+- **Western terraces** (x40-118) — DJ climb to DARK YELLOW CORN on the canopy ledge
+- **Peak** (x10-60, top) — DJ summit climb, DARK BLUE CORN on the peak ledge
+- **Depths** (x10-139, deep west) — post-DASH corridor to DARK VIOLET CORN
+
+Movement-ability gating (double-jump for terraces/peak, dash for depths corridor) controls the natural order you reach each boss. Every boss and chest is verified reachable by a build-time audit tool.
 
 **Color palette rules:** Sky `#6bc5ff` and grass `#5ac878` are RESERVED for background;
 enemies and gear use warm saturated colors so silhouettes read against the sky.
 HP = red (`#ff5d6c`), MP = blue (`#4a76ff`) — matches bar colors AND consumable colors.
-Rainbow strobing is reserved for portals ONLY — everywhere else color signals a specific meaning.
+Rainbow strobing is reserved for level-up indicators — everywhere else color signals a specific meaning.
 
 ## Build
 Requires **Node ≥ 20**.
@@ -90,19 +94,20 @@ Requires **Node ≥ 20**.
 npm install
 npm run build    # map-audit → tpos-check → esbuild → terser → roadroller → zip → ECT
 ```
-Build gates: multi-zone map traversal audit (no stuck spots, all portals/bosses/chests reachable at expected tier), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
+Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,535 / 13,312 B (94.2%) — 777 B free**
+**Current: 11,403 / 13,312 B (85.7%) — 1909 B free**
 
 ## Save format
-Keys: `localStorage.n20_s0..1` (2 slots). Version: **v34** — strict version gate, auto-discards older saves.
-Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), z(zone), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
+Keys: `localStorage.n20_s0..1` (2 slots). Version: **v37** — strict version gate, auto-discards older saves.
+Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
 
 ## Structure
-- `src/main.js` — the game (~1,340 lines)
-- `src/world.js` — 5 zone tile maps, entity seeds, `loadZone(i)` swapper (~205 lines)
-- `design/SUBMISSION-KIT.md` — paste-ready store copy, cover/screenshot assets, entry checklist
+- `src/main.js` — the game (~1,200 lines)
+- `src/world.js` — unified MEADOW tile map + entity seeds + procedural scatter (~155 lines)
+- `src/data.js` — static lookup tables (palette, foes, gear, skill tree, boss names)
 - `build.mjs` — full pipeline + compliance gates
-- `tools/map-audit.mjs` — per-zone traversal prover (portals/bosses/chests reachable at expected tier)
+- `tools/map-audit.mjs` — traversal prover (bosses/chests reachable at expected ability tier)
+- `tools/spike-audit.mjs` — placement safety (no chest/decor through spikes, no adjacent-tree crowding)
 - `tools/tpos-check.mjs` — skill-tree layout drift guard + PAL/gear-range check
 - `dist/wavedash/` — Wavedash platform variant
