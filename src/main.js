@@ -357,7 +357,6 @@ const gainXp = (n, x, y) => {
     xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
     hp = mHP(); mn = mMN(); fanfare();            // full HP+MP restore + celebratory sting each level
     luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font)
-    if (lvl === CAP) fly(pl.x, pl.y - 52, 'APOTHEOSIS', '#ffd75e', 1);
   }
   if (lvl >= CAP) xp = 0;
   // NO auto-pause: leveling never freezes play. The ☰ menu button glows (see HUD) to
