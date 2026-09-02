@@ -162,10 +162,11 @@ addEventListener('pointerdown', (e) => {
   boot();
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
+  const hit = (x, y, w, h) => vx >= x && vx < x + w && vy >= y && vy < y + h;   // shared rectangular hit-test
   // TITLE — every mode fully clickable (row hitboxes MUST match the render y's)
   if (phase === 0) {
     if (tMode === 1) {                                             // name entry
-      if (vx >= VW / 2 - 60 && vx <= VW / 2 + 60 && vy >= 236 && vy <= 256) { toSlots(1); return; }  // ▶ BEGIN
+      if (hit(VW / 2 - 60, 236, 120, 21)) { toSlots(1); return; }  // ▶ BEGIN
       if (vy > 198 && vy < 230) { NI.value = ent; NI.focus(); e.preventDefault(); return; }  // tap the name = OS keyboard (preventDefault stops mobile follow-up events from stealing focus back)
       tMode = 0; return;                                           // tap elsewhere = back
     }
@@ -180,38 +181,39 @@ addEventListener('pointerdown', (e) => {
   }
   // Save popup — CONTINUE / EXIT GAME
   if (savePop) {
-    if (vy >= 136 && vy <= 150 && vx > 160 && vx < 320) { savePop = 0; return; }
-    if (vy >= 161 && vy <= 175 && vx > 160 && vx < 320) { save(); paused = 0; helpOn = 0; savePop = 0; started = 0; phase = 0; tMode = 0; mSel = 0; return; }
+    if (hit(160, 136, 160, 15)) { savePop = 0; return; }
+    if (hit(160, 161, 160, 15)) { save(); paused = 0; helpOn = 0; savePop = 0; started = 0; phase = 0; tMode = 0; mSel = 0; return; }
     return;
   }
-  // Help/Settings overlay — SFX button, then dismiss
+  // Help/Settings overlay — dismiss on any tap
   if (helpOn) { helpOn = 0; return; }
-  // HUD icon taps: Scroll | Floppy | Speaker | ? — SAME row in play AND menu.
-  // Scroll TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
-  if (started && !choosing && vx > VW - 78 && vx < VW - 60 && vy < 20) { paused ^= 1; return; }
-  if (started && vx > VW - 60 && vx < VW - 42 && vy < 20) { save(); sfx(660, 990, .15, 'triangle', .12); savePop = 1; return; }
-  if (started && vx > VW - 42 && vx < VW - 22 && vy < 20) { mute ^= 2; save(); return; }
-  if (started && vx > VW - 22 && vy < 20) { helpOn = 1; return; }
+  // HUD icon taps: Menu | Save | Mute | ? — SAME row in play AND menu.
+  // Menu TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
+  if (started && !choosing && hit(VW - 78, 0, 18, 20)) { paused ^= 1; return; }
+  if (started && hit(VW - 60, 0, 18, 20)) { save(); sfx(660, 990, .15, 'triangle', .12); savePop = 1; return; }
+  if (started && hit(VW - 42, 0, 20, 20)) { mute ^= 2; save(); return; }
+  if (started && hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
   if (paused) {
     const tot = su.reduce((a,v)=>a+v,0);
     for (let i = 0; i < TREE.length; i++) {
       const req = TREE[i][1], [cx, cy] = TPOS[i];
-      if (vx >= cx && vx <= cx + 26 && vy >= cy && vy <= cy + 26) {
+      if (hit(cx, cy, 26, 26)) {
         const locked = req === -2 ? tot < 2 : req === -3 ? tot < 5 : false;
         if (spts > 0 && !su[i] && !locked) { su[i] = 1; spts--; sfx(660, 990, .15, 'triangle', .12); save(); }
         return;
       }
     }
-    // (save/exit on HUD floppy; SFX in help overlay)
-    if (vy >= 184 && vy < 184 + 28 * 3 && vx >= 18 && vx < 18 + 28 * 5) {
+    // USE/DROP buttons FIRST — they visually overlap the inventory grid area (y=250-264 sits inside grid y=184-268), so grid check would eat them.
+    if (invSel >= 0 && inv[invSel]) {
+      if (hit(30, 250, 50, 15)) { useItem(invSel); return; }
+      if (hit(90, 250, 50, 15)) { inv.splice(invSel, 1); invSel = -1; return; }
+    }
+    // Inventory grid — click to select, click again to use/equip
+    if (hit(18, 184, 140, 84)) {
       const iC = ((vx - 18) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
       if (iI < invMax() && inv[iI]) { invSel = iI; return; }
       invSel = -1; return;
-    }
-    if (invSel >= 0 && inv[invSel] && vy >= 250 && vy <= 264) {
-      if (vx >= 30 && vx <= 80) { useItem(invSel); return; }
-      if (vx >= 90 && vx <= 140) { inv.splice(invSel, 1); invSel = -1; return; }
     }
     paused = 0; return;
   }
