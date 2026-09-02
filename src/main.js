@@ -1148,11 +1148,17 @@ const draw = () => {
         else drawPart(it.s, ix + 8, iy + 9, it.c);
       }
     }
-    // Tooltip: item name+effect above the grid (in the 6px band under the gold box). Action hint replaces the keybind line at the bottom.
+    // Tooltip: opaque panel pops up-right from the selected slot toward screen center.
+    // Same box style as skill nodes (#1e1928 bg + gold border). Dynamic per-slot so the
+    // popup direction (up + slight right) reads naturally from wherever the user tapped.
     if (invSel >= 0 && inv[invSel]) {
       const it = inv[invSel];
       const desc = it.t === 0 ? 'HP POTION · +3 HP' : it.t === 1 ? 'MP POTION · +3 MP' : SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // t=5 GEAR
-      ctx.fillStyle = '#ffd75e'; T2(desc, 84, 192);
+      const tw = 130, tx = Math.min(VW - tw - 4, 28 + (invSel % 5) * 28);
+      const ty = Math.max(4, 156 + ((invSel / 5) | 0) * 28);   // 4px above the selected slot's row
+      ctx.fillStyle = '#1e1928'; ctx.fillRect(tx, ty, tw, 20);
+      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(tx, ty, tw, 20);
+      ctx.fillStyle = '#ffd75e'; T2(desc, tx + tw / 2, ty + 13);
     }
     // SKILL TREE — 3-tier layout. Tier 1 free, tier 2 needs 2 skills, tier 3 needs 5.
     // purchased = gold glow · available = pulsing cyan · locked = dark "?"
