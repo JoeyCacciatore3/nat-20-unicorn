@@ -462,7 +462,7 @@ const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = 115, V0 = 250;
 
 const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // cracked wall (4) is solid until hit
-const smash = (px, py) => { const tc = px / T | 0, tr = py / T | 0; if (tile(tc, tr) !== 4) return; for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++) if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 6, '#a08060'); } sfx(900, 220, .2, 'square', .1); };
+const smash = (px, py) => { const tc = px / T | 0, tr = py / T | 0; if (tile(tc, tr) !== 4) return; for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++) if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 12, '#a08060'); } sfx(900, 220, .2, 'square', .1); };
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
@@ -560,7 +560,7 @@ const strike = (f, gen, viaStomp) => {
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
-        rburst(f.x, f.y, 20); fly(f.x, f.y - 8, 'RAINBOW SHARD ' + shards() + ' / 5', RBC[f.bi], 1);
+        rburst(f.x, f.y, 12); fly(f.x, f.y - 8, 'RAINBOW SHARD ' + shards() + ' / 5', RBC[f.bi], 1);
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
@@ -645,8 +645,8 @@ const step = (dt) => {
   // -- jump: buffer + coyote + variable + double --
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0 && !rooted) {
-    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 6); }
-    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 6); }   // TRI JUMP — same sound as ground jump (unified)
+    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 12); }
+    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 12); }   // TRI JUMP — same sound as ground jump (unified)
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash: flat burst, strike foes, break walls
@@ -679,7 +679,7 @@ const step = (dt) => {
       const tv = tile((pl.x + ox) / T | 0, ty);
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
         pl.y = top - PH;
-        if (!wasGround && pl.vy > 250) { pl.sq = 1.35; rburst(pl.x + PW / 2, feet, 6); sfx(150, 70, .06, 'square', .07); }
+        if (!wasGround && pl.vy > 250) { pl.sq = 1.35; rburst(pl.x + PW / 2, feet, 12); sfx(150, 70, .06, 'square', .07); }
         pl.vy = 0; pl.ground = 1; pl.air = 0; break;
       }
     }
@@ -732,7 +732,7 @@ const step = (dt) => {
     parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, t: .25, c: `hsl(${s.x * 4 % 360} 80% 60%)` });   // rainbow-wave comet — per-frame trail, hue by position → coherent streak from the horn
     const tc = s.x / T | 0, tr = s.y / T | 0;
     if (tile(tc, tr) === 4) { smash(s.x, s.y); s.t = 0; }
-    else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 6, '#fff'); }
+    else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 12, '#fff'); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0, 0); break; }
@@ -786,7 +786,7 @@ const step = (dt) => {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
       // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
       if (f.cap & 8 && !wasGr) {
-        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 20, '#fff'); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
+        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 12, '#fff'); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
         if (pl.ground && Math.abs(pl.x - f.x) < 64) hurt(3, 0);
       }
     }
