@@ -107,9 +107,7 @@ addEventListener('keydown', (e) => {
     return;
   }
   // Near hearth: JUMP is the universal INTERACT (auto REST)
-  if (J_KEYS.includes(e.code) && nearFire) { rest(); return; }
-  if (J_KEYS.includes(e.code) && nearChest >= 0) { openChest(nearChest); return; }
-  if (J_KEYS.includes(e.code) && nearDoor >= 0) { const d = seeds.doors[nearDoor]; enterZone(d[2], d[3], d[4]); return; }
+  if (J_KEYS.includes(e.code) && interact()) return;
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (M_KEYS.includes(e.code)) dash();                          // J = dash — the attack verb (contact damage during dash)
@@ -232,9 +230,7 @@ addEventListener('pointerdown', (e) => {
   if (started && e.pointerType === 'touch' && vx < VW * .4) { grabJoy(vx, vy, e.pointerId); return; }
   for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
     // JUMP button contextualizes: near NPC it's INTERACT, not jump
-    if (b.c === 'bJ' && nearFire) { rest(); return; }
-    if (b.c === 'bJ' && nearChest >= 0) { openChest(nearChest); return; }
-    if (b.c === 'bJ' && nearDoor >= 0) { const d = seeds.doors[nearDoor]; enterZone(d[2], d[3], d[4]); return; }
+    if (b.c === 'bJ' && interact()) return;
     ptrs.set(e.pointerId, b.c); keys.add(b.c);
     if (b.c === 'bJ') jbuf = .12;
     if (b.c === 'bM') dash();
@@ -304,6 +300,10 @@ let eqB = [0, 0, 0, 0];
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
 // Stat bar: dark track + coloured fill to `frac` (0..1). Shared by portrait, HUD, boss/tier bars.
 const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * frac, h); };
+// Full-screen dim overlay — shared by zone transition + death vignette.
+const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
+// Shared HP/MP/XP triple stack at (x, y): red HP + blue mana + green/gold XP.
+const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = 1; ctx.strokeRect(x - .5, y - .5, 69, 11); bar(x, y + 12, 68, 8, mn / mMN(), '#4a76ff'); ctx.strokeRect(x - .5, y + 11.5, 69, 9); bar(x, y + 22, 68, 3, lvl >= CAP ? 1 : xp / need(), lvl >= CAP ? '#ffd75e' : '#9fe89a'); };
 // Shared portrait panel — renders the identity card (title bar, bordered box with
 // HP bar at top, live unicorn silhouette) used by both the PAUSE overlay and the
 // CHARACTER-CREATE screen. Title = player name on PAUSE, 'NEW CHARACTER' on create.
@@ -312,15 +312,8 @@ const portraitPanel = (title) => {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2(title, 84, 24);   // NAME · LV n on one line (same font), above the bars — no overlap
   ctx.font = 'bold 8px monospace';
-  const bx2 = 50, bw2 = 68;
-  bar(bx2, 34, bw2, 10, hp / mHP(), '#ff5d6c');
-  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(bx2 - .5, 33.5, bw2 + 1, 11);
-  ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), bx2 + bw2 / 2, 42);
-  bar(bx2, 47, bw2, 8, mn / mMN(), '#4a76ff');
-  ctx.strokeStyle = '#1a1a22'; ctx.strokeRect(bx2 - .5, 46.5, bw2 + 1, 9);
-  ctx.fillStyle = '#fff'; T2(mn + '/' + mMN(), bx2 + bw2 / 2, 54);
-  const atCap = lvl >= CAP;
-  bar(bx2, 58, bw2, 3, atCap ? 1 : xp / need(), atCap ? '#ffd75e' : '#9fe89a');
+  bars(50, 34);
+  ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), 84, 42); T2(mn + '/' + mMN(), 84, 54);
   ctx.save(); ctx.translate(84, 96); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(0);
   ctx.restore();
@@ -484,6 +477,7 @@ const fresh = () => {
 };
 // Non-ranged foes roll for elite status in mkFoe (~6%). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
+const interact = () => { if (nearFire) { rest(); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } if (nearDoor >= 0) { const d = seeds.doors[nearDoor]; enterZone(d[2], d[3], d[4]); return 1; } };
 // Unified scaling: zone tier + player-level progression. Every 4 player levels adds 1 scale
 // pip — enemies stay a threat as the player over-levels the zone; bosses reuse the same formula.
 const scl = () => 2 + curZone + (lvl >> 2);
@@ -1088,15 +1082,10 @@ const draw = () => {
     ctx.textAlign = 'left';
     // TOP-LEFT CLUSTER — HP · mana · xp bars, one visual language: continuous fill,
     // numbers INSIDE the bar (WoW/MOBA unit-frame pattern — no extra screen real estate).
-    const bw = 68, bx = 8;
-    bar(bx, 6, bw, 10, hp / mHP(), '#ff5d6c');                      // HP: dark track + red fill
-    ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = 1; ctx.strokeRect(bx - .5, 5.5, bw + 1, 11);
-    bar(bx, 18, bw, 8, mn / mMN(), '#4a76ff');                      // mana
-    ctx.strokeRect(bx - .5, 17.5, bw + 1, 9);
-    bar(bx, 28, bw, 3, lvl >= CAP ? 1 : xp / need(), lvl >= CAP ? '#ffd75e' : '#9fe89a');   // xp
+    bars(8, 6);   // top-left HP/MP/XP triple
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff';
-    T2(hp + '/' + mHP(), bx + bw / 2, 14);
-    T2((mn | 0) + '/' + mMN(), bx + bw / 2, 25);
+    T2(hp + '/' + mHP(), 42, 14);
+    T2((mn | 0) + '/' + mMN(), 42, 25);
     if (time < bann) {                                          // BOSS BANNER — arena-entry announcement (font already set to bold 13px above at ☰; reuse)
       ctx.textAlign = 'center'; ctx.fillStyle = '#ffd75e';
       T2(bTxt, VW / 2, 58);
@@ -1106,8 +1095,8 @@ const draw = () => {
       ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#ffd75e';
       T2(ZN[curZone], VW / 2, 44);
     }
-    if (time < zFade) { ctx.fillStyle = `rgba(0,0,0,${(zFade - time) / .3})`; ctx.fillRect(0, 0, VW, VH); }
-    if (deathT > 0) { ctx.fillStyle = `rgba(0,0,0,${1 - Math.abs(deathT - .8) / .8})`; ctx.fillRect(0, 0, VW, VH); }
+    fade((zFade - time) / .3);
+    fade(1 - Math.abs(deathT - .8) / .8);
   }
 
   // CHARACTER SHEET overlay — pause (view) + level-up ALLOCATION (spend points).
