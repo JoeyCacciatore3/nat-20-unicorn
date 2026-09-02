@@ -23,6 +23,7 @@ and stat allocation.
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
 - **5-slot inventory** (+5 SADDLE BAG, +5 SADDLE BAGS = 15 max). Click to select, click again to equip or consume; X to discard.
 - Gear icons and drops render with the SAME primitives as the unicorn's own body — a HORN drop looks like the horn on the unicorn.
+- **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Potions fill these first; only the overflow spills into the inventory.
 
 ## Combat
 `damage = ATK × (crit ? 2 : 1)` where `ATK = STR + horn_gear + apotheosis`
@@ -39,7 +40,7 @@ One loot roll (`d100 + LUCK×4`) for every kill and chest:
 - **MP POTION** (blue bottle, +3 MP) — mid
 - **GEAR PART** (BODY/MANE/HORN/HOOVES) — ceiling, LUCK boosts tier
 
-Drops spawn with a 0.6s grace window (visible on screen before magnetizing to the player). Consumables **auto-consume** if the relevant stat isn't full, else land in inventory for later. XP comes only from kills.
+Drops fall to the ground and **stay there until you die or leave the zone** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume); overflow beyond 5 lands in the inventory. **Gear** goes to the inventory to equip later. If a drop has nowhere to go (hot-bar and bag both full) it simply waits on the ground. XP comes only from kills.
 
 **RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 5 → THE DARKNESS LIFTS.
 
@@ -90,11 +91,11 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: multi-zone map traversal audit (no stuck spots, all portals/bosses/chests reachable at expected tier), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,676 / 13,312 B (95.2%) — 636 B free**
+**Current: 12,736 / 13,312 B (95.7%) — 576 B free**
 
 ## Save format
 Keys: `localStorage.n20_s0..2` (3 slots). Version: **v34** — strict version gate, auto-discards older saves.
-Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), z(zone), u(col[4]), q(eq[4]), i(inv[]), p(mute)}`.
+Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), z(zone), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
 
 ## Structure
 - `src/main.js` — the game (~1,340 lines)

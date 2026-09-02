@@ -23,6 +23,7 @@ import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, 
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
+const QSZ = 24, QSY = VH - 28, QHX = VW / 2 - 27, QMX = VW / 2 + 3;   // potion quick-slots: box size · y · HP-box x · MP-box x (bottom-center)
 // DPR + visualViewport: draw at native device pixels (retina crispness), size to
 // the actual viewport (fixes iOS URL-bar overshoot). imageSmoothingEnabled=false
 // keeps the pixel art crisp when the letterbox scale is fractional.
@@ -226,6 +227,9 @@ addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'touch' && vx < VW * .3) { grabJoy(vx, vy, e.pointerId); return; }   // stick navigates
     return;
   }
+  // POTION QUICK-SLOTS (bottom-center): tap HP box → quaff(0), MP box → quaff(1). Padded 3px for thumbs.
+  if (started && hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
+  if (started && hit(QMX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
   // JOYSTICK: any touch in the left 40% grabs the stick and re-anchors it there
   if (started && e.pointerType === 'touch' && vx < VW * .4) { grabJoy(vx, vy, e.pointerId); return; }
   for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
@@ -292,6 +296,8 @@ const useItem = (i) => {
   else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 3); inv.splice(i, 1); sfx(440, 880, .1, 'triangle', .1); }
   invSel = -1;
 };
+// QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter (no bag touch).
+const quaff = (t) => { if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 3); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 3); sfx(440, 880, .1, 'triangle', .1); } };
 // Cached equipment bonuses (additive on top of base stats)
 let eqB = [0, 0, 0, 0];
 // GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 11`) is coupled to
@@ -337,6 +343,7 @@ const drawU = (bob) => {
 };
 let hp = 10, xp = 0, lvl = 1;
 let mn = 10, choosing = 0, pending = 0;
+let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 15;                                   // hard level cap. L15 APOTHEOSIS: +2 ATK, +2 max HP
 // Skills are player-chosen via the 3-tier tree
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
@@ -387,7 +394,7 @@ const save = () => {
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc, z: curZone,
     u: col,
-    q: eq, i: inv, p: mute,
+    q: eq, i: inv, p: mute, P: [hpPot, mpPot],
   });
 };
 const load = () => {
@@ -406,6 +413,7 @@ const load = () => {
     spts = d.k; d.y.forEach((v, i) => su[i] = v);
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
+    if (d.P) { hpPot = d.P[0] | 0; mpPot = d.P[1] | 0; }
     eqB = eq.map(e => e ? e.b : 0); mute = d.p | 0;
   } catch (e) { /* fresh oath */ }
 };
@@ -459,13 +467,13 @@ const smash = (px, py) => { const tc = px / T | 0, tr = py / T | 0; if (tile(tc,
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
-// Chests: exploration rewards. `oc` bitfield tracks opened state per-zone (bit = zone*8 + i).
+// Chests: exploration rewards. `oc` bitfield tracks opened state per-zone (bit = zone*6 + i).
 const snapChest = ([x, y], i) => ({ x: x * T, y: groundRow((x * T + 4) / T | 0, y | 0) * T - 5, i });  // seat base on surface row below seed (shared groundRow); -5: body renders to c.y+5
 let chests = seeds.chests.map(snapChest);
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
-  hp = 10; xp = 0; lvl = 1; mn = 10; bs.fill(0);
+  hp = 10; xp = 0; lvl = 1; mn = 10; bs.fill(0); hpPot = mpPot = 0;
   eq.fill(null); inv.length = 0; eqB = [0, 0, 0, 0];
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
@@ -484,7 +492,7 @@ const scl = () => 2 + curZone + (lvl >> 2);
 const mkFoe = (x, y, k) => {
   // ELITE (el): rare 6% event on non-ranged foes → 3× HP, +2 dmg, +1 size, aqua PAL[9] color,
   // guaranteed drop + gold burst + XP bonus on kill. Provides the "mini-boss moment".
-  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, el = !fr && Math.random() < .06 ? 1 : 0;
+  const [fh, fd, fv, fz, fb] = FT[k], el = Math.random() < .06 ? 1 : 0;
   const zh = fh * (1 + el * 2) * scl() / 2 | 0;                   // el=1 → 3× base HP
   return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + el * 2 + curZone, el, fl: 0, t: Math.random() * 7, cz: fz + el };
 };
@@ -518,7 +526,7 @@ const drawPart = (s, x, y, c) => {
 // Bosses grant their shard as a progression token on first kill (auto-collected, not a drop).
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
-    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 10, grace: .6 };
+    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 0 };
     const r = (Math.random() * 100 | 0) + Math.min(lk, 10) * 4;  // % roll + LUCK
     // gear tier: random roll + LUCK + level vs thresholds
     if (r >= 85) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 11) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
@@ -614,7 +622,7 @@ const step = (dt) => {
 
   if (deathT > 0) {
     deathT -= dt;
-    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; }   // full HP + MP restore on respawn
+    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k)); if (bs[curZone] !== 2) bs[curZone] = 0; drops.length = 0; }   // respawn = soft zone reset: full HP+MP, reseed foes, engaged boss resets fresh (killed stays dead), clear drops
     return;
   }
   if (!started || choosing) return;
@@ -810,16 +818,7 @@ const step = (dt) => {
     } else if (!hit && (f.wt || 0) > 0) f.wt = Math.max(0, f.wt - dt * 2);  // DECAY, not reset — brief separation keeps threat
     if (f.wt < 0) f.wt = Math.min(0, f.wt + dt);
   }
-  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune
-  // FOE RESPAWN — off-screen seed positions refill the world (enemies reappear)
-  if (foes.filter(f => !f.bit).length < seeds.foes.length) {
-    for (const [x, y, k] of seeds.foes) {
-      const wx = x * T, wy = y * T;
-      if (Math.abs(wx - pl.x) < VW || Math.abs(wy - pl.y) < VH) continue;
-      if (foes.some(f => !f.bit && Math.abs(f.x - wx) < T && Math.abs(f.y - wy) < T)) continue;
-      foes.push(mkFoe(wx, wy, k));
-    }
-  }
+  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune — foes refill only on zone-load + death (soft zone reset), never mid-zone
 
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
   nearFire = 0; nearDoor = -1;
@@ -828,29 +827,19 @@ const step = (dt) => {
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
-    d.life -= dt;
-    if (d.mag > 0) {                                             // MAGNETIZE — fly to player, then trigger effects
-      d.mag -= dt;
-      d.x += (pl.x + PW / 2 - d.x) * .3; d.y += (pl.y + PH / 2 - d.y) * .3;
-      if (d.mag > 0) continue;
-      d.life = 0;
-      // Consumables auto-consume if their stat isn't full, else land in inventory (click later).
-      // Gear ALWAYS lands in inventory — player picks when to equip.
-      const bag = () => { if (inv.length < invMax()) { inv.push({ t: d.t, s: d.s, c: d.c, b: d.b }); fly(d.x, d.y, '+BAG', '#ffd75e'); } else fly(d.x, d.y, 'BAG FULL', '#ff5d6c'); };
-      if (d.t === 0) hp < mHP() ? (hp = Math.min(mHP(), hp + 3), fly(d.x, d.y, '+3 HP', '#9fe89a')) : bag();
-      else if (d.t === 1) mn < mMN() ? (mn = Math.min(mMN(), mn + 3), fly(d.x, d.y, '+3 MP', '#4a76ff')) : bag();
-      else bag();                                                // GEAR (t=5) always goes to bag
-      continue;
-    }
-    d.grace -= dt;
+    d.life += dt;   // age (float/bob only) — NO despawn: drops leave the world only on death or zone-leave, exactly like foes
     d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
-    if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }
-    if (d.grace <= 0 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 18) {
-      d.mag = .2;                                                // start 200ms fly-in to player
-      sfx(520, 1040, .1, 'triangle', .1);                        // pickup — same as HP-potion sfx (unified near-dupe)
+    if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ground
+    if (Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
+      // Potion fills its hot-bar counter (cap 5), overflow → bag. Gear → bag. bag() returns truthy only if it fit.
+      const bag = () => inv.length < invMax() && (inv.push({ t: d.t, s: d.s, c: d.c, b: d.b }), fly(d.x, d.y, '+BAG', '#ffd75e'), 1);
+      const took = d.t === 0 ? (hpPot < 5 ? (hpPot++, fly(d.x, d.y, '+HP POT', '#ff5d6c'), 1) : bag())
+        : d.t === 1 ? (mpPot < 5 ? (mpPot++, fly(d.x, d.y, '+MP POT', '#4a76ff'), 1) : bag())
+        : bag();
+      if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); }   // only vanish when actually collected
     }
   }
-  for (let i = drops.length; i--;) if (drops[i].life <= 0) drops.splice(i, 1);
+  for (let i = drops.length; i--;) if (drops[i].dead) drops.splice(i, 1);
   // fx
   for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
   for (let i = parts.length; i--;) if (parts[i].t <= 0) parts.splice(i, 1);
@@ -867,7 +856,7 @@ const draw = () => {
   ctx.setTransform(SS, 0, 0, SS, SOX, SOY);
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
 
-  const tx = pl.x + PW / 2 + pl.face * 40 - VW / 2, ty = pl.y - VH / 2 + 30;
+  const tx = pl.x + PW / 2 + pl.face * 40 - VW / 2, ty = pl.y - VH / 2 - 60;   // vertical bias: player sits low on screen → grass near bottom, sky/play-area above, dirt strip below for clear level separation
   cam.x += (tx - cam.x) * .08; cam.y += (ty - cam.y) * .1;
   cam.x = Math.max(0, Math.min(W * T - VW, cam.x));
   cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
@@ -934,12 +923,11 @@ const draw = () => {
   // CHESTS — hand-placed per zone (3-4 each). Opened chests render with lid up.
   // Prompt "▲ OPEN" pulses above the nearest unopened chest.
   for (const c of chests) {
-    const opened = oc & (1 << (curZone * 6 + c.i));
+    if (oc & (1 << (curZone * 6 + c.i))) continue;          // claimed → gone forever (persisted in oc), so it vanishes on open
     ctx.fillStyle = '#6b4a2b';                              // dark oak base
     ctx.fillRect(c.x - 6, c.y - 2, 12, 7);                  // body
-    ctx.fillStyle = '#8a6a3a';                              // lighter oak (lid or interior)
-    if (opened) ctx.fillRect(c.x - 6, c.y - 6, 12, 3);      // lid tilted back (open)
-    else ctx.fillRect(c.x - 6, c.y - 5, 12, 3);             // lid down (closed)
+    ctx.fillStyle = '#8a6a3a';                              // lighter oak lid
+    ctx.fillRect(c.x - 6, c.y - 5, 12, 3);                  // lid down (closed)
     ctx.fillStyle = '#ffd75e';                              // gold latch/band
     ctx.fillRect(c.x - 1, c.y - 1, 2, 3);
   }
@@ -1083,6 +1071,17 @@ const draw = () => {
     // TOP-LEFT CLUSTER — HP · mana · xp bars, one visual language: continuous fill,
     // numbers INSIDE the bar (WoW/MOBA unit-frame pattern — no extra screen real estate).
     bars(8, 6);   // top-left HP/MP/XP triple
+    // POTION QUICK-SLOTS — bottom-center, char-menu item-slot style. Icon + live count; dim when empty.
+    if (!choosing) {
+      const qslot = (x, t) => {
+        const n = t ? mpPot : hpPot;
+        ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
+        ctx.strokeStyle = n ? '#555' : '#444'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);
+        ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 9, QSY + 7, 6, t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(x + 11, QSY + 7, 2, 1); ctx.globalAlpha = 1;
+        ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
+      };
+      qslot(QHX, 0); qslot(QMX, 1); ctx.textAlign = 'center';
+    }
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff';
     T2(hp + '/' + mHP(), 42, 14);
     T2((mn | 0) + '/' + mMN(), 42, 25);
