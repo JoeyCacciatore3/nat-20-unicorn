@@ -10,9 +10,10 @@ const run = (cmd) => execSync(cmd, { stdio: ['ignore', 'pipe', 'inherit'] }).toS
 
 mkdirSync('dist', { recursive: true });
 
-console.log('0/6 map audit (Return Law) + TPOS drift check…');
-run('node tools/map-audit.mjs');   // FAILS the build if any reachable spot cannot return to a campfire
-run('node tools/tpos-check.mjs');  // FAILS the build if TREE was edited but TPOS was not regenerated
+console.log('0/6 map audit (Return Law) + TPOS drift + spike overlap check…');
+run('node tools/map-audit.mjs');    // FAILS the build if any reachable spot cannot return to a campfire
+run('node tools/tpos-check.mjs');   // FAILS the build if TREE was edited but TPOS was not regenerated
+run('node tools/spike-audit.mjs');  // FAILS the build if any chest or hand-placed DECO renders on a spike tile
 
 console.log('1/6 bundle (esbuild)…');
 run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
