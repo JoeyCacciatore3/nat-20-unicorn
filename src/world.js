@@ -1,6 +1,6 @@
 // world.js — UNICORN: 5-zone hub-and-spoke world.
 // Zone 0 = MEADOW (hub, current geometry). Zones 1-4 reached via rainbow portals.
-// Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes, 4 cracked wall (dash/shot breaks).
+// Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes.
 //
 // ============================ MAP LAWS (Joe, locked) ============================
 // L1 TWO-TILE LAW    — hazard pits are <=2 tiles deep: always jumpable out.
@@ -60,8 +60,7 @@ const Z0 = {
     [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
     [52, 26, 8, 2],
     [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
-    // Peak approach (x10-60) — post-SHOT climb leads to Zone 3 portal
-    [49, 18, 1, 10, 4],
+    // Peak approach (x10-60) — DJ climb leads to Zone 3 portal
     [46, 24, 3, 1, 2],
     [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
     [10, 12, 9, 2],
@@ -79,7 +78,7 @@ const Z0 = {
     [181, 68.3],    // 0 — cave entry W (base tier discovery) — shifted W of spike (184-186)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
     [59, 25.3],     // 2 — canopy crest (moved off the CLIFFS door at x56 so both read cleanly)
-    [12, 11.3],     // 3 — peak ledge (SHOT-gated summit reward)
+    [12, 11.3],     // 3 — peak ledge (DJ summit reward)
   ],
   foes: [
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
@@ -211,11 +210,10 @@ const Z2 = {
 };
 
 // ---------- ZONE 3: PEAK (DARK BLUE CORN) ----------
-// Icy plateau. Return portal at west edge → Meadow peak ledge. Tier-3, assumes SHOT+DJ
-// (hub portal is SHOT-gated). Full enriched archetype: 2 spike crevasses, a DJ summit
-// climb to a high chest, an ICE-CAVERN signature (rung shaft down to a hidden pocket
-// chest, mirroring Meadow's cave pattern), a boss arena with 4 aerial platforms, and a
-// SHOT-gated secret alcove behind cracked ice. Home portal at spawn → no softlock.
+// Icy plateau. Return portal at west edge → Meadow peak ledge. Tier-3, assumes DJ.
+// 2 spike crevasses, a DJ summit climb to a high chest, an ICE-CAVERN signature
+// (rung shaft down to a hidden pocket chest, mirroring Meadow's cave pattern), and
+// a boss arena with 4 aerial platforms. Home portal at spawn → no softlock.
 const Z3 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 3, H], [3, 32, 274, 40],    // envelope + floor/undermass (rows 32-71)
@@ -234,10 +232,6 @@ const Z3 = {
     [138, 32, 5, 2, 0], [138, 33, 5, 1, 3],
     // Boss arena (x150-206) — 4 floating ice platforms (aerial verticality)
     [162, 28, 6, 1, 2], [180, 24, 5, 1, 2], [172, 20, 5, 1, 2], [196, 28, 5, 1, 2],
-    // SHOT-gated secret alcove (east of boss) — cracked ice wall seals a bonus chest
-    [232, 26, 1, 7, 4],                                // cracked ice wall (rows 26-32, shot/dash breaks)
-    [233, 27, 12, 5, 0], [233, 26, 12, 1],             // alcove (rows 27-31) + ceiling (row 26)
-    [245, 27, 1, 5],                                   // east seal → only entry is through the cracked wall
   ],
   fires: [[45, 31.5]],
   bosses: [[200, 31]],
@@ -245,7 +239,6 @@ const Z3 = {
     [56, 31.3],     // 0 base   — west floor discovery
     [89, 22.3],     // 1 DJ     — atop the summit climb
     [112, 25.3],    // 2 hidden — high middle platform mid-chasm (DJ)
-    [239, 31.3],    // 3 SHOT   — secret alcove behind cracked ice
   ],
   foes: [[62, 30, 4], [88, 22, 3], [130, 30, 6], [172, 19, 3], [190, 30, 4], [210, 30, 6], [225, 30, 4]],
   doors: [[35, 31, 0, 14, 10]],

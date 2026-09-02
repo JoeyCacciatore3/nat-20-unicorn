@@ -10,15 +10,13 @@
 //   base:        jump rise <=2, drift <=5
 //   +doublejump: rise <=4, drift <=6
 //   +dash:       rise <=4, drift <=9
-//   +shot:       same as +dash, dark crystal (tile 4) removed
 // Spikes (3) are hazards, never paths.
 import { W, H, grid, seeds, loadZone } from '../src/world.js';
 
 const TIERS = [
-  { name: 'base       ', up: 2, h: 5, dark: 0 },
-  { name: '+doublejump', up: 4, h: 6, dark: 0 },
-  { name: '+dash      ', up: 4, h: 9, dark: 0 },
-  { name: '+shot      ', up: 4, h: 9, dark: 1 },
+  { name: 'base       ', up: 2, h: 5 },
+  { name: '+doublejump', up: 4, h: 6 },
+  { name: '+dash      ', up: 4, h: 9 },
 ];
 
 // Per-zone spawn positions (tile where player stands after entry-fall).
@@ -36,7 +34,7 @@ const ZONE_META = [
 // Positions read from seeds.doors[i] at run time (single source of truth).
 // Names + expected tiers indexed to match Z0.doors order in world.js.
 const HUB_PORTAL_NAMES = ['CAVE portal  ', 'CLIFFS portal', 'PEAK portal  ', 'DEPTHS portal'];
-const HUB_PORTAL_EXPECT = ['base       ', '+doublejump', '+shot      ', '+dash      '];
+const HUB_PORTAL_EXPECT = ['base       ', '+doublejump', '+doublejump', '+dash      '];
 
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
 const idx = (c, r) => r * W + c;
@@ -53,7 +51,7 @@ const auditZone = (zi, meta) => {
   const gates = {};                                    // first tier that reaches each named target
 
   for (const tr of tiersToRun) {
-    const solidV = (v) => v === 1 || (v === 4 && !tr.dark);   // v=4 dark crystal is solid until SHOT breaks it
+    const solidV = (v) => v === 1;
     const blockV = (v) => solidV(v) || v === 3;
     const stand = (c, r) => r >= 0 && !blockV(at(c, r)) && (solidV(at(c, r + 1)) || at(c, r + 1) === 2);
 

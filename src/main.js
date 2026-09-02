@@ -463,8 +463,7 @@ let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = 115, V0 = 250;
 
-const solid = (x, y) => { const v = tile(x / T | 0, y / T | 0); return v === 1 || v === 4; }; // cracked wall (4) is solid until hit
-const smash = (px, py) => { const tc = px / T | 0, tr = py / T | 0; if (tile(tc, tr) !== 4) return; for (let j = tr - 1; j <= tr + 1; j++) for (let i = tc - 1; i <= tc + 1; i++) if (tile(i, j) === 4) { grid[j * W + i] = 0; burst(i * T + 8, j * T + 8, 12, '#a08060'); } sfx(900, 220, .2, 'square', .1); };
+const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
@@ -640,12 +639,11 @@ const step = (dt) => {
     else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 12); }   // TRI JUMP — same sound as ground jump (unified)
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
-  if (dashT > 0) {                                              // dash: flat burst, strike foes, break walls
+  if (dashT > 0) {                                              // dash: flat burst, strike foes
     pl.vx = pl.face * 400; pl.vy = 0;
     const dc = `hsl(${pl.x * 4 % 360} 80% 60%)`;                 // rainbow dash smear — hue tied to POSITION (coherent trail), not time (flicker)
     parts.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: 0, vy: 0, t: .3, c: dc });    // 2 particles/frame at 2 heights → fuller, brighter ribbon
     parts.push({ x: pl.x + PW / 2, y: pl.y + 13, vx: 0, vy: 0, t: .3, c: dc });
-    smash(pl.x + (pl.face > 0 ? PW + 2 : -2), pl.y + PH / 2);
     for (const f of [...foes]) {
       const fz = fsz(f);
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, 1, 0);
@@ -721,9 +719,7 @@ const step = (dt) => {
   for (const s of shots) {
     s.t -= dt; s.x += s.vx * dt;
     parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, t: .25, c: `hsl(${s.x * 4 % 360} 80% 60%)` });   // rainbow-wave comet — per-frame trail, hue by position → coherent streak from the horn
-    const tc = s.x / T | 0, tr = s.y / T | 0;
-    if (tile(tc, tr) === 4) { smash(s.x, s.y); s.t = 0; }
-    else if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 12, '#fff'); }
+    if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 12, '#fff'); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0, 0); break; }
@@ -773,7 +769,7 @@ const step = (dt) => {
     f.vy = Math.min(400, (f.vy || 0) + 900 * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
     const tv = tile((f.x + fs / 2) / T | 0, ty);
-    if (f.vy > 0 && (tv === 1 || tv === 2 || tv === 4)) {
+    if (f.vy > 0 && (tv === 1 || tv === 2)) {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
       // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
       if (f.cap & 8 && !wasGr) {
@@ -875,11 +871,6 @@ const draw = () => {
       // PLATFORM — chunky: zone surface-top + dirt underside
       ctx.fillStyle = GD; ctx.fillRect(i * T, j * T + 2, T + .5, 7);
       ctx.fillStyle = GT; ctx.fillRect(i * T, j * T, T + .5, 4);
-    } else if (v === 4) {                                       // cracked wall — subtle cracks on stone
-      ctx.fillStyle = '#6a5a4a'; ctx.fillRect(i * T, j * T, T + .5, T + .5);
-      ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = .5;
-      ctx.beginPath(); ctx.moveTo(i*T+3, j*T); ctx.lineTo(i*T+8, j*T+8); ctx.lineTo(i*T+5, j*T+16); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(i*T+12, j*T+2); ctx.lineTo(i*T+9, j*T+10); ctx.stroke();
     } else {
       // SPIKES — universal danger color
       ctx.fillStyle = '#e05555';
