@@ -338,15 +338,15 @@ const drawU = (bob) => {
 let hp = 10, xp = 0, lvl = 1;
 let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
-const CAP = 15;                                   // hard level cap. L15 APOTHEOSIS: +2 ATK, +2 max HP
+const CAP = 15;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via the 3-tier tree
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
 const bs = [0, 0, 0, 0, 0];
 const shards = () => bs.filter(v => v === 2).length;
-const mHP = () => 8 + (he + eqB[0]) * 2 + (lvl >= CAP ? 2 : 0); // body eq boosts HP
+const mHP = () => 8 + (he + eqB[0]) * 2;         // base 8 + HP stat + body-gear bonus (all from explicit player choice)
 const mMN = () => 8 + (sp + eqB[1]) * 2;                        // mane eq boosts MAG · start 10 (matches mHP shape)
-const ATK = () => ho + eqB[2] + (lvl >= CAP ? 2 : 0);    // STR + horn gear + apotheosis
+const ATK = () => ho + eqB[2];                   // STR stat + horn-gear bonus (all from explicit player choice)
 const critChance = () => .08 + lk * .02;                      // 10% base + 2% per LUCK (LUCK 1 = 10%)
 const isCrit = () => Math.random() < critChance();
 const need = () => lvl * lvl + 12;

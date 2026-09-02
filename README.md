@@ -14,7 +14,7 @@ LUCK-driven crits and stat allocation.
 - **Every level:** +3 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point
 - **Skill tree:** 3-tier gated tree, 10 single-rank skills — all player-chosen
 - **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn, wears a tier trim (silver/gold/prismatic), AND gives stat bonuses
-- **Level 15 cap:** APOTHEOSIS (+2 ATK, +2 max HP)
+- **Level 15 cap** — all stat gains come from level-up points, no hidden cap bonus
 - **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
 - **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Allocation lives inside the ONE character menu (open via ☰ or P) — there is no separate level-up screen. The header is always `LV n` (cyan) + your name (gold); a **`+N`** shows centered under the unicorn for unspent stat points and above the skill tree for unspent skill points. **One cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Close with ☰ or P. With no points it's simply a read-only character sheet.
 
@@ -27,7 +27,7 @@ LUCK-driven crits and stat allocation.
 - **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Potions fill these first; only the overflow spills into the inventory.
 
 ## Combat
-`damage = ATK × (crit ? 2 : 1)` where `ATK = STR + horn_gear + apotheosis`
+`damage = ATK × (crit ? 2 : 1)` where `ATK = STR + horn_gear`
 - Crit chance: 8% + LUCK × 2% (LUCK-driven, no dice)
 - Defense: `max(incoming/4, incoming - DEF)` — bosses always deal ≥25%
 - 6 enemy kinds built from one capability-bit system + elite variants (~6% roll, 3× HP)
