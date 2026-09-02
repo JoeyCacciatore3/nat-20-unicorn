@@ -19,7 +19,7 @@
 // Save: strict v38 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
-import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_GEM, I_MP } from './data.js'; // static lookup tables
+import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -489,8 +489,6 @@ const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.6 });   // longer lifetime so text stays readable amid particle chaos
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
 const rburst = (x, y, n) => { for (let i = 0; i < n; i++) burst(x, y, 1, RC[(Math.random() * 7) | 0]); };
-// Rainbow gem — I_GEM bitmask (data.js) drawn with spr(), colour cycling via HSL.
-const drawGem = (x, y, t) => { spr(I_GEM, x, y, 6, `hsl(${(t * 90) % 360} 80% 60%)`); ctx.fillStyle = '#fff'; ctx.fillRect(x + 2, y + 1, 1, 1); };
 // ITEM DROPS — physical pickups from kills/chests.
 // Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear. Shards are progression-only (bs[i]=2, not drops).
 // LUCK adds +1 drop per pip.
@@ -1103,10 +1101,10 @@ const draw = () => {
       if (locked) ctx.fillText('?', cx + NS / 2, cy + 17);
       else { const w = nm.split(' '); if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 11); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 21); } else ctx.fillText(nm, cx + NS / 2, cy + 17); }
     });
-    // Footer — 5 rainbow shards under the tree, each dot colored by boss's band (grey = not yet held)
-    ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
-    ctx.fillStyle = '#ffd75e'; T2('SHARDS · ' + shards() + ' / 5', 300, 228);
-    for (let i = 0; i < 5; i++) { if (bs[i] === 2) drawGem(278 + i * 10, 232, time + i * .8); else { ctx.fillStyle = '#2a2a33'; ctx.fillRect(280 + i * 10, 233, 5, 5); } }
+    // Footer — mini rainbow (RC 7-band arc, matches title style at ~1/6 scale) + '×N' shard count
+    const rcx = 290, rcy = 236;
+    RC.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(rcx, rcy, 12 - i, Math.PI, 0); ctx.stroke(); });
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 10px monospace'; ctx.textAlign = 'left'; T2('×' + shards(), rcx + 15, rcy);
     // USE/DROP are functional button labels (not a control hint) — control reference lives ONLY in the ? overlay.
     if (invSel >= 0 && inv[invSel]) {
       ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';

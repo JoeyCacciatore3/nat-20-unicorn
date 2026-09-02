@@ -60,5 +60,4 @@ export const TREE = [
 export const TPOS = [[257,48],[252,94],[345,48],[257,140],[314,94],[345,140],[433,48],[376,94],[438,94],[433,140]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
-export const I_GEM = [12, 30, 63, 63, 30, 12];                                               // rainbow gem 6×6 diamond
 export const I_MP = [0b001100, 0b001100, 0b011110, 0b111111, 0b111111, 0b011110, 0b000000];  // POTION 6×7 — narrow neck, rounded body
