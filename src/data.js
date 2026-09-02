@@ -54,10 +54,10 @@ export const TREE = [
   ['HEAL',      -1],['SUPER HEAL', -3],                   // 2-3  healing
   ['DBL JUMP',  -2],['TRI JUMP',   -3],                   // 4-5  jumps
   ['DASH',      -1],['LONG DASH',  -2],                   // 6-7  dash
-  ['SADDLE BAG',-2],['SADDLE BAGS',-3],                   // 8-9  inventory
+  ['STASH',     -2],                                      // 8    inventory (+5 → max 10)
 ];
-// Tier positions, centered in the RIGHT half (x≈252–464, mid 358): T1 y=48 (3), T2 y=94 (4), T3 y=140 (3). Validated by tpos-check.
-export const TPOS = [[263,48],[232,94],[325,48],[263,140],[294,94],[325,140],[387,48],[356,94],[418,94],[387,140]];
+// Tier positions: T1 y=48 (3 nodes), T2 y=94 (4 nodes), T3 y=140 (2 nodes — col 3 slot open for future capstone). Validated by tpos-check.
+export const TPOS = [[263,48],[232,94],[325,48],[263,140],[294,94],[325,140],[387,48],[356,94],[418,94]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [0b001100, 0b001100, 0b011110, 0b111111, 0b111111, 0b011110, 0b000000];  // POTION 6×7 — narrow neck, rounded body

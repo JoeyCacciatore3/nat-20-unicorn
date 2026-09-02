@@ -22,7 +22,7 @@ LUCK-driven crits and stat allocation.
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
 - Everyone starts the same neutral white unicorn — **NEW GAME** jumps straight to the next empty save slot and asks ONE thing (your name — required), then begins; **CONTINUE** (greyed until you have a save) opens the 2-slot screen to pick which save to resume (name + level shown per slot). Both slots full → NEW GAME falls back to the slot screen.
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
-- **5-slot inventory** for gear only (+5 SADDLE BAG, +5 SADDLE BAGS = 15 max). Click to select, click again to equip; X to discard. Potions live exclusively in the bottom hot-bar (see below).
+- **5-slot inventory** for gear only (+5 via STASH skill = 10 max). Click to select, click again to equip; X to discard. Potions live exclusively in the bottom hot-bar (see below).
 - Gear icons and drops render with the SAME primitives as the unicorn's own body — a HORN drop looks like the horn on the unicorn.
 - **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
 
@@ -49,8 +49,8 @@ Drops fall to the ground and **stay there until you die** — no despawn timer, 
 ## Skill Tree
 3-tier gated tree, 10 skills. Tiers unlock by total skills purchased:
 - **Tier 1** (free): SHOT, HEAL, DASH
-- **Tier 2** (need 2): FAR SHOT, DBL JUMP, LONG DASH, SADDLE BAG
-- **Tier 3** (need 5): SUPER HEAL, TRI JUMP, SADDLE BAGS
+- **Tier 2** (need 2): FAR SHOT, DBL JUMP, LONG DASH, STASH
+- **Tier 3** (need 5): SUPER HEAL, TRI JUMP
 
 Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray (no divider lines between tiers). Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
 
@@ -99,7 +99,7 @@ Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at
 **Current: 11,403 / 13,312 B (85.7%) — 1909 B free**
 
 ## Save format
-Keys: `localStorage.n20_s0..1` (2 slots). Version: **v38** — strict version gate, auto-discards older saves.
+Keys: `localStorage.n20_s0..1` (2 slots). Version: **v39** — strict version gate, auto-discards older saves.
 Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
 
 ## Structure

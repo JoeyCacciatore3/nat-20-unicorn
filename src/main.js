@@ -7,7 +7,7 @@
 //   - ONE open skill tree, 10 single-rank nodes, all player-chosen (no auto-learn)
 //   - Rainbow shards = collection goal (5 bosses)
 //   - Unified character sheet: pause + level-up share layout
-//   - 5-slot inventory (+5 SADDLE BAG, +5 SADDLE BAGS); consumables auto-consume
+//   - 5-slot inventory (+5 via STASH skill, max 10); potions live in a separate hot-bar
 //     if their stat isn't full else stored for later — click to use, X to drop
 //   - HP/MP color-coded: red HP potion + blue MP potion (Diablo convention)
 //   - Fixed world palette; sky (#6bc5ff) + grass (#5ac878) RESERVED for background
@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v38 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v39 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
 import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP } from './data.js'; // static lookup tables
@@ -268,7 +268,7 @@ let col = [0, 0, 0, 0];
 // Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF). Bonus 0=cosmetic.
 const eq = [null, null, null, null];
 const inv = [];
-const invMax = () => 5 + (su[8] + su[9]) * 5;       // BAG cap: 5 base, +5 SADDLE BAG, +5 SADDLE BAGS
+const invMax = () => 5 + su[8] * 5;                  // BAG cap: 5 base, +5 STASH (max 10)
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
 const equip = (item) => {
   const old = eq[item.s];
@@ -403,7 +403,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 38, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 39, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     u: col,
@@ -413,7 +413,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 38) return;                               // strict v38 gate — no cross-version compat (inventory now gear-only).
+    if (!d || d.v !== 39) return;                               // strict v39 gate — no cross-version compat (SADDLE BAGS dropped, cap 10).
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     chests = seeds.chests.map(snapChest);
@@ -1067,7 +1067,7 @@ const draw = () => {
       ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 160);
       T2(v, sx + 9, 171);
     });
-    // INVENTORY — 5×3 grid UNDER the gold box (5 base, +5 SADDLE BAG, +5 SADDLE BAGS). Click to select, click again to use/equip.
+    // INVENTORY — 5×2 grid UNDER the gold box (5 base, +5 STASH → max 10). Click to select, click again to equip.
     const iMax = invMax(), iSz = 24, iGap = 28;
     for (let i = 0; i < iMax; i++) {
       const ix = 38 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
@@ -1097,7 +1097,7 @@ const draw = () => {
     const NS = 26;
     // Diagonal connection lines — parent bottom-center → child top-center (purely cosmetic)
     ctx.strokeStyle = '#444'; ctx.lineWidth = .5;
-    const LINK = [0,1, 0,4, 2,4, 2,7, 6,7, 6,8, 1,3, 4,3, 4,5, 7,5, 7,9, 8,9];
+    const LINK = [0,1, 0,4, 2,4, 2,7, 6,7, 6,8, 1,3, 4,3, 4,5, 7,5];
     for (let k = 0; k < LINK.length; k += 2) {
       const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
       ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
