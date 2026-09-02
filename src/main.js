@@ -1041,13 +1041,16 @@ const draw = () => {
   // CHARACTER SHEET overlay — cursor navigates freely across stats / inventory / skill tree.
   // Space/Enter on cursor position dispatches: spend stat pt, use item, or spend skill pt.
   if (paused && started) {
-    portraitPanel();                                          // header: LV (left, small) + name (larger) — persistent
+    portraitPanel();                                          // opaque menu bg + centered unicorn art
+    // Establish text baseline for the entire menu block: center-aligned, 8px monospace.
+    // Every subsequent label / value / hint in this block expects these defaults; without
+    // this explicit set they inherit whatever textAlign was left from the previous frame
+    // and equipment labels / stat numbers render offset to the right of their boxes.
+    ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     // Stat points available — "+N" centered just under the unicorn
-    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; T2('+' + pending, 84, 126); }
-    // EQUIPMENT — 4 slots INSIDE the gold box, cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
-    // portraitPanel's save/restore preserves textAlign='center' + font='bold 8px monospace' — no re-set needed.
-    // Mirror-symmetric: left boxes 10px from left wall (x24), right boxes 10px from
-    // right wall (x130 = 154−10−14). Labels center under each box → length self-adjusts.
+    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 11px monospace'; T2('+' + pending, 104, 126); }
+    // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
+    ctx.font = 'bold 8px monospace';                          // reset from the 11px pending hint above (if it fired)
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
       ctx.fillStyle = eq[s] ? PAL[eq[s].c] : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);
       ctx.strokeStyle = eq[s] ? TC[eq[s].b] : '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);
