@@ -42,7 +42,7 @@ let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer 
 
 // ---------- input: BOTH conventions (WASD+Space/J/L/S and arrows+Z/X/C/I) ----------
 const J_KEYS = ['Space', 'KeyW', 'ArrowUp'];        // JUMP — Space canonical, W (WASD up), ArrowUp (arcade tradition)
-const M_KEYS = ['KeyJ'], SH_KEYS = ['KeyL'], HE_KEYS = ['KeyH'];
+
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
@@ -111,30 +111,28 @@ addEventListener('keydown', (e) => {
   if (J_KEYS.includes(e.code) && interact()) return;
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
-  if (M_KEYS.includes(e.code)) dash();                          // J = dash — the attack verb (contact damage during dash)
-  if (SH_KEYS.includes(e.code)) shoot();
+  if (e.code === 'KeyJ') dash();                          // J = dash — the attack verb (contact damage during dash)
+  if (e.code === 'KeyL') shoot();
   if (e.code === 'KeyP' && deathT <= 0) paused = paused ? 0 : 1;   // P only — Escape exits fullscreen in browsers/Wavedash
 
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
 const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('bJ'); // button jump gets full hold-height too
-const healHeld = () => HE_KEYS.some(k => keys.has(k)) || keys.has('bH');
+const healHeld = () => keys.has('KeyH') || keys.has('bH');
 
 // ---------- touch overlay (minimal: dpad + JUMP + MELEE + earned skills; JUMP + MELEE contextualize) ----------
 // No dedicated hearth buttons — JUMP is the universal interact/confirm, MELEE is back/cancel.
-const btns = () => {
-  // JUMP ring recolors near interactables (gold = actionable)
-  const jc = nearFire || nearChest >= 0 || nearDoor >= 0 ? '#ffd75e' : '#8cf';
-  // Fan-arc around bottom-right corner = landscape thumb-reach pattern.
-  const b = [
-    { x: VW - 36, y: VH - 34, r: 24, c: 'bJ', col: jc },
-  ];
-  if (su[6]) b.push({ x: VW - 92, y: VH - 30, r: 20, c: 'bM', col: '#ffd75e' });
-  if (su[0]) b.push({ x: VW - 78,  y: VH - 78, r: 20, c: 'bS', col: '#c9a6f7' });
-  if (su[2]) b.push({ x: VW - 36,  y: VH - 88, r: 20, c: 'bH', col: '#9fe89a' });
-  return b;
-};
+// ACTION BUTTONS — all four ALWAYS visible, uniform size. Ring is bright when USABLE
+// (skill unlocked AND enough MP), else dull #555 — one rule covers both "locked" and "out of MP".
+// Each: [x, y, key, brightColor, suIdx (-1 = always unlocked), mpCost]. Fan-arc = landscape thumb-reach.
+const AR = 20;
+const AB = [
+  [VW - 36, VH - 34, 'bJ', '#8cf', -1, 0],
+  [VW - 92, VH - 30, 'bM', '#ffd75e', 6, 1],
+  [VW - 78, VH - 78, 'bS', '#c9a6f7', 0, 2],
+  [VW - 36, VH - 88, 'bH', '#9fe89a', 2, 3],
+];
 const ptrs = new Map();
 const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
 // ---------- floating joystick (movement, touch only) ----------
@@ -232,13 +230,13 @@ addEventListener('pointerdown', (e) => {
   if (started && hit(QMX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
   // JOYSTICK: any touch in the left 40% grabs the stick and re-anchors it there
   if (started && e.pointerType === 'touch' && vx < VW * .4) { grabJoy(vx, vy, e.pointerId); return; }
-  for (const b of btns()) if (Math.hypot(vx - b.x, vy - b.y) < b.r + 6) {
+  for (const [x, y, c] of AB) if (Math.hypot(vx - x, vy - y) < AR + 6) {
     // JUMP button contextualizes: near NPC it's INTERACT, not jump
-    if (b.c === 'bJ' && interact()) return;
-    ptrs.set(e.pointerId, b.c); keys.add(b.c);
-    if (b.c === 'bJ') jbuf = .12;
-    if (b.c === 'bM') dash();
-    if (b.c === 'bS') shoot();
+    if (c === 'bJ' && interact()) return;
+    ptrs.set(e.pointerId, c); keys.add(c);
+    if (c === 'bJ') jbuf = .12;
+    if (c === 'bM') dash();
+    if (c === 'bS') shoot();
   }
 });
 addEventListener('pointermove', (e) => {
@@ -1188,17 +1186,15 @@ const draw = () => {
   // Colored ring per action, dark disc, glyph in accent color. Modern mobile pattern.
   if (started && !choosing && !paused) {
     ctx.textAlign = 'center';
-    for (const b of btns()) {
-      const pressed = keys.has(b.c);
-      // dark disc for hit legibility over any background
-      ctx.globalAlpha = pressed ? .85 : (touch ? .55 : .38);
+    for (const [x, y, c, col, s, mp] of AB) {
+      const usable = (s < 0 || su[s]) && mn >= mp;
+      // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
+      const rc = usable ? (c === 'bJ' && (nearFire || nearChest >= 0 || nearDoor >= 0) ? '#ffd75e' : col) : '#555';
+      ctx.globalAlpha = keys.has(c) ? .85 : (touch ? .55 : .38);
       ctx.fillStyle = 'rgba(15,15,20,.75)';
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
-      // colored outer ring
-      ctx.strokeStyle = b.col; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.stroke();
-      // disc + colored ring — the intentional button design (icon-free for byte economy)
-      ctx.globalAlpha = pressed ? 1 : .9;
+      ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
+      ctx.strokeStyle = rc; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.stroke();
     }
     ctx.globalAlpha = 1;
   }
