@@ -304,7 +304,7 @@ const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeSty
 // Header/bars/HP-MP numbers live in topHUD() now so they're identical between gameplay and menu.
 const portraitPanel = () => {
   ctx.fillStyle = '#1e1928'; ctx.fillRect(0, 0, VW, VH);
-  ctx.save(); ctx.translate(114, 106); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
+  ctx.save(); ctx.translate(104, 106); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
   drawU(0);
   ctx.restore();
 };
@@ -1049,7 +1049,7 @@ const draw = () => {
     // and equipment labels / stat numbers render offset to the right of their boxes.
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     // Stat points available — "+N" centered just under the unicorn
-    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 11px monospace'; T2('+' + pending, 114, 136); }
+    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 11px monospace'; T2('+' + pending, 104, 136); }
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 11px pending hint above (if it fired)
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
