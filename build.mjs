@@ -3,6 +3,7 @@
 // esbuild → terser (full prop-mangle) → roadroller (pinned flags) → inline → zip → ECT → 13,312-byte gate
 import { execSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, statSync, appendFileSync } from 'node:fs';
+import { checkMinified, checkPacked } from './tools/guards.mjs';   // build-time invariants — see that file for the full guard map
 
 const LIMIT = 13312;
 const run = (cmd) => execSync(cmd, { stdio: ['ignore', 'pipe', 'inherit'] }).toString();
@@ -26,17 +27,8 @@ console.log('2/6 minify (terser)…');
 const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"';
 run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true,toplevel=true,pure_getters=true,unsafe_math=true,unsafe_comps=true,hoist_funs=true -m toplevel=true --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 --comments false -o dist/min.js`);
 
-// Rules compliance: no external URLs may ship (js13k rule #2)
-const min = readFileSync('dist/min.js', 'utf8');
-if (/https?:\/\//.test(min)) {
-  console.error('❌ RULES VIOLATION: external URL found in bundle.');
-  process.exit(1);
-}
-// Rules compliance: bare localStorage writes must use the n20_ prefix helper
-if (/localStorage\.(setItem|clear)/.test(min) && !/n20_/.test(min)) {
-  console.error('❌ RULES VIOLATION: localStorage use without n20_ prefix.');
-  process.exit(1);
-}
+// Rules compliance + storage safety (external-URL + n20_ prefix) — see tools/guards.mjs
+checkMinified(readFileSync('dist/min.js', 'utf8'));
 
 console.log('3/6 pack (roadroller)…');
 // HTML shell rides INSIDE the packed stream (document.write) so roadroller models
@@ -69,7 +61,7 @@ run(`npx roadroller ${ROADFLAGS} dist/min2.js -o dist/packed.js`);
 console.log('4/6 inline into template…');
 const tpl = readFileSync('index.template.html', 'utf8');
 const js = readFileSync('dist/packed.js', 'utf8');
-if (js.includes('</script')) throw new Error('packed stream contains </script — would break HTML parsing');
+checkPacked(js);   // no </script in the packed stream — see tools/guards.mjs
 writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 
 // Wavedash variant: same competition HTML + minimum platform contract.
@@ -92,7 +84,7 @@ const size = statSync('dist/game.zip').size;
 const pct = ((size / LIMIT) * 100).toFixed(1);
 const line = `${new Date().toISOString().slice(0, 10)}  ${size} B  (${pct}%)  free: ${LIMIT - size} B`;
 console.log(`\n6/6 📦 dist/game.zip = ${size} / ${LIMIT} B (${pct}%) — ${LIMIT - size} B free`);
-try { appendFileSync('SIZELOG.md', line + '\n'); } catch {}
+if (!process.env.NOLOG) try { appendFileSync('SIZELOG.md', line + '\n'); } catch {}   // NOLOG=1 for tool/guard builds (don't pollute the size log)
 
 if (size > LIMIT) {
   console.error('❌ OVER BUDGET — execute next pre-agreed cut before feature work.');
