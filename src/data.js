@@ -57,8 +57,10 @@ export const TREE = [
   ['STASH',     -2],                                      // 8    inventory (+5 → max 10)
   ['HP+',       -3],['MP+',        -3],['POT+',      -3], // 9-11 passives (+5 max HP · +5 max MP · +5 potion effectiveness)
 ];
-// Tier positions: T1 y=48 (3), T2 y=94 (4), T3 y=140 (2, col-3 open), T4 y=186 (3 passives). Validated by tpos-check.
-export const TPOS = [[263,48],[232,94],[325,48],[263,140],[294,94],[325,140],[387,48],[356,94],[418,94],[263,186],[325,186],[387,186]];
+// Tier positions: T1 y=48 (3), T2 y=94 (4), T3 y=140 (3), T4 y=186 (2). Alternating centering:
+// odd rows use canonical columns 263/325/387; even rows offset to 232/294/356/418 (subset).
+// Indices unchanged from prior layout (HP+=9, MP+=10, POT+=11) — only positions moved.
+export const TPOS = [[263,48],[232,94],[325,48],[263,140],[294,94],[325,140],[387,48],[356,94],[418,94],[294,186],[356,186],[387,140]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [0b001100, 0b001100, 0b011110, 0b111111, 0b111111, 0b011110, 0b000000];  // POTION 6×7 — narrow neck, rounded body

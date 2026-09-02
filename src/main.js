@@ -1097,7 +1097,7 @@ const draw = () => {
     const NS = 26;
     // Diagonal connection lines — parent bottom-center → child top-center (purely cosmetic)
     ctx.strokeStyle = '#444'; ctx.lineWidth = .5;
-    const LINK = [0,1, 0,4, 2,4, 2,7, 6,7, 6,8, 1,3, 4,3, 4,5, 7,5, 3,9, 3,10, 5,10, 5,11];
+    const LINK = [0,1, 0,4, 2,4, 2,7, 6,7, 6,8, 1,3, 4,3, 4,5, 7,5, 7,11, 8,11, 3,9, 5,9, 5,10, 11,10];
     for (let k = 0; k < LINK.length; k += 2) {
       const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
       ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
