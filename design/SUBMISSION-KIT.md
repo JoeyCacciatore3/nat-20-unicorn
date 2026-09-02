@@ -135,7 +135,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | 5 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
 | 6 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
 
-**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest Wavedash deploy 2026-09-02: `mn74zh6shx2zzpz3h0q4g7mdm58dns38` (12,736 B — potion hot-bar + persistent drops + respawn/chest/elite + raised camera). **NOTE: source has since advanced to 12,746 B** (UNI-CORN→UNICORN rename, no-auto-pause leveling with glowing ☰, full HP+MP restore on level, unified stat+skill allocation cursor) — Wavedash re-push pending to re-align. Store title still reads "NAT 20 UNICORN" (portal-only edit). Playtest data wipe from 2026-09-01 still in effect (achievement definitions intact).
+**RELEASE RITUAL — one process, always together (Joey directive 2026-09-02):** every code change ships as `commit → git push origin main → node build.mjs → wavedash build push -m "…"`. GitHub push and Wavedash deploy are NEVER done separately — they go as one unit so the deploy never drifts from source. (Docs-only commits with no build change are exempt — no re-push needed.) Latest Wavedash deploy 2026-09-02: `mn72zta83ztbdg5vtgr5x3bhth8dnxep` (**12,746 B — ALIGNED with source/HEAD `03a1a2d`**): UNICORN rename + no-auto-pause leveling (glowing ☰, full HP+MP restore) + unified stat+skill allocation cursor. Store title still reads "NAT 20 UNICORN" (portal-only edit). Playtest data wipe from 2026-09-01 still in effect (achievement definitions intact).
 
 ### 📋 Assets inventory (verified on disk 2026-09-01)
 ```
