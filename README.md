@@ -51,6 +51,7 @@ Drops fall to the ground and **stay there until you die** — no despawn timer, 
 - **Tier 1** (free): SHOT, HEAL, DASH
 - **Tier 2** (need 2): FAR SHOT, DBL JUMP, LONG DASH, STASH
 - **Tier 3** (need 5): SUPER HEAL, TRI JUMP
+- **Tier 4** (need 5, passives): HP+ (+5 max HP), MP+ (+5 max MP), POT+ (+5 potion effect)
 
 Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray (no divider lines between tiers). Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
 
@@ -99,7 +100,7 @@ Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at
 **Current: 11,403 / 13,312 B (85.7%) — 1909 B free**
 
 ## Save format
-Keys: `localStorage.n20_s0..1` (2 slots). Version: **v39** — strict version gate, auto-discards older saves.
+Keys: `localStorage.n20_s0..1` (2 slots). Version: **v40** — strict version gate, auto-discards older saves.
 Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
 
 ## Structure

@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v39 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v40 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
 import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP } from './data.js'; // static lookup tables
@@ -284,7 +284,7 @@ const useItem = (i) => {
   inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1);
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
-const quaff = (t) => { if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 10); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 10); sfx(440, 880, .1, 'triangle', .1); } };
+const quaff = (t) => { const g = 10 + su[11] * 5; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); } };
 // Cached equipment bonuses (additive on top of base stats)
 let eqB = [0, 0, 0, 0];
 // GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 11`) is coupled to
@@ -351,8 +351,8 @@ let hs = 0, shk = 0;                              // combat feel: hitstop freeze
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
 const bs = [0, 0, 0, 0, 0];
 const shards = () => bs.filter(v => v === 2).length;
-const mHP = () => 8 + (he + eqB[0]) * 2;         // base 8 + HP stat + body-gear bonus (all from explicit player choice)
-const mMN = () => 8 + (sp + eqB[1]) * 2;                        // mane eq boosts MAG · start 10 (matches mHP shape)
+const mHP = () => 8 + (he + eqB[0]) * 2 + su[9] * 5;   // base 8 + HP stat + body-gear + HP+ skill (+5)
+const mMN = () => 8 + (sp + eqB[1]) * 2 + su[10] * 5;           // mane eq boosts MAG · +5 from MP+ skill
 const ATK = () => ho + eqB[2];                   // STR stat + horn-gear bonus (all from explicit player choice)
 const critChance = () => .08 + lk * .02;                      // 10% base + 2% per LUCK (LUCK 1 = 10%)
 const isCrit = () => Math.random() < critChance();
@@ -403,7 +403,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 39, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 40, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     u: col,
@@ -413,7 +413,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 39) return;                               // strict v39 gate — no cross-version compat (SADDLE BAGS dropped, cap 10).
+    if (!d || d.v !== 40) return;                               // strict v40 gate — no cross-version compat (added HP+/MP+/POT+ passives).
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     chests = seeds.chests.map(snapChest);
@@ -1097,7 +1097,7 @@ const draw = () => {
     const NS = 26;
     // Diagonal connection lines — parent bottom-center → child top-center (purely cosmetic)
     ctx.strokeStyle = '#444'; ctx.lineWidth = .5;
-    const LINK = [0,1, 0,4, 2,4, 2,7, 6,7, 6,8, 1,3, 4,3, 4,5, 7,5];
+    const LINK = [0,1, 0,4, 2,4, 2,7, 6,7, 6,8, 1,3, 4,3, 4,5, 7,5, 3,9, 3,10, 5,10, 5,11];
     for (let k = 0; k < LINK.length; k += 2) {
       const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
       ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
