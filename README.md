@@ -8,6 +8,8 @@ unicorn. Name your unicorn, explore one contiguous world, defeat five DARK CORNS
 reclaim the five RAINBOW SHARDS that restore the world. STR-based combat with
 LUCK-driven crits and stat allocation.
 
+A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CORN silhouette) — stands watch at the starting hearth and hails you the moment a new game begins (dialogue delivered via a head-stemmed speech bubble; the same bubble serves the player's replies).
+
 **Categories:** Desktop · Mobile · Wavedash
 
 ## Progression
@@ -16,7 +18,7 @@ LUCK-driven crits and stat allocation.
 - **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn, wears a tier trim (silver/gold/prismatic), AND gives stat bonuses
 - **Level 15 cap** — all stat gains come from level-up points, no hidden cap bonus
 - **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
-- **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Allocation lives inside the ONE character menu (open via ☰ or P) — there is no separate level-up screen. The header is always `LV n` (cyan) + your name (gold); a **`+N`** shows centered under the unicorn for unspent stat points and above the skill tree for unspent skill points. **One cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Close with ☰ or P. With no points it's simply a read-only character sheet.
+- **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Allocation lives inside the ONE character menu (open via ☰ or P) — there is no separate level-up screen. The header is always `LV n` (cyan) + your name (gold); a **`+N`** shows centered under the unicorn for unspent stat points and above the skill tree for unspent skill points. **One cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Close with ☰ or P. With no points it's simply a read-only character sheet. **On touch, the left joystick moves that cursor and the JUMP button confirms** — the same stick-and-button you play with, so the menu never forces precise cell-tapping.
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).

@@ -62,7 +62,7 @@ const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '
 //   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume/create transitions can't drift.
-const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; save(); };  // name REQUIRED
+const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; dlg = 1; save(); };  // name REQUIRED · dlg=1 auto-opens the GREAT CORN intro (new game only; resume skips it)
 const resumeGame = () => { load(); phase = 2; started = 1; };
 const hasSave = () => sMeta(0) || sMeta(1);                            // CONTINUE enabled only when a save exists
 const toSlots = () => { sSel = 0; tMode = 2; };                        // CONTINUE → pick which save (or NEW-GAME fallback when both slots full)
@@ -102,6 +102,7 @@ addEventListener('keydown', (e) => {
   boot();                                                    // resume audio on any key (autoplay policy)
   if (savePop) { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyP') savePop = 0; return; }
   if (helpOn) { helpOn = 0; return; }
+  if (dlg) { dlg = 0; return; }                              // dialogue: any key advances/dismisses
   if (phase === 0) return titleKey(e);
   if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → skills)
     if (e.code === 'KeyP') paused = 0;                          // P closes
@@ -187,6 +188,7 @@ addEventListener('pointerdown', (e) => {
   }
   // Help/Settings overlay — dismiss on any tap
   if (helpOn) { helpOn = 0; return; }
+  if (dlg) { dlg = 0; return; }                                  // dialogue: any tap advances/dismisses (before HUD icons, so a tap can't leak through)
   // HUD icon taps: Menu | Save | Mute | ? — SAME row in play AND menu.
   // Menu TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
   if (started && hit(VW - 78, 0, 18, 20)) { paused ^= 1; if (paused) setRow(0); return; }
@@ -195,6 +197,9 @@ addEventListener('pointerdown', (e) => {
   if (started && hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
   if (paused) {                                                // CHARACTER MENU — inventory + (when points remain) stat/skill allocation, one screen
+    // GAMEPAD MENU CONTROLS (checked first, take priority over cell-taps): joystick = cursor nav, JUMP = confirm/select.
+    if (e.pointerType === 'touch' && Math.hypot(vx - joy.x, vy - joy.y) < JR + 8) { grabJoy(joy.x, joy.y, e.pointerId); return; }
+    { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
     // USE/DROP buttons FIRST — they overlap the grid (y=250-264 sits inside grid y=184-268).
     // POTION HOT-BAR — tappable in menu too (persistent affordance, matches HUD icon behavior)
     if (hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
@@ -264,6 +269,7 @@ let ho = 1, he = 1, sp = 1, df = 1, lk = 1;       // every stat starts at 1 — 
 // Unicorn part colors — one palette index per body part (0=BODY, 1=MANE, 2=HORN, 3=HOOVES).
 // Equipping slot s writes col[s], which drives drawU's fill colors.
 let col = [0, 0, 0, 0];
+let npc = 0;   // drawU render flag: when 1, skip equipment trims (GREAT CORN uses an isolated palette, never the player's gear)
 // EQUIPMENT — 4 equipped slots + inventory bag. Items = {t:type, s:slot, c:color, b:bonus}.
 // Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF). Bonus 0=cosmetic.
 const eq = [null, null, null, null];
@@ -336,11 +342,28 @@ const drawU = (bob) => {
   mane3(col[1]).forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });// mane 3-color
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
   // EQUIPMENT — a geared part wears a tier trim (colour = which gear, trim = level).
-  const et = s => eq[s] ? TC[eq[s].b] : 0, a3 = et(3), a0 = et(0), a2 = et(2), a1 = et(1);
+  const et = s => !npc && eq[s] ? TC[eq[s].b] : 0, a3 = et(3), a0 = et(0), a2 = et(2), a1 = et(1);
   if (a3) { ctx.fillStyle = a3; ctx.fillRect(1, 15, 2, 1); ctx.fillRect(7, 15, 2, 1); }              // hoof cuffs
   if (a0) { ctx.fillStyle = a0; ctx.fillRect(0, 5, 10, 1); }                                         // barding stripe
   if (a2) { ctx.fillStyle = a2; ctx.fillRect(9, 0, 2, 1); }                                          // horn ring
   if (a1) { ctx.fillStyle = a1; ctx.fillRect(5, 1, 2, 1); }                                          // mane spark
+};
+// CHAT BUBBLE — reusable speech bubble that stems from a head at world (hx, topY).
+// Single continuous path: rounded corners (arcTo) + a downward tail merged into the bottom edge,
+// so one fill+stroke yields a clean outlined bubble with no seam. txt optional ('' = open bubble,
+// the structure future dialogue lines drop into — for either the NPC or the player's head).
+const bubble = (hx, topY, txt) => {
+  const w = 56, h = 18, x = hx - w / 2, R = hx + w / 2, y = topY - h - 7, B = y + h, r = 4;
+  ctx.fillStyle = '#fffdf5'; ctx.strokeStyle = '#3a2f4a'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(R - r, y); ctx.arcTo(R, y, R, y + r, r);          // top edge + TR corner
+  ctx.lineTo(R, B - r); ctx.arcTo(R, B, R - r, B, r);          // right edge + BR corner
+  ctx.lineTo(hx + 5, B); ctx.lineTo(hx, B + 6); ctx.lineTo(hx - 5, B);   // bottom edge dips into the tail
+  ctx.lineTo(x + r, B); ctx.arcTo(x, B, x, B - r, r);          // bottom edge + BL corner
+  ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r);          // left edge + TL corner
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  if (txt) { ctx.fillStyle = '#3a2f4a'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.fillText(txt, hx, y + h / 2 + 2.5); }
 };
 let hp = 10, xp = 0, lvl = 1;
 let mn = 10, pending = 0;
@@ -436,10 +459,14 @@ const load = () => {
 // ---------- player ----------
 const PW = 10, PH = 14;
 const SX = 126 * T, SY = 57 * T;                  // spawn point (paddock)
+const NX = 129 * T, NGY = 60 * T;                 // GREAT CORN guide: center-x (tile 129), feet baseline (tile 60 top) — 56px right of the fire so talk/rest zones never overlap
+const NPCCOL = [7, 2, 2, 7];                       // GREAT CORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
+const NSC = 10 / 7;                                // GREAT CORN render scale — matches the DARK CORN boss silhouette (boss fs=20 ÷ drawU 14-tall bbox)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
 let nearFire = 0;                                 // hearth proximity flag
-let paused = 0, helpOn = 0, savePop = 0, luT = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline
+let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
+let dlg = 0;                                      // dialogue overlay: freezes sim + shows the GREAT CORN chat bubble. Empty structure for now (DLG lines added later)
 let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
 // HEARTH ACTION — JUMP-near-fire = REST: full HP + MP restore, respawn checkpoint set.
 // NOTE: does NOT save the game — the only manual save is the floppy HUD icon (so players
@@ -611,7 +638,14 @@ const hurt = (n, safe) => {
 let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
-  if (paused) return;                              // character menu freezes sim; render still draws (allocation nav is in the keydown handler)
+  if (paused) {                                    // character menu freezes sim; joystick steps the linear cursor (keyboard nav stays in the keydown handler)
+    navCD -= dt;
+    const nd = keys.has('bL') || keys.has('bU') ? -1 : keys.has('bR') || keys.has('bD') ? 1 : 0;   // left/up = prev · right/down = next
+    if (!nd) navCD = 0;                             // stick released → next push moves instantly
+    else if (navCD <= 0) { setRow((aRow + nd + SN()) % SN()); navCD = .16; }   // held → repeat every .16s
+    return;
+  }
+  if (dlg) return;                                 // dialogue overlay freezes the sim (like the menu); a tap/key advances it
   time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
@@ -999,6 +1033,17 @@ const draw = () => {
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
   }
 
+  // GREAT CORN — the guide NPC standing beside the fire. Isolated palette (npc=1 skips the player's gear trims),
+  // faces left toward spawn (scale -1), gentle idle bob. Drawn before the player so the hero renders on top.
+  if (started) {
+    ctx.save();
+    ctx.translate(NX, NGY); ctx.scale(-NSC, NSC); ctx.translate(-PW / 2, -PH);   // boss-sized, feet planted at NGY, faces left
+    const bc = col; col = NPCCOL; npc = 1;
+    drawU(Math.sin(time * 2));
+    col = bc; npc = 0;
+    ctx.restore();
+  }
+
   // unicorn — hidden on the title (phase 0) so the meadow backdrop shows no duplicate
   // player under the big branding unicorn; the spawn framing is otherwise clean.
   if (started && (pl.inv <= 0 || Math.sin(time * 40) > 0)) {
@@ -1022,6 +1067,7 @@ const draw = () => {
     ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x | 0, f.y | 0);
   }
   ctx.globalAlpha = 1;
+  if (dlg) bubble(NX, NGY - 26, '');                            // GREAT CORN speaks — tail points at the (now boss-tall) head; empty bubble for now (player reply uses bubble(pl.x + PW / 2, pl.y - 4, …))
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
   // ---------- HUD (gameplay-only overlays: boss banner, level-up banner, death vignette) ----------
@@ -1130,9 +1176,11 @@ const draw = () => {
 
   // action buttons — hidden during pause / level-up (dedicated overlays own the input)
   // Colored ring per action, dark disc, glyph in accent color. Modern mobile pattern.
-  if (started && !paused) {
+  // Shown in gameplay AND the character menu (menu: JUMP = confirm/select, MELEE = back/close).
+  if (started && !savePop && !helpOn) {
     ctx.textAlign = 'center';
     for (const [x, y, c, col, s, mp] of AB) {
+      if (paused && c !== 'bJ') continue;            // menu shows only JUMP (= confirm/select); joystick handles nav, back stays on ☰/tap-out
       const usable = (s < 0 || su[s]) && mn >= mp;
       // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
       const rc = usable ? (c === 'bJ' && (nearFire || nearChest >= 0) ? '#ffd75e' : col) : '#555';
@@ -1141,18 +1189,19 @@ const draw = () => {
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
       ctx.strokeStyle = rc; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.stroke();
-      // HEAL glyph — green cross, darker border with bright center
+      // HEAL glyph — bold green cross fills the disc: vibrant darker-green outline + bright vibrant-green core.
+      // Own green palette (NOT the lock-dimmed ring color rc) so the icon reads green even when unavailable; alpha still conveys state.
       if (c === 'bH') {
-        ctx.fillStyle = '#2d7a3a'; // dark green edge
-        ctx.fillRect(x - 3, y - 8, 6, 16); ctx.fillRect(x - 8, y - 3, 16, 6);
-        ctx.fillStyle = rc; // bright green (or #555 if locked)
-        ctx.fillRect(x - 2, y - 7, 4, 14); ctx.fillRect(x - 7, y - 2, 14, 4);
+        ctx.fillStyle = '#28a84a';                                        // outline — vibrant darker green
+        ctx.fillRect(x - 4, y - 12, 8, 24); ctx.fillRect(x - 12, y - 4, 24, 8);
+        ctx.fillStyle = '#6cf279';                                        // core — bright vibrant green
+        ctx.fillRect(x - 2, y - 10, 4, 20); ctx.fillRect(x - 10, y - 2, 20, 4);
       }
     }
     ctx.globalAlpha = 1;
   }
   // joystick — persistent base; knob tracks thumb; brightens while held. Gameplay only (hidden in the character menu).
-  if (started && touch && !paused) {
+  if (started && touch && !savePop && !helpOn) {   // gameplay AND character menu (menu uses it for cursor nav); hidden only under overlays
     const act = joy.id >= 0;
     ctx.globalAlpha = act ? .6 : .35;
     ctx.fillStyle = 'rgba(15,15,20,.75)';
