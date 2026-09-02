@@ -282,12 +282,12 @@ const equip = (item) => {
 const useItem = (i) => {
   const it = inv[i]; if (!it) return;
   if (it.t === 5) { inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1); }
-  else if (it.t === 0 && hp < mHP()) { hp = Math.min(mHP(), hp + 3); inv.splice(i, 1); sfx(520, 1040, .1, 'triangle', .1); }
-  else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 3); inv.splice(i, 1); sfx(440, 880, .1, 'triangle', .1); }
+  else if (it.t === 0 && hp < mHP()) { hp = Math.min(mHP(), hp + 10); inv.splice(i, 1); sfx(520, 1040, .1, 'triangle', .1); }
+  else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 10); inv.splice(i, 1); sfx(440, 880, .1, 'triangle', .1); }
   invSel = -1;
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter (no bag touch).
-const quaff = (t) => { if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 3); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 3); sfx(440, 880, .1, 'triangle', .1); } };
+const quaff = (t) => { if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 10); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 10); sfx(440, 880, .1, 'triangle', .1); } };
 // Cached equipment bonuses (additive on top of base stats)
 let eqB = [0, 0, 0, 0];
 // GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 11`) is coupled to
@@ -489,7 +489,7 @@ const rburst = (x, y, n) => { for (let i = 0; i < n; i++) burst(x, y, 1, RC[(Mat
 // Rainbow gem — I_GEM bitmask (data.js) drawn with spr(), colour cycling via HSL.
 const drawGem = (x, y, t) => { spr(I_GEM, x, y, 6, `hsl(${(t * 90) % 360} 80% 60%)`); ctx.fillStyle = '#fff'; ctx.fillRect(x + 2, y + 1, 1, 1); };
 // ITEM DROPS — physical pickups from kills/chests.
-// Types: 0 HP potion (+3 HP), 1 MP potion (+3 MP), 5 gear. Shards are progression-only (bs[i]=2, not drops).
+// Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear. Shards are progression-only (bs[i]=2, not drops).
 // LUCK adds +1 drop per pip.
 
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
@@ -1090,7 +1090,7 @@ const draw = () => {
     // popup direction (up + slight right) reads naturally from wherever the user tapped.
     if (invSel >= 0 && inv[invSel]) {
       const it = inv[invSel];
-      const desc = it.t === 0 ? 'HP POTION · +3 HP' : it.t === 1 ? 'MP POTION · +3 MP' : SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // t=5 GEAR
+      const desc = it.t === 0 ? 'HP POTION · +10 HP' : it.t === 1 ? 'MP POTION · +10 MP' : SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // t=5 GEAR
       const tw = 130, tx = Math.min(VW - tw - 4, 28 + (invSel % 5) * 28);
       const ty = Math.max(4, 156 + ((invSel / 5) | 0) * 28);   // 4px above the selected slot's row
       ctx.fillStyle = '#1e1928'; ctx.fillRect(tx, ty, tw, 20);

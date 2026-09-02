@@ -38,8 +38,8 @@ LUCK-driven crits and stat allocation.
 
 ## Item Drops
 One loot roll (`d100 + LUCK×4`) for every kill and chest:
-- **HP POTION** (red bottle, +3 HP) — floor
-- **MP POTION** (blue bottle, +3 MP) — mid
+- **HP POTION** (red bottle, +10 HP) — floor
+- **MP POTION** (blue bottle, +10 MP) — mid
 - **GEAR PART** (BODY/MANE/HORN/HOOVES) — ceiling, LUCK boosts tier
 
 Drops fall to the ground and **stay there until you die** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume); overflow beyond 5 lands in the inventory. **Gear** goes to the inventory to equip later. If a drop has nowhere to go (hot-bar and bag both full) it simply waits on the ground. XP comes only from kills.
