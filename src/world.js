@@ -17,7 +17,7 @@
 // L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
 //                      death always returns to a campfire. (engine, main.js)
 // ================================================================================
-export const T = 16, W = 480, H = 72;
+export const T = 16, W = 600, H = 120;
 export const grid = new Uint8Array(W * H);
 export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 : grid[ty * W + tx];
 
@@ -26,9 +26,9 @@ const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i 
 // ---------- ZONE 0: MEADOW (hub, unchanged geometry, DARK RED CORN only) ----------
 const Z0 = {
   MAP: [
-    // envelope (extended east to x=477 for unified-world absorption)
-    [0, 0, 3, H], [477, 0, 3, H],
-    [3, 60, 474, 12],                      // ground + underground mass (extended east)
+    // envelope (grid now 600x120 — MEADOW center band y=0-71, bottom stratum y=72-119 reserved for DEPTHS absorption)
+    [0, 0, 3, H], [597, 0, 3, H],
+    [3, 60, 594, 12],                      // ground + underground mass (rows 60-71 across full width)
     // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
@@ -138,7 +138,7 @@ const Z0 = {
 // platforms for aerial verticality. Home portal sits at spawn → no softlock.
 const Z2 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 203, H], [3, 42, 274, 30],  // envelope + floor/undermass (right thickened for widened grid)
+    [0, 0, 3, H], [277, 0, 323, H], [3, 42, 274, 30],  // envelope + floor/undermass (right thickened for widened grid W=600)
     [30, 38, 5, 4],                                     // spawn ledge (home portal bookend)
     // Spike pit 1 (x64-67, 4 wide) — first hazard, DJ hop (gap 4 <= DJ limit)
     [64, 42, 4, 2, 0], [64, 43, 4, 1, 3],
@@ -175,7 +175,7 @@ const Z2 = {
 // a boss arena with 4 aerial platforms. Home portal at spawn → no softlock.
 const Z3 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 203, H], [3, 32, 274, 40],  // envelope + floor/undermass (right thickened for widened grid)
+    [0, 0, 3, H], [277, 0, 323, H], [3, 32, 274, 40],  // envelope + floor/undermass (right thickened for widened grid W=600)
     [30, 28, 5, 4],                                     // spawn ledge (home portal bookend)
     // Spike crevasse 1 (x58-61, 4 wide) — DJ hop
     [58, 32, 4, 2, 0], [58, 33, 4, 1, 3],
@@ -211,7 +211,7 @@ const Z3 = {
 // Corrupted arena. Return portal at west edge → Meadow deep corridor.
 const Z4 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 203, H], [3, 60, 274, 12],  // envelope + floor/undermass (right thickened for widened grid)
+    [0, 0, 3, H], [277, 0, 323, H], [3, 60, 274, 12],  // envelope + floor/undermass (right thickened for widened grid W=600)
     [30, 56, 5, 4],                                     // spawn ledge (home portal bookend)
     // Spike crevasse 1 (x58-62, 5 wide) — DJ hop
     [58, 60, 5, 2, 0], [58, 61, 5, 1, 3],
