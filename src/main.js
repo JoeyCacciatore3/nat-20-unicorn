@@ -103,13 +103,11 @@ addEventListener('keydown', (e) => {
   if (savePop) { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyP') savePop = 0; return; }
   if (helpOn) { helpOn = 0; return; }
   if (phase === 0) return titleKey(e);
-  if (paused) {                                                // CHARACTER MENU owns input; allocation nav active only when points remain
+  if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → skills)
     if (e.code === 'KeyP') paused = 0;                          // P closes
-    else if (pending || spts) {                                 // cursor spans stats+skills (SN); Space/Enter spends
-      if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + SN - 1) % SN;
-      else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % SN;
-      else if (e.code === 'Enter' || e.code === 'Space') spend();
-    }
+    else if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') setRow((aRow + SN() - 1) % SN());
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') setRow((aRow + 1) % SN());
+    else if (e.code === 'Enter' || e.code === 'Space') spend();
     return;
   }
   // Near hearth: JUMP is the universal INTERACT (auto REST)
@@ -119,7 +117,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyJ') dash();                          // J = dash — the attack verb (contact damage during dash)
   if (e.code === 'KeyL') shoot();
   if (e.code === 'KeyH') heal();
-  if (e.code === 'KeyP' && deathT <= 0) { paused = 1; aRow = 0; }   // P opens the menu (close handled in the paused block above)
+  if (e.code === 'KeyP' && deathT <= 0) { paused = 1; setRow(0); }   // P opens the menu (close handled in the paused block above)
 
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -191,7 +189,7 @@ addEventListener('pointerdown', (e) => {
   if (helpOn) { helpOn = 0; return; }
   // HUD icon taps: Menu | Save | Mute | ? — SAME row in play AND menu.
   // Menu TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
-  if (started && hit(VW - 78, 0, 18, 20)) { paused ^= 1; if (paused) aRow = 0; return; }
+  if (started && hit(VW - 78, 0, 18, 20)) { paused ^= 1; if (paused) setRow(0); return; }
   if (started && hit(VW - 60, 0, 18, 20)) { save(); sfx(660, 990, .15, 'triangle', .12); savePop = 1; return; }
   if (started && hit(VW - 42, 0, 20, 20)) { mute ^= 2; save(); return; }
   if (started && hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
@@ -200,20 +198,18 @@ addEventListener('pointerdown', (e) => {
     // USE/DROP buttons FIRST — they overlap the grid (y=250-264 sits inside grid y=184-268).
     if (invSel >= 0 && inv[invSel]) {
       if (hit(30, 250, 50, 15)) { useItem(invSel); return; }
-      if (hit(90, 250, 50, 15)) { inv.splice(invSel, 1); invSel = -1; return; }
+      if (hit(90, 250, 50, 15)) { inv.splice(invSel, 1); return; }
     }
-    // Inventory grid — click to select, click again to use/equip
+    // Inventory grid — tap moves cursor to slot; tap USE/DROP button (above) to act
     if (hit(18, 184, 140, 84)) {
       const iC = ((vx - 18) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
-      if (iI < invMax() && inv[iI]) { invSel = iI; return; }
-      invSel = -1; return;
+      if (iI < invMax() && inv[iI]) { setRow(5 + iI); return; }
+      return;                                                  // tap on empty inv area — no-op, keeps menu open
     }
-    // ALLOCATION (only when points remain) — tap a stat/skill to select, tap the selected one again to spend.
-    if (pending || spts) {
-      const col = ((vx - 19) / 26) | 0;
-      if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else aRow = col; return; }
-      for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { if (aRow === 5 + i) spend(); else aRow = 5 + i; return; } }
-    }
+    // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
+    const col = ((vx - 19) / 26) | 0;
+    if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else setRow(col); return; }
+    for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + invMax() + i; if (aRow === r) spend(); else setRow(r); return; } }
     paused = 0; return;                                        // tap anywhere else closes
   }
   // POTION QUICK-SLOTS (bottom-center): tap HP box → quaff(0), MP box → quaff(1). Padded 3px for thumbs.
@@ -284,7 +280,6 @@ const useItem = (i) => {
   if (it.t === 5) { inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1); }
   else if (it.t === 0 && hp < mHP()) { hp = Math.min(mHP(), hp + 10); inv.splice(i, 1); sfx(520, 1040, .1, 'triangle', .1); }
   else if (it.t === 1 && mn < mMN()) { mn = Math.min(mMN(), mn + 10); inv.splice(i, 1); sfx(440, 880, .1, 'triangle', .1); }
-  invSel = -1;
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter (no bag touch).
 const quaff = (t) => { if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 10); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 10); sfx(440, 880, .1, 'triangle', .1); } };
@@ -374,13 +369,19 @@ const STATS = [
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE.length).fill(0);
 let aRow = 0;
-const SN = 5 + TREE.length;                                   // unified cursor span: 5 stats then the skill nodes
+const SN = () => 5 + invMax() + TREE.length;                  // unified cursor span: stats(0-4) → inv(5..5+iMax-1) → skills(5+iMax..end)
+// setRow: assign cursor + auto-sync invSel so existing tooltip / USE-DROP button logic works unchanged.
+const setRow = (r) => { const iMax = invMax(); aRow = r; invSel = r >= 5 && r < 5 + iMax ? r - 5 : -1; };
 const spend = () => {
+  const iMax = invMax();
   if (aRow < 5) {                                             // STAT — costs a pending point
     if (!pending) return;
     STATS[aRow][1](); pending--;
+  } else if (aRow < 5 + iMax) {                               // INV — use/equip item at slot
+    if (!inv[aRow - 5]) return;
+    useItem(aRow - 5); return;                                // useItem plays its own sfx + splices; do NOT double-save
   } else {                                                    // SKILL node — costs a skill point (respects lock/owned)
-    const i = aRow - 5, req = TREE[i][1], tot = su.reduce((a, v) => a + v, 0);
+    const i = aRow - 5 - iMax, req = TREE[i][1], tot = su.reduce((a, v) => a + v, 0);
     if (!spts || su[i] || (req === -2 ? tot < 2 : req === -3 && tot < 5)) return;
     su[i] = 1; spts--;
   }
@@ -870,7 +871,7 @@ const draw = () => {
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp - .4); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill(); // inner core
   }
   // CHESTS — hand-placed (currently 4). Opened chests vanish (persisted in oc).
-  // Prompt "▲ OPEN" pulses above the nearest unopened chest.
+  // JUMP-near-chest opens (touch JUMP button glows gold when nearChest ≥ 0).
   for (const c of chests) {
     if (oc & (1 << c.i)) continue;                          // claimed → gone forever (persisted in oc)
     ctx.fillStyle = '#6b4a2b';                              // dark oak base
@@ -1046,10 +1047,9 @@ const draw = () => {
     fade(1 - Math.abs(deathT - .8) / .8);
   }
 
-  // CHARACTER SHEET overlay — pause (view) + level-up ALLOCATION (spend points).
-  // Both share the split-panel layout; allocation mode adds ‹ › cursor + skill-unlock rows.
+  // CHARACTER SHEET overlay — cursor navigates freely across stats / inventory / skill tree.
+  // Space/Enter on cursor position dispatches: spend stat pt, use item, or spend skill pt.
   if (paused && started) {
-    const alloc = pending || spts;                            // allocation UI (cursor + spend hints) shows only when points remain
     portraitPanel();                                          // header: LV (left, small) + name (larger) — persistent
     // Stat points available — "+N" centered just under the unicorn
     if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; T2('+' + pending, 84, 126); }
@@ -1063,12 +1063,12 @@ const draw = () => {
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
       if (eq[s]) { ctx.fillStyle = '#fff'; T2('+' + eq[s].b, ex + 12, ey + 14); }
     });
-    // STATS — one row across the bottom of the box; alloc cursor = gold column
+    // STATS — one row across the bottom of the box; cursor = gold column (always visible; "+1" hint only when a point is available)
     const SL = [['STR', ho, '#ffd75e'], ['HP', he, '#ff5d6c'], ['MAG', sp, '#4a76ff'], ['DEF', df, '#8cf'], ['LCK', lk, '#9fe89a']];
     SL.forEach(([l, v, c], i) => {
-      const sx = 22 + i * 26, sel = alloc && i === aRow;
+      const sx = 22 + i * 26, sel = i === aRow;
       if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 152, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 152, 25, 23);
-        ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 150); }
+        if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 150); } }
       ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 160);
       T2(v, sx + 9, 171);
     });
@@ -1111,7 +1111,7 @@ const draw = () => {
       ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx, cy, NS, NS);
       ctx.fillStyle = su[i] ? 'rgba(255,215,94,.18)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);
       ctx.strokeStyle = su[i] ? '#ffd75e' : '#555'; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
-      if (alloc && aRow === 5 + i) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }   // unified cursor on this skill node
+      if (aRow === 5 + iMax + i) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }   // cursor on this skill node
       ctx.fillStyle = su[i] ? '#ffd75e' : '#888';
       if (locked) ctx.fillText('?', cx + NS / 2, cy + 17);
       else { const w = nm.split(' '); if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 11); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 21); } else ctx.fillText(nm, cx + NS / 2, cy + 17); }
