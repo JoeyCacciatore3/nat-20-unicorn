@@ -620,7 +620,7 @@ const step = (dt) => {
 
   if (deathT > 0) {
     deathT -= dt;
-    if (deathT <= 0) { hp = mHP(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; }
+    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; }   // full HP + MP restore on respawn
     return;
   }
   if (!started || choosing) return;
@@ -707,9 +707,9 @@ const step = (dt) => {
   // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
   seeds.bosses.forEach(([bx, by]) => {                          // each zone has 1 boss; boss id = curZone
     const bi = curZone, bit = 1 << bi;
-    if (bs[bi] === 1) return;
+    if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
-      const st = bs[bi], fresh = !st || st === 2;
+      const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
       // BOSS = tier-3 foe (one above 'select') with fh_boss=10, fd_boss=5 in shared scl() formula:
       // hp = 10*4*scl()/2 = 20*scl · dm = 5+3+curZone. Scales with player level like every other enemy.
       bs[bi] = 1;
@@ -722,7 +722,7 @@ const step = (dt) => {
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
-      bann = time + 2.2; bTxt = 'DARK ' + BN[bi] + ' CORN'; bSub = st === 2 ? '' : 'KEEPER OF A RAINBOW SHARD';
+      bann = time + 2.2; bTxt = 'DARK ' + BN[bi] + ' CORN'; bSub = 'KEEPER OF A RAINBOW SHARD';
     }
   });
 
