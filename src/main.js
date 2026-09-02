@@ -309,19 +309,20 @@ const portraitPanel = () => {
   ctx.restore();
 };
 // TOP-LEFT PERSISTENT HUD — identical in gameplay AND in the character menu. Renders:
-//   • "LVn NAME" header (LV cyan, name gold — monospace overpaint trick)
-//   • mini rainbow arc + '×N' shard count to the right of the name
+//   • "LVn NAME" header (LV cyan, name gold — monospace overpaint trick), matches stat font size
+//   • mini rainbow arc + '×N' shard count spaced to the right of the name
 //   • HP/MP/XP triple bars with number overlays
+// Single font set at top: 8px bold monospace throughout — same rhythm as the stat row.
 const topHUD = () => {
-  ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
+  ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
   const hdr = 'LV' + lvl + ' ' + pName;
   ctx.fillStyle = '#ffd75e'; T2(hdr, 8, 14);                          // whole header — gold
   ctx.fillStyle = '#8cf'; T2('LV' + lvl, 8, 14);                      // LV n overpaint — cyan
-  const rcx = 8 + ctx.measureText(hdr).width + 14;                    // rainbow center = right of name
-  RC.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(rcx, 14, 12 - i, Math.PI, 0); ctx.stroke(); });
-  ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 10px monospace'; T2('×' + shards(), rcx + 15, 14);
+  const rcx = 8 + ctx.measureText(hdr).width + 20;                    // rainbow center = 20px right of name (extra breathing room)
+  RC.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(rcx, 14, 8 - i, Math.PI, 0); ctx.stroke(); });
+  ctx.fillStyle = '#ffd75e'; T2('×' + shards(), rcx + 10, 14);
   bars(8, 22);                                                        // HP/MP/XP triple, top-left
-  ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
   T2(hp + '/' + mHP(), 42, 30); T2((mn | 0) + '/' + mMN(), 42, 41);
 };
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
