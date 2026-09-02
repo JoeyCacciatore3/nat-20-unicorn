@@ -1008,7 +1008,7 @@ const draw = () => {
   for (const d of drops) {
     ctx.globalAlpha = Math.min(1, d.life);
     const dy = Math.sin(d.life * 5) * 1.5, dx = d.x - 3, ddy = d.y - 3 + dy;
-    if (d.t < 2) { spr(I_MP, dx, ddy, 6, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(dx + 2, ddy, 2, 1); }   // POTION — t=0 red HP, t=1 blue MP, dark-brown cork
+    if (d.t < 2) { const px = d.x - 6, py = d.y - 6 + dy; spr(I_MP, px, py, 12, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(px + 4, py - 2, 4, 2); }   // POTION 12×14 body + 4×2 cork, centered on d.x/d.y (same size as hot-bar for uniform identity)
     else { drawPart(d.s, dx - 1, ddy - 1, d.c); ctx.strokeStyle = SC[SLOT_STAT[d.s]]; ctx.lineWidth = d.b * .5; ctx.strokeRect(dx - 2, ddy - 2, 10, 10); }   // GEAR (t=5) — stat-color stroke; tier via width
   }
   for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
@@ -1161,7 +1161,7 @@ const draw = () => {
       const n = t ? mpPot : hpPot;
       ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
       ctx.strokeStyle = n ? '#555' : '#444'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);
-      ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 9, QSY + 7, 6, t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(x + 11, QSY + 7, 2, 1); ctx.globalAlpha = 1;
+      ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 6, QSY + 6, 12, t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#4a3828'; ctx.fillRect(x + 10, QSY + 4, 4, 2); ctx.globalAlpha = 1;   // 12×14 bottle + 4×2 dark-brown cork bulging above neck
       ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
     };
     qslot(QHX, 0); qslot(QMX, 1);
