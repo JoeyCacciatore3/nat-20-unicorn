@@ -274,7 +274,7 @@ const scatter = (zi) => {
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
     let surf = -1;
     for (let y = 2; y < H; y++) if (grid[y * W + x] === 1 && grid[(y - 1) * W + x] === 0) surf = y;   // lowest exposed floor top (skips ceilings)
-    if (surf > 0) d.push([x, surf - 1, ty[rnd() * ty.length | 0]]);
+    if (surf > 0) d.push(keep[keep.length] = [x, surf - 1, ty[rnd() * ty.length | 0]]);   // push to keep too so subsequent iterations respect our own placements (prevents adjacent-scatter crowding)
   }
   return d;
 };

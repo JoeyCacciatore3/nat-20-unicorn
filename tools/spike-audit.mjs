@@ -73,16 +73,22 @@ for (let z = 0; z < ZN.length; z++) {
     if (at(dx, dy + 1) === SPIKE) report(z, 'SCTTR', i, d, `scattered above spike at (${dx}, ${dy + 1})`);
   });
 
-  // --- DECOR STACK (two hand-placed DECO at same snapped position) ---
-  // Compare snap positions (post-groundRow) — same column but different y-strata is fine.
-  const seenAt = new Map();
-  hand.forEach((d, i) => {
-    const [dx, dy] = d;
-    const snapY = groundRow(dx, dy + 1) - 1;
-    const key = `${dx},${snapY}`;
-    if (seenAt.has(key)) report(z, 'DECO ', i, d, `snap collision at (${dx},${snapY}) — another DECO idx ${seenAt.get(key)}`);
-    else seenAt.set(key, i);
-  });
+  // --- DECOR STACK + ADJACENCY (visual crowding) ---
+  // Compare snap positions across all pairs. Trees (dt 0/4) have 14-wide canopies that
+  // touch when placed at adjacent tiles — crowded even if not pixel-overlapping. Non-tree
+  // decor fits well within its tile so adjacency is aesthetic. Same tile always = collision.
+  const snapped = hand.map(d => [d[0], groundRow(d[0], d[1] + 1) - 1, d[2], d]);
+  for (let a = 0; a < snapped.length; a++) {
+    for (let b = a + 1; b < snapped.length; b++) {
+      const [x1, y1, t1, s1] = snapped[a], [x2, y2, t2, s2] = snapped[b];
+      if (Math.abs(y1 - y2) > 1) continue;                          // different y strata → no visual overlap
+      const dx = Math.abs(x1 - x2);
+      if (dx === 0) report(z, 'DECO ', b, s2, `same-tile collision with DECO ${a} at (${x1},${y1})`);
+      else if (dx === 1 && (t1 === 0 || t1 === 4) && (t2 === 0 || t2 === 4)) {
+        report(z, 'DECO ', b, s2, `adjacent-tree crowding with DECO ${a} at x=${x1} (14-wide canopies touch)`);
+      }
+    }
+  }
 
   // --- DECOR OVER STATIC CRITICAL SEED (chest/boss/fire/door) ---
   // Foes are dynamic (move around) — grass at foe spawn is not an overlap. Only static
