@@ -23,13 +23,10 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- WORLD (unified MEADOW) ----------
-// Expanded 2026-09-02: east extension x=280-475 (Phase 1), CAVE/CLIFFS/PEAK/DEPTHS absorbed
-// (Phases 2-5, all 5 bosses relocated). Canvas 600x120 for 5-piece layout (top strip /
-// left/center/right squares / bottom strip). Bottom stratum y=72-119 reserved for growth.
+// ---------- MEADOW (600×120 unified world, all 5 CORN bosses) ----------
 const MEADOW = {
   MAP: [
-    // envelope (grid now 600x120 — MEADOW center band y=0-71, bottom stratum y=72-119 reserved for DEPTHS absorption)
+    // envelope — playable band y=0-71, y=72-119 reserved for growth
     [0, 0, 3, H], [597, 0, 3, H],
     [3, 60, 594, 12],                      // ground + underground mass (rows 60-71 across full width)
     // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
@@ -42,7 +39,7 @@ const MEADOW = {
     [210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route
     [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4],
     [274, 58, 3, 1, 2],
-    // Descent corridor (x150-256, carved subterranean pocket, vestigial from CAVE portal removal)
+    // Descent corridor (x150-256, subterranean pocket)
     [150, 66, 107, 4, 0],
     [175, 63, 18, 7, 0],
     [215, 64, 20, 6, 0],
@@ -74,7 +71,7 @@ const MEADOW = {
     [80, 69, 7, 1, 3],
     // Paddock DJ hub perch
     [124, 54, 4, 1, 2],
-    // ---- EAST EXTENSION (x280-476) — post-hub exploration, full skill-kit showcase ----
+    // ---- East run (x280-476) — post-hub DJ/DASH/LONG DASH/TRI JUMP showcase ----
     // Early run (x280-325): base pit + DJ terrace climb (rise-3 rungs, walkway rest)
     [288, 60, 3, 2, 0], [288, 61, 3, 1, 3],
     [295, 57, 6, 1, 2], [303, 54, 4, 1, 2], [309, 51, 4, 1, 2], [315, 48, 8, 1, 2],
@@ -94,13 +91,13 @@ const MEADOW = {
   fires: [[132.5, 59.5]],
   bosses: [                              // All 5 CORN bosses live in the unified MEADOW; bi picks the rainbow band
     [258, 57, 0],   // RED    — center MEADOW (original)
-    [460, 54, 1],   // ORANGE — far east walkway (ex-CAVE, Phase 2)
+    [460, 54, 1],   // ORANGE — far east walkway
     [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier)
     [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier)
     [35, 68, 4],    // VIOLET — depths corridor west (DASH-tier)
   ],
   chests: [
-    [181, 68.3],    // 0 — descent corridor W (base tier discovery) — shifted W of spike (184-186)
+    [181, 68.3],    // 0 — descent corridor west (base tier discovery)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
     [59, 25.3],     // 2 — canopy crest (near YELLOW CORN)
     [12, 11.3],     // 3 — peak ledge (DJ summit reward)
