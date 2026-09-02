@@ -497,7 +497,7 @@ const mkFoe = (x, y, k) => {
 let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.2 });
+const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.6 });   // longer lifetime so text stays readable amid particle chaos
 const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
 const rburst = (x, y, n) => { for (let i = 0; i < n; i++) burst(x, y, 1, RC[(Math.random() * 7) | 0]); };
 // Rainbow gem — I_GEM bitmask (data.js) drawn with spr(), colour cycling via HSL.
@@ -552,7 +552,7 @@ const strike = (f, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    burst(f.x, f.y, 12, f.el ? PAL[9] : FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 (k4+ are variants); elite bonus rewards the mini-boss fight
+    burst(f.x, f.y, 12, f.el ? PAL[9] : FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 22); // XP y-22 clears the damage number at y-8. Elite +8 bonus rewards the mini-boss fight.
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // elite guarantees a drop
     if (f.el) sfx(784, 1568, .3, 'triangle', .15);   // elite kill flourish (aqua death burst above signals visually)
     if (f.bit) {                                                // BOSS falls
@@ -560,14 +560,14 @@ const strike = (f, gen, viaStomp) => {
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
-        rburst(f.x, f.y, 12); fly(f.x, f.y - 8, 'RAINBOW SHARD ' + shards() + ' / 5', RBC[f.bi], 1);
+        rburst(f.x, f.y, 12); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / 5', RBC[f.bi], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
         if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNI-CORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
-      gainXp(12 + 6 * f.bi, f.x, f.y - 26);
+      gainXp(12 + 6 * f.bi, f.x, f.y - 32);
     }
     return 1;
   }
