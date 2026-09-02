@@ -23,7 +23,7 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- ZONE 0: MEADOW (hub, unchanged geometry, DUSK MARE only) ----------
+// ---------- ZONE 0: MEADOW (hub, unchanged geometry, DARK RED CORN only) ----------
 const Z0 = {
   MAP: [
     // envelope
@@ -74,7 +74,7 @@ const Z0 = {
     [124, 54, 4, 1, 2],
   ],
   fires: [[132.5, 59.5]],
-  bosses: [[258, 57]],       // Only DUSK MARE (bi = curZone = 0)
+  bosses: [[258, 57]],       // Only DARK RED CORN (bi = curZone = 0)
   chests: [
     [186, 68.3],    // 0 — cave entry W (base tier discovery)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
@@ -116,10 +116,10 @@ const Z0 = {
   ],
 };
 
-// ---------- ZONE 1: CAVE (MURK MARE) — RICH TEMPLATE ----------
+// ---------- ZONE 1: CAVE (DARK ORANGE CORN) — RICH TEMPLATE ----------
 // Full multi-tier cavern (rows 19-60), designed as the reusable rich-zone template:
 // same geometry can reskin into other zones via palette/backdrop/boss-color swaps.
-// Base-completable critical path (spawn→floor corridor→MURK→home portal). Off the
+// Base-completable critical path (spawn→floor corridor→boss→home portal). Off the
 // line: a base-climbable mid gallery (DJ chest on a ledge), a DJ-gated hidden pocket
 // near the ceiling, and a DASH spike-lake reward past the boss. Reachability at every
 // ability tier is enforced by tools/map-audit.mjs (RETURN + GATE + SPACING laws).
@@ -147,7 +147,7 @@ const Z1 = {
     // MID-CORRIDOR STEPS (x124-141) — low platforms over the floor spike strip, giving the
     // base path vertical texture between gallery and boss.
     [124, 55, 4, 1, 2], [138, 54, 4, 1, 2],
-    // BOSS ARENA (x150-212) — floating combat platforms (aerial verticality), MURK on floor
+    // BOSS ARENA (x150-212) — floating combat platforms (aerial verticality), boss on floor
     [158, 55, 6, 1, 2], [172, 51, 5, 1, 2], [184, 48, 5, 1, 2], [196, 51, 5, 1, 2], [206, 55, 6, 1, 2],
     // HIGH EAST LEDGE (x198-209) — upper platforms above the boss arena east side (verticality).
     [198, 44, 4, 1, 2], [206, 46, 4, 1, 2],
@@ -172,7 +172,7 @@ const Z1 = {
   ],
 };
 
-// ---------- ZONE 2: CLIFFS (GALE MARE) ----------
+// ---------- ZONE 2: CLIFFS (DARK YELLOW CORN) ----------
 // Sky arena — wind-swept cliff top. Return portal at west edge → Meadow canopy ledge.
 // Tier-2, DJ-assumed critical path (hub portal is DJ-gated): spike pits are 4-5 wide
 // (DJ gap-law limit), a rise-3 DJ climb reaches a high chest single-jump can't, and an
@@ -210,7 +210,7 @@ const Z2 = {
   ],
 };
 
-// ---------- ZONE 3: PEAK (FROST MARE) ----------
+// ---------- ZONE 3: PEAK (DARK BLUE CORN) ----------
 // Icy plateau. Return portal at west edge → Meadow peak ledge. Tier-3, assumes SHOT+DJ
 // (hub portal is SHOT-gated). Full enriched archetype: 2 spike crevasses, a DJ summit
 // climb to a high chest, an ICE-CAVERN signature (rung shaft down to a hidden pocket
@@ -255,7 +255,7 @@ const Z3 = {
   ],
 };
 
-// ---------- ZONE 4: DEPTHS (DARK MARE, final boss) ----------
+// ---------- ZONE 4: DEPTHS (DARK VIOLET CORN, final boss) ----------
 // Corrupted arena. Return portal at west edge → Meadow deep corridor.
 const Z4 = {
   MAP: [
@@ -278,7 +278,7 @@ const Z4 = {
     [210, 60, 8, 2, 0], [210, 61, 8, 1, 3],
   ],
   fires: [[45, 59.5]],
-  bosses: [[185, 59]],                              // DARK MARE — arena center
+  bosses: [[185, 59]],                              // DARK VIOLET CORN — arena center
   chests: [
     [50, 59.3],     // 0 base   — west floor discovery
     [89, 50.3],     // 1 DJ     — atop the summit climb

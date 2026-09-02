@@ -716,7 +716,7 @@ const step = (dt) => {
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
-      bann = time + 2.2; bTxt = BN[bi] + ' MARE'; bSub = st === 2 ? '' : 'KEEPER OF A RAINBOW SHARD';
+      bann = time + 2.2; bTxt = 'DARK ' + BN[bi] + ' CORN'; bSub = st === 2 ? '' : 'KEEPER OF A RAINBOW SHARD';
     }
   });
 
@@ -985,10 +985,10 @@ const draw = () => {
     // colour: white flash on hit > red pre-strike wind-up tell > tier base
     // TIER color: select(2)=flat aqua PAL[9] (bigger too) · tough(1)=darkened base via dim() · base=FOECOL. boss=charcoal.
     ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.tr === 2 ? PAL[9] : f.tr ? dim(FOECOL[f.k], .62) : FOECOL[f.k];
-    if (f.bit) {                                                // DARK MARE — reflection of the player unicorn: same shape,
+    if (f.bit) {                                                // DARK CORN — reflection of the player unicorn: same shape,
       // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
-      const ec = f.ph ? '#fff' : RBC[f.bi];   // horn + eye = the rainbow band this mare holds (rage-white in phase 2)
+      const ec = f.ph ? '#fff' : RBC[f.bi];   // horn + eye = the rainbow band this corn holds (rage-white in phase 2)
       const sc = fs / 14, ph = Math.sin(f.t * 8) * 3;            // scale player unicorn bbox → fs; walk cycle
       ctx.scale(sc, sc);
       ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3);              // leg L (steps)

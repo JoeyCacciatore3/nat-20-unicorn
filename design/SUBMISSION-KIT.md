@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,882 B (96.8%, 430 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety (Z1/Z2/Z3/Z4) + hand-decor extensions on canopy/ledge tiers + FOL keepout around chests/bosses/doors/foes/campfires + all 14 deco placement issues fixed (0 spike-mount, 0 CASTER-overlap), enemy tier system live, all assets current, 8-achievement slate live on Wavedash, code audit pass complete (2 dead guards removed, legacy comments purged).**
+Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,884 B (96.8%, 428 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety (Z1/Z2/Z3/Z4) + hand-decor extensions on canopy/ledge tiers + FOL keepout around chests/bosses/doors/foes/campfires + all 14 deco placement issues fixed + 5 bosses renamed to DARK RED/ORANGE/YELLOW/BLUE/VIOLET CORN (color-aligned to rainbow band held), enemy tier system live, all assets current, 8-achievement slate live on Wavedash, code audit pass complete.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -24,7 +24,7 @@ team (prefilled from repo contributors) → submit. Draft stays editable until d
 **The DARKNESS stole the world's color, and you are the last unicorn left to restore it.**
 
 Name your unicorn and cross five themed zones — MEADOW, CAVE, CLIFFS, PEAK, and DEPTHS
-— to defeat the five dark Mares and reclaim the five RAINBOW SHARDS that bring the
+— to defeat the five DARK CORNS and reclaim the five RAINBOW SHARDS that bring the
 color back.
 
 - ⚔️ **STR-based combat** — damage scales with your stats and gear. LUCK boosts crit chance.
@@ -73,7 +73,7 @@ all 8 PNGs present.
 
 | Identifier | Title | Threshold | Wavedash ID |
 |---|---|---|---|
-| FIRST_LIGHT | First Light | first boss/Mare kill | md78vr7cr0q2bbe0va7dfprnjn8dhdgb |
+| FIRST_LIGHT | First Light | first DARK CORN kill | md78vr7cr0q2bbe0va7dfprnjn8dhdgb |
 | HALFWAY | Halfway to Whole | 3 of 5 shards | md734evx1rnbs767xx1ea13qvx8dhjmh |
 | PRISMATIC | Prismatic | all 5 shards (win) | md73vrrcjdsbv8aqnd245xb1yd8dgy8e |
 | NATURAL_20 | Natural 20 | land a crit | md7bmz5y4mfq992001s0mtps1x8dgxtt |
@@ -104,20 +104,26 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,882 / 13,312 B (430 free, 3.2% headroom) |
+| ✓ | Build under budget | 12,884 / 13,312 B (428 free, 3.2% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |
 | ✓ | Enemy tier system | ~75% base / ~19% TOUGH / ~6% SELECT — shipped 2026-09-01 |
-| ✓ | GitHub `main` pushed | Latest commit aa03119 "Enemy tiers + combat fix + rich Cave + live-meadow title" |
+| ✓ | GitHub `main` pushed | Latest commit 2d9502f "Zone decor pass + FOL keepout + all 14 deco placement bugs fixed" (2026-09-02) |
 | ✓ | Achievement icons on disk | 8 PNGs in `design/achievements/` matching Wavedash slate |
 
-### ⏸ Deferred (operator decision)
+### ⏸ Deferred (operator decision — pre-submission)
 | # | Action | Why |
 |---|---|---|
-| ⏸ | Wavedash `setAchievement()` wiring | Achievements exist; wiring needs game→wrapper event hooks. Decide before Sep 20 publish. |
-| ⏸ | Zone visual theming polish | Phase C — free-space dependent |
-| ⏸ | Wavedash PUBLISH (not playtest) | One-way commit — save for post-scope-lock, ≤ Sep 20 |
+| ⏸ | Wavedash `setAchievement()` wiring | 8 achievements defined + init contract works. Wiring adds game→wrapper event hooks for prize competitiveness (bytes-free since wrapper is OUTSIDE the 13KB zip). Decide before Sep 20 publish. |
+| ⏸ | Mobile category — separate submission | Game has touch input. Rules allow multi-game entries; same-game-across-platforms is BANNED. Would need a dedicated mobile-tuned build to justify. |
+
+
+### 🔬 Parked research (untested byte-reduction avenues — only if headroom becomes tight)
+| Avenue | Estimated upside | Risk |
+|---|---|---|
+| Closure Compiler ADVANCED | +50–200 B (js13k-forge research) | Silently breaks dynamic property access; needs externs + full browser verification |
+| String-pack numeric data arrays (world/sprite) | Unknown (Sanxion case ~16% on data) | Our track record: "obvious" wins often backfire in this pipeline; needs A/B measurement |
 
 ### ⚠️ Todo (in order)
 | # | Action | Where | When |
@@ -126,9 +132,10 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | 2 | Firefox console check on `dist/game.zip` | local | Before each js13k re-upload (hard rule) |
 | 3 | Wavedash store page: paste title/desc/tags, upload cover + 5 screenshots | Wavedash Developer Portal → Metadata (see `WAVEDASH-UPLOAD.md`) | Anytime — review has lag, don't leave for Sep 20 |
 | 4 | Playtest the current build via Wavedash URL | most-recent `wavedash build push` output | After each meaningful build change |
-| 5 | (Re-)push Wavedash build after any code change | `node build.mjs && wavedash build push -m "…"` | Immediately after final commit. Last push 2026-09-01: `mn76c8zefst7argv86j0ay0jp18dk6x8` (aa03119, 12,845 B, playtest data wiped). **Local build now 12,882 B with FOL densify + variety + keepout + hand-decor extensions + all 14 deco placement bugs fixed — a re-push captures the fuller, cleaner world.** |
-| 6 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
-| 7 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
+| 5 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
+| 6 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
+
+**Recurring action (always current):** `node build.mjs && wavedash build push -m "…"` after any code change. Latest push 2026-09-02: `mn76ry78b9j2feh3pf1shm8wb98dm01r` (2d9502f, 12,882 B). Prior push `mn76c8ze...` (2026-09-01, aa03119, 12,845 B) had playtest data wiped — wipe still in effect.
 
 ### 📋 Assets inventory (verified on disk 2026-09-01)
 ```

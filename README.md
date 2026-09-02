@@ -4,7 +4,7 @@
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
 
 A 2D pixel-art platformer-RPG. The DARKNESS stole the world's color; you are the last
-unicorn. Name your unicorn, cross five themed zones, defeat five dark Mares, and reclaim
+unicorn. Name your unicorn, cross five themed zones, defeat five DARK CORNS, and reclaim
 the five RAINBOW SHARDS that restore the world. STR-based combat with LUCK-driven crits
 and stat allocation.
 
@@ -31,7 +31,7 @@ and stat allocation.
 - 6 enemy kinds built from one capability-bit system + elite variants
 - Enemies scale by zone tier (HP ×1-3, +0-4 damage)
 - 5 named boss Mares — each holds one rainbow band (R-O-Y-B-V):
-  - **DUSK MARE** (Meadow, RED) → **MURK MARE** (Cave, ORANGE) → **GALE MARE** (Cliffs, YELLOW) → **FROST MARE** (Peak, BLUE) → **DARK MARE** (Depths, VIOLET)
+  - **DARK RED CORN** (Meadow) → **DARK ORANGE CORN** (Cave) → **DARK YELLOW CORN** (Cliffs) → **DARK BLUE CORN** (Peak) → **DARK VIOLET CORN** (Depths, final)
 
 ## Item Drops
 One loot roll (`d100 + LUCK×4`) for every kill and chest:
@@ -41,7 +41,7 @@ One loot roll (`d100 + LUCK×4`) for every kill and chest:
 
 Drops spawn with a 0.6s grace window (visible on screen before magnetizing to the player). Consumables **auto-consume** if the relevant stat isn't full, else land in inventory for later. XP comes only from kills.
 
-**RAINBOW SHARDS** are progression tokens (not items): each MARE surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 5 → THE DARKNESS LIFTS.
+**RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 5 → THE DARKNESS LIFTS.
 
 ## Skill Tree
 3-tier gated tree, 10 skills. Tiers unlock by total skills purchased:
@@ -69,11 +69,11 @@ Dash starts at half distance; LONG DASH doubles it. Dash also breaks cracked wal
 
 ## World
 Five themed zones connected by rainbow portals:
-- **MEADOW** (hub) — starting field, holds DUSK MARE + 4 portals to the other zones
-- **CAVE** — underground burrow, MURK MARE
-- **CLIFFS** — wind-swept heights, GALE MARE
-- **PEAK** — icy summit, FROST MARE
-- **DEPTHS** — corrupted core, DARK MARE (final)
+- **MEADOW** (hub) — starting field, holds DARK RED CORN + 4 portals to the other zones
+- **CAVE** — underground burrow, DARK ORANGE CORN
+- **CLIFFS** — wind-swept heights, DARK YELLOW CORN
+- **PEAK** — icy summit, DARK BLUE CORN
+- **DEPTHS** — corrupted core, DARK VIOLET CORN (final)
 
 The hub's ability-gated paths (double-jump wall, dark-crystal barrier, spike lake requiring dash) control the order you reach each portal. Every portal, boss, and chest is verified reachable by a build-time audit tool.
 
@@ -90,7 +90,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: multi-zone map traversal audit (no stuck spots, all portals/bosses/chests reachable at expected tier), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,882 / 13,312 B (96.8%) — 430 B free**
+**Current: 12,884 / 13,312 B (96.8%) — 428 B free**
 
 ## Save format
 Keys: `localStorage.n20_s0..2` (3 slots). Version: **v34** — strict version gate, auto-discards older saves.

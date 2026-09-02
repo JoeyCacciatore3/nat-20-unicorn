@@ -35,8 +35,8 @@ export const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a'
 export const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 2, 0, 1], [6, 4, 36, 3, 2, 1], [9, 4, 22, 3, 1, 2]];
 // P2 = capability bits granted at boss phase 2 (OR'd into f.cap).
 export const P2 = [32, 4, 1, 8, 37];
-// 5 DARK MARES — ' MARE' appended at display.
-export const BN = ['DUSK', 'MURK', 'GALE', 'FROST', 'DARK'];
+// 5 DARK CORNS — displayed as 'DARK ' + BN[bi] + ' CORN', color-aligned to RBC rainbow band.
+export const BN = ['RED', 'ORANGE', 'YELLOW', 'BLUE', 'VIOLET'];
 // 5 rainbow bands the mares hold (R-O-Y-B-V), boss-index-aligned.
 export const RBC = ['#ff5d6c', '#ff9d3c', '#ffd75e', '#4a76ff', '#c47fe0'];
 // 7-band rainbow (arc + title + effects).
