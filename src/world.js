@@ -91,7 +91,13 @@ const Z0 = {
     [458, 55, 6, 1, 2],
   ],
   fires: [[132.5, 59.5]],
-  bosses: [[258, 57, 0], [460, 54, 1]],   // DARK RED CORN (west), DARK ORANGE CORN (far east, ex-CAVE boss relocated)
+  bosses: [                              // All 5 CORN bosses live in the unified MEADOW; bi picks the rainbow band
+    [258, 57, 0],   // RED    — center MEADOW (original)
+    [460, 54, 1],   // ORANGE — far east walkway (ex-CAVE, Phase 2)
+    [56, 25, 2],    // YELLOW — canopy ledge (ex-CLIFFS portal spot, DJ-tier)
+    [18, 11, 3],    // BLUE   — peak ledge east edge (ex-PEAK portal spot, DJ-tier)
+    [35, 68, 4],    // VIOLET — depths corridor west (ex-DEPTHS portal spot, DASH-tier)
+  ],
   chests: [
     [181, 68.3],    // 0 — descent corridor W (base tier discovery) — shifted W of spike (184-186)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
@@ -106,12 +112,7 @@ const Z0 = {
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
   ],
-  // doors: [x, y, targetZone, spawnX, spawnY] — 3 rainbow portals (CAVE absorbed; DARK ORANGE CORN relocated to MEADOW east)
-  doors: [
-    [56, 25, 1, 40, 40],    // Zone 1 (CLIFFS) — canopy ledge top (was zone 2)
-    [14, 11, 2, 40, 30],    // Zone 2 (PEAK)   — peak ledge top (was zone 3)
-    [55, 69, 3, 40, 57],    // Zone 3 (DEPTHS) — depths corridor floor (was zone 4)
-  ],
+  doors: [],   // no portals — all 5 CORN bosses now live in MEADOW; the world is one map.
   DECO: [
     // MEADOW paddock / title-hero framing (x111-146) — lush, spaced (trees ≥3 tiles
     // apart so canopies never touch; campfire x131-134 kept clear).
@@ -132,122 +133,11 @@ const Z0 = {
   ],
 };
 
-// ---------- ZONE 1: CLIFFS (DARK YELLOW CORN, was Z2) ----------
-// Sky arena — wind-swept cliff top. Return portal at west edge → Meadow canopy ledge.
-// Tier-2, DJ-assumed critical path (hub portal is DJ-gated): spike pits are 4-5 wide
-// (DJ gap-law limit), a rise-3 DJ climb reaches a high chest single-jump can't, and an
-// 8-wide DASH spike-lake spur gates the far-east reward. Boss arena has floating combat
-// platforms for aerial verticality. Home portal sits at spawn → no softlock.
-const Z2 = {
-  MAP: [
-    [0, 0, 3, H], [277, 0, 323, H], [3, 42, 274, 30],  // envelope + floor/undermass (right thickened for widened grid W=600)
-    [30, 38, 5, 4],                                     // spawn ledge (home portal bookend)
-    // Spike pit 1 (x64-67, 4 wide) — first hazard, DJ hop (gap 4 <= DJ limit)
-    [64, 42, 4, 2, 0], [64, 43, 4, 1, 3],
-    // DJ platform climb (x78-108) → high chest ledge row 30. Rise-3 steps = single-jump
-    // can't clear (pre-ability rise <=2), so the climb genuinely requires double jump.
-    [78, 39, 5, 1, 2], [86, 36, 4, 1, 2], [94, 33, 4, 1, 2], [102, 30, 7, 1],
-    // Spike pit 2 (x120-124, 5 wide) — wider, at the DJ gap limit
-    [120, 42, 5, 2, 0], [120, 43, 5, 1, 3],
-    // Boss arena (x134-206) — floating one-way combat platforms (aerial verticality)
-    [144, 37, 6, 1, 2], [166, 34, 5, 1, 2], [156, 30, 5, 1, 2], [188, 37, 5, 1, 2],
-    // Dash spike-lake spur (x236-243, 8 wide) → far-east dash reward shelf (x244-276)
-    [236, 42, 8, 2, 0], [236, 43, 8, 1, 3],
-  ],
-  fires: [[45, 41.5]],
-  bosses: [[196, 41]],
-  chests: [
-    [56, 41.3],     // 0 base — west floor discovery
-    [105, 29.3],    // 1 DJ   — top of the rise-3 climb (high reward)
-    [220, 41.3],    // 2 base — east floor, past the boss
-    [268, 41.3],    // 3 DASH — far-east shelf, across the 8-wide spike-lake
-  ],
-  foes: [[62, 40, 4], [90, 35, 5], [138, 40, 6], [166, 33, 3], [190, 40, 5], [212, 40, 6], [230, 40, 4]],
-  doors: [[35, 41, 0, 56, 24]],
-  DECO: [
-    [50, 41, 2], [74, 41, 1], [115, 41, 6], [160, 41, 2],
-    [205, 41, 1], [225, 41, 6], [255, 41, 2], [103, 29, 1],
-  ],
-};
+// CLIFFS/PEAK/DEPTHS absorbed 2026-09-02 (Phases 3-5). Their bosses (YELLOW/BLUE/VIOLET)
+// now live in MEADOW at coordinates matching their old hub-portal spawn points. All
+// satellite-zone geometry, chests, foes, and decor deleted. The world is now one map.
 
-// ---------- ZONE 2: PEAK (DARK BLUE CORN, was Z3) ----------
-// Icy plateau. Return portal at west edge → Meadow peak ledge. Tier-3, assumes DJ.
-// 2 spike crevasses, a DJ summit climb to a high chest, an ICE-CAVERN signature
-// (rung shaft down to a hidden pocket chest), and a boss arena with 4 aerial platforms.
-// Home portal at spawn → no softlock.
-const Z3 = {
-  MAP: [
-    [0, 0, 3, H], [277, 0, 323, H], [3, 32, 274, 40],  // envelope + floor/undermass (right thickened for widened grid W=600)
-    [30, 28, 5, 4],                                     // spawn ledge (home portal bookend)
-    // Spike crevasse 1 (x58-61, 4 wide) — DJ hop
-    [58, 32, 4, 2, 0], [58, 33, 4, 1, 3],
-    // DJ summit climb (x70-91) UP to a high summit ledge → summit chest (rise-3 = DJ-only)
-    [70, 29, 5, 1, 2], [78, 26, 4, 1, 2], [86, 23, 6, 1],
-    // ICE CHASM signature — a wide spike chasm crossed on floating ice platforms. The
-    // west entry gap is 4 (DJ-gated, base can't fall in → no trap); the middle platform
-    // is a jump higher, so its chest needs the 2nd jump.
-    [102, 32, 20, 2, 0], [102, 33, 20, 1, 3],         // spike chasm (rows 32-33, x102-121)
-    [106, 29, 3, 1, 2], [116, 29, 3, 1, 2],           // DJ side stepping platforms
-    [111, 26, 3, 1, 2],                               // high middle platform → hidden chest
-    // Spike crevasse 2 (x138-142, 5 wide) — DJ limit
-    [138, 32, 5, 2, 0], [138, 33, 5, 1, 3],
-    // Boss arena (x150-206) — 4 floating ice platforms (aerial verticality)
-    [162, 28, 6, 1, 2], [180, 24, 5, 1, 2], [172, 20, 5, 1, 2], [196, 28, 5, 1, 2],
-  ],
-  fires: [[45, 31.5]],
-  bosses: [[200, 31]],
-  chests: [
-    [56, 31.3],     // 0 base   — west floor discovery
-    [89, 22.3],     // 1 DJ     — atop the summit climb
-    [112, 25.3],    // 2 hidden — high middle platform mid-chasm (DJ)
-  ],
-  foes: [[62, 30, 4], [88, 22, 3], [130, 30, 6], [172, 19, 3], [190, 30, 4], [210, 30, 6], [225, 30, 4]],
-  doors: [[35, 31, 0, 14, 10]],
-  DECO: [
-    [50, 31, 5], [76, 31, 2], [130, 31, 5], [160, 31, 5],
-    [212, 31, 5], [250, 31, 2], [86, 22, 5], [113, 25, 5],   // ice crystal shifted from x=89 (chest 1 there)
-  ],
-};
-
-// ---------- ZONE 3: DEPTHS (DARK VIOLET CORN, final boss, was Z4) ----------
-// Corrupted arena. Return portal at west edge → Meadow deep corridor.
-const Z4 = {
-  MAP: [
-    [0, 0, 3, H], [277, 0, 323, H], [3, 60, 274, 12],  // envelope + floor/undermass (right thickened for widened grid W=600)
-    [30, 56, 5, 4],                                     // spawn ledge (home portal bookend)
-    // Spike crevasse 1 (x58-62, 5 wide) — DJ hop
-    [58, 60, 5, 2, 0], [58, 61, 5, 1, 3],
-    // DJ summit climb (x70-91) UP to a high summit ledge → summit chest (rise-3 = DJ-only)
-    [70, 57, 5, 1, 2], [78, 54, 4, 1, 2], [86, 51, 6, 1],
-    // ABYSS signature — a wide spike chasm (x102-119, 18) crossed by DASH. One middle
-    // platform holds the hidden chest; both approach gaps are 7-8 wide (dash-only, DJ
-    // falls short). Chasm bottom is spikes → a miss is death, never a stuck pocket.
-    [102, 60, 18, 2, 0], [102, 61, 18, 1, 3],          // spike chasm rows 60-61
-    [108, 57, 4, 1, 2],                                // middle dash platform → hidden chest
-    // Spike crevasse 2 (x140-145, 6 wide) — widest DJ limit
-    [140, 60, 6, 2, 0], [140, 61, 6, 1, 3],
-    // Boss arena (x150-205) — 4 floating obsidian platforms (aerial verticality)
-    [160, 56, 6, 1, 2], [178, 52, 5, 1, 2], [170, 48, 5, 1, 2], [194, 56, 5, 1, 2],
-    // DASH spike-lake spur (x210-217, 8 wide) → east reward chest on the far ledge
-    [210, 60, 8, 2, 0], [210, 61, 8, 1, 3],
-  ],
-  fires: [[45, 59.5]],
-  bosses: [[185, 59]],                              // DARK VIOLET CORN — arena center
-  chests: [
-    [50, 59.3],     // 0 base   — west floor discovery
-    [89, 50.3],     // 1 DJ     — atop the summit climb
-    [109, 56.3],    // 2 hidden — middle abyss platform (DASH)
-    [223, 59.3],    // 3 DASH   — east ledge past the spike-lake
-  ],
-  foes: [[64, 58, 4], [88, 50, 3], [128, 58, 6], [170, 47, 3], [185, 58, 4], [200, 58, 6], [218, 58, 3]],
-  doors: [[35, 59, 0, 55, 68]],
-  DECO: [
-    [53, 59, 4], [76, 59, 2], [128, 59, 4], [158, 59, 2],   // dead tree shifted from x=50 (chest 0 there)
-    [204, 59, 4], [92, 50, 4], [110, 56, 2],                // dead tree shifted from x=89 (chest 1 there)
-  ],
-};
-
-const ZONES = [Z0, Z2, Z3, Z4];   // Z1 (CAVE) absorbed; array indices now 0=MEADOW, 1=CLIFFS, 2=PEAK, 3=DEPTHS
+const ZONES = [Z0];   // unified world — MEADOW is the only zone.
 
 // Currently active zone data — live binding, importers see updates.
 export let seeds = Z0;
@@ -260,7 +150,7 @@ export let DECO = Z0.DECO;
 // Tuned 2026-09-01: Z1/Z3/Z4 densified to gap=3 (was 4/5/5) and each non-hub zone
 // gained one rock/dead-tree variety type — measured +2 B packed, ~73 scattered
 // tuples/zone (was ~44-55). Densifying further (gap<3) risks visual clutter.
-const FOL = [[3, 1, 1, 6, 1], [3, 1, 6, 1, 2], [3, 5, 2, 5, 2], [3, 2, 4, 2, 4]];   // MEADOW, CLIFFS, PEAK, DEPTHS (CAVE entry removed)
+const FOL = [[3, 1, 1, 6, 1]];   // MEADOW only — trees / grass / flowers scatter config
 // Ground-find: first solid/platform surface ROW at or below (tx, ty), skipping air/spikes.
 // One shared "seat on the surface" rule — used by hand-placed deco snapping (loadZone) AND
 // chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.

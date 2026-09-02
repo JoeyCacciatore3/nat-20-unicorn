@@ -23,17 +23,13 @@ const TIERS = [
 // Zone 0: player spawn point SX/SY = (126, 57) → falls to (126, 59) on ground row 60.
 // Zones 1-4: portal-spawn positions from Z0.doors, each falls to its zone's ground.
 const ZONE_META = [
-  { name: 'MEADOW', spawn: [126, 59], hub: true  },
-  { name: 'CLIFFS', spawn: [40, 41],  hub: false },
-  { name: 'PEAK  ', spawn: [40, 31],  hub: false },
-  { name: 'DEPTHS', spawn: [40, 59],  hub: false },
+  { name: 'MEADOW', spawn: [126, 59], hub: true  },   // unified world — only zone remaining
 ];
 
-// Zone 0 hub — each portal MUST be reachable at exactly its designed tier.
-// Positions read from seeds.doors[i] at run time (single source of truth).
-// Names + expected tiers indexed to match Z0.doors order in world.js (post-CAVE absorption).
-const HUB_PORTAL_NAMES = ['CLIFFS portal', 'PEAK portal  ', 'DEPTHS portal'];
-const HUB_PORTAL_EXPECT = ['+doublejump', '+doublejump', '+dash      '];
+// Portals removed — the world is one map. Bosses named by their rainbow band.
+const HUB_PORTAL_NAMES = [];
+const HUB_PORTAL_EXPECT = [];
+const BOSS_NAMES = ['RED   ', 'ORANGE', 'YELLOW', 'BLUE  ', 'VIOLET'];
 
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
 const idx = (c, r) => r * W + c;
@@ -42,7 +38,7 @@ let fail = 0;
 
 const auditZone = (zi, meta) => {
   loadZone(zi);
-  const bossPos = seeds.bosses[0] || null;
+  const bossList = seeds.bosses || [];   // now supports multiple bosses per zone (one per rainbow band)
   const doors = seeds.doors || [];
   console.log(`\n=== ZONE ${zi}: ${meta.name.trim()} ${meta.hub ? '(HUB)' : ''} ===`);
 
@@ -103,7 +99,10 @@ const auditZone = (zi, meta) => {
       return 0;
     };
 
-    if (bossPos && !gates.boss && reach(bossPos[0], bossPos[1])) gates.boss = tr.name;
+    bossList.forEach(([bx, by, bi]) => {
+      const nm = 'boss ' + (BOSS_NAMES[bi] || bi);
+      if (!gates[nm] && reach(bx, by)) gates[nm] = tr.name;
+    });
     seeds.chests.forEach((c, i) => {   // every chest must be reachable at SOME tier (records first)
       const k = 'chest ' + i;
       if (!gates[k] && reach(c[0], c[1])) gates[k] = tr.name;
@@ -133,7 +132,7 @@ const auditZone = (zi, meta) => {
     if (!got || (exp && g.trim() !== exp.trim())) fail = 1;
   };
 
-  if (bossPos) line('boss', gates.boss);
+  bossList.forEach(([,,bi]) => { const nm = 'boss ' + (BOSS_NAMES[bi] || bi); line(nm, gates[nm]); });
   seeds.chests.forEach((c, i) => line('chest ' + i, gates['chest ' + i]));
   if (meta.hub) {
     HUB_PORTAL_NAMES.forEach((nm, i) => line(nm, gates[nm], HUB_PORTAL_EXPECT[i]));
@@ -145,4 +144,4 @@ const auditZone = (zi, meta) => {
 for (let z = 0; z < ZONE_META.length; z++) auditZone(z, ZONE_META[z]);
 
 if (fail) { console.error('\n❌ MAP AUDIT FAILED'); process.exit(1); }
-console.log('\n✅ map audit passed — all 5 zones verified');
+console.log(`\n✅ map audit passed — ${ZONE_META.length} zone(s) verified (unified world)`);

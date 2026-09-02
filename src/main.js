@@ -391,7 +391,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 35, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 36, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc, z: curZone,
     u: col,
@@ -401,7 +401,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 35) return;                               // strict v35 gate — no cross-version compat (v34 saves from pre-CAVE-absorption invalid).
+    if (!d || d.v !== 36) return;                               // strict v36 gate — no cross-version compat (v34/v35 saves from pre-unified-world invalid).
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     curZone = d.z | 0; loadZone(curZone);
@@ -850,7 +850,7 @@ const draw = () => {
   // BACKGROUND = flat blue sky + parallax clouds. Visual detail lives in the ground layer.
   ctx.fillStyle = ZBG[curZone]; ctx.fillRect(0, 0, VW, VH);                 // per-zone backdrop
   // CLOUDS — parallax puffs, outdoor zones only (DEPTHS stays dark)
-  if (curZone !== 3) for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
+  for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
     const sx = ((cx - cam.x * .15) % (VW + 100)) - 50;
     ctx.fillStyle = 'rgba(255,255,255,.6)';
     ctx.fillRect(sx, cy, cw, 8); ctx.fillRect(sx + 4, cy - 4, cw - 8, 6); ctx.fillRect(sx + 8, cy + 6, cw - 16, 5);
