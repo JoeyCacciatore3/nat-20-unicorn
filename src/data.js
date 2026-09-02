@@ -67,4 +67,4 @@ export const TREE = [
 export const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[418,94],[263,140],[232,94],[387,140]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
-export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — narrow 2-wide neck (r0-2), tapered shoulders (r3-5), 4 rows full 12-wide body, curving base. Cork drawn separately (4×2 dark-brown fillRect above the neck, bulges outward beyond neck width).
+export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base. Cork = 4×3 opaque tan fillRect (extends 2px above bitmap, covers r0).
