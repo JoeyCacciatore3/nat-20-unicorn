@@ -41,19 +41,12 @@ export const BN = ['RED', 'ORANGE', 'YELLOW', 'BLUE', 'VIOLET'];
 export const RBC = ['#ff5d6c', '#ff9d3c', '#ffd75e', '#4a76ff', '#c47fe0'];
 // 7-band rainbow (arc + title + effects).
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
-// Zone names (unified world — MEADOW only).
-export const ZN = ['MEADOW'];
-// Backdrop colour — MEADOW sky.
-export const ZBG = ['#6bc5ff'];
-// STRICT PER-ZONE PALETTE [dirt, surface-top, foliage, accent] — the designated color
-// identity for each map. dirt/top theme the solid+platform tiles; foliage themes the
-// green deco (tree canopy, grass, flower stems); accent is the zone's stone/rock tone
-// (rock base is derived darker via dim(accent), so one stored color = a two-tone boulder).
-// MEADOW keeps its exact original green + #888/#666 rock (byte-identical); each other
-// zone gets a coherent family: cliffs=windswept, peak=snow, depths=corrupt.
-export const ZG = [
-  ['#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888'],   // MEADOW — earthy green, cool-gray stone (dim→#666, original)
-];
+// Sky backdrop colour.
+export const ZBG = '#6bc5ff';
+// Ground palette [dirt, surface-top, foliage, accent]: dirt/top theme solid+platform tiles;
+// foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone
+// (rock base derived darker via dim(accent), so one stored color = two-tone boulder).
+export const ZG = ['#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888'];
 
 // SKILL TREE — 3-tier: -1 free, -2 need 2, -3 need 5. Locked = "?".
 export const TREE = [

@@ -18,8 +18,8 @@
 //
 // Save: strict v34 JSON to localStorage. Version bumps discard prior saves.
 
-import { T, W, H, grid, tile, seeds, DECO, loadZone, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
-import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZN, ZBG, ZG, TREE, TPOS, I_GEM, I_MP } from './data.js'; // static lookup tables
+import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
+import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_GEM, I_MP } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -391,9 +391,9 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 36, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 37, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
-    m: pName, o: oc, z: curZone,
+    m: pName, o: oc,
     u: col,
     q: eq, i: inv, p: mute, P: [hpPot, mpPot],
   });
@@ -401,10 +401,9 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 36) return;                               // strict v36 gate — no cross-version compat (v34/v35 saves from pre-unified-world invalid).
+    if (!d || d.v !== 37) return;                               // strict v37 gate — no cross-version compat (removes curZone/z field).
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
-    curZone = d.z | 0; loadZone(curZone);
     chests = seeds.chests.map(snapChest);
     foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
     [ho, he, sp, df, lk] = d.t;
@@ -424,8 +423,7 @@ const PW = 10, PH = 14;
 const SX = 126 * T, SY = 57 * T;                  // spawn point (paddock)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
-let nearFire = 0, nearDoor = -1;                 // proximity flags: hearth, doorway
-let curZone = 0, zBann = 0, zFade = 0;            // active zone id, banner timer, fade timer
+let nearFire = 0;                                 // hearth proximity flag
 let paused = 0, helpOn = 0, savePop = 0;            // pause overlay; help overlay; save popup (shows EXIT GAME)
 let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
 // HEARTH ACTION — JUMP-near-fire = auto REST: full heal + checkpoint + save + welcome-boon on first touch.
@@ -436,22 +434,10 @@ const rest = () => {
   fly(pl.x, pl.y - 16, 'SAVED', '#9fe89a', 1);
   save();
 };
-// ZONE TRANSITION — swap grid to target zone, teleport player, reset transient state.
-// Called from doorway JUMP-interact. Boss/chest persistence lives in bs[] / oc bitfield.
-const enterZone = (tz, sx, sy) => {
-  loadZone(tz); curZone = tz;
-  chests = seeds.chests.map(snapChest);
-  foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
-  pl.x = sx * T; pl.y = sy * T; pl.vx = pl.vy = 0; pl.ground = 0;
-  cp = [pl.x, pl.y]; lastSafe = [pl.x, pl.y];
-  drops.length = shots.length = fbolts.length = flies.length = parts.length = 0;
-  zBann = time + 2.5; zFade = time + .3;             // banner + brief fade
-  save();
-};
 // Chest reward: item shower + full heal. LUCK adds drops.
 const openChest = (i) => {
-  if (oc & (1 << (curZone * 6 + i))) return;
-  oc |= 1 << (curZone * 6 + i);
+  if (oc & (1 << i)) return;
+  oc |= 1 << i;
   const c = chests[i]; hp = mHP();
   spawnDrop(c.x, c.y, 2);
   burst(c.x, c.y - 4, 12, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
@@ -467,7 +453,7 @@ const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 
 // ---------- entities ----------
-// Chests: exploration rewards. `oc` bitfield tracks opened state per-zone (bit = zone*6 + i).
+// Chests: exploration rewards. `oc` bitfield tracks opened state (bit = chest index).
 const snapChest = ([x, y], i) => ({ x: x * T, y: groundRow((x * T + 4) / T | 0, y | 0) * T - 5, i });  // seat base on surface row below seed (shared groundRow); -5: body renders to c.y+5
 let chests = seeds.chests.map(snapChest);
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
@@ -478,23 +464,22 @@ const fresh = () => {
   pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
-  curZone = 0; loadZone(0);
   chests = seeds.chests.map(snapChest);
   foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
 // Non-ranged foes roll for elite status in mkFoe (~6%). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
-const interact = () => { if (nearFire) { rest(); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } if (nearDoor >= 0) { const d = seeds.doors[nearDoor]; enterZone(d[2], d[3], d[4]); return 1; } };
-// Unified scaling: zone tier + player-level progression. Every 4 player levels adds 1 scale
-// pip — enemies stay a threat as the player over-levels the zone; bosses reuse the same formula.
-const scl = () => 2 + curZone + (lvl >> 2);
+const interact = () => { if (nearFire) { rest(); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };
+// Player-level progression: every 4 levels adds 1 scale pip. Enemies stay a threat as the
+// player over-levels; bosses reuse the same formula and additionally scale via bi (+dm).
+const scl = () => 2 + (lvl >> 2);
 const mkFoe = (x, y, k) => {
   // ELITE (el): rare 6% event on non-ranged foes → 3× HP, +2 dmg, +1 size, aqua PAL[9] color,
   // guaranteed drop + gold burst + XP bonus on kill. Provides the "mini-boss moment".
   const [fh, fd, fv, fz, fb] = FT[k], el = Math.random() < .06 ? 1 : 0;
   const zh = fh * (1 + el * 2) * scl() / 2 | 0;                   // el=1 → 3× base HP
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + el * 2 + curZone, el, fl: 0, t: Math.random() * 7, cz: fz + el };
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + el * 2, el, fl: 0, t: Math.random() * 7, cz: fz + el };
 };
 let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
@@ -691,7 +676,7 @@ const step = (dt) => {
 
   // -- chest proximity — JUMP-to-open handled in keydown; here just flag the nearest --
   nearChest = -1;
-  for (const c of chests) if (!(oc & (1 << (curZone * 6 + c.i))) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
+  for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
   seeds.bosses.forEach(([bx, by, bi]) => {                      // bi comes from seed (was curZone) — supports multiple bosses per zone
@@ -700,7 +685,7 @@ const step = (dt) => {
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
       // BOSS = tier-3 foe (one above 'select') with fh_boss=10, fd_boss=5 in shared scl() formula:
-      // hp = 20*scl() (curZone-scaled) · dm = 8+bi (per-boss progression: RED=8, ORANGE=9, YELLOW=10, BLUE=11, VIOLET=12).
+      // hp = 20*scl() · dm = 8+bi (per-boss progression: RED=8, ORANGE=9, YELLOW=10, BLUE=11, VIOLET=12).
       bs[bi] = 1;
       const bhp = 20 * scl() | 0;
       foes.push({
@@ -803,12 +788,11 @@ const step = (dt) => {
     } else if (!hit && (f.wt || 0) > 0) f.wt = Math.max(0, f.wt - dt * 2);  // DECAY, not reset — brief separation keeps threat
     if (f.wt < 0) f.wt = Math.min(0, f.wt + dt);
   }
-  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune — foes refill only on zone-load + death (soft zone reset), never mid-zone
+  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune — foes refill only on death (soft reset), never mid-run
 
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
-  nearFire = 0; nearDoor = -1;
+  nearFire = 0;
   for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
-  for (let i = 0; i < seeds.doors.length; i++) { const [dx, dy] = seeds.doors[i]; if (Math.hypot(pl.x - dx * T, pl.y - dy * T) <= 22) { nearDoor = i; break; } }
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
@@ -848,8 +832,8 @@ const draw = () => {
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds. Visual detail lives in the ground layer.
-  ctx.fillStyle = ZBG[curZone]; ctx.fillRect(0, 0, VW, VH);                 // per-zone backdrop
-  // CLOUDS — parallax puffs, outdoor zones only (DEPTHS stays dark)
+  ctx.fillStyle = ZBG; ctx.fillRect(0, 0, VW, VH);                          // sky backdrop
+  // CLOUDS — parallax puffs
   for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
     const sx = ((cx - cam.x * .15) % (VW + 100)) - 50;
     ctx.fillStyle = 'rgba(255,255,255,.6)';
@@ -860,7 +844,7 @@ const draw = () => {
   const so = shk > 0 ? Math.random() * 6 - 3 : 0;
   ctx.translate((-cam.x + so) | 0, (-cam.y + so) | 0);
   const x0 = cam.x / T | 0, x1 = Math.min(W, x0 + VW / T + 2), y0 = Math.max(0, cam.y / T | 0), y1 = Math.min(H, y0 + VH / T + 2);
-  const [GD, GT, GF, GA] = ZG[curZone], RB = dim(GA, .75);   // per-zone [dirt, top, foliage, accent]; RB = derived rock base
+  const [GD, GT, GF, GA] = ZG, RB = dim(GA, .75);   // [dirt, top, foliage, accent]; RB = derived rock base
   for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
     const v = tile(i, j); if (!v) continue;
     if (v === 1) {
@@ -886,24 +870,10 @@ const draw = () => {
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp - 4); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();     // outer flame
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp - .4); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill(); // inner core
   }
-  // RAINBOW PORTAL DOORS — archway: flat bottom on the ground surface, half-round top,
-  // dark wood/stone frame, rainbow-band interior. JUMP-near to enter the target zone.
-  for (const [dx, dy] of seeds.doors) {
-    const cx = dx * T, gy = dy * T + T, w = 8, rH = 13, H2 = rH + w;   // gy = ground surface (flat bottom sits here); door a hair taller than the unicorn
-    const arch = (hw, hh) => { ctx.beginPath(); ctx.moveTo(cx - hw, gy); ctx.lineTo(cx - hw, gy - hh); ctx.arc(cx, gy - hh, hw, Math.PI, 2 * Math.PI); ctx.lineTo(cx + hw, gy); ctx.closePath(); };
-    ctx.save(); arch(w + 3, rH + 3); ctx.clip();                       // GRAY-BRICK FRAME — solid stone block, mortar courses scored on, bottom cuff cut off
-    ctx.fillStyle = '#5c5c66'; ctx.fillRect(cx - w - 3, gy - H2 - 6, w * 2 + 6, H2 + 6);
-    ctx.strokeStyle = '#33333b'; ctx.beginPath();
-    for (let yy = gy - 3; yy > gy - H2 - 6; yy -= 4) { ctx.moveTo(cx - w - 3, yy); ctx.lineTo(cx + w + 3, yy); }   // horizontal mortar → stacked brick courses
-    ctx.stroke(); ctx.restore();
-    ctx.save(); arch(w, rH); ctx.clip();                               // RAINBOW INTERIOR — clipped to inner arch, cycling bands (overdraws the center mortar, leaving it on the frame ring)
-    for (let i = 0; i < 7; i++) { ctx.fillStyle = RC[(i + (time * 2 | 0)) % 7]; ctx.fillRect(cx - w, gy - H2 + i * H2 / 7, w * 2, H2 / 7 + 1); }
-    ctx.restore();
-  }
-  // CHESTS — hand-placed per zone (3-4 each). Opened chests render with lid up.
+  // CHESTS — hand-placed (currently 4). Opened chests vanish (persisted in oc).
   // Prompt "▲ OPEN" pulses above the nearest unopened chest.
   for (const c of chests) {
-    if (oc & (1 << (curZone * 6 + c.i))) continue;          // claimed → gone forever (persisted in oc), so it vanishes on open
+    if (oc & (1 << c.i)) continue;                          // claimed → gone forever (persisted in oc)
     ctx.fillStyle = '#6b4a2b';                              // dark oak base
     ctx.fillRect(c.x - 6, c.y - 2, 12, 7);                  // body
     ctx.fillStyle = '#8a6a3a';                              // lighter oak lid
@@ -1066,11 +1036,6 @@ const draw = () => {
       T2(bTxt, VW / 2, 58);
       if (bSub) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
     }
-    if (time < zBann) {                                         // ZONE BANNER — zone-entry announcement (top of screen, gold)
-      ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#ffd75e';
-      T2(ZN[curZone], VW / 2, 44);
-    }
-    fade((zFade - time) / .3);
     fade(1 - Math.abs(deathT - .8) / .8);
   }
 
@@ -1165,7 +1130,7 @@ const draw = () => {
     for (const [x, y, c, col, s, mp] of AB) {
       const usable = (s < 0 || su[s]) && mn >= mp;
       // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
-      const rc = usable ? (c === 'bJ' && (nearFire || nearChest >= 0 || nearDoor >= 0) ? '#ffd75e' : col) : '#555';
+      const rc = usable ? (c === 'bJ' && (nearFire || nearChest >= 0) ? '#ffd75e' : col) : '#555';
       ctx.globalAlpha = keys.has(c) ? .85 : (touch ? .55 : .38);
       ctx.fillStyle = 'rgba(15,15,20,.75)';
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();

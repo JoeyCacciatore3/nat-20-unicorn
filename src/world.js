@@ -1,5 +1,5 @@
 // world.js — UNICORN: 5-zone hub-and-spoke world.
-// Zone 0 = MEADOW (hub, current geometry). Zones 1-4 reached via rainbow portals.
+// Unified world — one map (MEADOW). All 5 CORN bosses live in it; no portals.
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes.
 //
 // ============================ MAP LAWS (Joe, locked) ============================
@@ -13,7 +13,7 @@
 //                      ability and provably passable with it (incl. ceiling).
 // L6 RETURN LAW      — every standable cell reachable with moveset M must reach
 //                      a campfire using M. ENFORCED BY tools/map-audit.mjs — the
-//                      build FAILS if any stuck spot exists (Zone 0 only).
+//                      build FAILS if any stuck spot exists.
 // L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
 //                      death always returns to a campfire. (engine, main.js)
 // ================================================================================
@@ -23,10 +23,11 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- ZONE 0: MEADOW (hub, unified world center) — RED CORN + ORANGE CORN (ex-CAVE) ----------
-// Expanded 2026-09-02: east extension x=280-475 (Phase 1), CAVE absorption (Phase 2, ORANGE at x=460),
-// canvas grown to 600x120 for 5-piece layout (top strip / left/center/right squares / bottom strip).
-const Z0 = {
+// ---------- WORLD (unified MEADOW) ----------
+// Expanded 2026-09-02: east extension x=280-475 (Phase 1), CAVE/CLIFFS/PEAK/DEPTHS absorbed
+// (Phases 2-5, all 5 bosses relocated). Canvas 600x120 for 5-piece layout (top strip /
+// left/center/right squares / bottom strip). Bottom stratum y=72-119 reserved for growth.
+const MEADOW = {
   MAP: [
     // envelope (grid now 600x120 — MEADOW center band y=0-71, bottom stratum y=72-119 reserved for DEPTHS absorption)
     [0, 0, 3, H], [597, 0, 3, H],
@@ -51,22 +52,22 @@ const Z0 = {
     [246, 62, 3, 1, 2], [246, 64, 3, 1, 2], [246, 66, 3, 1, 2], [246, 68, 3, 1, 2],
     [222, 61, 8, 3, 0], [224, 63, 6, 1], [219, 66, 3, 1, 2],
     [184, 69, 3, 1, 3], [228, 69, 3, 1, 3],
-    // Cliffs approach (x40-118) — DJ terraces leading to Zone 2 portal
+    // Western terraces (x40-118) — DJ climb to YELLOW CORN on canopy ledge
     [114, 56, 2, 4],
     [100, 57, 8, 3], [88, 54, 8, 6], [76, 51, 8, 9], [64, 48, 8, 12], [52, 45, 8, 15],
     [60, 48, 4, 12], [72, 51, 4, 9], [84, 54, 4, 6],
     [49, 57, 3, 1, 2], [49, 55, 3, 1, 2], [49, 53, 3, 1, 2], [49, 51, 3, 1, 2],
     [49, 49, 3, 1, 2], [49, 47, 3, 1, 2], [49, 45, 3, 1, 2],
-    // Cliffs canopy approach (x40-118) — zig-zag climb up to the Zone 2 portal
+    // Canopy zig-zag climb (x40-118) — DJ route up to YELLOW CORN ledge
     [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
     [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
     [52, 26, 8, 2],
     [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
-    // Peak approach (x10-60) — DJ climb leads to Zone 3 portal
+    // Peak approach (x10-60) — DJ climb up to BLUE CORN on summit ledge
     [46, 24, 3, 1, 2],
     [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
     [10, 12, 9, 2],
-    // Depths approach (x10-139, deep west) — post-DASH corridor to Zone 4 portal
+    // Depths corridor (x10-139, deep west) — post-DASH route to VIOLET CORN
     [10, 64, 130, 6, 0],
     [108, 60, 3, 4, 0],
     [108, 62, 3, 1, 2], [108, 64, 3, 1, 2], [108, 66, 3, 1, 2], [108, 68, 3, 1, 2],
@@ -94,14 +95,14 @@ const Z0 = {
   bosses: [                              // All 5 CORN bosses live in the unified MEADOW; bi picks the rainbow band
     [258, 57, 0],   // RED    — center MEADOW (original)
     [460, 54, 1],   // ORANGE — far east walkway (ex-CAVE, Phase 2)
-    [56, 25, 2],    // YELLOW — canopy ledge (ex-CLIFFS portal spot, DJ-tier)
-    [18, 11, 3],    // BLUE   — peak ledge east edge (ex-PEAK portal spot, DJ-tier)
-    [35, 68, 4],    // VIOLET — depths corridor west (ex-DEPTHS portal spot, DASH-tier)
+    [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier)
+    [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier)
+    [35, 68, 4],    // VIOLET — depths corridor west (DASH-tier)
   ],
   chests: [
     [181, 68.3],    // 0 — descent corridor W (base tier discovery) — shifted W of spike (184-186)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
-    [59, 25.3],     // 2 — canopy crest (moved off the CLIFFS door at x56 so both read cleanly)
+    [59, 25.3],     // 2 — canopy crest (near YELLOW CORN)
     [12, 11.3],     // 3 — peak ledge (DJ summit reward)
   ],
   foes: [
@@ -112,7 +113,6 @@ const Z0 = {
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
   ],
-  doors: [],   // no portals — all 5 CORN bosses now live in MEADOW; the world is one map.
   DECO: [
     // MEADOW paddock / title-hero framing (x111-146) — lush, spaced (trees ≥3 tiles
     // apart so canopies never touch; campfire x131-134 kept clear).
@@ -133,50 +133,30 @@ const Z0 = {
   ],
 };
 
-// CLIFFS/PEAK/DEPTHS absorbed 2026-09-02 (Phases 3-5). Their bosses (YELLOW/BLUE/VIOLET)
-// now live in MEADOW at coordinates matching their old hub-portal spawn points. All
-// satellite-zone geometry, chests, foes, and decor deleted. The world is now one map.
+export const seeds = MEADOW;
 
-const ZONES = [Z0];   // unified world — MEADOW is the only zone.
-
-// Currently active zone data — live binding, importers see updates.
-export let seeds = Z0;
-export let DECO = Z0.DECO;
-
-// PROCEDURAL FOLIAGE — zero data cost: scatter zone-appropriate deco along the main
-// floor from a tiny per-zone config. "More detail" = tune a density number, not add
-// array entries. FOL[z] = [1-in-N chance per column, ...deco types to pick from].
-// Types: 0 tree 1 grass 2 rock 3 mushroom 4 dead-tree 5 ice 6 flower.
-// Tuned 2026-09-01: Z1/Z3/Z4 densified to gap=3 (was 4/5/5) and each non-hub zone
-// gained one rock/dead-tree variety type — measured +2 B packed, ~73 scattered
-// tuples/zone (was ~44-55). Densifying further (gap<3) risks visual clutter.
-const FOL = [[3, 1, 1, 6, 1]];   // MEADOW only — trees / grass / flowers scatter config
 // Ground-find: first solid/platform surface ROW at or below (tx, ty), skipping air/spikes.
-// One shared "seat on the surface" rule — used by hand-placed deco snapping (loadZone) AND
+// One shared "seat on the surface" rule — used by hand-placed deco snapping AND
 // chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.
 export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = grid[y * W + tx]; if (v === 1 || v === 2) return y; } return H; };
-const scatter = (zi) => {
-  const [gap, ...ty] = FOL[zi], d = [];
-  let s = zi * 2749 + 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // deterministic per-zone
-  const keep = [...seeds.chests, ...seeds.foes, ...seeds.doors, ...seeds.bosses, ...seeds.fires, ...seeds.DECO];
+
+// PROCEDURAL FOLIAGE — scatter deco along exposed floor tops. Deterministic (seeded RNG).
+// FOL = [gap, ...types] — 1-in-gap column density; types: 0 tree 1 grass 6 flower.
+const FOL = [3, 1, 1, 6, 1];
+const scatter = () => {
+  const [gap, ...ty] = FOL, d = [];
+  let s = 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...seeds.fires, ...seeds.DECO];
   for (let x = 5; x < W - 5; x++) {
     if (rnd() * gap >= 1) continue;                              // 1-in-gap column density
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
     let surf = -1;
     for (let y = 2; y < H; y++) if (grid[y * W + x] === 1 && grid[(y - 1) * W + x] === 0) surf = y;   // lowest exposed floor top (skips ceilings)
-    if (surf > 0) d.push(keep[keep.length] = [x, surf - 1, ty[rnd() * ty.length | 0]]);   // push to keep too so subsequent iterations respect our own placements (prevents adjacent-scatter crowding)
+    if (surf > 0) d.push(keep[keep.length] = [x, surf - 1, ty[rnd() * ty.length | 0]]);   // push to keep too so subsequent iterations respect our own placements
   }
   return d;
 };
 
-// Rebuild grid from a zone's MAP array, swap active seeds, merge hand-placed + scattered DECO. Returns zone index.
-export const loadZone = (i) => {
-  grid.fill(0);
-  seeds = ZONES[i];
-  for (const m of seeds.MAP) box(...m);
-  DECO = seeds.DECO.map(([x, y, t]) => [x, groundRow(x, y + 1) - 1, t]).concat(scatter(i));   // snap hand-placed deco to surface, then procedural fill
-  return i;
-};
-
-// Initial load — Zone 0 (Meadow hub) on module import.
-loadZone(0);
+// Module-init: paint MEADOW grid + merge hand-placed decor (snapped to surface) with scatter fill.
+for (const m of seeds.MAP) box(...m);
+export const DECO = seeds.DECO.map(([x, y, t]) => [x, groundRow(x, y + 1) - 1, t]).concat(scatter());
