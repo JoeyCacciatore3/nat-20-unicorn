@@ -480,17 +480,17 @@ const fresh = () => {
   foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
-// Non-ranged foes roll a strength tier in mkFoe (0 base / 1 tough / 2 select). Boss banner state:
+// Non-ranged foes roll for elite status in mkFoe (~6%). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
 // Unified scaling: zone tier + player-level progression. Every 4 player levels adds 1 scale
 // pip — enemies stay a threat as the player over-levels the zone; bosses reuse the same formula.
 const scl = () => 2 + curZone + (lvl >> 2);
 const mkFoe = (x, y, k) => {
-  // ENEMY TIER (tr): 0 base · 1 tough · 2 select — random strength ON TOP of scale.
-  // Non-ranged only (ranged foes stay base). ~75% base / 19% tough / 6% select (tunable).
-  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, tr = fr ? 0 : Math.random() < .06 ? 2 : Math.random() < .2 ? 1 : 0;
-  const zh = fh * (1 + tr) * scl() / 2 | 0;                       // HP ×(1+tr): tough 2×, select 3×
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + tr + curZone, tr, fl: 0, t: Math.random() * 7, cz: fz + (tr > 1 ? 1 : 0) };
+  // ELITE (el): rare 6% event on non-ranged foes → 3× HP, +2 dmg, +1 size, aqua PAL[9] color,
+  // guaranteed drop + gold burst + XP bonus on kill. Provides the "mini-boss moment".
+  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, el = !fr && Math.random() < .06 ? 1 : 0;
+  const zh = fh * (1 + el * 2) * scl() / 2 | 0;                   // el=1 → 3× base HP
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + el * 2 + curZone, el, fl: 0, t: Math.random() * 7, cz: fz + el };
 };
 let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
@@ -550,9 +550,9 @@ const strike = (f, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.tr || 0) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 (k4+ are variants); tier bonus rewards the harder fight
-    if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.tr || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // tier>0 guarantees a drop
-    if (f.tr) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }   // tier kill reward flourish
+    burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 (k4+ are variants); elite bonus rewards the mini-boss fight
+    if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // elite guarantees a drop
+    if (f.el) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }   // elite kill flourish
     if (f.bit) {                                                // BOSS falls
       for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
@@ -977,8 +977,8 @@ const draw = () => {
     }
   }
 
-  // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds. One draw per tier,
-  // boss shares the silhouette scaled up. cz = select-tier/boss cell multiplier.
+  // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds. One draw path,
+  // boss/elite share the silhouette scaled up. cz = elite/boss cell multiplier.
   for (const f of foes) {
     const s = f.cz, fs = 5 * s, wob = Math.sin(f.t * 6) * 1.5, sh = FT[f.k][5];   // sh = body shape from the type table
     const step = Math.sin(f.t * 8) * s * .35;                   // leg-step animation, shared
@@ -986,9 +986,8 @@ const draw = () => {
     ctx.translate(f.x + fs / 2, f.y + fs);
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
     ctx.translate(-fs / 2, -fs);
-    // colour: white flash on hit > red pre-strike wind-up tell > tier base
-    // TIER color: select(2)=flat aqua PAL[9] (bigger too) · tough(1)=darkened base via dim() · base=FOECOL. boss=charcoal.
-    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.tr === 2 ? PAL[9] : f.tr ? dim(FOECOL[f.k], .62) : FOECOL[f.k];
+    // colour: white flash on hit > red pre-strike wind-up tell > elite/base tint. boss=charcoal.
+    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.el ? PAL[9] : FOECOL[f.k];
     if (f.bit) {                                                // DARK CORN — reflection of the player unicorn: same shape,
       // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
