@@ -343,7 +343,7 @@ const drawU = (bob) => {
   if (a1) { ctx.fillStyle = a1; ctx.fillRect(5, 1, 2, 1); }                                          // mane spark
 };
 let hp = 10, xp = 0, lvl = 1;
-let mn = 5, choosing = 0, pending = 0;
+let mn = 10, choosing = 0, pending = 0;
 const CAP = 15;                                   // hard level cap. L15 APOTHEOSIS: +2 ATK, +2 max HP
 // Skills are player-chosen via the 3-tier tree
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
@@ -351,7 +351,7 @@ let hs = 0, shk = 0;                              // combat feel: hitstop freeze
 const bs = [0, 0, 0, 0, 0];
 const shards = () => bs.filter(v => v === 2).length;
 const mHP = () => 8 + (he + eqB[0]) * 2 + (lvl >= CAP ? 2 : 0); // body eq boosts HP
-const mMN = () => 3 + (sp + eqB[1]) * 2;                        // mane eq boosts MAG
+const mMN = () => 8 + (sp + eqB[1]) * 2;                        // mane eq boosts MAG · start 10 (matches mHP shape)
 const ATK = () => ho + eqB[2] + (lvl >= CAP ? 2 : 0);    // STR + horn gear + apotheosis
 const critChance = () => .08 + lk * .02;                      // 10% base + 2% per LUCK (LUCK 1 = 10%)
 const isCrit = () => Math.random() < critChance();
@@ -472,7 +472,7 @@ let chests = seeds.chests.map(snapChest);
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
-  hp = 10; xp = 0; lvl = 1; mn = 5; bs.fill(0);
+  hp = 10; xp = 0; lvl = 1; mn = 10; bs.fill(0);
   eq.fill(null); inv.length = 0; eqB = [0, 0, 0, 0];
   pending = 0; choosing = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
@@ -576,18 +576,18 @@ const strike = (f, gen, viaStomp) => {
 // ---------- verbs ----------
 // DASH is the attack verb: gated behind DASH skill. Half distance base, LONG DASH doubles.
 // Strikes foes it passes through, hits GENERATE mana.
-function shoot() {                                              // magic bolt (gold): 3 mana
+function shoot() {                                              // magic bolt (gold): 2 mana
   if (!started || choosing || deathT > 0 || !su[0]) return;
-  if (mn < 3) { fly(pl.x, pl.y - 12, 'need ✦3', '#ff5d6c'); return; }   // flat 3 MP · warning red
-  mn -= 3; sfx(700, 1300, .12, 'triangle', .09);
+  if (mn < 2) { fly(pl.x, pl.y - 12, 'need ✦2', '#ff5d6c'); return; }   // flat 2 MP · warning red
+  mn -= 2; sfx(700, 1300, .12, 'triangle', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * su[1] });   // base range SHORT; FAR SHOT extends (.55s→.80s)
 }
-function dash() {                                               // THE attack verb: burst + strike-through; gated behind DASH skill
-  if (!started || choosing || deathT > 0 || dashCd > 0 || !su[6]) return;
+function dash() {                                               // THE attack verb: burst + strike-through; 1 mana (dash-hits refund it via `gen` in strike)
+  if (!started || choosing || deathT > 0 || dashCd > 0 || !su[6] || mn < 1) return;
   if (!pl.ground) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
-  dashCd = .45; pl.sq = .6; sfx(600, 200, .12, 'sawtooth', .12);
+  dashCd = .45; pl.sq = .6; mn -= 1; sfx(600, 200, .12, 'sawtooth', .12);
 }
 
 const hurt = (n, safe) => {
@@ -631,9 +631,9 @@ const step = (dt) => {
   if (onPlat && held('ArrowDown', 'KeyS', 'bD')) { dropT = .16; pl.ground = 0; pl.y += 3; pl.vy = 60; chT = 0; }
 
   // -- heal channel: rooted, costs 5 mana, restores 3 HP (HEAL +2/+4 nodes → 5/7) --
-  if (su[2] && mn >= 5 && hp < mHP() && pl.ground && !onPlat && healHeld()) {
+  if (su[2] && mn >= 3 && hp < mHP() && pl.ground && !onPlat && healHeld()) {
     chT += dt; pl.vx = 0;
-    if (chT > 1.2) { const hm = 3 + su[3] * 3; chT = 0; mn -= 5; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // HEAL: 3, SUPER HEAL: 6
+    if (chT > 1.2) { const hm = 3 + su[3] * 3; chT = 0; mn -= 3; hp = Math.min(mHP(), hp + hm); burst(pl.x + PW / 2, pl.y + 4, 14, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1); }   // HEAL: 3, SUPER HEAL: 6 (costs 3 MP)
   } else chT = 0;
   const rooted = chT > 0;
 
