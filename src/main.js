@@ -278,7 +278,6 @@ let col = [0, 0, 0, 0];
 const eq = [null, null, null, null];
 const inv = [];
 const invMax = () => 5 + (su[8] + su[9]) * 5;       // BAG cap: 5 base, +5 SADDLE BAG, +5 SADDLE BAGS
-// SLOT_STAT / SLOT_LBL → data.js
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
 const equip = (item) => {
   const old = eq[item.s];
@@ -297,9 +296,8 @@ const useItem = (i) => {
 };
 // Cached equipment bonuses (additive on top of base stats)
 let eqB = [0, 0, 0, 0];
-// PAL / TC / mane3 (palette + gear-trim colours + mane gradient) → data.js.
-// NOTE: PAL swatch count is folded into the gear color range literal in spawnDrop;
-// tools/tpos-check.mjs guards against drift between the two.
+// GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 11`) is coupled to
+// PAL.length (15) — indices 4..14. tpos-check.mjs enforces this pairing.
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
 // Stat bar: dark track + coloured fill to `frac` (0..1). Shared by portrait, HUD, boss/tier bars.
@@ -377,7 +375,7 @@ const STATS = [
   ['LUCK', () => lk++],
 ];
 
-// SKILL TREE (TREE) + tier positions (TPOS) → data.js. tpos-check.mjs guards drift.
+// spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE.length).fill(0);
 let aRow = 0;
 const allocate = () => {
@@ -482,7 +480,7 @@ const fresh = () => {
   foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
-// Enemy/boss data (FOECOL, FT, P2, BN, RBC, RC, ZN) → data.js. Non-ranged foes roll a strength tier in mkFoe (0 base / 1 tough / 2 select).
+// Non-ranged foes roll a strength tier in mkFoe (0 base / 1 tough / 2 select). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
 // Zone tier 0-4 from world x position. Scales enemy HP and damage.
 const zT = x => Math.max(0, Math.min(4, (150 - x / T) / 35 | 0));
@@ -747,13 +745,10 @@ const step = (dt) => {
   for (const f of [...foes]) {
     f.t += dt; f.fl -= dt;
     const fs = fsz(f);
-    // ===== UNIFIED ATTACK ORCHESTRATION — every foe runs the same verbs; =====
-    // ===== cap bits (data) decide who uses which. Contact damage (.wt tell) =====
-    // ===== below is the base attack every enemy shares.                    =====
-    // RANGED (cap 1) — charge ONLY while able to reach the player (bosses are always in
-    // range when present). Gating the COUNTDOWN here, not just the shot, is the fix: when
-    // you're out of range f.rc used to decrement forever, and the charge-orb wind-up tell
-    // in draw() (size scales with .5 - f.rc) ballooned into a giant #c47fe0 square on the map.
+    // UNIFIED ATTACK ORCHESTRATION — every foe runs the same verbs; cap bits (data.js FT)
+    // decide who uses which. Contact damage (.wt tell) below is shared by all.
+    // RANGED (cap 1) — gate the COUNTDOWN, not just the shot: bosses always in range,
+    // regular foes need |dx| < 230. Prevents the charge-orb tell from ballooning off-screen.
     if (f.cap & 1 && (f.bit || Math.abs(pl.x - f.x) < 230)) {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
       if (f.rc <= 0) {
@@ -803,7 +798,7 @@ const step = (dt) => {
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
       pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
       pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(150, 70, .06, 'square', .07);
-      // NOTE: stomp no longer resets .wt — repeat-bouncing accumulates threat (exploit fix)
+      // .wt is NOT reset here — repeat-bouncing must accumulate threat (anti-exploit)
     } else if (hit && (f.wt || 0) >= 0) {
       f.wt = (f.wt || 0) + dt;
       // Arm on 0.22s of slow contact (telegraph / red-flash for standing melee) OR immediately on a
@@ -829,7 +824,7 @@ const step = (dt) => {
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
   nearFire = 0; nearDoor = -1;
   for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
-  if (seeds.doors) for (let i = 0; i < seeds.doors.length; i++) { const [dx, dy] = seeds.doors[i]; if (Math.hypot(pl.x - dx * T, pl.y - dy * T) <= 22) { nearDoor = i; break; } }
+  for (let i = 0; i < seeds.doors.length; i++) { const [dx, dy] = seeds.doors[i]; if (Math.hypot(pl.x - dx * T, pl.y - dy * T) <= 22) { nearDoor = i; break; } }
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
@@ -924,7 +919,7 @@ const draw = () => {
   }
   // RAINBOW PORTAL DOORS — archway: flat bottom on the ground surface, half-round top,
   // dark wood/stone frame, rainbow-band interior. JUMP-near to enter the target zone.
-  if (seeds.doors) for (const [dx, dy] of seeds.doors) {
+  for (const [dx, dy] of seeds.doors) {
     const cx = dx * T, gy = dy * T + T, w = 8, rH = 13, H2 = rH + w;   // gy = ground surface (flat bottom sits here); door a hair taller than the unicorn
     const arch = (hw, hh) => { ctx.beginPath(); ctx.moveTo(cx - hw, gy); ctx.lineTo(cx - hw, gy - hh); ctx.arc(cx, gy - hh, hw, Math.PI, 2 * Math.PI); ctx.lineTo(cx + hw, gy); ctx.closePath(); };
     ctx.save(); arch(w + 3, rH + 3); ctx.clip();                       // GRAY-BRICK FRAME — solid stone block, mortar courses scored on, bottom cuff cut off
@@ -1007,7 +1002,7 @@ const draw = () => {
       ctx.fillRect(5, 1, 2, 4); ctx.fillRect(3, 3, 2, 4); ctx.fillRect(1, 5, 2, 4);
       ctx.fillStyle = ec;
       ctx.fillRect(10, 2, 1.5, 1.5);
-    } else if (sh === 1) {                                      // CRAWLER shape — 4 legs + antennae (Doubtling family)
+    } else if (sh === 1) {                                      // CRAWLER shape — 4 legs + antennae (k1 CRAWLER, k4 RUNNER, k5 HOPPER)
       ctx.fillRect(s * .2, fs - s + step, s * .6, s);            // legs step
       ctx.fillRect(s * 1.6, fs - s - step * .7, s * .6, s);
       ctx.fillRect(fs - s * 2.2, fs - s + step * .7, s * .6, s);
@@ -1019,7 +1014,7 @@ const draw = () => {
       ctx.fillRect(fs - s * 1.7, s * 1.6, s * .7, s * .7);
       ctx.fillStyle = '#000';
       ctx.fillRect(fs - s * 1.4, s * 1.8, s * .3, s * .3);
-    } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (BLOB / PUFF family)
+    } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (k2 BLOB, k6 PUFF)
       const flt = wob * 1.5;
       for (let i = 0; i < 3; i++) {                              // tendrils sway
         const tx = s * (.5 + i * 1.5);
@@ -1031,7 +1026,7 @@ const draw = () => {
       ctx.fillStyle = '#fff';                                    // paired eyes
       ctx.fillRect(s, s + flt, s * .6, s * .6);
       ctx.fillRect(fs - s * 1.6, s + flt, s * .6, s * .6);
-    } else {                                                    // CASTER shape — hooded robe + glowing rune-eye
+    } else {                                                    // CASTER shape — hooded robe + glowing rune-eye (k3 CASTER)
       ctx.fillRect(s * .2, s * 1.5, fs - s * .4, s * 2.7);       // robe
       ctx.fillRect(0, s * 2, s * .4, s * 1.5);                   // shoulders
       ctx.fillRect(fs - s * .4, s * 2, s * .4, s * 1.5);

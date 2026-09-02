@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-08-31 — build 12,325 B, save v34, 5-zone hub-and-spoke world, all assets current, achievement slate clean.**
+Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,882 B (96.8%, 430 B free), save v34, 5-zone hub-and-spoke world with FOL densify + variety (Z1/Z2/Z3/Z4) + hand-decor extensions on canopy/ledge tiers + FOL keepout around chests/bosses/doors/foes/campfires + all 14 deco placement issues fixed (0 spike-mount, 0 CASTER-overlap), enemy tier system live, all assets current, 8-achievement slate live on Wavedash, code audit pass complete (2 dead guards removed, legacy comments purged).**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -30,8 +30,9 @@ color back.
 - ⚔️ **STR-based combat** — damage scales with your stats and gear. LUCK boosts crit chance.
 - 📈 **Full RPG** — 5 stats, a 10-node tiered skill tree, quadratic XP curve, and gear that
   appears on your unicorn's body, piece by piece (body/mane/horn/hooves).
-- ⚔️ **6 enemy kinds + elites** — sprinters, hoppers, casters… learn the colors, learn the moves.
-  Zone tier scales enemy HP (up to 3×) and damage (+1 per zone).
+- ⚔️ **6 enemy kinds + tiered variants** — sprinters, hoppers, casters… learn the colors,
+  learn the moves. ~19% roll as TOUGH (bigger, +HP) and ~6% as SELECT (crowned elites,
+  double HP + damage).
 - 👑 **5 named boss Mares** — dark mirrors of yourself, each holding one rainbow band
   (R-O-Y-B-V), each with a phase-2 twist.
 - 🌈 **Rainbow portals** connect the 5 zones from the MEADOW hub. Ability gates
@@ -48,46 +49,13 @@ touch: floating joystick + action buttons. Works on desktop and mobile from one 
 
 ---
 
-## Wavedash store page (Developer Portal → game settings; lightweight review applies)
+## Wavedash store page
 
-**Description (lead hook + skimmable beats):**
+See **`design/WAVEDASH-UPLOAD.md`** for the paste-ready portal checklist (title, description,
+tags, screenshot upload order). Store metadata is editable ONLY via the browser
+Developer Portal (session-auth gated) — the CLI/API key has no metadata endpoint.
 
-> A lone unicorn fights the DARKNESS in this pastel pixel platformer-RPG.
->
-> The Darkness has stolen the world's color. Name your unicorn and cross five themed
-> zones — meadow, cave, cliffs, peak, and depths — to defeat five dark Mares (your own
-> shadowed reflections) and reclaim the five rainbow shards.
->
-> Every strike scales with your STR stat and gear, with LUCK-driven crits. Spend stat
-> points, climb a 10-node tiered skill tree, and wear the gear you win — every piece shows
-> on your unicorn's body. Six enemy kinds with readable color-coded behaviors, elites
-> with crowns, and boss arenas that announce their keeper.
->
-> Plays with keyboard or touch — desktop and mobile, one build, under 13 kilobytes.
-
-**Tags (accuracy over reach):** `platformer` · `rpg` · `pixel-art` · `action` · `adventure` · `singleplayer`
-
-**Cover art (RULES: 1:1 square · MUST show title · NO other text · no letterboxing):**
-- ✅ `design/cover_square.png` (720×720, ~18 KB) — CURRENT. Rainbow arc + pixel unicorn +
-  `UNI-CORN` title + `Hooves of Hope` subtitle on starry black background.
-  ⚠ Title screen now uses rainbow per-character title + green subtitle — cover
-  art may need regeneration to match. Compliant with Wavedash content rules.
-- Old draft `cover_square_draft.png` (Aug 29, letterboxed, green strobe frame) — kept
-  in tree as historical reference only. **Do NOT upload the draft.**
-
-**Screenshots (3–5 PNG, native res, lead with gameplay):** `design/screenshots/`
-- ✅ ALL CURRENT (regenerated 2026-08-30, 960×540 native 16:9):
-  - `01_title.png` — title screen (rainbow title, green subtitle, rainbow arc, unicorn) ⚠ may need re-capture
-  - `02_name_entry.png` — name-your-unicorn flow
-  - `03_slot_select.png` — 3-slot save picker (shows `STAR · LV1` for a saved slot)
-  - `04_meadow.png` — open exploration (sky, clouds, trees, cave shaft with rungs)
-  - `05_gameplay_enemies.png` — combat frame (elite CRAWLER with crown, BLOB in the
-    cave below, spike hazard, DJ platform above) — LEAD WITH THIS
-  - `06_pause_menu.png` — full RPG UI (character portrait, 5 stats, 4 equipment slots,
-    10-node skill tree, inventory grid, SHARDS 0/5 counter)
-- Recommend the 5-pick order for the store: **05 → 04 → 06 → 01 → 03**
-  (lead gameplay-first per Wavedash guideline, then meadow, then RPG UI, then title,
-  then save picker)
+Portal: **https://wavedash.com/dev-portal** → game **nat-20-unicorn** → Store page.
 
 ---
 
@@ -100,7 +68,8 @@ API key. Verify with `wavedash achievement list --game-id j97697bsqqnzpcxbmpdhfs
 replaces them, matched to the real game.)
 
 Icons: `design/achievements/*.png` (256×256, dark starry badge + rainbow ring + distinct
-glyph per achievement; Wavedash transcodes to webp server-side).
+glyph per achievement; Wavedash transcodes to webp server-side). Verified on disk 2026-09-01:
+all 8 PNGs present.
 
 | Identifier | Title | Threshold | Wavedash ID |
 |---|---|---|---|
@@ -113,12 +82,15 @@ glyph per achievement; Wavedash transcodes to webp server-side).
 | EXPLORER | Explorer | enter all 5 zones | md7cr7zcxqadste3bjf6rwdtrh8dh3gt |
 | HOARDER | Hoarder | open all 20 chests | md713bgay7b612jt8p4n1dftzh8dhdg9 |
 
-**REMAINING STEP — SDK wiring (makes them actually unlock in-play).** The achievements
-EXIST on Wavedash but won't fire until the wrapped build calls
-`Wavedash.setAchievement("ID", true)` at each trigger. This lives ONLY in the
-`dist/wavedash/index.html` build glue (build.mjs) — costs zero game.zip bytes. Needs the
-game to expose the trigger events (boss kill, crit, level-up, gear-equip, zone-enter,
-chest-open) to the wrapper. That is the next task.
+**Wavedash glue status (verified 2026-09-01 against build.mjs:75-82):** the wrapped build
+emits ONLY `Wavedash.init({})` — the minimum contract required to reveal the play area
+(per docs.wavedash.com/sdk/setup). No `setAchievement()` calls are emitted yet.
+
+**Open decision before Sep 20 publish:** ship the minimum contract as-is, OR wire
+`Wavedash.setAchievement("ID", true)` at each trigger event (boss kill, crit, level-up,
+gear-equip, zone-enter, chest-open). Wiring lives ONLY in the `dist/wavedash/index.html`
+build glue — costs zero game.zip bytes. Requires the game to expose the trigger events
+to the wrapper (currently it doesn't).
 
 **Thresholds to confirm with the operator:** APOTHEOSIS level 15 (verify reachable);
 HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
@@ -132,17 +104,19 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,325 / 13,312 B (987 free, 7.4% headroom) |
+| ✓ | Build under budget | 12,882 / 13,312 B (430 free, 3.2% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |
-| ✓ | GitHub `main` pushed | Latest commit up-to-date |
+| ✓ | Enemy tier system | ~75% base / ~19% TOUGH / ~6% SELECT — shipped 2026-09-01 |
+| ✓ | GitHub `main` pushed | Latest commit aa03119 "Enemy tiers + combat fix + rich Cave + live-meadow title" |
+| ✓ | Achievement icons on disk | 8 PNGs in `design/achievements/` matching Wavedash slate |
 
 ### ⏸ Deferred (operator decision)
 | # | Action | Why |
 |---|---|---|
-| ⏸ | Achievements pipeline (define + SDK integration) | Slate is clean; add together when scope locked |
-| ⏸ | Zone visual theming (per-zone sky/ground palettes) | Phase C — 1,600+ B free, feature-level decision |
+| ⏸ | Wavedash `setAchievement()` wiring | Achievements exist; wiring needs game→wrapper event hooks. Decide before Sep 20 publish. |
+| ⏸ | Zone visual theming polish | Phase C — free-space dependent |
 | ⏸ | Wavedash PUBLISH (not playtest) | One-way commit — save for post-scope-lock, ≤ Sep 20 |
 
 ### ⚠️ Todo (in order)
@@ -150,22 +124,32 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 |---|---|---|---|
 | 1 | Register js13k draft, claim name | js13kgames.com/submit | NOW — locks name; tests roadroller zip early. Deadline Sep 13 |
 | 2 | Firefox console check on `dist/game.zip` | local | Before each js13k re-upload (hard rule) |
-| 3 | Wavedash store page: paste title/desc/tags, upload `design/cover_square.png` + 5 screenshots | Wavedash Developer Portal (game settings → Metadata) | Anytime — review has lag, don't leave for Sep 20 |
+| 3 | Wavedash store page: paste title/desc/tags, upload cover + 5 screenshots | Wavedash Developer Portal → Metadata (see `WAVEDASH-UPLOAD.md`) | Anytime — review has lag, don't leave for Sep 20 |
 | 4 | Playtest the current build via Wavedash URL | most-recent `wavedash build push` output | After each meaningful build change |
-| 5 | (Re-)push Wavedash build after any code change | `node build.mjs && wavedash build push -m "…"` | Immediately after final commit |
+| 5 | (Re-)push Wavedash build after any code change | `node build.mjs && wavedash build push -m "…"` | Immediately after final commit. Last push 2026-09-01: `mn76c8zefst7argv86j0ay0jp18dk6x8` (aa03119, 12,845 B, playtest data wiped). **Local build now 12,882 B with FOL densify + variety + keepout + hand-decor extensions + all 14 deco placement bugs fixed — a re-push captures the fuller, cleaner world.** |
 | 6 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
 | 7 | Wavedash PUBLISH | Portal dashboard → publish latest build | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
 
-### 📋 Assets inventory (current state on disk, 2026-08-30)
+### 📋 Assets inventory (verified on disk 2026-09-01)
 ```
 design/
-├── cover_square.png             ✅ CURRENT (720×720, 18 KB — upload this)
-├── cover_square_draft.png       ❌ old draft (Aug 29, letterboxed, wrong title color)
-└── screenshots/                 ✅ ALL CURRENT (regenerated 2026-08-30, native 960×540)
-    ├── 01_title.png             (rainbow title, green subtitle, arc, unicorn)
-    ├── 02_name_entry.png        (name-your-unicorn input)
-    ├── 03_slot_select.png       (3-slot save picker showing STAR · LV1)
-    ├── 04_meadow.png            (meadow exploration — trees, clouds, cave shaft)
-    ├── 05_gameplay_enemies.png  (combat: elite crown crawler + blob + spikes) [LEAD]
-    └── 06_pause_menu.png        (full RPG UI: stats, gear, skill tree, shard tracker)
+├── cover_square.png             ✅ (720×720, ~18 KB — upload this)
+├── screenshots/                 ✅ 5-zone set (960×540 native, captured 2026-08-31)
+│   ├── 01_title.png             (title screen — rainbow title + arc + unicorn)
+│   ├── 02_cave.png              (CAVE — glowing mushrooms, spikes, spider foe) [LEAD]
+│   ├── 03_cliffs.png            (CLIFFS — windswept sky arena)
+│   ├── 04_peak.png              (PEAK — icy plateau, snow, cyan crystals, tier enemy)
+│   ├── 05_depths.png            (DEPTHS — violet corruption, dead trees, campfire, spike crevasse)
+│   └── 06_rpg_menu.png          (Full RPG UI — portrait, 4 gear, 5 stats, skill tree, SHARDS 0/5)
+└── achievements/                ✅ 8 PNGs (256×256 each)
+    ├── FIRST_LIGHT.png
+    ├── HALFWAY.png
+    ├── PRISMATIC.png
+    ├── NATURAL_20.png
+    ├── APOTHEOSIS.png
+    ├── FULLY_GEARED.png
+    ├── EXPLORER.png
+    └── HOARDER.png
 ```
+
+*Old pre-zone screenshots archived in `design/screenshots/_stale_aug30/` — DO NOT upload those.*

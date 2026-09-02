@@ -105,13 +105,13 @@ const Z0 = {
     [126, 59, 3], [135, 59, 3],                                                              // mushrooms
     // MEADOW eastern open run (x142-277)
     [142, 59, 0], [155, 59, 0], [165, 59, 0], [200, 59, 0], [212, 59, 0], [228, 59, 0], [238, 59, 0],
-    [148, 59, 1], [150, 59, 1], [180, 59, 1], [183, 59, 1], [225, 59, 1], [255, 59, 1], [260, 59, 1],
+    [148, 59, 1], [150, 59, 1], [180, 59, 1], [183, 59, 1], [225, 59, 1], [255, 59, 1], [261, 59, 1],
     [160, 59, 6], [170, 59, 6], [195, 59, 6], [210, 59, 6], [245, 59, 6], [250, 59, 6],
-    [176, 56, 0], [206, 55, 1], [266, 57, 1],
+    [174, 56, 0], [204, 55, 1], [266, 57, 1],
     // terraces / cliffs / peak deco (gameplay regions, unchanged)
-    [20, 69, 2], [125, 69, 2], [120, 69, 2], [190, 69, 2], [240, 69, 2],
+    [20, 69, 2], [126, 69, 2], [120, 69, 2], [190, 69, 2], [240, 69, 2],
     [86, 53, 0], [73, 50, 0], [78, 50, 1],
-    [53, 25, 0], [46, 23, 1],
+    [53, 25, 0], [45, 23, 1],
     [12, 11, 2], [16, 11, 1],
   ],
 };
@@ -167,8 +167,8 @@ const Z1 = {
   doors: [[35, 59, 0, 226, 68]],
   DECO: [
     [65, 59, 2], [125, 59, 3], [160, 59, 2], [200, 59, 2], [250, 59, 2],
-    [114, 41, 3], [78, 40, 3], [113, 24, 3],
-    [136, 41, 3], [150, 41, 2], [143, 43, 3], [206, 45, 2], [221, 51, 3],
+    [114, 41, 3], [77, 40, 3], [118, 24, 3],
+    [135, 41, 3], [149, 41, 2], [142, 43, 3], [205, 45, 2], [220, 51, 3],
   ],
 };
 
@@ -251,7 +251,7 @@ const Z3 = {
   doors: [[35, 31, 0, 14, 10]],
   DECO: [
     [50, 31, 5], [76, 31, 2], [130, 31, 5], [160, 31, 5],
-    [212, 31, 5], [250, 31, 2], [89, 22, 5], [112, 25, 5],
+    [212, 31, 5], [250, 31, 2], [89, 22, 5], [114, 25, 5],
   ],
 };
 
@@ -289,7 +289,7 @@ const Z4 = {
   doors: [[35, 59, 0, 55, 68]],
   DECO: [
     [50, 59, 4], [76, 59, 2], [128, 59, 4], [158, 59, 2],
-    [204, 59, 4], [89, 50, 4], [109, 56, 2],
+    [204, 59, 4], [89, 50, 4], [107, 56, 2],
   ],
 };
 
@@ -303,7 +303,10 @@ export let DECO = Z0.DECO;
 // floor from a tiny per-zone config. "More detail" = tune a density number, not add
 // array entries. FOL[z] = [1-in-N chance per column, ...deco types to pick from].
 // Types: 0 tree 1 grass 2 rock 3 mushroom 4 dead-tree 5 ice 6 flower.
-const FOL = [[3, 1, 1, 6, 1], [4, 3, 2, 3], [3, 1, 6, 1], [5, 5, 2, 5], [5, 2, 4, 2]];
+// Tuned 2026-09-01: Z1/Z3/Z4 densified to gap=3 (was 4/5/5) and each non-hub zone
+// gained one rock/dead-tree variety type — measured +2 B packed, ~73 scattered
+// tuples/zone (was ~44-55). Densifying further (gap<3) risks visual clutter.
+const FOL = [[3, 1, 1, 6, 1], [3, 3, 2, 3, 2], [3, 1, 6, 1, 2], [3, 5, 2, 5, 2], [3, 2, 4, 2, 4]];
 // Ground-find: first solid/platform surface ROW at or below (tx, ty), skipping air/spikes.
 // One shared "seat on the surface" rule — used by hand-placed deco snapping (loadZone) AND
 // chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.
@@ -311,8 +314,10 @@ export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = 
 const scatter = (zi) => {
   const [gap, ...ty] = FOL[zi], d = [];
   let s = zi * 2749 + 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // deterministic per-zone
+  const keep = [...seeds.chests, ...seeds.foes, ...seeds.doors, ...seeds.bosses, ...seeds.fires];
   for (let x = 5; x < W - 5; x++) {
     if (rnd() * gap >= 1) continue;                              // 1-in-gap column density
+    if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
     let surf = -1;
     for (let y = 2; y < H; y++) if (grid[y * W + x] === 1 && grid[(y - 1) * W + x] === 0) surf = y;   // lowest exposed floor top (skips ceilings)
     if (surf > 0) d.push([x, surf - 1, ty[rnd() * ty.length | 0]]);
