@@ -50,17 +50,18 @@ export const ZG = ['#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888'];
 
 // SKILL TREE — 3-tier: -1 free, -2 need 2, -3 need 5. Locked = "?".
 export const TREE = [
-  ['SHOT',      -1],['FAR SHOT',   -2],                   // 0-1  ranged
-  ['HEAL',      -1],['SUPER HEAL', -3],                   // 2-3  healing
+  ['SHOT',      -1],['FAR SHOT',   -3],                   // 0-1  ranged (FAR SHOT is T4 endgame capstone)
+  ['HEAL',      -1],['SUPER HEAL', -3],                   // 2-3  healing (SUPER HEAL is T4 endgame capstone)
   ['DBL JUMP',  -2],['TRI JUMP',   -3],                   // 4-5  jumps
   ['DASH',      -1],['LONG DASH',  -2],                   // 6-7  dash
   ['STASH',     -2],                                      // 8    inventory (+5 → max 10)
-  ['HP+',       -3],['MP+',        -3],['POT+',      -3], // 9-11 passives (+5 max HP · +5 max MP · +5 potion effectiveness)
+  ['HP +5',     -3],['MP +5',      -2],['POT +5',    -3], // 9-11 passives (renamed for clarity; MP+5 now T2, HP+5 T3, POT+5 T3)
 ];
 // Tier positions: T1 y=48 (3), T2 y=94 (4), T3 y=140 (3), T4 y=186 (2). Alternating centering:
 // odd rows use canonical columns 263/325/387; even rows offset to 232/294/356/418 (subset).
-// Indices unchanged from prior layout (HP+=9, MP+=10, POT+=11) — only positions moved.
-export const TPOS = [[263,48],[232,94],[325,48],[263,140],[294,94],[325,140],[387,48],[356,94],[418,94],[294,186],[356,186],[387,140]];
+// Indices UNCHANGED throughout project history — only positions swap per Joey's reorgs.
+// Current: FAR SHOT+SUPER HEAL are T4 endgame; MP+5 at T2 left, HP+5 at T3 left, POT+5 at T3 right.
+export const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[418,94],[263,140],[232,94],[387,140]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [0b001100, 0b001100, 0b011110, 0b111111, 0b111111, 0b011110, 0b000000];  // POTION 6×7 — narrow neck, rounded body

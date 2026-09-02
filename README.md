@@ -49,9 +49,9 @@ Drops fall to the ground and **stay there until you die** — no despawn timer, 
 ## Skill Tree
 3-tier gated tree, 10 skills. Tiers unlock by total skills purchased:
 - **Tier 1** (free): SHOT, HEAL, DASH
-- **Tier 2** (need 2): FAR SHOT, DBL JUMP, LONG DASH, STASH
-- **Tier 3** (need 5): SUPER HEAL, TRI JUMP
-- **Tier 4** (need 5, passives): HP+ (+5 max HP), MP+ (+5 max MP), POT+ (+5 potion effect)
+- **Tier 2** (need 2): MP +5, DBL JUMP, LONG DASH, STASH
+- **Tier 3** (need 5): HP +5, TRI JUMP, POT +5
+- **Tier 4** (endgame capstones, need 5): SUPER HEAL, FAR SHOT
 
 Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray (no divider lines between tiers). Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
 
