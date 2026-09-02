@@ -1225,23 +1225,26 @@ const draw = () => {
     ctx.globalAlpha = 1;
   }
 
-  // Top-right icon row — persistent in play AND the character sheet (one draw path,
-  // no paused special-case, no bespoke ✕: the Scroll icon toggles the sheet closed).
+  // Top-right icon row — unified 12×12 buttons using the character-menu box style
+  // (rgba(255,255,255,.05) fill + #555 0.5-stroke, matching inventory + skill nodes).
+  // One helper draws every wrapper; only the glyph inside changes.
   if (started) {
-    if (!choosing) {                                            // Scroll · Floppy · Speaker (hidden during level-up)
-      const iy = 4, isz = 12;
-      const px = VW - 74, r = 2, sh = 14; ctx.fillStyle = '#c8b888';   // Scroll — character-sheet toggle
-      ctx.beginPath(); ctx.arc(px + r, iy + r, r, Math.PI, Math.PI * 1.5); ctx.arc(px + isz - r, iy + r, r, Math.PI * 1.5, 0); ctx.arc(px + isz - r, iy + sh - r, r, 0, Math.PI * .5); ctx.arc(px + r, iy + sh - r, r, Math.PI * .5, Math.PI); ctx.closePath(); ctx.fill();
-      for (let i = 0; i < 4; i++) { const ly = iy + 4 + i * 2; ctx.strokeStyle = '#555'; ctx.beginPath(); ctx.moveTo(px + 3, ly); ctx.lineTo(px + 9, ly); ctx.stroke(); ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(px + 3, ly + .5); ctx.lineTo(px + 9, ly + .5); ctx.stroke(); }
-      const sx = VW - 56; ctx.fillStyle = '#2a2a33'; ctx.fillRect(sx, iy, isz, isz);   // Floppy — save
-      ctx.fillStyle = '#999'; ctx.fillRect(sx + 3, iy, 6, 5); ctx.fillStyle = '#555'; ctx.fillRect(sx + 6, iy + 1, 2, 3);
-      ctx.fillStyle = '#444'; ctx.fillRect(sx + 2, iy + 8, 8, 3);
-      const mx = VW - 38; ctx.fillStyle = '#2a2a33'; ctx.fillRect(mx, iy, isz, isz);   // Speaker — mute
-      if (mute & 2) { ctx.strokeStyle = '#c33'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(mx + 2, iy + 2); ctx.lineTo(mx + 10, iy + 10); ctx.stroke(); ctx.moveTo(mx + 10, iy + 2); ctx.lineTo(mx + 2, iy + 10); ctx.stroke(); }
-      else { ctx.fillStyle = '#ccc'; ctx.fillRect(mx + 2, iy + 4, 3, 4); ctx.beginPath(); ctx.moveTo(mx + 5, iy + 4); ctx.lineTo(mx + 8, iy + 2); ctx.lineTo(mx + 8, iy + 10); ctx.lineTo(mx + 5, iy + 8); ctx.fill(); ctx.strokeStyle = '#ccc'; ctx.lineWidth = .5; ctx.beginPath(); ctx.arc(mx + 9, iy + 6, 2, -0.8, 0.8); ctx.stroke(); }
+    const iy = 4, isz = 12, box = (x) => {
+      ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x, iy, isz, isz);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, iy, isz, isz);
+    };
+    if (!choosing) {                                            // Menu · Save · Mute (hidden during level-up)
+      const px = VW - 74; box(px); ctx.fillStyle = '#c8b888';   // Menu (hamburger) — char-sheet toggle
+      for (let i = 0; i < 3; i++) ctx.fillRect(px + 3, iy + 3 + i * 3, 6, 1);
+      const sx = VW - 56; box(sx);                              // Floppy — save
+      ctx.fillStyle = '#ccc'; ctx.fillRect(sx + 3, iy + 2, 6, 5); ctx.fillStyle = '#555'; ctx.fillRect(sx + 6, iy + 3, 2, 3);
+      ctx.fillStyle = '#888'; ctx.fillRect(sx + 2, iy + 8, 8, 3);
+      const mx = VW - 38; box(mx);                              // Speaker — mute
+      if (mute & 2) { ctx.strokeStyle = '#c33'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(mx + 3, iy + 3); ctx.lineTo(mx + 9, iy + 9); ctx.moveTo(mx + 9, iy + 3); ctx.lineTo(mx + 3, iy + 9); ctx.stroke(); }
+      else { ctx.fillStyle = '#ccc'; ctx.fillRect(mx + 3, iy + 5, 2, 3); ctx.beginPath(); ctx.moveTo(mx + 5, iy + 5); ctx.lineTo(mx + 8, iy + 3); ctx.lineTo(mx + 8, iy + 10); ctx.lineTo(mx + 5, iy + 8); ctx.fill(); }
     }
-    ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';   // ? — help (always, incl. level-up)
-    ctx.fillStyle = '#fff'; ctx.fillRect(VW - 20, 4, 12, 12); ctx.fillStyle = '#c33'; ctx.fillText('?', VW - 14, 14);
+    box(VW - 20);                                               // ? — help (always, incl. level-up)
+    ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#c33'; ctx.fillText('?', VW - 14, iy + 10);
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {
       ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(0, 0, VW, VH);
