@@ -1,6 +1,6 @@
 # Submission Kit — UNI-CORN, Hooves of Hope
 
-Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,746 B (95.7%, 566 B free · 4.3% headroom), save v34, 5-zone hub-and-spoke world with FOL densify + variety + hand-decor + FOL keepout + all 14 deco placement fixes + 5 DARK CORN bosses (color-aligned, unified scaling formula) + ELITE EVENT (~6% rare mini-boss) + unified visual language across HP bars, combat text (4 semantic colors), particle bursts (all n=12), HUD icons (single box helper), enemy/boss pop-ups; three helper extractions (interact / bars / fade) + magic-point rebalance (10 MP start, dash 1 / shot 2 / heal 3); all assets current, 8-achievement slate live on Wavedash. SINCE (source, re-push pending): potion hot-bar (tap-to-drink HP/MP, stack 5) + persistent ground drops + respawn/chest/elite unification + raised camera framing + uniform always-present action buttons + UNI-CORN→UNICORN rename + no-auto-pause leveling (glowing ☰, full HP+MP restore) + unified stat+skill allocation cursor.**
+Copy is paste-ready. **State snapshot: 2026-09-02 — build 12,504 B (93.9%, 808 B free · 6.1% headroom), save v34, 5-zone hub-and-spoke world with FOL densify + variety + hand-decor + FOL keepout + all 14 deco placement fixes + 5 DARK CORN bosses (color-aligned, unified scaling formula) + ELITE EVENT (~6% rare mini-boss) + unified visual language across HP bars, combat text (4 semantic colors), particle bursts (all n=12), HUD icons (single box helper), enemy/boss pop-ups; three helper extractions (interact / bars / fade) + magic-point rebalance (10 MP start, dash 1 / shot 2 / heal 3); all assets current, 8-achievement slate live on Wavedash. RECENT (shipped): potion hot-bar (tap-to-drink HP/MP, stack 5) + persistent ground drops + respawn/chest/elite unification + raised camera framing + uniform always-present action buttons + UNI-CORN→UNICORN rename + no-auto-pause leveling (glowing ☰, full HP+MP restore) + allocation folded into the single character menu (persistent LV+name header, +N stat/skill markers, unified stat→skill cursor) + skill-tree tier dividers removed + unified title (NEW GAME + CONTINUE both → 2-slot save screen; empty slot → required name entry; occupied → resume) + name-entry raised over the sky.**
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -39,7 +39,7 @@ color back.
   (double-jump, dash, magic bolt) control progression order.
 - 🎒 **5-slot inventory** (expands to 15 via skill tree) — HP potions, MP potions, gear drops.
   Click to use / equip, X to discard. Consumables auto-consume when applicable.
-- 💾 Saves your progress across 3 slots.
+- 💾 Saves your progress across 2 slots.
 
 **Controls:** WASD/arrows + Space jump · P pause · J or X dash-attack · L shot · H heal — or
 touch: floating joystick + action buttons. Works on desktop and mobile from one build.
@@ -104,7 +104,7 @@ HOARDER 20 chests (4 per zone × 5). Wording/images trivially updatable via
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc, README, src headers all aligned to "Hooves of Hope" + DARKNESS/RAINBOW theme |
-| ✓ | Build under budget | 12,746 / 13,312 B (566 free, 4.3% headroom) |
+| ✓ | Build under budget | 12,504 / 13,312 B (808 free, 6.1% headroom) |
 | ✓ | 5-zone world architecture | Rainbow portals connect MEADOW hub to CAVE/CLIFFS/PEAK/DEPTHS |
 | ✓ | Multi-zone map audit passes | All portals, bosses, chests reachable at expected ability tier |
 | ✓ | Save format v34 | Multi-zone aware, strict version gate |

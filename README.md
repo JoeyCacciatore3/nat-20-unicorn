@@ -16,11 +16,11 @@ and stat allocation.
 - **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn, wears a tier trim (silver/gold/prismatic), AND gives stat bonuses
 - **Level 15 cap:** APOTHEOSIS (+2 ATK, +2 max HP)
 - **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
-- **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Open it to allocate — **one cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Tap ☰ again to close; it auto-closes when nothing is left to spend. The pause view (no points) is read-only.
+- **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Allocation lives inside the ONE character menu (open via ☰ or P) — there is no separate level-up screen. The header is always `LV n` (cyan) + your name (gold); a **`+N`** shows centered under the unicorn for unspent stat points and above the skill tree for unspent skill points. **One cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Close with ☰ or P. With no points it's simply a read-only character sheet.
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
-- Everyone starts the same neutral white unicorn — NEW GAME asks ONE thing (your name), right on the title screen; 3 save slots (name + level shown on CONTINUE)
+- Everyone starts the same neutral white unicorn — the title shows NEW GAME + CONTINUE (both open the same 2-slot save screen); picking an EMPTY slot asks ONE thing (your name — required) then begins, picking a saved slot resumes it (name + level shown per slot)
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
 - **5-slot inventory** (+5 SADDLE BAG, +5 SADDLE BAGS = 15 max). Click to select, click again to equip or consume; X to discard.
 - Gear icons and drops render with the SAME primitives as the unicorn's own body — a HORN drop looks like the horn on the unicorn.
@@ -51,7 +51,7 @@ Drops fall to the ground and **stay there until you die or leave the zone** — 
 - **Tier 2** (need 2): FAR SHOT, DBL JUMP, LONG DASH, SADDLE BAG
 - **Tier 3** (need 5): SUPER HEAL, TRI JUMP, SADDLE BAGS
 
-Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray. Skills are spent in the allocation screen (the glowing ☰) via the same left/right cursor as stats — no separate skill-buying mode.
+Locked tiers show "?". Picked nodes go gold; unpicked read a uniform muted gray (no divider lines between tiers). Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
 
 ## Controls
 | | Keyboard | Touch |
@@ -92,10 +92,10 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: multi-zone map traversal audit (no stuck spots, all portals/bosses/chests reachable at expected tier), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,746 / 13,312 B (95.7%) — 566 B free**
+**Current: 12,504 / 13,312 B (93.9%) — 808 B free**
 
 ## Save format
-Keys: `localStorage.n20_s0..2` (3 slots). Version: **v34** — strict version gate, auto-discards older saves.
+Keys: `localStorage.n20_s0..1` (2 slots). Version: **v34** — strict version gate, auto-discards older saves.
 Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), z(zone), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
 
 ## Structure

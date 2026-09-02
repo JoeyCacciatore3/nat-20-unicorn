@@ -48,7 +48,7 @@ let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
 // phase 0 = title (tMode: menu/name/slots), 2 = playing (started=1).
 let phase = 0, ent = '', pName = 'HORSE', mSel = 0;
-let tMode = 0, sSel = 0, slot = 0, slotNew = 0; // title mode 0 menu · 1 name · 2 slots; active save slot
+let tMode = 0, sSel = 0, slot = 0; // title mode 0 menu · 1 name · 2 slots; active save slot
 // HIDDEN NAME INPUT — the standard mobile-canvas technique: focusing a real <input>
 // inside the tap gesture summons the OS keyboard (iOS requires the gesture).
 // It is the single source of truth for `ent` while focused; window keydown defers.
@@ -56,39 +56,36 @@ const NI = document.body.appendChild(document.createElement('input'));
 NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // oninput uppercases; no need to latch the mobile shift key
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
-// 3 SAVE SLOTS (n20_s0..2). sMeta reads name+level for the slot list without loading.
+// 2 SAVE SLOTS (n20_s0..1). sMeta reads name+level for the slot list without loading.
 const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 34 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
-const hasSave = () => [0, 1, 2].some(sMeta);
 // Character create: UP/DOWN pick row (name/body/mane/horn), then row-specific input:
 //   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume/create transitions can't drift.
-const beginGame = () => { NI.blur(); pName = ent || pName; phase = 2; started = 1; save(); };
+const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; save(); };  // name REQUIRED
 const resumeGame = () => { load(); phase = 2; started = 1; };
-const toName  = () => { fresh(); ent = ''; slotNew = 1; tMode = 1; };  // NEW GAME → type name (title art stays)
-const toSlots = (nw) => { slotNew = nw; sSel = 0; tMode = 2; };        // then/or pick a slot
-const pickSlot = (i) => {                                              // row 3 = BACK
-  if (i === 3) { tMode = 0; return; }
-  if (slotNew) { slot = i; tMode = 0; beginGame(); }                   // new game: any slot (occupied = overwrite)
-  else if (sMeta(i)) { slot = i; tMode = 0; resumeGame(); }            // continue: occupied slots only
+const toSlots = () => { sSel = 0; tMode = 2; };                        // NEW GAME / CONTINUE both land on the slot screen
+const pickSlot = (i) => {                                              // row 2 = BACK
+  if (i === 2) tMode = 0;                                              // BACK
+  else if (sMeta(i)) { slot = i; tMode = 0; resumeGame(); }            // occupied slot → resume
+  else { slot = i; fresh(); ent = ''; tMode = 1; }                     // empty slot → name entry (required) → begin
 };
 const titleKey = (e) => {
-  if (tMode === 1) {                                                   // NAME ENTRY on the title screen
-    if (e.code === 'Backspace')                        { if (ent.length) ent = ent.slice(0, -1); else tMode = 0; }
+  if (tMode === 1) {                                                   // NAME ENTRY (after picking an empty slot)
+    if (e.code === 'Backspace')                        { if (ent.length) ent = ent.slice(0, -1); else tMode = 2; }
     else if (ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
-    else if (e.code === 'Enter')                       toSlots(1);
+    else if (e.code === 'Enter')                       beginGame();   // no-op unless a name is entered
     return;
   }
-  if (tMode === 2) {                                                   // SLOT SELECT (3 slots + BACK)
-    if (e.code === 'ArrowUp' || e.code === 'KeyW')        sSel = (sSel + 3) % 4;
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') sSel = (sSel + 1) % 4;
+  if (tMode === 2) {                                                   // SLOT SELECT (2 slots + BACK)
+    if (e.code === 'ArrowUp' || e.code === 'KeyW')        sSel = (sSel + 2) % 3;
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') sSel = (sSel + 1) % 3;
     else if (e.code === 'Enter' || e.code === 'Space')    pickSlot(sSel);
     else if (e.code === 'Backspace')                      tMode = 0;
     return;
   }
-  const opts = hasSave() ? 2 : 1;                                      // NEW GAME · CONTINUE
-  if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') mSel = (mSel + 1) % opts;
-  else if (e.code === 'Enter' || e.code === 'Space') { if (mSel === 0) toName(); else toSlots(0); }
+  if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') mSel ^= 1;   // NEW GAME · CONTINUE
+  else if (e.code === 'Enter' || e.code === 'Space') toSlots();        // both options → the slot screen
 };
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -100,10 +97,13 @@ addEventListener('keydown', (e) => {
   if (savePop) { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyP') savePop = 0; return; }
   if (helpOn) { helpOn = 0; return; }
   if (phase === 0) return titleKey(e);
-  if (choosing) {                                              // ALLOCATION menu owns input first — cursor spans stats+skills (SN)
-    if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + SN - 1) % SN;
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % SN;
-    else if (e.code === 'Enter' || e.code === 'Space') spend();
+  if (paused) {                                                // CHARACTER MENU owns input; allocation nav active only when points remain
+    if (e.code === 'KeyP') paused = 0;                          // P closes
+    else if (pending || spts) {                                 // cursor spans stats+skills (SN); Space/Enter spends
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') aRow = (aRow + SN - 1) % SN;
+      else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') aRow = (aRow + 1) % SN;
+      else if (e.code === 'Enter' || e.code === 'Space') spend();
+    }
     return;
   }
   // Near hearth: JUMP is the universal INTERACT (auto REST)
@@ -112,7 +112,7 @@ addEventListener('keydown', (e) => {
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (e.code === 'KeyJ') dash();                          // J = dash — the attack verb (contact damage during dash)
   if (e.code === 'KeyL') shoot();
-  if (e.code === 'KeyP' && deathT <= 0) paused = paused ? 0 : 1;   // P only — Escape exits fullscreen in browsers/Wavedash
+  if (e.code === 'KeyP' && deathT <= 0) { paused = 1; aRow = 0; }   // P opens the menu (close handled in the paused block above)
 
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -162,17 +162,17 @@ addEventListener('pointerdown', (e) => {
   // TITLE — every mode fully clickable (row hitboxes MUST match the render y's)
   if (phase === 0) {
     if (tMode === 1) {                                             // name entry
-      if (hit(VW / 2 - 60, 236, 120, 21)) { toSlots(1); return; }  // ▶ BEGIN
-      if (vy > 198 && vy < 230) { NI.value = ent; NI.focus(); e.preventDefault(); return; }  // tap the name = OS keyboard (preventDefault stops mobile follow-up events from stealing focus back)
-      tMode = 0; return;                                           // tap elsewhere = back
+      if (hit(VW / 2 - 60, 210, 120, 21)) { beginGame(); return; }  // ▶ BEGIN (needs a name)
+      if (vy > 188 && vy < 207) { NI.value = ent; NI.focus(); e.preventDefault(); return; }  // tap the name = OS keyboard (preventDefault stops mobile follow-up events from stealing focus back)
+      tMode = 2; return;                                           // tap elsewhere = back to slots
     }
     if (tMode === 2) {                                             // slot select: rows at y=206+i*16
       const row = ((vy - 195) / 16) | 0;
-      if (row >= 0 && row <= 3 && vx > VW / 2 - 100 && vx < VW / 2 + 100) pickSlot(row); else tMode = 0;
+      if (row >= 0 && row <= 2 && vx > VW / 2 - 100 && vx < VW / 2 + 100) pickSlot(row); else tMode = 0;
       return;
     }
     const row = ((vy - 197) / 16) | 0;                             // menu rows at y=208+i*16
-    if (row === 0) toName(); else if (row === 1 && hasSave()) toSlots(0);
+    if (row === 0 || row === 1) toSlots();                         // NEW GAME / CONTINUE → slot screen
     return;
   }
   // Save popup — CONTINUE / EXIT GAME
@@ -185,14 +185,13 @@ addEventListener('pointerdown', (e) => {
   if (helpOn) { helpOn = 0; return; }
   // HUD icon taps: Menu | Save | Mute | ? — SAME row in play AND menu.
   // Menu TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
-  if (started && hit(VW - 78, 0, 18, 20)) { if (choosing) choosing = 0; else if (pending || spts) { choosing = 1; aRow = 0; navT = .4; } else paused ^= 1; return; }
+  if (started && hit(VW - 78, 0, 18, 20)) { paused ^= 1; if (paused) aRow = 0; return; }
   if (started && hit(VW - 60, 0, 18, 20)) { save(); sfx(660, 990, .15, 'triangle', .12); savePop = 1; return; }
   if (started && hit(VW - 42, 0, 20, 20)) { mute ^= 2; save(); return; }
   if (started && hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
   // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
-  if (paused) {
-    // Skills are spent in the allocation screen (☰ when points pending) — pause is view + inventory only.
-    // USE/DROP buttons FIRST — they visually overlap the inventory grid area (y=250-264 sits inside grid y=184-268), so grid check would eat them.
+  if (paused) {                                                // CHARACTER MENU — inventory + (when points remain) stat/skill allocation, one screen
+    // USE/DROP buttons FIRST — they overlap the grid (y=250-264 sits inside grid y=184-268).
     if (invSel >= 0 && inv[invSel]) {
       if (hit(30, 250, 50, 15)) { useItem(invSel); return; }
       if (hit(90, 250, 50, 15)) { inv.splice(invSel, 1); invSel = -1; return; }
@@ -203,20 +202,13 @@ addEventListener('pointerdown', (e) => {
       if (iI < invMax() && inv[iI]) { invSel = iI; return; }
       invSel = -1; return;
     }
-    paused = 0; return;
-  }
-  if (choosing) {
-    // Stat COLUMNS along the gold box bottom (x = 22 + i*26, y 162-185). FIRST tap
-    // selects (cursor moves); tap the SELECTED column again to spend — no accidental one-tap.
-    // Check BEFORE joystick grab so touch taps on stats aren't intercepted.
-    const col = ((vx - 19) / 26) | 0;
-    if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else aRow = col; return; }
-    // SKILL nodes — tap to select, tap the selected node again to spend (same as stats)
-    for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { if (aRow === 5 + i) spend(); else aRow = 5 + i; return; } }
-    // SPEND button — circular tap target at bottom-right (same position as JUMP)
-    if (Math.hypot(vx - (VW - 36), vy - (VH - 44)) < 36) { spend(); return; }
-    if (e.pointerType === 'touch' && vx < VW * .3) { grabJoy(vx, vy, e.pointerId); return; }   // stick navigates
-    return;
+    // ALLOCATION (only when points remain) — tap a stat/skill to select, tap the selected one again to spend.
+    if (pending || spts) {
+      const col = ((vx - 19) / 26) | 0;
+      if (vy > 150 && vy < 180 && vx > 19 && vx < 149 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else aRow = col; return; }
+      for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { if (aRow === 5 + i) spend(); else aRow = 5 + i; return; } }
+    }
+    paused = 0; return;                                        // tap anywhere else closes
   }
   // POTION QUICK-SLOTS (bottom-center): tap HP box → quaff(0), MP box → quaff(1). Padded 3px for thumbs.
   if (started && hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
@@ -304,11 +296,15 @@ const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeSty
 // Shared portrait panel — renders the identity card (title bar, bordered box with
 // HP bar at top, live unicorn silhouette) used by both the PAUSE overlay and the
 // CHARACTER-CREATE screen. Title = player name on PAUSE, 'NEW CHARACTER' on create.
-const portraitPanel = (title) => {
+const portraitPanel = () => {
   ctx.fillStyle = '#1e1928'; ctx.fillRect(0, 0, VW, VH);
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2(title, 84, 24);   // NAME · LV n on one line (same font), above the bars — no overlap
-  ctx.font = 'bold 8px monospace';
+  // Header: "LV n  NAME" drawn once (centered, gold), then the LV part overpainted cyan at the same
+  // left edge — monospace ⇒ it lands exactly on the LV chars. One measure, no gap math, no 2nd string offset.
+  ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
+  const hdr = 'LV' + lvl + ' ' + pName, x0 = 84 - ctx.measureText(hdr).width / 2;
+  ctx.fillStyle = '#ffd75e'; T2(hdr, x0, 24);                         // whole header — gold
+  ctx.fillStyle = '#8cf'; T2('LV' + lvl, x0, 24);                     // LV n overpaint — cyan
+  ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
   bars(50, 34);
   ctx.fillStyle = '#fff'; T2(hp + '/' + mHP(), 84, 42); T2(mn + '/' + mMN(), 84, 54);
   ctx.save(); ctx.translate(84, 96); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
@@ -333,7 +329,7 @@ const drawU = (bob) => {
   if (a1) { ctx.fillStyle = a1; ctx.fillRect(5, 1, 2, 1); }                                          // mane spark
 };
 let hp = 10, xp = 0, lvl = 1;
-let mn = 10, choosing = 0, pending = 0;
+let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 15;                                   // hard level cap. L15 APOTHEOSIS: +2 ATK, +2 max HP
 // Skills are player-chosen via the 3-tier tree
@@ -382,8 +378,7 @@ const spend = () => {
     if (!spts || su[i] || (req === -2 ? tot < 2 : req === -3 && tot < 5)) return;
     su[i] = 1; spts--;
   }
-  sfx(660, 990, .15, 'triangle', .12); save();
-  if (!pending && !spts) choosing = 0;                        // nothing left to spend → auto-close (else tap ☰ to leave)
+  sfx(660, 990, .15, 'triangle', .12); save();                // no auto-close — you stay in the character menu (☰/P/tap-out closes)
 };
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
@@ -456,7 +451,7 @@ const openChest = (i) => {
   fly(c.x + 6, c.y - 4, '+HEAL', '#9fe89a');
   save();
 };
-let dashT = 0, dashCd = 0, adash = 0, dropT = 0, navT = 0;   // navT = menu-nav repeat clock (joystick)
+let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
 const RUN = 115, V0 = 250;
@@ -474,7 +469,7 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 const fresh = () => {
   hp = 10; xp = 0; lvl = 1; mn = 10; bs.fill(0); hpPot = mpPot = 0;
   eq.fill(null); inv.length = 0; eqB = [0, 0, 0, 0];
-  pending = 0; choosing = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
+  pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
   curZone = 0; loadZone(0);
@@ -578,13 +573,13 @@ const strike = (f, gen, viaStomp) => {
 // DASH is the attack verb: gated behind DASH skill. Half distance base, LONG DASH doubles.
 // Strikes foes it passes through, hits GENERATE mana.
 function shoot() {                                              // magic bolt (gold): 2 mana
-  if (!started || choosing || deathT > 0 || !su[0]) return;
+  if (!started || paused || deathT > 0 || !su[0]) return;
   if (mn < 2) { fly(pl.x, pl.y - 12, 'need ✦2', '#ff5d6c'); return; }   // flat 2 MP · warning red
   mn -= 2; sfx(700, 1300, .12, 'triangle', .09);
   shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * su[1] });   // base range SHORT; FAR SHOT extends (.55s→.80s)
 }
 function dash() {                                               // THE attack verb: burst + strike-through; 1 mana (dash-hits refund it via `gen` in strike)
-  if (!started || choosing || deathT > 0 || dashCd > 0 || !su[6] || mn < 1) return;
+  if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 1) return;
   if (!pl.ground) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   chT = 0;                                                      // dash cancels a heal channel (no move-while-rooted exploit)
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
@@ -606,16 +601,7 @@ const hurt = (n, safe) => {
 let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
-  if (choosing) {                                  // MENU NAV — stick/keys move the cursor across stats+skills, JUMP spends
-    navT -= dt;
-    const lt = keys.has('bL') || keys.has('bU'), rt = keys.has('bR') || keys.has('bD'), jp = keys.has('bJ');
-    if (navT <= 0 && (lt || rt || jp)) {
-      navT = .3;
-      if (jp) spend(); else aRow = (aRow + (rt ? 1 : SN - 1)) % SN;
-    }
-    if (!lt && !rt && !jp) navT = 0;
-  }
-  if (paused || choosing) return;                  // pause / level-up freezes sim; render still draws
+  if (paused) return;                              // character menu freezes sim; render still draws (allocation nav is in the keydown handler)
   time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
@@ -624,7 +610,7 @@ const step = (dt) => {
     if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k)); if (bs[curZone] !== 2) bs[curZone] = 0; drops.length = 0; }   // respawn = soft zone reset: full HP+MP, reseed foes, engaged boss resets fresh (killed stays dead), clear drops
     return;
   }
-  if (!started || choosing) return;
+  if (!started) return;
 
   // -- drop-through: DOWN on a one-way platform falls through it (S doubles as
   // down here — movement wins over heal on platforms; heal works on solid ground) --
@@ -1071,7 +1057,7 @@ const draw = () => {
     // numbers INSIDE the bar (WoW/MOBA unit-frame pattern — no extra screen real estate).
     bars(8, 6);   // top-left HP/MP/XP triple
     // POTION QUICK-SLOTS — bottom-center, char-menu item-slot style. Icon + live count; dim when empty.
-    if (!choosing) {
+    {
       const qslot = (x, t) => {
         const n = t ? mpPot : hpPot;
         ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
@@ -1099,10 +1085,11 @@ const draw = () => {
 
   // CHARACTER SHEET overlay — pause (view) + level-up ALLOCATION (spend points).
   // Both share the split-panel layout; allocation mode adds ‹ › cursor + skill-unlock rows.
-  if ((paused || choosing) && started) {
-    const alloc = !!choosing;
-    // Alloc mode borrows the NAME line above the box for its banner
-    portraitPanel(alloc ? 'LV' + lvl + ' · ' + pending + ' PT' + (pending > 1 ? 'S' : '') : pName + ' · LV' + lvl);
+  if (paused && started) {
+    const alloc = pending || spts;                            // allocation UI (cursor + spend hints) shows only when points remain
+    portraitPanel();                                          // header: LV (left, small) + name (larger) — persistent
+    // Stat points available — "+N" centered just under the unicorn
+    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center'; T2('+' + pending, 84, 126); }
     // EQUIPMENT — 4 slots INSIDE the gold box, cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     // portraitPanel's save/restore preserves textAlign='center' + font='bold 8px monospace' — no re-set needed.
     // Mirror-symmetric: left boxes 10px from left wall (x24), right boxes 10px from
@@ -1150,11 +1137,7 @@ const draw = () => {
     // SKILL TREE — 3-tier layout. Tier 1 free, tier 2 needs 2 skills, tier 3 needs 5.
     // purchased = gold glow · available = pulsing cyan · locked = dark "?"
     ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-    if (spts) { ctx.fillStyle = '#ffd75e'; T2(spts + ' PTS', 358, 42); }
-    // Tier dividers
-    ctx.strokeStyle = '#333'; ctx.lineWidth = .5;
-    ctx.beginPath(); ctx.moveTo(246, 86); ctx.lineTo(470, 86); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(246, 132); ctx.lineTo(470, 132); ctx.stroke();
+    if (spts) { ctx.fillStyle = '#ffd75e'; T2('+' + spts, 358, 42); }   // skill points available, above the tree
     // Nodes
     const tot = su.reduce((a,v)=>a+v,0);
     const NS = 26;
@@ -1174,9 +1157,9 @@ const draw = () => {
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ffd75e'; T2('SHARDS · ' + shards() + ' / 5', 300, 228);
     for (let i = 0; i < 5; i++) { if (bs[i] === 2) drawGem(278 + i * 10, 232, time + i * .8); else { ctx.fillStyle = '#2a2a33'; ctx.fillRect(280 + i * 10, 233, 5, 5); } }
-    ctx.fillStyle = '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-    if (choosing) T2('MOVE ← → · SPEND SPACE', VW / 2, VH - 4);
-    else if (invSel >= 0 && inv[invSel]) {
+    // USE/DROP are functional button labels (not a control hint) — control reference lives ONLY in the ? overlay.
+    if (invSel >= 0 && inv[invSel]) {
+      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
       ctx.fillRect(30, 250, 50, 14); ctx.strokeRect(30, 250, 50, 14);
       ctx.fillRect(90, 250, 50, 14); ctx.strokeRect(90, 250, 50, 14);
@@ -1186,7 +1169,7 @@ const draw = () => {
 
   // action buttons — hidden during pause / level-up (dedicated overlays own the input)
   // Colored ring per action, dark disc, glyph in accent color. Modern mobile pattern.
-  if (started && !choosing && !paused) {
+  if (started && !paused) {
     ctx.textAlign = 'center';
     for (const [x, y, c, col, s, mp] of AB) {
       const usable = (s < 0 || su[s]) && mn >= mp;
@@ -1200,18 +1183,7 @@ const draw = () => {
     }
     ctx.globalAlpha = 1;
   }
-  // SPEND button — during level-up on touch, replaces JUMP in the bottom-right
-  if (started && choosing && touch) {
-    const bx = VW - 36, by = VH - 44;
-    ctx.globalAlpha = .65; ctx.fillStyle = 'rgba(15,15,20,.75)';
-    ctx.beginPath(); ctx.arc(bx, by, 30, 0, 7); ctx.fill();
-    ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(bx, by, 30, 0, 7); ctx.stroke();
-    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-    T2('SPEND', bx, by + 4); ctx.globalAlpha = 1;
-  }
-  // joystick — persistent base; knob tracks thumb; brightens while held. ALSO
-  // shown during dialog + level-up so the stick can navigate those menus.
+  // joystick — persistent base; knob tracks thumb; brightens while held. Gameplay only (hidden in the character menu).
   if (started && touch && !paused) {
     const act = joy.id >= 0;
     ctx.globalAlpha = act ? .6 : .35;
@@ -1233,10 +1205,10 @@ const draw = () => {
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, iy, isz, isz);
     };
     const px = VW - 74; box(px);                               // Menu (hamburger) — ALWAYS shown; toggles sheet / closes allocation
-    if (!choosing && (pending || spts)) { ctx.strokeStyle = RC[(time * 6 | 0) % 7]; ctx.lineWidth = 1; ctx.strokeRect(px, iy, isz, isz); }   // rainbow glow = points to spend (stat OR skill)
+    if (!paused && (pending || spts)) { ctx.strokeStyle = RC[(time * 6 | 0) % 7]; ctx.lineWidth = 1; ctx.strokeRect(px, iy, isz, isz); }   // rainbow glow = points to spend (stat OR skill)
     ctx.fillStyle = '#c8b888';
     for (let i = 0; i < 3; i++) ctx.fillRect(px + 3, iy + 3 + i * 3, 6, 1);
-    if (!choosing) {                                            // Save · Mute — hidden during allocation
+    {                                                          // Save · Mute — always shown (incl. the character menu)
       const sx = VW - 56; box(sx);                              // Floppy — save
       ctx.fillStyle = '#ccc'; ctx.fillRect(sx + 3, iy + 2, 6, 5); ctx.fillStyle = '#555'; ctx.fillRect(sx + 6, iy + 3, 2, 3);
       ctx.fillStyle = '#888'; ctx.fillRect(sx + 2, iy + 8, 8, 3);
@@ -1284,20 +1256,19 @@ const draw = () => {
     // Title art above stays in EVERY mode — menu / name entry / slot select swap below it.
     if (tMode === 1) {                                             // NAME ENTRY
       const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; T2(nm || '(type A–Z)', VW / 2, 224);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; T2(nm || '(type A–Z)', VW / 2, 204);
       ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,215,94,.14)';
-      ctx.fillRect(VW / 2 - 60, 236, 120, 20); ctx.strokeRect(VW / 2 - 60, 236, 120, 20);
-      ctx.fillStyle = '#ffd75e'; T2('BEGIN', VW / 2, 250);
-    } else if (tMode === 2) {                                      // SLOT SELECT — name + level per slot
+      ctx.fillRect(VW / 2 - 60, 210, 120, 20); ctx.strokeRect(VW / 2 - 60, 210, 120, 20);
+      ctx.fillStyle = ent ? '#ffd75e' : '#555'; T2('BEGIN', VW / 2, 224);   // dim until a name is entered
+    } else if (tMode === 2) {                                      // SLOT SELECT — name + level per slot (2 slots + BACK)
       ctx.font = 'bold 13px monospace';
-      for (let i = 0; i < 4; i++) {
-        const m = i < 3 ? sMeta(i) : 0, on = sSel === i, y = 206 + i * 16;
-        ctx.fillStyle = on ? '#ffd75e' : (i < 3 && !m && !slotNew) ? '#555' : '#888';
-        T2(i === 3 ? '← BACK' : 'SLOT ' + (i + 1) + ' · ' + (m || 'EMPTY'), VW / 2, y);
+      for (let i = 0; i < 3; i++) {
+        const on = sSel === i, y = 206 + i * 16;
+        ctx.fillStyle = on ? '#ffd75e' : '#888';
+        T2(i === 2 ? '← BACK' : 'SLOT ' + (i + 1) + ' · ' + (sMeta(i) || 'EMPTY'), VW / 2, y);
       }
-    } else {                                                       // MENU — gold highlight IS the selection indicator; ▶ cursor removed as redundant
-      const opts = hasSave() ? ['NEW GAME', 'CONTINUE'] : ['NEW GAME'];
-      opts.forEach((o, i) => {
+    } else {                                                       // MENU — NEW GAME + CONTINUE always present; both route to the slot screen
+      ['NEW GAME', 'CONTINUE'].forEach((o, i) => {
         ctx.fillStyle = mSel === i ? '#ffd75e' : '#888'; ctx.font = 'bold 13px monospace';
         T2(o, VW / 2, 208 + i * 16);
       });
