@@ -27,7 +27,7 @@ export const SLOT_STAT = [1, 2, 0, 3];                // slot→stat index: HP, 
 export const SLOT_LBL = ['BODY', 'MANE', 'HORN', 'HOOVES'];
 // Stat colors — used by menu bars/labels AND by equipment strokes (menu box + inv slot + world drop)
 // so gear identity is visible at pickup: red=HP, blue=MAG, gold=STR, light-blue=DEF, green=LUCK.
-export const SC = ['#ffd75e', '#ff5d6c', '#4a76ff', '#8cf', '#9fe89a'];
+export const SC = ['#ffd75e', '#ff5d6c', '#4a76ff', '#9fe89a', '#c47fe0'];   // STR gold · HP red · MAG blue · DEF green · LUCK violet (reuses VIOLET boss color)
 
 // FOECOL — k1..k6 body colors. Sky #6bc5ff + grass #5ac878 are RESERVED for the
 // background (PICO-8 fg/bg separation): foes use saturated warms + darker cools.
