@@ -1,10 +1,13 @@
-// spike-audit.mjs — verify no chest or hand-placed DECO renders on/through a spike tile.
+// spike-audit.mjs — placement safety net for chests, decor, and critical seeds.
 //
-// Failure mode this catches:
-//   groundRow() skips spike tiles when searching downward for a snap surface.
-//   If a seed's column has a spike above solid ground, the entity is dropped
-//   THROUGH the spike layer to the solid below, so it visually renders INSIDE
-//   the spike row. Chests on top of spikes + flowers on spikes = this bug.
+// Failure modes this catches:
+//   1. SPIKE OVERLAP — groundRow() skips spike tiles when searching downward for
+//      a snap surface. Chest/decor in a column with a spike-above-solid drops THROUGH
+//      the spike layer and renders INSIDE it.
+//   2. DECOR STACK  — two hand-placed DECO seeds at the same tile column overlap
+//      visually (both snap to the same ground surface).
+//   3. DECOR ON CRITICAL — hand-placed DECO at the same tile column as a chest,
+//      foe, boss, fire, or door obscures gameplay-relevant sprites.
 //
 // Run: node tools/spike-audit.mjs   (exits non-zero on any violation)
 import { loadZone, seeds, DECO, grid, T, W, H, groundRow } from '../src/world.js';
@@ -68,6 +71,36 @@ for (let z = 0; z < ZN.length; z++) {
     if (at(dx, dy) === SPIKE) report(z, 'SCTTR', i, d, `scattered onto spike tile at (${dx}, ${dy})`);
     // spike directly below the decor's ground = decor "on top of spike pit lip"
     if (at(dx, dy + 1) === SPIKE) report(z, 'SCTTR', i, d, `scattered above spike at (${dx}, ${dy + 1})`);
+  });
+
+  // --- DECOR STACK (two hand-placed DECO at same snapped position) ---
+  // Compare snap positions (post-groundRow) — same column but different y-strata is fine.
+  const seenAt = new Map();
+  hand.forEach((d, i) => {
+    const [dx, dy] = d;
+    const snapY = groundRow(dx, dy + 1) - 1;
+    const key = `${dx},${snapY}`;
+    if (seenAt.has(key)) report(z, 'DECO ', i, d, `snap collision at (${dx},${snapY}) — another DECO idx ${seenAt.get(key)}`);
+    else seenAt.set(key, i);
+  });
+
+  // --- DECOR OVER STATIC CRITICAL SEED (chest/boss/fire/door) ---
+  // Foes are dynamic (move around) — grass at foe spawn is not an overlap. Only static
+  // gameplay sprites matter: chests, bosses, campfires, portal doors.
+  const critical = [
+    ...seeds.chests.map((s, i) => ['chest', i, s[0], (s[1] | 0) - 1]),   // chest snap≈seed Y (already ground-adjusted)
+    ...seeds.bosses.map((s, i) => ['boss ', i, s[0], s[1]]),
+    ...seeds.fires.map((s, i) => ['fire ', i, s[0], s[1] | 0]),
+    ...seeds.doors.map((s, i) => ['door ', i, s[0], s[1]]),
+  ];
+  hand.forEach((d, i) => {
+    const [dx, dy] = d;
+    const dSnap = groundRow(dx, dy + 1) - 1;
+    critical.forEach(([kind, ci, cx, cy]) => {
+      if (dx === cx && Math.abs(dSnap - cy) <= 2) {
+        report(z, 'DECO ', i, d, `overlaps ${kind} ${ci} at (${cx},${cy}) — decor snap y=${dSnap}`);
+      }
+    });
   });
 
   if (violations === zBefore) console.log('  ✓ clean');

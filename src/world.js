@@ -23,7 +23,9 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- ZONE 0: MEADOW (hub, unchanged geometry, DARK RED CORN only) ----------
+// ---------- ZONE 0: MEADOW (hub, unified world center) — RED CORN + ORANGE CORN (ex-CAVE) ----------
+// Expanded 2026-09-02: east extension x=280-475 (Phase 1), CAVE absorption (Phase 2, ORANGE at x=460),
+// canvas grown to 600x120 for 5-piece layout (top strip / left/center/right squares / bottom strip).
 const Z0 = {
   MAP: [
     // envelope (grid now 600x120 — MEADOW center band y=0-71, bottom stratum y=72-119 reserved for DEPTHS absorption)
@@ -39,7 +41,7 @@ const Z0 = {
     [210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route
     [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4],
     [274, 58, 3, 1, 2],
-    // Cave entry (x150-256, carved) — leads to Zone 1 portal
+    // Descent corridor (x150-256, carved subterranean pocket, vestigial from CAVE portal removal)
     [150, 66, 107, 4, 0],
     [175, 63, 18, 7, 0],
     [215, 64, 20, 6, 0],
@@ -91,7 +93,7 @@ const Z0 = {
   fires: [[132.5, 59.5]],
   bosses: [[258, 57, 0], [460, 54, 1]],   // DARK RED CORN (west), DARK ORANGE CORN (far east, ex-CAVE boss relocated)
   chests: [
-    [181, 68.3],    // 0 — cave entry W (base tier discovery) — shifted W of spike (184-186)
+    [181, 68.3],    // 0 — descent corridor W (base tier discovery) — shifted W of spike (184-186)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
     [59, 25.3],     // 2 — canopy crest (moved off the CLIFFS door at x56 so both read cleanly)
     [12, 11.3],     // 3 — peak ledge (DJ summit reward)
@@ -126,7 +128,7 @@ const Z0 = {
     [20, 69, 2], [126, 69, 2], [120, 69, 2], [190, 69, 2], [240, 69, 2],
     [86, 53, 0], [73, 50, 0], [78, 50, 1],
     [53, 25, 0], [45, 23, 1],
-    [12, 11, 2], [16, 11, 1],
+    [17, 11, 2], [15, 11, 1],   // peak-ledge decor (nudged: chest 3 at x=12)
   ],
 };
 
@@ -168,11 +170,11 @@ const Z2 = {
   ],
 };
 
-// ---------- ZONE 3: PEAK (DARK BLUE CORN) ----------
+// ---------- ZONE 2: PEAK (DARK BLUE CORN, was Z3) ----------
 // Icy plateau. Return portal at west edge → Meadow peak ledge. Tier-3, assumes DJ.
 // 2 spike crevasses, a DJ summit climb to a high chest, an ICE-CAVERN signature
-// (rung shaft down to a hidden pocket chest, mirroring Meadow's cave pattern), and
-// a boss arena with 4 aerial platforms. Home portal at spawn → no softlock.
+// (rung shaft down to a hidden pocket chest), and a boss arena with 4 aerial platforms.
+// Home portal at spawn → no softlock.
 const Z3 = {
   MAP: [
     [0, 0, 3, H], [277, 0, 323, H], [3, 32, 274, 40],  // envelope + floor/undermass (right thickened for widened grid W=600)
@@ -203,11 +205,11 @@ const Z3 = {
   doors: [[35, 31, 0, 14, 10]],
   DECO: [
     [50, 31, 5], [76, 31, 2], [130, 31, 5], [160, 31, 5],
-    [212, 31, 5], [250, 31, 2], [89, 22, 5], [113, 25, 5],
+    [212, 31, 5], [250, 31, 2], [86, 22, 5], [113, 25, 5],   // ice crystal shifted from x=89 (chest 1 there)
   ],
 };
 
-// ---------- ZONE 4: DEPTHS (DARK VIOLET CORN, final boss) ----------
+// ---------- ZONE 3: DEPTHS (DARK VIOLET CORN, final boss, was Z4) ----------
 // Corrupted arena. Return portal at west edge → Meadow deep corridor.
 const Z4 = {
   MAP: [
@@ -240,8 +242,8 @@ const Z4 = {
   foes: [[64, 58, 4], [88, 50, 3], [128, 58, 6], [170, 47, 3], [185, 58, 4], [200, 58, 6], [218, 58, 3]],
   doors: [[35, 59, 0, 55, 68]],
   DECO: [
-    [50, 59, 4], [76, 59, 2], [128, 59, 4], [158, 59, 2],
-    [204, 59, 4], [89, 50, 4], [110, 56, 2],
+    [53, 59, 4], [76, 59, 2], [128, 59, 4], [158, 59, 2],   // dead tree shifted from x=50 (chest 0 there)
+    [204, 59, 4], [92, 50, 4], [110, 56, 2],                // dead tree shifted from x=89 (chest 1 there)
   ],
 };
 
@@ -266,7 +268,7 @@ export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = 
 const scatter = (zi) => {
   const [gap, ...ty] = FOL[zi], d = [];
   let s = zi * 2749 + 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // deterministic per-zone
-  const keep = [...seeds.chests, ...seeds.foes, ...seeds.doors, ...seeds.bosses, ...seeds.fires];
+  const keep = [...seeds.chests, ...seeds.foes, ...seeds.doors, ...seeds.bosses, ...seeds.fires, ...seeds.DECO];
   for (let x = 5; x < W - 5; x++) {
     if (rnd() * gap >= 1) continue;                              // 1-in-gap column density
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects

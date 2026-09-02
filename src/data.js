@@ -51,7 +51,7 @@ export const ZBG = ['#6bc5ff', '#8fd0ff', '#bfe8ff', '#0d0a14'];
 // green deco (tree canopy, grass, flower stems); accent is the zone's stone/rock tone
 // (rock base is derived darker via dim(accent), so one stored color = a two-tone boulder).
 // MEADOW keeps its exact original green + #888/#666 rock (byte-identical); each other
-// zone gets a coherent family: cave=stone/fungal, cliffs=windswept, peak=snow, depths=corrupt.
+// zone gets a coherent family: cliffs=windswept, peak=snow, depths=corrupt.
 export const ZG = [
   ['#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888'],   // MEADOW — earthy green, cool-gray stone (dim→#666, original)
   ['#6a5a3e', '#6ab84a', '#5aa83a', '#9aa4b0'],   // CLIFFS — sunlit green, light windswept stone

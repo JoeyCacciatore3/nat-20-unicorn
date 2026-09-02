@@ -618,7 +618,7 @@ const step = (dt) => {
 
   if (deathT > 0) {
     deathT -= dt;
-    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k)); if (bs[curZone] !== 2) bs[curZone] = 0; drops.length = 0; }   // respawn = soft zone reset: full HP+MP, reseed foes, engaged boss resets fresh (killed stays dead), clear drops
+    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k)); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn = soft zone reset: full HP+MP, reseed foes, reset ALL non-dead bosses in this zone (multi-boss support), clear drops
     return;
   }
   if (!started) return;
@@ -700,7 +700,7 @@ const step = (dt) => {
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
       // BOSS = tier-3 foe (one above 'select') with fh_boss=10, fd_boss=5 in shared scl() formula:
-      // hp = 10*4*scl()/2 = 20*scl · dm = 5+3+curZone. Scales with player level like every other enemy.
+      // hp = 20*scl() (curZone-scaled) · dm = 8+bi (per-boss progression: RED=8, ORANGE=9, YELLOW=10, BLUE=11, VIOLET=12).
       bs[bi] = 1;
       const bhp = 20 * scl() | 0;
       foes.push({
@@ -849,7 +849,7 @@ const draw = () => {
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds. Visual detail lives in the ground layer.
   ctx.fillStyle = ZBG[curZone]; ctx.fillRect(0, 0, VW, VH);                 // per-zone backdrop
-  // CLOUDS — parallax puffs, outdoor zones only (caves/depths stay dark)
+  // CLOUDS — parallax puffs, outdoor zones only (DEPTHS stays dark)
   if (curZone !== 3) for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
     const sx = ((cx - cam.x * .15) % (VW + 100)) - 50;
     ctx.fillStyle = 'rgba(255,255,255,.6)';
