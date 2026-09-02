@@ -482,12 +482,15 @@ const fresh = () => {
 };
 // Non-ranged foes roll a strength tier in mkFoe (0 base / 1 tough / 2 select). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
+// Unified scaling: zone tier + player-level progression. Every 4 player levels adds 1 scale
+// pip — enemies stay a threat as the player over-levels the zone; bosses reuse the same formula.
+const scl = () => 2 + curZone + (lvl >> 2);
 const mkFoe = (x, y, k) => {
-  // ENEMY TIER (tr): 0 base · 1 tough · 2 select — random strength ON TOP of zone tier `t` (= curZone).
+  // ENEMY TIER (tr): 0 base · 1 tough · 2 select — random strength ON TOP of scale.
   // Non-ranged only (ranged foes stay base). ~75% base / 19% tough / 6% select (tunable).
-  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, t = curZone, tr = fr ? 0 : Math.random() < .06 ? 2 : Math.random() < .2 ? 1 : 0;
-  const zh = fh * (1 + tr) * (2 + t) / 2 | 0;                    // HP ×(1+tr): tough 2×, select 3×
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + tr + t, tr, fl: 0, t: Math.random() * 7, cz: fz + (tr > 1 ? 1 : 0) };
+  const [fh, fd, fv, fz, fb] = FT[k], fr = fb & 1, tr = fr ? 0 : Math.random() < .06 ? 2 : Math.random() < .2 ? 1 : 0;
+  const zh = fh * (1 + tr) * scl() / 2 | 0;                       // HP ×(1+tr): tough 2×, select 3×
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + tr + curZone, tr, fl: 0, t: Math.random() * 7, cz: fz + (tr > 1 ? 1 : 0) };
 };
 let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
@@ -547,7 +550,7 @@ const strike = (f, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 rate — k4+ are variants, not a farm ladder
+    burst(f.x, f.y, 12, FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.tr || 0) * 4 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 16); // XP capped at k=3 (k4+ are variants); tier bonus rewards the harder fight
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.tr || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // tier>0 guarantees a drop
     if (f.tr) { burst(f.x, f.y, 18, '#ffd75e'); sfx(784, 1568, .3, 'triangle', .15); }   // tier kill reward flourish
     if (f.bit) {                                                // BOSS falls
@@ -700,17 +703,20 @@ const step = (dt) => {
   for (const c of chests) if (!(oc & (1 << (curZone * 6 + c.i))) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
-  seeds.bosses.forEach(([bx, by]) => {                          // each zone has 1 boss; boss id = curZone (indexes bs[], BN[], P2[])
+  seeds.bosses.forEach(([bx, by]) => {                          // each zone has 1 boss; boss id = curZone
     const bi = curZone, bit = 1 << bi;
     if (bs[bi] === 1) return;
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
       const st = bs[bi], fresh = !st || st === 2;
+      // BOSS = tier-3 foe (one above 'select') with fh_boss=10, fd_boss=5 in shared scl() formula:
+      // hp = 10*4*scl()/2 = 20*scl · dm = 5+3+curZone. Scales with player level like every other enemy.
       bs[bi] = 1;
+      const bhp = 20 * scl() | 0;
       foes.push({
-        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 5 + bi * 2,
-        fl: 0, t: 0, mx: 40 + 15 * bi,
+        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 8 + curZone,
+        fl: 0, t: 0, mx: bhp,
         cap: 18 | (fresh ? 0 : st.ph && P2[bi]),
-        hp: fresh ? 40 + 15 * bi : st.hp,
+        hp: fresh ? bhp : st.hp,
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
