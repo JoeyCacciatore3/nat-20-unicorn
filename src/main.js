@@ -552,7 +552,7 @@ const strike = (f, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    burst(f.x, f.y, 12, f.el ? PAL[9] : FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 25 : 0), f.x, f.y - 22); // XP y-22 clears the damage number at y-8. Elite +8 bonus rewards the mini-boss fight.
+    burst(f.x, f.y, 12, f.el ? PAL[9] : FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // XP y-22 clears damage at y-8. Elite +8; boss bonus 37+6·bi (was split across two fly texts, now one — foes and bosses share the same visual pattern).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // elite guarantees a drop
     if (f.el) sfx(784, 1568, .3, 'triangle', .15);   // elite kill flourish (aqua death burst above signals visually)
     if (f.bit) {                                                // BOSS falls
@@ -567,7 +567,7 @@ const strike = (f, gen, viaStomp) => {
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
       }
-      gainXp(12 + 6 * f.bi, f.x, f.y - 32);
+
     }
     return 1;
   }
