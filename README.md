@@ -74,17 +74,18 @@ Picked nodes go gold; unpicked read a uniform muted gray. Diagonal connection li
 Dash starts at half distance; LONG DASH doubles it.
 
 ## World
-**One unified map (600×120 tiles = 7,680×1,920 px).** No portals, no zone transitions —
-walk from any boss to any other. The 5 DARK CORNS live in different regions:
+**One unified map (800×160 tiles = 12,800×2,560 px).** No portals, no zone transitions —
+walk from any boss to any other. The DARK CORNS live in different regions:
 
-- **Paddock** (center, x≈120) — spawn point, campfire, DARK RED CORN just east
+- **Paddock** (center, x≈120) — spawn point, campfire, GREAT CORN guide, DARK RED CORN just east
 - **Descent corridor** (x150-256) — subterranean pocket carved into the ground
 - **East run** (x280-475) — DJ terraces, DASH gaps, TRI-JUMP stack, DARK ORANGE CORN far east
+- **East arc** (x466-620) — bounce-mushroom ridges + vertical climb to the DARK GREEN CORN summit
 - **Western terraces** (x40-118) — DJ climb to DARK YELLOW CORN on the canopy ledge
 - **Peak** (x10-60, top) — DJ summit climb, DARK BLUE CORN on the peak ledge
 - **Depths** (x10-139, deep west) — post-DASH corridor to DARK VIOLET CORN
 
-Movement-ability gating (double-jump for terraces/peak, dash for depths corridor) controls the natural order you reach each boss. Every boss and chest is verified reachable by a build-time audit tool.
+Movement-ability gating (double-jump for terraces/peak, dash for depths corridor, bounce mushrooms + jumps for the east arc) controls the natural order you reach each boss. Every boss and chest is verified reachable by a build-time audit tool.
 
 **Color palette rules:** Sky `#6bc5ff` and grass `#5ac878` are RESERVED for background;
 enemies and gear use warm saturated colors so silhouettes read against the sky.

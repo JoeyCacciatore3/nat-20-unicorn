@@ -1,5 +1,5 @@
 // world.js — UNICORN: unified single-map world.
-// All 5 CORN bosses live in one contiguous MEADOW; no portals, no zone transitions.
+// All CORN bosses live in one contiguous MEADOW; no portals, no zone transitions.
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes.
 //
 // ============================ MAP LAWS (Joe, locked) ============================
@@ -17,18 +17,18 @@
 // L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
 //                      death always returns to a campfire. (engine, main.js)
 // ================================================================================
-export const T = 16, W = 600, H = 120;
+export const T = 16, W = 800, H = 160;
 export const grid = new Uint8Array(W * H);
 export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 : grid[ty * W + tx];
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- MEADOW (600×120 unified world, all 5 CORN bosses) ----------
+// ---------- MEADOW (800×160 unified world, all CORN bosses) ----------
 const MEADOW = {
   MAP: [
-    // envelope — playable band y=0-71, y=72-119 reserved for growth
-    [0, 0, 3, H], [597, 0, 3, H],
-    [3, 60, 594, 12],                      // ground + underground mass (rows 60-71 across full width)
+    // envelope — playable band y=0-71, y=72-159 reserved for growth (underground caverns)
+    [0, 0, 3, H], [W - 3, 0, 3, H],        // W-relative borders: whole world scales off W/H
+    [3, 60, W - 6, 12],                    // ground + underground mass (rows 60-71 across full width)
     // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
@@ -87,20 +87,40 @@ const MEADOW = {
     // East end (x440-475): stepped tower echoing western motif + final walkway
     [440, 59, 3, 1], [443, 58, 3, 2], [446, 57, 3, 3], [449, 56, 3, 4], [452, 55, 3, 5],
     [458, 55, 6, 1, 2],
+    // ==== EAST GATE (x466-512) — bounce ridge: spring to a high chest ledge; DJ step route continues east ====
+    [470, 60, 4, 2, 0], [470, 61, 4, 1, 3],        // spike pit just past ORANGE's walkway
+    [477, 52, 6, 1, 2],                            // HIGH CHEST LEDGE — reachable only by bounce + double-jump
+    [488, 57, 5, 1, 2], [496, 54, 6, 1, 2],        // onward DJ step route (eastward, seeds the next section)
+    // ==== EAST SHELF (x514-562) — gap-crossing traversal + a mid chest; climbs toward E3 ====
+    [518, 60, 4, 2, 0], [518, 61, 4, 1, 3],        // spike gap (DJ drift)
+    [528, 56, 6, 1, 2],                            // mid platform rest — chest 5 perches here
+    [540, 60, 5, 2, 0], [540, 61, 5, 1, 3],        // second spike gap (DJ drift)
+    [550, 57, 6, 1, 2], [558, 53, 5, 1, 2],        // step up — seeds the E3 vertical climb
+    // ==== EAST ASCENT (x560-620) — DJ zig-zag climb (from E2's row53 step) to the GREEN summit + a ground bounce side chest ====
+    [564, 49, 5, 1, 2], [560, 45, 5, 1, 2],        // zig up (DJ, rise 4)
+    [566, 41, 5, 1, 2], [562, 37, 6, 1, 2],        // continue up — chest 6 on the 562 ledge
+    [568, 33, 8, 1],                               // solid summit landing (seeds E4 GREEN CORN)
+    [572, 52, 5, 1, 2],                            // ground bounce side ledge — chest 7 (bounce + DJ)
   ],
   fires: [[132.5, 59.5]],
-  bosses: [                              // All 5 CORN bosses live in the unified MEADOW; bi picks the rainbow band
+  bounce: [[158, 59], [480, 59], [575, 59]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex
+  bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
     [258, 57, 0],   // RED    — center MEADOW (original)
     [460, 54, 1],   // ORANGE — far east walkway
     [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier)
     [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier)
     [35, 68, 4],    // VIOLET — depths corridor west (DASH-tier)
+    [570, 32, 5],   // GREEN  — east summit (E3 ascent climax)
   ],
   chests: [
     [181, 68.3],    // 0 — descent corridor west (base tier discovery)
     [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
     [59, 25.3],     // 2 — canopy crest (near YELLOW CORN)
     [12, 11.3],     // 3 — peak ledge (DJ summit reward)
+    [479.5, 51.3],  // 4 — EAST GATE bounce ledge (bounce + DJ gated)
+    [530.5, 55.3],  // 5 — EAST SHELF mid platform (between spike gaps, DJ)
+    [564, 36.3],    // 6 — EAST ASCENT climb summit reward (DJ zig-zag)
+    [574, 51.3],    // 7 — EAST ASCENT bounce side ledge (bounce + DJ)
   ],
   foes: [
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
@@ -109,6 +129,9 @@ const MEADOW = {
     [75, 35, 2],
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
+    [490, 56, 2], [500, 53, 1],                                  // EAST GATE — blob on step, crawler on upper ledge
+    [532, 55, 2], [545, 58, 2],                                  // EAST SHELF — blob guarding chest, blob by the gap
+    [560, 44, 4], [578, 58, 2],                                  // EAST ASCENT — runner on climb, blob on ground
   ],
   DECO: [
     // MEADOW paddock / title-hero framing (x111-146) — lush, spaced (trees ≥3 tiles
@@ -127,6 +150,13 @@ const MEADOW = {
     [86, 53, 0], [73, 50, 0], [78, 50, 1],
     [53, 25, 0], [45, 23, 1],
     [17, 11, 2], [15, 11, 1],   // peak-ledge decor (nudged: chest 3 at x=12)
+    // NEW FLAIR — cattails (meadow surface) + crystal clusters (depths/peak/canopy)
+    [152, 59, 7], [168, 59, 7], [242, 59, 7],                    // cattails along the open meadow
+    [26, 69, 8], [46, 69, 8], [54, 25, 8], [14, 11, 8],          // crystals: west depths (flank VIOLET), canopy, peak
+    // EAST GATE (x466-512) flair
+    [468, 59, 7], [485, 59, 6], [508, 59, 0],                    // EAST GATE — cattail, flower, tree
+    [514, 59, 7], [524, 59, 6], [560, 59, 0],                    // EAST SHELF — cattail, flower, tree
+    [566, 59, 6], [578, 59, 7], [574, 32, 8],                    // EAST ASCENT — flower, cattail (ground), crystal (summit edge, clear of GREEN CORN)
   ],
 };
 
@@ -143,7 +173,7 @@ const FOL = [3, 1, 1, 6, 1];
 const scatter = () => {
   const [gap, ...ty] = FOL, d = [];
   let s = 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-  const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...seeds.fires, ...seeds.DECO];
+  const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...seeds.fires, ...(seeds.bounce || []), ...seeds.DECO];
   for (let x = 5; x < W - 5; x++) {
     if (rnd() * gap >= 1) continue;                              // 1-in-gap column density
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
@@ -157,3 +187,5 @@ const scatter = () => {
 // Module-init: paint MEADOW grid + merge hand-placed decor (snapped to surface) with scatter fill.
 for (const m of seeds.MAP) box(...m);
 export const DECO = seeds.DECO.map(([x, y, t]) => [x, groundRow(x, y + 1) - 1, t]).concat(scatter());
+// BOUNCE pads snapped to their solid landing row: [col, solidRow]. Player stands at solidRow-1.
+export const BOUNCE = seeds.bounce.map(([x, y]) => [x, groundRow(x, y + 1)]);

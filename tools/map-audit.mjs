@@ -9,7 +9,7 @@
 //   +doublejump: rise <=4, drift <=6
 //   +dash:       rise <=4, drift <=9
 // Spikes (3) are hazards, never paths.
-import { W, H, grid, seeds } from '../src/world.js';
+import { W, H, grid, seeds, BOUNCE } from '../src/world.js';
 
 const TIERS = [
   { name: 'base       ', up: 2, h: 5 },
@@ -19,10 +19,11 @@ const TIERS = [
 
 // Spawn point (matches main.js SX/SY = 126*T, 57*T → falls to ground row 60).
 const SPAWN = [126, 59];
-const BOSS_NAMES = ['RED   ', 'ORANGE', 'YELLOW', 'BLUE  ', 'VIOLET'];
+const BOSS_NAMES = ['RED   ', 'ORANGE', 'YELLOW', 'BLUE  ', 'VIOLET', 'GREEN '];
 
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
 const idx = (c, r) => r * W + c;
+const bounceStand = new Set((BOUNCE || []).map(([x, r]) => idx(x, r - 1)));   // cells you bounce FROM (stand row = solidRow-1)
 
 let fail = 0;
 const bossList = seeds.bosses || [];
@@ -47,6 +48,10 @@ for (const tr of TIERS) {
     for (let dr = 0; dr <= tr.up; dr++) for (let dc = -tr.h; dc <= tr.h; dc++) {
       if (!dr && !dc) continue;
       if (standSet.has(idx(c + dc, r - dr)) && !walled(c, r, c + dc, r - dr)) list.push(idx(c + dc, r - dr));
+    }
+    if (bounceStand.has(k)) {                                    // BOUNCE MUSHROOM — models the spring's extra rise (tier.up + 4)
+      for (let dr = tr.up + 1; dr <= tr.up + 4; dr++) for (let dc = -tr.h; dc <= tr.h; dc++)
+        if (standSet.has(idx(c + dc, r - dr)) && !walled(c, r, c + dc, r - dr)) list.push(idx(c + dc, r - dr));
     }
     for (let dc = -tr.h; dc <= tr.h; dc++) {
       if (blockV(at(c + dc, r))) continue;

@@ -5,7 +5,7 @@
 //   - 4-slot color-driven equipment gear (BODY/MANE/HORN/HOOVES) — each drop
 //     visually IS the body part it replaces (drawPart uses drawU primitives)
 //   - ONE open skill tree, 12 single-rank nodes, all player-chosen (no auto-learn)
-//   - Rainbow shards = collection goal (5 bosses)
+//   - Rainbow shards = collection goal (one per DARK CORN boss; win = all bands, seeds.bosses.length)
 //   - Unified character sheet: pause + level-up share layout
 //   - 5-slot inventory (+5 via STASH skill, max 10); potions live in a separate hot-bar
 //     if their stat isn't full else stored for later — click to use, X to drop
@@ -18,7 +18,8 @@
 //
 // Save: strict v40 JSON to localStorage. Version bumps discard prior saves.
 
-import { T, W, H, grid, tile, seeds, DECO, groundRow } from './world.js';           // map geometry + tiles + shared ground-snap
+import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
+const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
 import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -372,7 +373,7 @@ const CAP = 15;                                   // hard level cap — all stat
 // Skills are player-chosen via the prerequisite tree (LINK)
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
-const bs = [0, 0, 0, 0, 0];
+const bs = Array(BN.length).fill(0);   // boss state per rainbow band — sized off BN so new CORN are pure data
 const shards = () => bs.filter(v => v === 2).length;
 const mHP = () => 8 + (he + eqB[0]) * 2 + su[9] * 5;   // base 8 + HP stat + body-gear + HP+ skill (+5)
 const mMN = () => 8 + (sp + eqB[1]) * 2 + su[10] * 5;           // mane eq boosts MAG · +5 from MP+ skill
@@ -474,7 +475,7 @@ let invSel = -1;                                  // selected inventory slot (-1
 const rest = () => {
   const [fx, fy] = seeds.fires[0];
   hp = mHP(); mn = mMN(); cp = [fx * T - 20, (fy - 1) * T];
-  burst(fx * T, fy * T - 8, 12, '#ffd75e'); sfx(500, 900, .3, 'triangle', .1);
+  rbow(fx * T, fy * T - 8, 4); sfx(500, 900, .3, 'triangle', .1);
   fly(pl.x, pl.y - 16, 'RESTED', '#9fe89a', 1);
 };
 // Chest reward: item shower + full heal. LUCK adds drops.
@@ -483,7 +484,7 @@ const openChest = (i) => {
   oc |= 1 << i;
   const c = chests[i]; hp = mHP();
   spawnDrop(c.x, c.y, 2);
-  burst(c.x, c.y - 4, 12, '#ffd75e'); sfx(660, 990, .15, 'triangle', .12);
+  rbow(c.x, c.y - 4, 4); sfx(660, 990, .15, 'triangle', .12);
   save();
 };
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
@@ -528,8 +529,16 @@ let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.6 });   // longer lifetime so text stays readable amid particle chaos
-const burst = (x, y, n, c) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 80; parts.push({ x, y, vx: Math.sin(a) * s, vy: Math.cos(a) * s - 60, t: .5 + Math.random() * .4, c }); } };
-const rburst = (x, y, n) => { for (let i = 0; i < n; i++) burst(x, y, 1, RC[(Math.random() * 7) | 0]); };
+// Unified particle = a small bright HUD-style rainbow (7 RC bands + dark outline, same bold palette as the top-left arc). Each call sprays n of them outward — a confetti burst of mini rainbows.
+const rbow = (x, y, n = 4) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, t: .45 + Math.random() * .3 }); } };
+// Pixel skull sprite — bone dome + big dark eye sockets + nose + teeth. 7×8 bitmap, O=bone D=dark .=skip. u = pixel unit (scales), a = alpha. Shared by combat/death bursts + elite markers.
+const SK = ['.OOOOO.', 'OOOOOOO', 'ODDODDO', 'ODDODDO', 'OOODOOO', '.OOOOO.', '.ODODO.', '..OOO..'];
+const skull = (x, y, u, a = 1) => {
+  ctx.globalAlpha = a;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 7; c++) { const ch = SK[r][c]; if (ch === '.') continue; ctx.fillStyle = ch === 'O' ? '#e9e3cd' : '#161210'; ctx.fillRect(x + (c - 3.5) * u, y + (r - 4) * u, u + .4, u + .4); }
+};
+// Skull burst — n little skulls spray outward (death / crit / player-death). Mirrors rbow's fan, flagged sk so the render loop draws the sprite.
+const skb = (x, y, n = 4) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 30 + Math.random() * 80; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 70, t: .5 + Math.random() * .4, sk: 1 }); } };
 // ITEM DROPS — physical pickups from kills/chests.
 // Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear. Shards are progression-only (bs[i]=2, not drops).
 // LUCK adds +1 drop per pip.
@@ -567,7 +576,7 @@ const strike = (f, gen, viaStomp) => {
   if (!f.bit && !viaStomp) f.vx += (crit ? 220 : 140) * (f.x > pl.x ? 1 : -1); // KNOCKBACK — bosses hold their arena
   shk = Math.max(shk, crit ? .22 : .09);
   fly(f.x, f.y - 8, (crit ? 'CRIT ' : '') + '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by size (big=1) + word
-  if (crit) { hs = .06; fanfare(); burst(f.x, f.y, 12, '#ffd75e'); }
+  if (crit) { hs = .06; fanfare(); skb(f.x, f.y, 3); }
   if (gen) mn = Math.min(mMN(), mn + 1);          // dash hits GENERATE mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
   if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
@@ -580,7 +589,7 @@ const strike = (f, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    burst(f.x, f.y, 12, f.el ? PAL[9] : FOECOL[f.k]); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // XP y-22 clears damage at y-8. Elite +8; boss bonus 37+6·bi (was split across two fly texts, now one — foes and bosses share the same visual pattern).
+    skb(f.x, f.y, 5); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // XP y-22 clears damage at y-8. Elite +8; boss bonus 37+6·bi (was split across two fly texts, now one — foes and bosses share the same visual pattern).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // elite guarantees a drop
     if (f.el) sfx(784, 1568, .3, 'triangle', .15);   // elite kill flourish (aqua death burst above signals visually)
     if (f.bit) {                                                // BOSS falls
@@ -588,8 +597,8 @@ const strike = (f, gen, viaStomp) => {
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
-        rburst(f.x, f.y, 12); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / 5', RBC[f.bi], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
-        if (shards() === 5) {                                   // ALL 5 — the game's objective PAYS OFF
+        rbow(f.x, f.y, 8); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / ' + seeds.bosses.length, RBC[f.bi], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
+        if (shards() === seeds.bosses.length) {                 // ALL bosses down — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNICORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
@@ -620,16 +629,16 @@ function heal() {                                               // instant tap-t
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
-  burst(pl.x + PW / 2, pl.y + 4, 12, '#9fe89a'); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1);
+  rbow(pl.x + PW / 2, pl.y + 4, 4); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1);
 }
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max((n >> 2) || 1, n - df - eqB[3]);                // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
   hp -= n; pl.inv = 1.2; shk = Math.max(shk, .22);
-  sfx(140, 55, .25, 'sawtooth', .12); burst(pl.x, pl.y + 7, 12, '#e05555');
+  sfx(140, 55, .25, 'sawtooth', .12); rbow(pl.x, pl.y + 7, 4);
 
-  if (hp <= 0) { deathT = 1.6; return; }
+  if (hp <= 0) { deathT = 1.6; skb(pl.x + PW / 2, pl.y + PH / 2, 7); return; }   // player death — skulls burst from the fallen unicorn
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
   else pl.vy = -180;
 };
@@ -668,8 +677,8 @@ const step = (dt) => {
   // -- jump: buffer + coyote + variable + double --
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0) {
-    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 12); }
-    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rburst(pl.x, pl.y + PH, 12); }   // TRI JUMP — same sound as ground jump (unified)
+    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rbow(pl.x + PW / 2, pl.y + PH, 3); }
+    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rbow(pl.x + PW / 2, pl.y + PH, 3); }   // TRI JUMP — same sound as ground jump (unified)
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash: flat burst, strike foes
@@ -696,13 +705,18 @@ const step = (dt) => {
   const wasGround = pl.ground; pl.ground = 0;
   pl.y += pl.vy * dt;
   if (pl.vy >= 0) {
-    const feet = pl.y + PH, ty = feet / T | 0, top = ty * T;
+    const feet = pl.y + PH, ty = feet / T | 0, top = ty * T, fc = (pl.x + PW / 2) / T | 0;
     for (const ox of [1, PW - 1]) {
       const tv = tile((pl.x + ox) / T | 0, ty);
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
         pl.y = top - PH;
-        if (!wasGround && pl.vy > 250) { pl.sq = 1.35; rburst(pl.x + PW / 2, feet, 12); sfx(150, 70, .06, 'square', .07); }
-        pl.vy = 0; pl.ground = 1; pl.air = 0; break;
+        if (bounceSet.has(ty * W + fc)) {                        // BOUNCE MUSHROOM — big launch; air=0 keeps DJ/TRI for the combo
+          pl.vy = jumpHeld() ? -480 : -430; pl.air = 0; pl.sq = .6; rbow(pl.x + PW / 2, feet, 5); sfx(220, 640, .16, 'sine', .13);
+        } else {
+          if (!wasGround && pl.vy > 250) { pl.sq = 1.35; rbow(pl.x + PW / 2, feet, 4); sfx(150, 70, .06, 'square', .07); }
+          pl.vy = 0; pl.ground = 1; pl.air = 0;
+        }
+        break;
       }
     }
   } else {
@@ -727,7 +741,7 @@ const step = (dt) => {
   for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
-  seeds.bosses.forEach(([bx, by, bi]) => {                      // bi (rainbow band 0-4) from seed — 5 bosses share the world
+  seeds.bosses.forEach(([bx, by, bi]) => {                      // bi (rainbow band) from seed — all DARK CORN bosses share the one world
     const bit = 1 << bi;
     if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
@@ -752,7 +766,7 @@ const step = (dt) => {
   for (const s of shots) {
     s.t -= dt; s.x += s.vx * dt;
     parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, t: .25, c: `hsl(${s.x * 4 % 360} 80% 60%)` });   // rainbow-wave comet — per-frame trail, hue by position → coherent streak from the horn
-    if (solid(s.x, s.y)) { s.t = 0; burst(s.x, s.y, 12, '#fff'); }
+    if (solid(s.x, s.y)) { s.t = 0; rbow(s.x, s.y, 3); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0, 0); break; }
@@ -806,7 +820,7 @@ const step = (dt) => {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
       // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
       if (f.cap & 8 && !wasGr) {
-        shk = Math.max(shk, .3); burst(f.x + fs / 2, f.y + fs, 12, '#fff'); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
+        shk = Math.max(shk, .3); rbow(f.x + fs / 2, f.y + fs, 4); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
         if (pl.ground && Math.abs(pl.x - f.x) < 64) hurt(3, 0);
       }
     }
@@ -929,7 +943,7 @@ const draw = () => {
     ctx.fillRect(c.x - 1, c.y - 1, 2, 3);
   }
   // WORLD DECORATIONS — data-driven from DECO seeds. Positions are data, draw is shared.
-  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=ice crystal 6=flower
+  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=ice crystal 6=flower 7=cattail 8=crystal cluster
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
@@ -955,7 +969,26 @@ const draw = () => {
       ctx.fillStyle = GF; ctx.fillRect(px + 7, py - 6, 1, 6);
       ctx.fillStyle = '#f9c'; ctx.fillRect(px + 5, py - 9, 5, 3);
       ctx.fillStyle = '#ffd75e'; ctx.fillRect(px + 7, py - 8, 1, 1);
+    } else if (dt === 7) { // CATTAIL — reed stems + brown seed head (wetland / meadow edge)
+      ctx.fillStyle = GF;
+      ctx.fillRect(px + 5, py - 9, 1, 9); ctx.fillRect(px + 8, py - 13, 1, 13); ctx.fillRect(px + 11, py - 7, 1, 7);
+      ctx.fillStyle = '#7a5230'; ctx.fillRect(px + 7, py - 13, 3, 5);        // seed head on the tall stem
+    } else if (dt === 8) { // CRYSTAL CLUSTER — gem shards on a rock base (cavern / peak flair)
+      ctx.fillStyle = RB; ctx.fillRect(px + 3, py - 3, 10, 3);               // rock base
+      ctx.fillStyle = '#c47fe0'; ctx.fillRect(px + 4, py - 7, 2, 4); ctx.fillRect(px + 10, py - 6, 2, 3);   // side shards
+      ctx.fillStyle = '#e0b0ff'; ctx.fillRect(px + 7, py - 11, 2, 8);        // tall center shard
+      ctx.fillStyle = '#fff'; ctx.fillRect(px + 7, py - 11, 1, 2);           // glint
     }
+  }
+
+  // BOUNCE MUSHROOMS — red cap + white spots + cream stem; breathing squash signals "springy / interactive"
+  for (const [bx, br] of BOUNCE) {
+    const px = bx * T, base = br * T;
+    if (px < cam.x - T || px > cam.x + VW + T) continue;
+    const p = Math.sin(time * 5 + bx) * 1.2;                     // ±1.2px squash pulse
+    ctx.fillStyle = '#e8e2d0'; ctx.fillRect(px + 5, base - 6, 5, 6);            // stem
+    ctx.fillStyle = '#e34d4d'; ctx.fillRect(px + 1, base - 10 + p, 14, 5 - p);  // red cap (squashes with the pulse)
+    ctx.fillStyle = '#fff'; ctx.fillRect(px + 4, base - 8 + p, 2, 1); ctx.fillRect(px + 9, base - 9 + p, 2, 1);  // spots
   }
 
   // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds. One draw path,
@@ -1060,7 +1093,14 @@ const draw = () => {
     if (d.t < 2) { const px = d.x - 6, py = d.y - 6 + dy; spr(I_MP, px, py, 12, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#c9a26a'; ctx.fillRect(px + 4, py - 2, 4, 3); }   // POTION 12×14 body + 4×3 opaque tan cork — matches hot-bar (single-source dims)
     else { drawPart(d.s, dx - 1, ddy - 1, d.c); ctx.strokeStyle = SC[SLOT_STAT[d.s]]; ctx.lineWidth = d.b * .5; ctx.strokeRect(dx - 2, ddy - 2, 10, 10); }   // GEAR (t=5) — stat-color stroke; tier via width
   }
-  for (const p of parts) { ctx.globalAlpha = Math.min(1, p.t * 2); ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }
+  ctx.lineWidth = 1;
+  for (const p of parts) {                                        // 3 particle kinds: p.sk = skull sprite (combat/death) · p.c = single-hue trail dot (dash smear / shot comet) · else = full 7-band rainbow burst
+    const al = Math.min(1, p.t * 2.5);
+    if (p.sk) { skull(p.x, p.y, 1.4, al); continue; }
+    ctx.globalAlpha = al;
+    if (p.c) { ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); continue; }   // coherent hue trail — cheap dot, not a full rainbow
+    for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(p.x, p.y, 5.5 - i * .75, Math.PI, 0); ctx.stroke(); }
+  }
   ctx.globalAlpha = 1;
   for (const f of flies) {
     ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = (f.big ? 'bold 13px' : 'bold 8px') + ' monospace';
@@ -1196,6 +1236,36 @@ const draw = () => {
         ctx.fillRect(x - 4, y - 12, 8, 24); ctx.fillRect(x - 12, y - 4, 24, 8);
         ctx.fillStyle = '#6cf279';                                        // core — bright vibrant green
         ctx.fillRect(x - 2, y - 10, 4, 20); ctx.fillRect(x - 10, y - 2, 20, 4);
+      }
+      // JUMP glyph — two-tone (deep-blue outline + bright core), matching the HEAL cross treatment.
+      // Context-swaps: menu → checkmark (confirm/select); gameplay → double up-chevron (leap), gold near fire/chest (REST/OPEN).
+      if (c === 'bJ') {
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const gold = !paused && (nearFire || nearChest >= 0);
+        const oc = gold ? '#b8801f' : '#2f6fb0', cc = gold ? '#ffe08a' : '#cfeeff';   // outline / core (gold when an interact is available)
+        const path = paused
+          ? () => { ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); }              // ✓ confirm
+          : () => { for (const py of [y - 8, y + 2]) { ctx.beginPath(); ctx.moveTo(x - 9, py + 7); ctx.lineTo(x, py); ctx.lineTo(x + 9, py + 7); ctx.stroke(); } };  // ⌃⌃ leap
+        ctx.strokeStyle = oc; ctx.lineWidth = 6; path();
+        ctx.strokeStyle = cc; ctx.lineWidth = 3; path();
+        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+      }
+      // DASH glyph — gold two-tone: forward arrow + trailing speed lines (the lunging strike). Own gold palette, alpha conveys locked/low-MP.
+      if (c === 'bM') {
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        const arrow = () => { ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + 9, y); ctx.moveTo(x + 3, y - 7); ctx.lineTo(x + 10, y); ctx.lineTo(x + 3, y + 7); ctx.stroke(); };
+        const speed = () => { ctx.beginPath(); ctx.moveTo(x - 12, y - 6); ctx.lineTo(x - 7, y - 6); ctx.moveTo(x - 12, y + 6); ctx.lineTo(x - 7, y + 6); ctx.stroke(); };   // motion streaks
+        ctx.strokeStyle = '#b8801f'; ctx.lineWidth = 6; arrow(); ctx.lineWidth = 4; speed();   // outline — darker gold
+        ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 3; arrow(); ctx.lineWidth = 2; speed();   // core — bright gold
+        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+      }
+      // SHOOT glyph — purple two-tone lightning bolt (filled zigzag + dark edge), matching the family flair.
+      if (c === 'bS') {
+        ctx.lineJoin = 'round';
+        const bolt = () => { ctx.beginPath(); ctx.moveTo(x + 5, y - 12); ctx.lineTo(x - 6, y + 1); ctx.lineTo(x - 1, y + 1); ctx.lineTo(x - 4, y + 12); ctx.lineTo(x + 7, y - 3); ctx.lineTo(x + 1, y - 3); ctx.closePath(); };
+        bolt(); ctx.strokeStyle = '#7b3fd4'; ctx.lineWidth = 4; ctx.stroke();   // outline — deep vibrant purple
+        ctx.fillStyle = '#e2c9ff'; ctx.fill();                                 // core — bright lavender
+        ctx.lineJoin = 'miter';
       }
     }
     ctx.globalAlpha = 1;
