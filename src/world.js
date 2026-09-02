@@ -17,7 +17,7 @@
 // L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
 //                      death always returns to a campfire. (engine, main.js)
 // ================================================================================
-export const T = 16, W = 280, H = 72;
+export const T = 16, W = 480, H = 72;
 export const grid = new Uint8Array(W * H);
 export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 : grid[ty * W + tx];
 
@@ -26,9 +26,9 @@ const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i 
 // ---------- ZONE 0: MEADOW (hub, unchanged geometry, DARK RED CORN only) ----------
 const Z0 = {
   MAP: [
-    // envelope
-    [0, 0, 3, H], [277, 0, 3, H],
-    [3, 60, 274, 12],                      // ground + underground mass
+    // envelope (extended east to x=477 for unified-world absorption)
+    [0, 0, 3, H], [477, 0, 3, H],
+    [3, 60, 474, 12],                      // ground + underground mass (extended east)
     // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
@@ -71,6 +71,22 @@ const Z0 = {
     [80, 69, 7, 1, 3],
     // Paddock DJ hub perch
     [124, 54, 4, 1, 2],
+    // ---- EAST EXTENSION (x280-476) — post-hub exploration, full skill-kit showcase ----
+    // Early run (x280-325): base pit + DJ terrace climb (rise-3 rungs, walkway rest)
+    [288, 60, 3, 2, 0], [288, 61, 3, 1, 3],
+    [295, 57, 6, 1, 2], [303, 54, 4, 1, 2], [309, 51, 4, 1, 2], [315, 48, 8, 1, 2],
+    // Mid run (x330-380): DASH pit, long DJ walkway, LONG DASH pit, reward ledge
+    [330, 60, 5, 2, 0], [330, 61, 5, 1, 3],
+    [345, 57, 10, 1, 2],
+    [360, 60, 8, 2, 0], [360, 61, 8, 1, 3],
+    [372, 52, 6, 1, 2],
+    // Vertical stack (x385-430): DJ zig-zag climb → TRI-JUMP upper landing → step-down
+    [385, 55, 5, 1, 2], [392, 51, 5, 1, 2], [385, 47, 5, 1, 2], [392, 43, 5, 1, 2],
+    [398, 38, 8, 1],
+    [412, 43, 4, 1, 2], [418, 47, 4, 1, 2], [424, 51, 4, 1, 2], [430, 55, 4, 1, 2],
+    // East end (x440-475): stepped tower echoing western motif + final walkway
+    [440, 59, 3, 1], [443, 58, 3, 2], [446, 57, 3, 3], [449, 56, 3, 4], [452, 55, 3, 5],
+    [458, 55, 6, 1, 2],
   ],
   fires: [[132.5, 59.5]],
   bosses: [[258, 57]],       // Only DARK RED CORN (bi = curZone = 0)
@@ -124,7 +140,7 @@ const Z0 = {
 // ability tier is enforced by tools/map-audit.mjs (RETURN + GATE + SPACING laws).
 const Z1 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H],                      // envelope walls
+    [0, 0, 3, H], [277, 0, 203, H],                    // envelope walls (right thickened to x=479 for widened grid)
     [3, 60, 274, 12],                                  // floor / undermass (rows 60-71)
     [3, 0, 274, 14],                                   // cavern ceiling mass (rows 0-13)
     // floor hazards — flush spike strips (base-jumpable, drift <=5) + DASH spike-lake
@@ -179,7 +195,7 @@ const Z1 = {
 // platforms for aerial verticality. Home portal sits at spawn → no softlock.
 const Z2 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H], [3, 42, 274, 30],    // envelope + floor/undermass (rows 42-71)
+    [0, 0, 3, H], [277, 0, 203, H], [3, 42, 274, 30],  // envelope + floor/undermass (right thickened for widened grid)
     [30, 38, 5, 4],                                     // spawn ledge (home portal bookend)
     // Spike pit 1 (x64-67, 4 wide) — first hazard, DJ hop (gap 4 <= DJ limit)
     [64, 42, 4, 2, 0], [64, 43, 4, 1, 3],
@@ -216,7 +232,7 @@ const Z2 = {
 // a boss arena with 4 aerial platforms. Home portal at spawn → no softlock.
 const Z3 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H], [3, 32, 274, 40],    // envelope + floor/undermass (rows 32-71)
+    [0, 0, 3, H], [277, 0, 203, H], [3, 32, 274, 40],  // envelope + floor/undermass (right thickened for widened grid)
     [30, 28, 5, 4],                                     // spawn ledge (home portal bookend)
     // Spike crevasse 1 (x58-61, 4 wide) — DJ hop
     [58, 32, 4, 2, 0], [58, 33, 4, 1, 3],
@@ -252,7 +268,7 @@ const Z3 = {
 // Corrupted arena. Return portal at west edge → Meadow deep corridor.
 const Z4 = {
   MAP: [
-    [0, 0, 3, H], [277, 0, 3, H], [3, 60, 274, 12],    // envelope + floor/undermass (rows 60-71)
+    [0, 0, 3, H], [277, 0, 203, H], [3, 60, 274, 12],  // envelope + floor/undermass (right thickened for widened grid)
     [30, 56, 5, 4],                                     // spawn ledge (home portal bookend)
     // Spike crevasse 1 (x58-62, 5 wide) — DJ hop
     [58, 60, 5, 2, 0], [58, 61, 5, 1, 3],
