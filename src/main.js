@@ -64,7 +64,13 @@ const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '
 // route here; one source of truth so the begin/resume/create transitions can't drift.
 const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; save(); };  // name REQUIRED
 const resumeGame = () => { load(); phase = 2; started = 1; };
-const toSlots = () => { sSel = 0; tMode = 2; };                        // NEW GAME / CONTINUE both land on the slot screen
+const hasSave = () => sMeta(0) || sMeta(1);                            // CONTINUE enabled only when a save exists
+const toSlots = () => { sSel = 0; tMode = 2; };                        // CONTINUE → pick which save (or NEW-GAME fallback when both slots full)
+const newGame = () => {                                                // NEW GAME → auto-pick first EMPTY slot, straight into name entry
+  const e = sMeta(0) ? (sMeta(1) ? -1 : 1) : 0;
+  if (e < 0) toSlots();                                                // both full → let the player choose (no silent overwrite)
+  else { slot = e; fresh(); ent = ''; tMode = 1; }
+};
 const pickSlot = (i) => {                                              // row 2 = BACK
   if (i === 2) tMode = 0;                                              // BACK
   else if (sMeta(i)) { slot = i; tMode = 0; resumeGame(); }            // occupied slot → resume
@@ -72,7 +78,7 @@ const pickSlot = (i) => {                                              // row 2 
 };
 const titleKey = (e) => {
   if (tMode === 1) {                                                   // NAME ENTRY (after picking an empty slot)
-    if (e.code === 'Backspace')                        { if (ent.length) ent = ent.slice(0, -1); else tMode = 2; }
+    if (e.code === 'Backspace')                        { if (ent.length) ent = ent.slice(0, -1); else tMode = 0; }
     else if (ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
     else if (e.code === 'Enter')                       beginGame();   // no-op unless a name is entered
     return;
@@ -85,7 +91,7 @@ const titleKey = (e) => {
     return;
   }
   if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') mSel ^= 1;   // NEW GAME · CONTINUE
-  else if (e.code === 'Enter' || e.code === 'Space') toSlots();        // both options → the slot screen
+  else if (e.code === 'Enter' || e.code === 'Space') { if (mSel === 0) newGame(); else if (hasSave()) toSlots(); }   // CONTINUE no-op without a save
 };
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -164,7 +170,7 @@ addEventListener('pointerdown', (e) => {
     if (tMode === 1) {                                             // name entry
       if (hit(VW / 2 - 60, 210, 120, 21)) { beginGame(); return; }  // ▶ BEGIN (needs a name)
       if (vy > 188 && vy < 207) { NI.value = ent; NI.focus(); e.preventDefault(); return; }  // tap the name = OS keyboard (preventDefault stops mobile follow-up events from stealing focus back)
-      tMode = 2; return;                                           // tap elsewhere = back to slots
+      tMode = 0; return;                                           // tap elsewhere = back to menu
     }
     if (tMode === 2) {                                             // slot select: rows at y=206+i*16
       const row = ((vy - 195) / 16) | 0;
@@ -172,7 +178,7 @@ addEventListener('pointerdown', (e) => {
       return;
     }
     const row = ((vy - 197) / 16) | 0;                             // menu rows at y=208+i*16
-    if (row === 0 || row === 1) toSlots();                         // NEW GAME / CONTINUE → slot screen
+    if (row === 0) newGame(); else if (row === 1 && hasSave()) toSlots();   // NEW GAME → auto-slot; CONTINUE → saves (disabled without one)
     return;
   }
   // Save popup — CONTINUE / EXIT GAME
@@ -1257,9 +1263,7 @@ const draw = () => {
     if (tMode === 1) {                                             // NAME ENTRY
       const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
       ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; T2(nm || '(type A–Z)', VW / 2, 204);
-      ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(255,215,94,.14)';
-      ctx.fillRect(VW / 2 - 60, 210, 120, 20); ctx.strokeRect(VW / 2 - 60, 210, 120, 20);
-      ctx.fillStyle = ent ? '#ffd75e' : '#555'; T2('BEGIN', VW / 2, 224);   // dim until a name is entered
+      ctx.fillStyle = ent ? '#ffd75e' : '#555'; T2('BEGIN', VW / 2, 224);   // plain text, dim until a name is entered (no panel)
     } else if (tMode === 2) {                                      // SLOT SELECT — name + level per slot (2 slots + BACK)
       ctx.font = 'bold 13px monospace';
       for (let i = 0; i < 3; i++) {
@@ -1267,9 +1271,10 @@ const draw = () => {
         ctx.fillStyle = on ? '#ffd75e' : '#888';
         T2(i === 2 ? '← BACK' : 'SLOT ' + (i + 1) + ' · ' + (sMeta(i) || 'EMPTY'), VW / 2, y);
       }
-    } else {                                                       // MENU — NEW GAME + CONTINUE always present; both route to the slot screen
+    } else {                                                       // MENU — NEW GAME (auto-slot); CONTINUE greyed until a save exists
+      ctx.font = 'bold 13px monospace';
       ['NEW GAME', 'CONTINUE'].forEach((o, i) => {
-        ctx.fillStyle = mSel === i ? '#ffd75e' : '#888'; ctx.font = 'bold 13px monospace';
+        ctx.fillStyle = (i === 1 && !hasSave()) ? '#555' : (mSel === i ? '#ffd75e' : '#888');
         T2(o, VW / 2, 208 + i * 16);
       });
     }

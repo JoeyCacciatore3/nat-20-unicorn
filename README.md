@@ -20,7 +20,7 @@ and stat allocation.
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
-- Everyone starts the same neutral white unicorn — the title shows NEW GAME + CONTINUE (both open the same 2-slot save screen); picking an EMPTY slot asks ONE thing (your name — required) then begins, picking a saved slot resumes it (name + level shown per slot)
+- Everyone starts the same neutral white unicorn — **NEW GAME** jumps straight to the next empty save slot and asks ONE thing (your name — required), then begins; **CONTINUE** (greyed until you have a save) opens the 2-slot screen to pick which save to resume (name + level shown per slot). Both slots full → NEW GAME falls back to the slot screen.
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
 - **5-slot inventory** (+5 SADDLE BAG, +5 SADDLE BAGS = 15 max). Click to select, click again to equip or consume; X to discard.
 - Gear icons and drops render with the SAME primitives as the unicorn's own body — a HORN drop looks like the horn on the unicorn.
@@ -92,7 +92,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: multi-zone map traversal audit (no stuck spots, all portals/bosses/chests reachable at expected tier), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,504 / 13,312 B (93.9%) — 808 B free**
+**Current: 12,535 / 13,312 B (94.2%) — 777 B free**
 
 ## Save format
 Keys: `localStorage.n20_s0..1` (2 slots). Version: **v34** — strict version gate, auto-discards older saves.
