@@ -2,7 +2,7 @@
 
 Copy is paste-ready.
 
-**State snapshot: 2026-09-02** — build **11,366 B** (85.4%, 1946 B free · **14.6% headroom**), save **v40**, unified single-map world (600×120, all 5 CORN bosses in one MEADOW — no portals). Skill tree 3-4-3-2 (12 slots): SHOT/HEAL/DASH → MP +5/DBL JUMP/LONG DASH/STASH → HP +5/TRI JUMP/POT +5 → SUPER HEAL/FAR SHOT. Inventory gear-only (max 10 via STASH), potions live in persistent hot-bar (fixed +10 HP/MP, +5 more with POT +5). Unified top-left HUD (LV/name/rainbow-shard-count/HP-MP-XP bars) persistent across gameplay and character menu. Stat palette: STR gold, HP red, MAG blue, DEF green, LUCK violet — no light-blue anywhere. Equipment box outlines match stat colors on menu, inventory, and world drops. Tier shown by stroke width (thin/medium/thick). Hearth REST restores HP+MP+checkpoint but does NOT save (floppy icon is the ONE explicit save). LEVEL UP fires a rainbow-per-character banner matching title UNICORN font.
+**State snapshot: 2026-09-03** — source build **12,792 B** (96.1%, 520 B free); last DEPLOYED build **12,329 B** @ git `30a790f` (source is ahead — uncommitted dialogue + consolidation batch pending next push). Save **v40**, unified single-map world (**800×160**, **6 DARK CORN bosses** in one MEADOW — no portals; all named 'DARK CORN', identity = horn+mane color = rainbow band R-O-Y-B-V-G). Defeated DARK CORNs turn friendly (GREAT-CORN-purple NPCs, white eyes, talkable at their arena). A **GREAT CORN** elder opens a multi-line intro (head-stemmed speech bubbles, tap to advance) + cycled re-talk quips. Skill tree prerequisite-based (12 nodes): SHOT/HEAL/DASH → MP +5/DBL JUMP/LONG DASH/STASH → HP +5/TRI JUMP/POT +5 → SUPER HEAL/FAR SHOT. Gear drops as pixel item icons (armor/cape/sword/boots) tinted by roll color, recoloring the matching body part; inventory gear-only (max 10 via STASH), potions in persistent hot-bar (fixed +10 HP/MP, +5 more with POT +5). Bounce mushrooms add a spring-launch traversal that stacks with DJ/TRI. Unified top-left HUD (LV/name/rainbow-shard-arc/HP-MP-XP bars, XP purple) persistent across gameplay and character menu. Stat palette: STR gold, HP red, MAG blue, DEF green, LUCK violet. Hearth REST restores HP+MP+checkpoint but does NOT save (floppy icon is the ONE explicit save). LEVEL UP fires a rainbow-per-character banner matching title UNICORN font.
 
 Primary sources verified 2026-08-29 (js13kgames.com/2026/blog/submit-form-open,
 docs.wavedash.com/publishing/metadata + /content-guidelines). Terms unchanged.
@@ -25,18 +25,20 @@ team (prefilled from repo contributors) → submit. Draft stays editable until d
 ```markdown
 **The DARKNESS stole the world's color, and you are the last unicorn left to restore it.**
 
-Name your unicorn and cross one large connected world to defeat the five DARK CORNS
-and reclaim the five RAINBOW SHARDS that bring the color back.
+Name your unicorn and cross one large connected world to defeat the DARK CORNS
+and reclaim the RAINBOW SHARDS that bring the color back.
 
 - ⚔️ **STR-based combat** — damage scales with your stats and gear. LUCK boosts crit chance.
-- 📈 **Full RPG** — 5 stats, a 12-node tiered skill tree, quadratic XP curve, and gear
-  that appears on your unicorn's body, piece by piece (mane / horn / body / hooves).
+- 📈 **Full RPG** — 5 stats, a 12-node prerequisite skill tree, quadratic XP curve, and
+  gear that drops as pixel item icons (armor / cape / sword / boots) and recolors the
+  matching part of your unicorn (mane / horn / body / hooves).
 - ⚔️ **6 enemy kinds + rare SELECT elites** — sprinters, hoppers, casters; learn the
   colors, learn the moves. ~6% of foes spawn as elites (crowned mini-bosses).
-- 👑 **5 named boss Mares** — dark mirrors of yourself, each holding one rainbow band
-  (R-O-Y-B-V), each with a phase-2 twist.
-- 🌍 **Unified world** — one connected map. Ability gates (double-jump, dash) control
-  where you can reach; no portals, no zone transitions, just exploration.
+- 👑 **DARK CORN bosses** — dark mirrors of yourself, each holding one rainbow band
+  (R-O-Y-B-V-G), each with a phase-2 twist. Beat one and it turns friendly.
+- 🗨️ **A GREAT CORN guide** greets you with a chatty intro and re-talk quips.
+- 🌍 **Unified world** — one connected map. Ability gates (double-jump, dash, bounce
+  mushrooms) control where you can reach; no portals, just exploration.
 - 🎒 **5-slot inventory** for gear (expands to 10 via STASH skill). Two-slot potion
   hot-bar (HP + MP, always +10 fixed value, +15 with POT +5 skill).
 - 💾 Saves your progress across 2 slots.
@@ -71,13 +73,13 @@ glyph per achievement; Wavedash transcodes to webp server-side).
 | Identifier | Title | Threshold (as recorded) | Notes on current game |
 |---|---|---|---|
 | FIRST_LIGHT | First Light | first DARK CORN kill | ✓ still valid |
-| HALFWAY | Halfway to Whole | 3 of 5 shards | ✓ still valid |
-| PRISMATIC | Prismatic | all 5 shards (win) | ✓ still valid |
+| HALFWAY | Halfway to Whole | 3 of 5 shards | ⚠️ shard count changed — now 6 bosses; re-tune to "3 of 6" or keep count-agnostic |
+| PRISMATIC | Prismatic | all 5 shards (win) | ⚠️ win is now all 6 shards (`seeds.bosses.length`); update or keep count-agnostic |
 | NATURAL_20 | Natural 20 | land a crit | ✓ still valid |
 | APOTHEOSIS | Apotheosis | reach level 15 | ✓ still reachable (in-game popup removed but LV 15 remains the cap) |
 | FULLY_GEARED | Fully Geared | all 4 gear slots equipped | ✓ still valid |
 | **EXPLORER** | Explorer | *enter all 5 zones* | ⚠️ **STALE** — no zones exist in unified world. Needs repurposing or removal via CLI. |
-| **HOARDER** | Hoarder | *open all 20 chests* | ⚠️ **STALE** — unified world has 4 chests. Threshold needs update (e.g. "open all 4 chests") or achievement retired. |
+| **HOARDER** | Hoarder | *open all 20 chests* | ⚠️ **STALE** — unified world now has **8 chests**. Update threshold to 8 or retire. |
 
 **Wavedash glue status:** wrapped build emits `Wavedash.init({})` (minimum contract).
 No `setAchievement()` calls emitted yet. Wiring decision still open — costs zero
@@ -86,7 +88,7 @@ game.zip bytes (lives in `dist/wavedash/index.html` glue outside the 13KB zip).
 **Pre-submission achievement work required:**
 1. Retire EXPLORER (no zones) — via `wavedash achievement delete` or repurpose
    (e.g. "reach every corner of the world" — no code hook needed if manually claimed)
-2. Update HOARDER threshold from 20 → 4 via `wavedash achievement update`
+2. Update HOARDER threshold from 20 → 8 via `wavedash achievement update`; re-tune HALFWAY/PRISMATIC shard counts to the current 6 bosses (or keep count-agnostic)
 3. Verify APOTHEOSIS threshold (LV 15 is still the reachable cap ✓)
 
 ---
@@ -97,12 +99,12 @@ game.zip bytes (lives in `dist/wavedash/index.html` glue outside the 13KB zip).
 | # | Action | Notes |
 |---|---|---|
 | ✓ | Store copy + tagline current | This doc + README aligned to unified-world state |
-| ✓ | Build under budget | 11,366 / 13,312 B (1946 free, **14.6% headroom** — best of project) |
-| ✓ | Unified world architecture | Single 600×120 MEADOW map, all 5 CORN bosses in-world, no portals |
-| ✓ | Map audit passes | All bosses reachable at expected ability tier (RED base · YELLOW/BLUE DJ · ORANGE/VIOLET DASH), 0 stuck cells, 4 chests reachable, spike-audit clean |
+| ✓ | Build under budget | source 12,792 / 13,312 B (520 free, 3.9%); last deployed 12,329 B @ 30a790f |
+| ✓ | Unified world architecture | Single 800×160 MEADOW map, 6 DARK CORN bosses in-world, no portals |
+| ✓ | Map audit passes | All bosses reachable at expected tier (RED base · YELLOW/BLUE/GREEN DJ · ORANGE/VIOLET DASH; GREEN via bounce+DJ), 0 stuck cells, 8 chests reachable, spike-audit clean |
 | ✓ | Save format v40 | Strict version gate, prior saves auto-discarded |
 | ✓ | Elite event system | ~94% regular / ~6% elite (mini-boss variant: 3× HP, +2 dmg, +1 size, aqua tint, guaranteed drop + gold flourish + XP bonus) |
-| ✓ | GitHub `main` pushed | 56 commits shipped 2026-09-02 (12,535 → 11,366 B, −1,169 B) |
+| ✓ | GitHub `main` pushed | HEAD `30a790f` shipped 2026-09-02 (12,329 B); uncommitted dialogue + consolidation batch pending next atomic push |
 | ✓ | Wavedash aligned | Every code change shipped as atomic git+Wavedash push |
 | ✓ | Achievement icons on disk | 8 PNGs in `design/achievements/` (2 need repurposing per above) |
 

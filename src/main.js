@@ -3,7 +3,7 @@
 // Design pillars (see OneStone project "uni-corn" for full history + rationale):
 //   - Stat allocation (STR/HP/MAG/DEF/LUCK), no classes
 //   - 4-slot color-driven equipment gear (BODY/MANE/HORN/HOOVES) — each drop
-//     visually IS the body part it replaces (drawPart uses drawU primitives)
+//     is an RPG item icon: armor / cape / sword / boots (drawPart), tinted by roll color
 //   - ONE open skill tree, 12 single-rank nodes, all player-chosen (no auto-learn)
 //   - Rainbow shards = collection goal (one per DARK CORN boss; win = all bands, seeds.bosses.length)
 //   - Unified character sheet: pause + level-up share layout
@@ -20,7 +20,7 @@
 
 import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
-import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, BN, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP } from './data.js'; // static lookup tables
+import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -47,9 +47,9 @@ const J_KEYS = ['Space', 'KeyW', 'ArrowUp'];        // JUMP — Space canonical,
 const keys = new Set();
 let jbuf = 0, started = 0, touch = 0;
 // ---------- title / name-entry / class-select flow ----------
-// phase 0 = title (tMode: menu/name/slots), 2 = playing (started=1).
-let phase = 0, ent = '', pName = 'HORSE', mSel = 0;
-let tMode = 0, sSel = 0, slot = 0; // title mode 0 menu · 1 name · 2 slots; active save slot
+// phase 0 = title (tMode: 0 slot list / 1 name entry), 2 = playing (started=1).
+let phase = 0, ent = '', pName = 'HORSE';
+let tMode = 0, sSel = 0, slot = 0, sPop = 0; // title mode 0 slots · 1 name; slot cursor; active save slot; slot popup 0 closed · 1 CONTINUE selected · 2 DELETE selected
 // HIDDEN NAME INPUT — the standard mobile-canvas technique: focusing a real <input>
 // inside the tap gesture summons the OS keyboard (iOS requires the gesture).
 // It is the single source of truth for `ent` while focused; window keydown defers.
@@ -59,40 +59,33 @@ NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-si
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // 2 SAVE SLOTS (n20_s0..1). sMeta reads name+level for the slot list without loading.
 const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 40 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
-// Character create: UP/DOWN pick row (name/body/mane/horn), then row-specific input:
-//   NAME row → A-Z type, BACKSPACE delete · ENTER begins.
+// NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
-// route here; one source of truth so the begin/resume/create transitions can't drift.
-const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; dlg = 1; save(); };  // name REQUIRED · dlg=1 auto-opens the GREAT CORN intro (new game only; resume skips it)
+// route here; one source of truth so the begin/resume transitions can't drift.
+const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; talk(INTRO); save(); };  // name REQUIRED · auto-opens the GREAT CORN intro (new game only; resume skips it)
 const resumeGame = () => { load(); phase = 2; started = 1; };
-const hasSave = () => sMeta(0) || sMeta(1);                            // CONTINUE enabled only when a save exists
-const toSlots = () => { sSel = 0; tMode = 2; };                        // CONTINUE → pick which save (or NEW-GAME fallback when both slots full)
-const newGame = () => {                                                // NEW GAME → auto-pick first EMPTY slot, straight into name entry
-  const e = sMeta(0) ? (sMeta(1) ? -1 : 1) : 0;
-  if (e < 0) toSlots();                                                // both full → let the player choose (no silent overwrite)
-  else { slot = e; fresh(); ent = ''; tMode = 1; }
+const pickSlot = (i) => {                                              // slot list is the single pre-play menu — no NEW GAME/CONTINUE layer
+  slot = sSel = i;                                                     // sync cursor to touched slot so highlight tracks intent
+  if (sMeta(i)) sPop = 1;                                              // occupied → CONTINUE / DELETE confirm (default = CONTINUE, safe)
+  else { fresh(); ent = ''; tMode = 1; }                               // empty → name entry (required) → begin
 };
-const pickSlot = (i) => {                                              // row 2 = BACK
-  if (i === 2) tMode = 0;                                              // BACK
-  else if (sMeta(i)) { slot = i; tMode = 0; resumeGame(); }            // occupied slot → resume
-  else { slot = i; fresh(); ent = ''; tMode = 1; }                     // empty slot → name entry (required) → begin
-};
+const delSlot = () => { localStorage.removeItem('n20_s' + slot); sPop = 0; };   // wipe save; label reverts to NEW GAME on next render
 const titleKey = (e) => {
+  if (sPop) {                                                          // CONTINUE / DELETE confirm on an occupied slot
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') sPop = 3 - sPop;
+    else if (e.code === 'Enter' || e.code === 'Space') { if (sPop === 2) delSlot(); else { sPop = 0; resumeGame(); } }
+    else if (e.code === 'Backspace' || e.code === 'Escape') sPop = 0;
+    return;
+  }
   if (tMode === 1) {                                                   // NAME ENTRY (after picking an empty slot)
-    if (e.code === 'Backspace')                        { if (ent.length) ent = ent.slice(0, -1); else tMode = 0; }
+    if (e.code === 'Backspace')                        { if (ent.length) ent = ent.slice(0, -1); else tMode = 0; }   // empty → back to slot list
     else if (ent.length < 8 && /^[a-z]$/i.test(e.key)) ent += e.key.toUpperCase();
     else if (e.code === 'Enter')                       beginGame();   // no-op unless a name is entered
     return;
   }
-  if (tMode === 2) {                                                   // SLOT SELECT (2 slots + BACK)
-    if (e.code === 'ArrowUp' || e.code === 'KeyW')        sSel = (sSel + 2) % 3;
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') sSel = (sSel + 1) % 3;
-    else if (e.code === 'Enter' || e.code === 'Space')    pickSlot(sSel);
-    else if (e.code === 'Backspace')                      tMode = 0;
-    return;
-  }
-  if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') mSel ^= 1;   // NEW GAME · CONTINUE
-  else if (e.code === 'Enter' || e.code === 'Space') { if (mSel === 0) newGame(); else if (hasSave()) toSlots(); }   // CONTINUE no-op without a save
+  // SLOT LIST (tMode 0) — the only pre-play menu; W/S/↑/↓ toggles cursor, Enter/Space picks
+  if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') sSel ^= 1;
+  else if (e.code === 'Enter' || e.code === 'Space') pickSlot(sSel);
 };
 addEventListener('keydown', (e) => {
   if (e.repeat) return;
@@ -103,7 +96,7 @@ addEventListener('keydown', (e) => {
   boot();                                                    // resume audio on any key (autoplay policy)
   if (savePop) { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyP') savePop = 0; return; }
   if (helpOn) { helpOn = 0; return; }
-  if (dlg) { dlg = 0; return; }                              // dialogue: any key advances/dismisses
+  if (dq) { adv(); return; }                                 // dialogue: any key advances one bubble (closes past the last)
   if (phase === 0) return titleKey(e);
   if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → skills)
     if (e.code === 'KeyP') paused = 0;                          // P closes
@@ -165,31 +158,31 @@ addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') touch = 1;
   const [vx, vy] = toV(e);
   const hit = (x, y, w, h) => vx >= x && vx < x + w && vy >= y && vy < y + h;   // shared rectangular hit-test
-  // TITLE — every mode fully clickable (row hitboxes MUST match the render y's)
+  // TITLE — slot list (tMode 0) or name entry (tMode 1); hit-y offsets MUST match render y's
   if (phase === 0) {
+    if (sPop) {                                                    // DELETE / CONTINUE popup (bottom strip) — destructive on the LEFT, safe on the RIGHT (thumb naturally reaches for CONTINUE)
+      if (hit(VW / 2 - 90, 244, 70, 20)) { delSlot(); return; }                // DELETE (left)
+      if (hit(VW / 2 + 20, 244, 70, 20)) { sPop = 0; resumeGame(); return; }   // CONTINUE (right)
+      sPop = 0;                                                    // tap elsewhere = cancel; fall through so a tap on a slot row re-picks fluidly
+    }
     if (tMode === 1) {                                             // name entry
       if (hit(VW / 2 - 60, 210, 120, 21)) { beginGame(); return; }  // ▶ BEGIN (needs a name)
       if (vy > 188 && vy < 207) { NI.value = ent; NI.focus(); e.preventDefault(); return; }  // tap the name = OS keyboard (preventDefault stops mobile follow-up events from stealing focus back)
-      tMode = 0; return;                                           // tap elsewhere = back to menu
+      tMode = 0; return;                                           // tap elsewhere = back to slot list
     }
-    if (tMode === 2) {                                             // slot select: rows at y=206+i*16
-      const row = ((vy - 195) / 16) | 0;
-      if (row >= 0 && row <= 2 && vx > VW / 2 - 100 && vx < VW / 2 + 100) pickSlot(row); else tMode = 0;
-      return;
-    }
-    const row = ((vy - 197) / 16) | 0;                             // menu rows at y=208+i*16
-    if (row === 0) newGame(); else if (row === 1 && hasSave()) toSlots();   // NEW GAME → auto-slot; CONTINUE → saves (disabled without one)
+    const row = ((vy - 197) / 16) | 0;                             // slot rows at y=208+i*16
+    if (row >= 0 && row <= 1 && vx > VW / 2 - 100 && vx < VW / 2 + 100) pickSlot(row);
     return;
   }
   // Save popup — CONTINUE / EXIT GAME
   if (savePop) {
     if (hit(160, 136, 160, 15)) { savePop = 0; return; }
-    if (hit(160, 161, 160, 15)) { save(); paused = 0; helpOn = 0; savePop = 0; started = 0; phase = 0; tMode = 0; mSel = 0; return; }
+    if (hit(160, 161, 160, 15)) { save(); paused = 0; helpOn = 0; savePop = 0; started = 0; phase = 0; tMode = 0; sSel = 0; sPop = 0; return; }
     return;
   }
   // Help/Settings overlay — dismiss on any tap
   if (helpOn) { helpOn = 0; return; }
-  if (dlg) { dlg = 0; return; }                                  // dialogue: any tap advances/dismisses (before HUD icons, so a tap can't leak through)
+  if (dq) { adv(); return; }                                     // dialogue: any tap advances one bubble (before HUD icons, so a tap can't leak through)
   // HUD icon taps: Menu | Save | Mute | ? — SAME row in play AND menu.
   // Menu TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
   if (started && hit(VW - 78, 0, 18, 20)) { paused ^= 1; if (paused) setRow(0); return; }
@@ -302,8 +295,16 @@ const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1;
 const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * frac, h); };
 // Full-screen dim overlay — death vignette.
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
-// Shared HP/MP/XP triple stack at (x, y): red HP + blue mana + green/gold XP.
-const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = 1; ctx.strokeRect(x - .5, y - .5, 69, 11); bar(x, y + 12, 68, 8, mn / mMN(), '#4a76ff'); ctx.strokeRect(x - .5, y + 11.5, 69, 9); bar(x, y + 22, 68, 3, lvl >= CAP ? 1 : xp / need(), lvl >= CAP ? '#ffd75e' : '#9fe89a'); };
+// Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band. Shared: HUD shard icon, title arc, particle burst. Caller sets lineWidth.
+const rArc = (cx, cy, r, step) => { for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(cx, cy, r - i * step, Math.PI, 0); ctx.stroke(); } };
+// Per-character rainbow title text (bold 30px, black outline, even spacing) centered on VW/2 at baseline y. Shared: LEVEL UP banner + title 'UNICORN'. Caller owns globalAlpha.
+const rText = (s, y) => {
+  ctx.font = 'bold 30px monospace'; ctx.textAlign = 'left'; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
+  const w = ctx.measureText(s).width, ch = w / s.length;
+  for (let i = 0; i < s.length; i++) { const cx = VW / 2 - w / 2 + ch * i; ctx.strokeText(s[i], cx, y); ctx.fillStyle = RC[i % 7]; ctx.fillText(s[i], cx, y); }
+};
+// Shared HP/MP/XP triple stack at (x, y): red HP + blue mana + purple XP (color-coordinated).
+const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = 1; ctx.strokeRect(x - .5, y - .5, 69, 11); bar(x, y + 12, 68, 8, mn / mMN(), '#4a76ff'); ctx.strokeRect(x - .5, y + 11.5, 69, 9); bar(x, y + 22, 68, 3, lvl >= CAP ? 1 : xp / need(), '#b06cf0'); };
 // Shared portrait panel — renders the identity card (title bar, bordered box with
 // HP bar at top, live unicorn silhouette) used by both the PAUSE overlay and the
 // CHARACTER-CREATE screen. Title = player name on PAUSE, 'NEW CHARACTER' on create.
@@ -326,7 +327,7 @@ const topHUD = () => {
   ctx.fillStyle = '#ffd75e'; T2(hdr, 8, 14);                          // whole header — gold
   ctx.fillStyle = '#8cf'; T2('LV' + lvl, 8, 14);                      // LV n overpaint — cyan
   const rcx = 8 + ctx.measureText(hdr).width + 20;                    // rainbow center = 20px right of name (extra breathing room)
-  RC.forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(rcx, 14, 8 - i, Math.PI, 0); ctx.stroke(); });
+  ctx.lineWidth = 1; rArc(rcx, 14, 8, 1);
   ctx.fillStyle = '#ffd75e'; T2('×' + shards(), rcx + 10, 14);
   bars(8, 18);                                                        // HP/MP/XP triple, top-left (tight to header)
   ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
@@ -349,12 +350,22 @@ const drawU = (bob) => {
   if (a2) { ctx.fillStyle = a2; ctx.fillRect(9, 0, 2, 1); }                                          // horn ring
   if (a1) { ctx.fillStyle = a1; ctx.fillRect(5, 1, 2, 1); }                                          // mane spark
 };
+// DARK CORN unicorn sprite (14-bbox). Legs/body/head use the CALLER's current fillStyle
+// (live boss: hit-flash/tell/black · defeated NPC: GREAT-CORN purple). horn+eye = ec, mane = dim(ec).
+// Shared by the live boss draw AND the defeated-boss friendly NPC so both stay identical.
+const drawCorn = (ec, ph, eye = ec) => {   // eye defaults to horn color; defeated/friendly corns pass white for a kind look
+  ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3); ctx.fillRect(7, 12 - ph * .3, 2, 4 + ph * .3);   // legs
+  ctx.fillRect(0, 5, 10, 7); ctx.fillRect(7, 0, 5, 6);                                             // body + head
+  ctx.fillStyle = ec; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill();   // horn
+  ctx.fillStyle = dim(ec, .6); ctx.fillRect(5, 1, 2, 4); ctx.fillRect(3, 3, 2, 4); ctx.fillRect(1, 5, 2, 4);   // mane
+  ctx.fillStyle = eye; ctx.fillRect(10, 2, 1.5, 1.5);                                              // eye
+};
 // CHAT BUBBLE — reusable speech bubble that stems from a head at world (hx, topY).
 // Single continuous path: rounded corners (arcTo) + a downward tail merged into the bottom edge,
 // so one fill+stroke yields a clean outlined bubble with no seam. txt optional ('' = open bubble,
 // the structure future dialogue lines drop into — for either the NPC or the player's head).
 const bubble = (hx, topY, txt) => {
-  const w = 56, h = 18, x = hx - w / 2, R = hx + w / 2, y = topY - h - 7, B = y + h, r = 4;
+  const rows = txt.split('|'), w = 100, h = 8 + rows.length * 9, x = hx - w / 2, R = hx + w / 2, y = topY - h - 7, B = y + h, r = 4;   // grows one row per '|' segment
   ctx.fillStyle = '#fffdf5'; ctx.strokeStyle = '#3a2f4a'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -364,7 +375,8 @@ const bubble = (hx, topY, txt) => {
   ctx.lineTo(x + r, B); ctx.arcTo(x, B, x, B - r, r);          // bottom edge + BL corner
   ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r);          // left edge + TL corner
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  if (txt) { ctx.fillStyle = '#3a2f4a'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.fillText(txt, hx, y + h / 2 + 2.5); }
+  ctx.fillStyle = '#3a2f4a'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+  rows.forEach((s, i) => ctx.fillText(s, hx, y + 12 + i * 9));
 };
 let hp = 10, xp = 0, lvl = 1;
 let mn = 10, pending = 0;
@@ -373,7 +385,7 @@ const CAP = 15;                                   // hard level cap — all stat
 // Skills are player-chosen via the prerequisite tree (LINK)
 let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
-const bs = Array(BN.length).fill(0);   // boss state per rainbow band — sized off BN so new CORN are pure data
+const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 const shards = () => bs.filter(v => v === 2).length;
 const mHP = () => 8 + (he + eqB[0]) * 2 + su[9] * 5;   // base 8 + HP stat + body-gear + HP+ skill (+5)
 const mMN = () => 8 + (sp + eqB[1]) * 2 + su[10] * 5;           // mane eq boosts MAG · +5 from MP+ skill
@@ -383,7 +395,7 @@ const isCrit = () => Math.random() < critChance();
 const need = () => lvl * lvl + 12;
 const gainXp = (n, x, y) => {
   if (lvl >= CAP) return;
-  xp += n; fly(x, y, '+' + n + ' XP', '#9fe89a');
+  xp += n; fly(x, y, '+' + n, '#b06cf0');   // XP text matches the purple XP bar; no label word
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; spts++;    // EVERY LEVEL: +3 stat pts, +1 skill pt
     hp = mHP(); mn = mMN(); fanfare();            // full HP+MP restore + celebratory sting each level
@@ -443,8 +455,8 @@ const load = () => {
     if (!d || d.v !== 40) return;                               // strict v40 gate — no cross-version compat (added HP+/MP+/POT+ passives).
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
-    chests = seeds.chests.map(snapChest);
-    foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
+    chests = seedChests();
+    foes = seedFoes();
     [ho, he, sp, df, lk] = d.t;
     col = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
@@ -465,9 +477,13 @@ const NPCCOL = [7, 2, 2, 7];                       // GREAT CORN isolated palett
 const NSC = 10 / 7;                                // GREAT CORN render scale — matches the DARK CORN boss silhouette (boss fs=20 ÷ drawU 14-tall bbox)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
-let nearFire = 0;                                 // hearth proximity flag
+let nearFire = 0, nearNpc = 0;                    // hearth + GREAT CORN proximity flags (JUMP-to-interact)
 let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
-let dlg = 0;                                      // dialogue overlay: freezes sim + shows the GREAT CORN chat bubble. Empty structure for now (DLG lines added later)
+// DIALOGUE — dq = active script (INTRO or a 1-line re-talk quip) or 0=closed · di = current bubble · tqi = re-talk cycle index.
+// Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
+let dq = 0, di = 0, tqi = 0;
+const talk = (s) => { dq = s; di = 0; };
+const adv = () => { if (++di >= dq.length) dq = 0; };
 let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
 // HEARTH ACTION — JUMP-near-fire = REST: full HP + MP restore, respawn checkpoint set.
 // NOTE: does NOT save the game — the only manual save is the floppy HUD icon (so players
@@ -475,8 +491,7 @@ let invSel = -1;                                  // selected inventory slot (-1
 const rest = () => {
   const [fx, fy] = seeds.fires[0];
   hp = mHP(); mn = mMN(); cp = [fx * T - 20, (fy - 1) * T];
-  rbow(fx * T, fy * T - 8, 4); sfx(500, 900, .3, 'triangle', .1);
-  fly(pl.x, pl.y - 16, 'RESTED', '#9fe89a', 1);
+  spray(pl.x + PW / 2, pl.y + PH / 2, 6); pl.inv = .6; sfx(500, 900, .3, 'triangle', .1);   // full heal → rainbow burst ON the unicorn + brief flash (reuses inv blink); no text needed
 };
 // Chest reward: item shower + full heal. LUCK adds drops.
 const openChest = (i) => {
@@ -484,7 +499,7 @@ const openChest = (i) => {
   oc |= 1 << i;
   const c = chests[i]; hp = mHP();
   spawnDrop(c.x, c.y, 2);
-  rbow(c.x, c.y - 4, 4); sfx(660, 990, .15, 'triangle', .12);
+  spray(c.x, c.y - 4, 4); sfx(660, 990, .15, 'triangle', .12);
   save();
 };
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
@@ -498,7 +513,8 @@ const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
 // ---------- entities ----------
 // Chests: exploration rewards. `oc` bitfield tracks opened state (bit = chest index).
 const snapChest = ([x, y], i) => ({ x: x * T, y: groundRow((x * T + 4) / T | 0, y | 0) * T - 5, i });  // seat base on surface row below seed (shared groundRow); -5: body renders to c.y+5
-let chests = seeds.chests.map(snapChest);
+const seedChests = () => seeds.chests.map(snapChest);   // reseed helper — single source for init/load/fresh
+let chests = seedChests();
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
@@ -508,13 +524,13 @@ const fresh = () => {
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
-  chests = seeds.chests.map(snapChest);
-  foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
+  chests = seedChests();
+  foes = seedFoes();
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
 };
 // Non-ranged foes roll for elite status in mkFoe (~6%). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
-const interact = () => { if (nearFire) { rest(); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };
+const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); return 1; } if (nearFire) { rest(); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // JUMP-near-NPC → cycle a re-talk quip
 // Player-level progression: every 4 levels adds 1 scale pip. Enemies stay a threat as the
 // player over-levels; bosses reuse the same formula and additionally scale via bi (+dm).
 const scl = () => 2 + (lvl >> 2);
@@ -525,20 +541,20 @@ const mkFoe = (x, y, k) => {
   const zh = fh * (1 + el * 2) * scl() / 2 | 0;                   // el=1 → 3× base HP
   return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + el * 2, el, fl: 0, t: Math.random() * 7, cz: fz + el };
 };
-let foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));
+const seedFoes = () => seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));   // reseed helper — single source for init/load/fresh/respawn
+let foes = seedFoes();
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: 1.6 });   // longer lifetime so text stays readable amid particle chaos
-// Unified particle = a small bright HUD-style rainbow (7 RC bands + dark outline, same bold palette as the top-left arc). Each call sprays n of them outward — a confetti burst of mini rainbows.
-const rbow = (x, y, n = 4) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, t: .45 + Math.random() * .3 }); } };
+const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: big ? 2.2 : 1.4 });   // big texts (crit / heal / shard) linger longer — the distinct signal, no label word needed
+// Unified particle spray — n bits burst radially. sk=0 → mini rainbow (7 RC bands: jump/heal/chest/shard/etc) · sk=1 → skull sprite (combat/death). One fan, one code path.
+const spray = (x, y, n = 4, sk = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: .5 + Math.random() * .35, sk }); } };
 // Pixel skull sprite — bone dome + big dark eye sockets + nose + teeth. 7×8 bitmap, O=bone D=dark .=skip. u = pixel unit (scales), a = alpha. Shared by combat/death bursts + elite markers.
 const SK = ['.OOOOO.', 'OOOOOOO', 'ODDODDO', 'ODDODDO', 'OOODOOO', '.OOOOO.', '.ODODO.', '..OOO..'];
 const skull = (x, y, u, a = 1) => {
   ctx.globalAlpha = a;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 7; c++) { const ch = SK[r][c]; if (ch === '.') continue; ctx.fillStyle = ch === 'O' ? '#e9e3cd' : '#161210'; ctx.fillRect(x + (c - 3.5) * u, y + (r - 4) * u, u + .4, u + .4); }
 };
-// Skull burst — n little skulls spray outward (death / crit / player-death). Mirrors rbow's fan, flagged sk so the render loop draws the sprite.
-const skb = (x, y, n = 4) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 30 + Math.random() * 80; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 70, t: .5 + Math.random() * .4, sk: 1 }); } };
+// (skull bursts call spray(x, y, n, 1) — the unified helper above; render loop draws p.sk as the bone sprite)
 // ITEM DROPS — physical pickups from kills/chests.
 // Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear. Shards are progression-only (bs[i]=2, not drops).
 // LUCK adds +1 drop per pip.
@@ -549,13 +565,17 @@ const spr = (d, x, y, w, c) => { ctx.fillStyle = c; for (let r = 0; r < d.length
 // the fill color tells what it heals: red = HP (#ff5d6c bar), blue = MP (#4a76ff bar).
 // The cork is a dark-brown 2×1 rect painted on top at the pickup site.
 // GEAR icons — REUSE drawU's exact body-part primitives (visual consistency: the drop IS the part).
-// s=0 BODY (torso + head + tail nub) · s=1 MANE (3-color cascade) · s=2 HORN (triangle) · s=3 HOOVES (two legs, back one higher)
+// Gear icon sprites — pro pixel style: dark outline + top-left highlight + shade, tinted by roll color c.
+// slot→item: 0 BODY→chest armor · 1 MANE→cape · 2 HORN→sword · 3 HOOVES→boots. Digits index the palette below (.=skip).
+const GEAR = [
+  ['.011110.','03111120','03111120','03121120','00311200','.031120.','..0220..'],                        // 0 ARMOR (metal breastplate + pauldrons)
+  ['...44...','..0110..','.011120.','.011120.','01111120','01111120','01121120','01222210'],              // 1 CAPE (draping fabric + gold clasp)
+  ['...31...','..0310..','..0310..','..0310..','..0310..','.044440.','..0550..','...0....'],              // 2 SWORD (highlit blade + gold guard)
+  ['011.011.','031.031.','031.031.','031.031.','0111031.','00220022'],                                    // 3 BOOTS (paired boots + dark soles)
+];
 const drawPart = (s, x, y, c) => {
-  ctx.fillStyle = PAL[c];
-  if (s === 0) { ctx.fillRect(x, y+2, 6, 4); ctx.fillRect(x+4, y, 4, 4); ctx.fillRect(x-1, y+3, 1, 2); }
-  else if (s === 2) { ctx.beginPath(); ctx.moveTo(x+3, y); ctx.lineTo(x+6, y+6); ctx.lineTo(x+1, y+6); ctx.fill(); }
-  else if (s === 3) { ctx.fillRect(x, y+1, 2, 5); ctx.fillRect(x+3, y, 2, 5); }
-  else mane3(c).forEach((mc, i) => { ctx.fillStyle = mc; ctx.fillRect(x + 4 - i * 2, y + i * 2, 2, 3); });
+  const m = GEAR[s], p = ['#17131f', PAL[c], dim(PAL[c], .58), '#fff', '#e8b552', '#9c6f22'];   // 0 outline 1 base 2 shade 3 highlight 4 gold 5 gold-shade
+  for (let r = 0; r < m.length; r++) for (let k = 0; k < m[r].length; k++) { const v = m[r][k]; if (v === '.') continue; ctx.fillStyle = p[+v]; ctx.fillRect(x + k - 1, y + r, 1.03, 1.03); }
 };
 // ONE loot table: HP POTION floor → MP POTION → GEAR (LUCK lifts roll, raising tier & frequency).
 // Bosses grant their shard as a progression token on first kill (auto-collected, not a drop).
@@ -575,8 +595,8 @@ const strike = (f, gen, viaStomp) => {
   f.hp -= dmg; f.fl = .15;
   if (!f.bit && !viaStomp) f.vx += (crit ? 220 : 140) * (f.x > pl.x ? 1 : -1); // KNOCKBACK — bosses hold their arena
   shk = Math.max(shk, crit ? .22 : .09);
-  fly(f.x, f.y - 8, (crit ? 'CRIT ' : '') + '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by size (big=1) + word
-  if (crit) { hs = .06; fanfare(); skb(f.x, f.y, 3); }
+  fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
+  if (crit) { hs = .06; fanfare(); spray(f.x, f.y, 3, 1); }
   if (gen) mn = Math.min(mMN(), mn + 1);          // dash hits GENERATE mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
   if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
@@ -589,7 +609,7 @@ const strike = (f, gen, viaStomp) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    skb(f.x, f.y, 5); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // XP y-22 clears damage at y-8. Elite +8; boss bonus 37+6·bi (was split across two fly texts, now one — foes and bosses share the same visual pattern).
+    spray(f.x, f.y, 5, 1); gainXp(Math.min(f.k, 3) * 4 + (f.el || 0) * 8 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // XP y-22 clears damage at y-8. Elite +8; boss bonus 37+6·bi (was split across two fly texts, now one — foes and bosses share the same visual pattern).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // elite guarantees a drop
     if (f.el) sfx(784, 1568, .3, 'triangle', .15);   // elite kill flourish (aqua death burst above signals visually)
     if (f.bit) {                                                // BOSS falls
@@ -597,7 +617,7 @@ const strike = (f, gen, viaStomp) => {
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
-        rbow(f.x, f.y, 8); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / ' + seeds.bosses.length, RBC[f.bi], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
+        spray(f.x, f.y, 8); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / ' + seeds.bosses.length, RBC[f.bi], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
         if (shards() === seeds.bosses.length) {                 // ALL bosses down — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNICORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
@@ -629,16 +649,16 @@ function heal() {                                               // instant tap-t
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
-  rbow(pl.x + PW / 2, pl.y + 4, 4); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1);
+  spray(pl.x + PW / 2, pl.y + 4, 4); sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1);
 }
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max((n >> 2) || 1, n - df - eqB[3]);                // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
   hp -= n; pl.inv = 1.2; shk = Math.max(shk, .22);
-  sfx(140, 55, .25, 'sawtooth', .12); rbow(pl.x, pl.y + 7, 4);
+  sfx(140, 55, .25, 'sawtooth', .12); spray(pl.x, pl.y + 7, 4);
 
-  if (hp <= 0) { deathT = 1.6; skb(pl.x + PW / 2, pl.y + PH / 2, 7); return; }   // player death — skulls burst from the fallen unicorn
+  if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 7, 1); return; }   // player death — skulls burst from the fallen unicorn
   if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
   else pl.vy = -180;
 };
@@ -654,13 +674,13 @@ const step = (dt) => {
     else if (navCD <= 0) { setRow((aRow + nd + SN()) % SN()); navCD = .16; }   // held → repeat every .16s
     return;
   }
-  if (dlg) return;                                 // dialogue overlay freezes the sim (like the menu); a tap/key advances it
+  if (dq) return;                                  // dialogue overlay freezes the sim (like the menu); a tap/key advances it
   time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
   if (deathT > 0) {
     deathT -= dt;
-    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k)); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn: full HP+MP, reseed foes, reset ALL non-dead bosses, clear drops
+    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn: full HP+MP, reseed foes, reset ALL non-dead bosses, clear drops
     return;
   }
   if (!started) return;
@@ -677,8 +697,8 @@ const step = (dt) => {
   // -- jump: buffer + coyote + variable + double --
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0) {
-    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rbow(pl.x + PW / 2, pl.y + PH, 3); }
-    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); rbow(pl.x + PW / 2, pl.y + PH, 3); }   // TRI JUMP — same sound as ground jump (unified)
+    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }
+    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }   // TRI JUMP — same sound as ground jump (unified)
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash: flat burst, strike foes
@@ -711,9 +731,9 @@ const step = (dt) => {
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
         pl.y = top - PH;
         if (bounceSet.has(ty * W + fc)) {                        // BOUNCE MUSHROOM — big launch; air=0 keeps DJ/TRI for the combo
-          pl.vy = jumpHeld() ? -480 : -430; pl.air = 0; pl.sq = .6; rbow(pl.x + PW / 2, feet, 5); sfx(220, 640, .16, 'sine', .13);
+          pl.vy = jumpHeld() ? -480 : -430; pl.air = 0; pl.sq = .6; spray(pl.x + PW / 2, feet, 5); sfx(220, 640, .16, 'sine', .13);
         } else {
-          if (!wasGround && pl.vy > 250) { pl.sq = 1.35; rbow(pl.x + PW / 2, feet, 4); sfx(150, 70, .06, 'square', .07); }
+          if (!wasGround && pl.vy > 250) { pl.sq = 1.35; spray(pl.x + PW / 2, feet, 4); sfx(150, 70, .06, 'square', .07); }
           pl.vy = 0; pl.ground = 1; pl.air = 0;
         }
         break;
@@ -758,7 +778,7 @@ const step = (dt) => {
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
-      bann = time + 2.2; bTxt = 'DARK ' + BN[bi] + ' CORN'; bSub = 'KEEPER OF A RAINBOW SHARD';
+      bann = time + 2.2; bTxt = 'DARK CORN'; bSub = 'KEEPER OF A RAINBOW SHARD';   // all bosses share the name; horn+mane color = identity
     }
   });
 
@@ -766,7 +786,7 @@ const step = (dt) => {
   for (const s of shots) {
     s.t -= dt; s.x += s.vx * dt;
     parts.push({ x: s.x, y: s.y, vx: 0, vy: 0, t: .25, c: `hsl(${s.x * 4 % 360} 80% 60%)` });   // rainbow-wave comet — per-frame trail, hue by position → coherent streak from the horn
-    if (solid(s.x, s.y)) { s.t = 0; rbow(s.x, s.y, 3); }
+    if (solid(s.x, s.y)) { s.t = 0; spray(s.x, s.y, 3); }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0, 0); break; }
@@ -820,7 +840,7 @@ const step = (dt) => {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
       // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
       if (f.cap & 8 && !wasGr) {
-        shk = Math.max(shk, .3); rbow(f.x + fs / 2, f.y + fs, 4); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
+        shk = Math.max(shk, .3); spray(f.x + fs / 2, f.y + fs, 4); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave: white impact energy (matches shot-hits-wall vocabulary)
         if (pl.ground && Math.abs(pl.x - f.x) < 64) hurt(3, 0);
       }
     }
@@ -855,6 +875,7 @@ const step = (dt) => {
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
   nearFire = 0;
   for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
+  nearNpc = Math.hypot(pl.x - NX, pl.y - NGY) < 34 ? 1 : 0;   // single fixed-point check (no loop) — GREAT CORN re-talk zone; 56px from the fire so zones never overlap
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
@@ -1003,22 +1024,11 @@ const draw = () => {
     // colour: white flash on hit > red pre-strike wind-up tell > elite/base tint. boss=charcoal.
     ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.el ? PAL[9] : FOECOL[f.k];
     if (f.bit) {                                                // DARK CORN — reflection of the player unicorn: same shape,
-      // BLACK body, per-boss eye/horn color (bi 0..4), spectral gray mane.
+      // BLACK body; horn + eye + mane all colored by the boss's rainbow band (bi) — the sole identity signal now names are unified.
       // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
       const ec = f.ph ? '#fff' : RBC[f.bi];   // horn + eye = the rainbow band this corn holds (rage-white in phase 2)
-      const sc = fs / 14, ph = Math.sin(f.t * 8) * 3;            // scale player unicorn bbox → fs; walk cycle
-      ctx.scale(sc, sc);
-      ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3);              // leg L (steps)
-      ctx.fillRect(7, 12 - ph * .3, 2, 4 + ph * .3);              // leg R
-      ctx.fillRect(0, 5, 10, 7);                                  // body
-      ctx.fillRect(7, 0, 5, 6);                                   // head
-      ctx.fillStyle = ec;
-      ctx.beginPath();
-      ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill();
-      ctx.fillStyle = '#333';                                     // spectral gray mane
-      ctx.fillRect(5, 1, 2, 4); ctx.fillRect(3, 3, 2, 4); ctx.fillRect(1, 5, 2, 4);
-      ctx.fillStyle = ec;
-      ctx.fillRect(10, 2, 1.5, 1.5);
+      ctx.scale(fs / 14, fs / 14);                              // scale player unicorn bbox → fs; body fillStyle set above (flash/tell/black)
+      drawCorn(ec, Math.sin(f.t * 8) * 3);                       // walk-cycle bob
     } else if (sh === 1) {                                      // CRAWLER shape — 4 legs + antennae (k1 CRAWLER, k4 RUNNER, k5 HOPPER)
       ctx.fillRect(s * .2, fs - s + step, s * .6, s);            // legs step
       ctx.fillRect(s * 1.6, fs - s - step * .7, s * .6, s);
@@ -1066,6 +1076,17 @@ const draw = () => {
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
   }
 
+  // DEFEATED DARK CORNs — linger at their arena as friendly NPCs: GREAT-CORN purple body/hooves,
+  // but keeping their own band-colored horn + mane. Face the player, gentle idle bob. Same sprite as the boss.
+  if (started) for (const [bx, by, bi] of seeds.bosses) if (bs[bi] === 2) {
+    const fx = bx * T, fy = by * T;
+    ctx.save();
+    ctx.translate(fx + 10, fy + 20); ctx.scale(pl.x + PW / 2 < fx + 10 ? -1 : 1, 1); ctx.translate(-10, -20); ctx.scale(NSC, NSC);
+    ctx.fillStyle = PAL[7];                                    // body/hooves = GREAT CORN purple
+    drawCorn(RBC[bi], Math.sin(time * 2 + bi), '#fff');       // white eye = friendly/redeemed
+    ctx.restore();
+  }
+
   // GREAT CORN — the guide NPC standing beside the fire. Isolated palette (npc=1 skips the player's gear trims),
   // faces left toward spawn (scale -1), gentle idle bob. Drawn before the player so the hero renders on top.
   if (started) {
@@ -1099,7 +1120,7 @@ const draw = () => {
     if (p.sk) { skull(p.x, p.y, 1.4, al); continue; }
     ctx.globalAlpha = al;
     if (p.c) { ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); continue; }   // coherent hue trail — cheap dot, not a full rainbow
-    for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(p.x, p.y, 5.5 - i * .75, Math.PI, 0); ctx.stroke(); }
+    rArc(p.x, p.y, 5.5, .75);
   }
   ctx.globalAlpha = 1;
   for (const f of flies) {
@@ -1107,7 +1128,7 @@ const draw = () => {
     ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x | 0, f.y | 0);
   }
   ctx.globalAlpha = 1;
-  if (dlg) bubble(NX, NGY - 26, '');                            // GREAT CORN speaks — tail points at the (now boss-tall) head; empty bubble for now (player reply uses bubble(pl.x + PW / 2, pl.y - 4, …))
+  if (dq) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 4 : NGY - 26, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREAT CORN
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
   // ---------- HUD (gameplay-only overlays: boss banner, level-up banner, death vignette) ----------
@@ -1119,11 +1140,8 @@ const draw = () => {
       if (bSub) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
     }
     if (time < luT) {                                           // LEVEL UP BANNER — rainbow per-char, matches title 'UNICORN' font/style
-      ctx.font = 'bold 30px monospace'; ctx.textAlign = 'left';
-      ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
-      const lu = 'LEVEL UP', lw = ctx.measureText(lu).width, lch = lw / lu.length;
       ctx.globalAlpha = Math.min(1, (luT - time) * 3);          // pop in, fade last .33s
-      for (let i = 0; i < lu.length; i++) { const cx = VW / 2 - lw / 2 + lch * i; ctx.strokeText(lu[i], cx, 48); ctx.fillStyle = RC[i % 7]; ctx.fillText(lu[i], cx, 48); }
+      rText('LEVEL UP', 48);
       ctx.globalAlpha = 1;
     }
     fade(1 - Math.abs(deathT - .8) / .8);
@@ -1143,10 +1161,11 @@ const draw = () => {
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 11px pending hint above (if it fired)
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
-      ctx.fillStyle = eq[s] ? PAL[eq[s].c] : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);
+      ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (matches inventory)
       ctx.strokeStyle = SC[SLOT_STAT[s]]; ctx.lineWidth = eq[s] ? eq[s].b * .5 : .5; ctx.strokeRect(ex, ey, 24, 24);   // stat-color outline; tier shown via stroke width (0.5 / 1 / 1.5)
+      if (eq[s]) drawPart(s, ex + 8, ey + 9, eq[s].c);        // actual gear icon (armor/cape/sword/boots) in its roll color — same sprite as inventory/drops
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
-      if (eq[s]) { ctx.fillStyle = '#fff'; T2('+' + eq[s].b, ex + 12, ey + 14); }
+      if (eq[s]) { ctx.fillStyle = '#fff'; T2('+' + eq[s].b, ex + 19, ey + 8); }   // tier tucked top-right so it clears the centered icon
     });
     // STATS — one row across the bottom of the box; cursor = gold column (always visible; "+1" hint only when a point is available)
     const SL = [['STR', ho], ['HP', he], ['MAG', sp], ['DEF', df], ['LCK', lk]];
@@ -1223,7 +1242,7 @@ const draw = () => {
       if (paused && c !== 'bJ') continue;            // menu shows only JUMP (= confirm/select); joystick handles nav, back stays on ☰/tap-out
       const usable = (s < 0 || su[s]) && mn >= mp;
       // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
-      const rc = usable ? (c === 'bJ' && (nearFire || nearChest >= 0) ? '#ffd75e' : col) : '#555';
+      const rc = usable ? (c === 'bJ' && (nearFire || nearChest >= 0 || nearNpc) ? '#ffd75e' : col) : '#555';
       ctx.globalAlpha = keys.has(c) ? .85 : (touch ? .55 : .38);
       ctx.fillStyle = 'rgba(15,15,20,.75)';
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
@@ -1241,7 +1260,7 @@ const draw = () => {
       // Context-swaps: menu → checkmark (confirm/select); gameplay → double up-chevron (leap), gold near fire/chest (REST/OPEN).
       if (c === 'bJ') {
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        const gold = !paused && (nearFire || nearChest >= 0);
+        const gold = !paused && (nearFire || nearChest >= 0 || nearNpc);
         const oc = gold ? '#b8801f' : '#2f6fb0', cc = gold ? '#ffe08a' : '#cfeeff';   // outline / core (gold when an interact is available)
         const path = paused
           ? () => { ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); }              // ✓ confirm
@@ -1337,9 +1356,7 @@ const draw = () => {
     ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.fillRect(0, 0, VW, VH);
     // Rainbow arc — uses module-level RC palette (shared with title + effects)
     ctx.lineWidth = 3;
-    RC.forEach((c, i) => {
-      ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(VW / 2, 130, 78 - i * 3, Math.PI, 0); ctx.stroke();
-    });
+    rArc(VW / 2, 130, 78, 3);
     // Centered unicorn — reuses drawU (same tail, hooves, mane geometry). Title sets
     // gold horn via col override + rainbow-mane overlay for iconic title branding.
     ctx.save(); ctx.translate(VW / 2, 108); ctx.scale(2.4, 2.4); ctx.translate(-6, -8);
@@ -1347,29 +1364,24 @@ const draw = () => {
     ['#ff5d6c', '#ffd75e', '#6bc5ff'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });
     ctx.restore();
     // Title — rainbow per-character matching the arc; subtitle in white
-    ctx.font = 'bold 30px monospace'; ctx.textAlign = 'left';
-    ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
-    const tc = 'UNICORN', tw = ctx.measureText(tc).width, cw = tw / tc.length;
-    for (let i = 0; i < tc.length; i++) { const cx = VW / 2 - tw / 2 + cw * i; ctx.strokeText(tc[i], cx, 168); ctx.fillStyle = RC[i % 7]; ctx.fillText(tc[i], cx, 168); }
+    rText('UNICORN', 168);
     ctx.textAlign = 'center'; ctx.fillStyle = '#9fe89a'; ctx.font = 'bold 13px monospace'; T2('Hooves of Hope', VW / 2, 188);
     // Title art above stays in EVERY mode — menu / name entry / slot select swap below it.
     if (tMode === 1) {                                             // NAME ENTRY
       const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
       ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace'; T2(nm || '(type A–Z)', VW / 2, 204);
       ctx.fillStyle = ent ? '#ffd75e' : '#555'; T2('BEGIN', VW / 2, 224);   // plain text, dim until a name is entered (no panel)
-    } else if (tMode === 2) {                                      // SLOT SELECT — name + level per slot (2 slots + BACK)
+    } else {                                                       // SLOT LIST (tMode 0) — the only pre-play menu; occupied → resume, empty → name entry
       ctx.font = 'bold 13px monospace';
-      for (let i = 0; i < 3; i++) {
-        const on = sSel === i, y = 206 + i * 16;
-        ctx.fillStyle = on ? '#ffd75e' : '#888';
-        T2(i === 2 ? '← BACK' : 'SLOT ' + (i + 1) + ' · ' + (sMeta(i) || 'EMPTY'), VW / 2, y);
+      for (let i = 0; i < 2; i++) {
+        ctx.fillStyle = sSel === i ? '#ffd75e' : '#888';
+        T2('SLOT ' + (i + 1) + ' · ' + (sMeta(i) || 'NEW GAME'), VW / 2, 208 + i * 16);
       }
-    } else {                                                       // MENU — NEW GAME (auto-slot); CONTINUE greyed until a save exists
-      ctx.font = 'bold 13px monospace';
-      ['NEW GAME', 'CONTINUE'].forEach((o, i) => {
-        ctx.fillStyle = (i === 1 && !hasSave()) ? '#555' : (mSel === i ? '#ffd75e' : '#888');
-        T2(o, VW / 2, 208 + i * 16);
-      });
+      if (sPop) {                                                  // DELETE / CONTINUE popup — bottom strip, slot list stays visible above so player sees which slot is being acted on
+        ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(0, 240, VW, 30);
+        ctx.fillStyle = sPop === 2 ? '#f66' : '#666';   T2('DELETE',   VW / 2 - 55, 258);   // destructive on the LEFT
+        ctx.fillStyle = sPop === 1 ? '#ffd75e' : '#888'; T2('CONTINUE', VW / 2 + 55, 258);  // safe on the RIGHT (thumb-natural default)
+      }
     }
   }
   // HELP OVERLAY — controls reference, toggled by "?" button

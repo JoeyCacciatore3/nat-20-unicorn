@@ -4,11 +4,11 @@
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
 
 A 2D pixel-art platformer-RPG. The DARKNESS stole the world's color; you are the last
-unicorn. Name your unicorn, explore one contiguous world, defeat five DARK CORNS, and
-reclaim the five RAINBOW SHARDS that restore the world. STR-based combat with
+unicorn. Name your unicorn, explore one contiguous world, defeat the DARK CORNS, and
+reclaim the RAINBOW SHARDS that restore the world. STR-based combat with
 LUCK-driven crits and stat allocation.
 
-A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CORN silhouette) — stands watch at the starting hearth and hails you the moment a new game begins (dialogue delivered via a head-stemmed speech bubble; the same bubble serves the player's replies).
+A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CORN silhouette) — stands watch at the starting hearth. On a new game he opens an auto-playing intro: a back-and-forth of head-stemmed speech bubbles (bubble stems from whichever head is talking — his or the player's), advanced one bubble per tap. It sets up the goal (reclaim the shattered rainbow's shards, one per DARK CORN), nudges the controls, and points at the fire. Walk back and JUMP near him afterward for cycled re-talk quips.
 
 **Categories:** Desktop · Mobile · Wavedash
 
@@ -25,7 +25,7 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 - Everyone starts the same neutral white unicorn — **NEW GAME** jumps straight to the next empty save slot and asks ONE thing (your name — required), then begins; **CONTINUE** (greyed until you have a save) opens the 2-slot screen to pick which save to resume (name + level shown per slot). Both slots full → NEW GAME falls back to the slot screen.
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
 - **5-slot inventory** for gear only (+5 via STASH skill = 10 max). Click to select, click again to equip; X to discard. Potions live exclusively in the bottom hot-bar (see below).
-- Gear icons and drops render with the SAME primitives as the unicorn's own body — a HORN drop looks like the horn on the unicorn.
+- Gear renders as pixel-art item icons — BODY→armor, MANE→cape, HORN→sword, HOOVES→boots — tinted by the drop's roll color (the same color it paints onto that body part when equipped). Identical in drops, the inventory grid, and the equipped slots.
 - **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
 
 ## Combat
@@ -34,9 +34,10 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 - Defense: `max(incoming/4, incoming - DEF)` — bosses always deal ≥25%
 - 6 enemy kinds built from one capability-bit system + elite variants (~6% roll, 3× HP)
 - Enemies scale with player level (`2 + lvl>>2`) — stay a threat as you level
-- 5 named boss Mares — each holds one rainbow band (R-O-Y-B-V), all in the unified world:
-  - **DARK RED CORN** (paddock east) · **DARK ORANGE CORN** (far east walkway) · **DARK YELLOW CORN** (canopy ledge, DJ) · **DARK BLUE CORN** (peak ledge, DJ) · **DARK VIOLET CORN** (depths west, DASH)
-- Per-boss damage ramp: RED 8, ORANGE 9, YELLOW 10, BLUE 11, VIOLET 12
+- 6 **DARK CORN** bosses — all share the name; each is identified by its horn+mane color = the rainbow band it holds (R-O-Y-B-V-G). All in the unified world:
+  - RED (paddock east) · ORANGE (far east walkway) · YELLOW (canopy ledge, DJ) · BLUE (peak ledge, DJ) · VIOLET (depths west, DASH) · GREEN (east-arc summit, bounce+DJ)
+- Per-boss damage ramp (8 + band index): RED 8, ORANGE 9, YELLOW 10, BLUE 11, VIOLET 12, GREEN 13
+- Defeated DARK CORNs turn friendly — they linger at their arena as GREAT-CORN-purple NPCs (keeping their band horn+mane; eyes go white)
 
 ## Item Drops
 One loot roll (`d100 + LUCK×4`) for every kill and chest:
@@ -46,7 +47,7 @@ One loot roll (`d100 + LUCK×4`) for every kill and chest:
 
 Drops fall to the ground and **stay there until you die** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume). **Gear** goes to the inventory to equip later. Potions NEVER enter the inventory — if the hot-bar slot is full the drop simply waits on the ground until you drink one. Same for gear if the bag is full. XP comes only from kills.
 
-**RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 5 → THE DARKNESS LIFTS.
+**RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect them all → THE DARKNESS LIFTS.
 
 ## Skill Tree
 Prerequisite-based tree, 12 skills across 4 visual rows. Unlocking a node opens its connected downstream nodes:
@@ -77,7 +78,7 @@ Dash starts at half distance; LONG DASH doubles it.
 **One unified map (800×160 tiles = 12,800×2,560 px).** No portals, no zone transitions —
 walk from any boss to any other. The DARK CORNS live in different regions:
 
-- **Paddock** (center, x≈120) — spawn point, campfire, GREAT CORN guide, DARK RED CORN just east
+- **Paddock** (center, x≈120) — spawn point, campfire, GREAT CORN guide, RED-band DARK CORN just east
 - **Descent corridor** (x150-256) — subterranean pocket carved into the ground
 - **East run** (x280-475) — DJ terraces, DASH gaps, TRI-JUMP stack, DARK ORANGE CORN far east
 - **East arc** (x466-620) — bounce-mushroom ridges + vertical climb to the DARK GREEN CORN summit
@@ -100,16 +101,16 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 11,403 / 13,312 B (85.7%) — 1909 B free**
+**Current: 12,792 / 13,312 B (96.1%) — 520 B free**
 
 ## Save format
 Keys: `localStorage.n20_s0..1` (2 slots). Version: **v40** — strict version gate, auto-discards older saves.
-Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[10]), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
+Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[12]), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
 
 ## Structure
-- `src/main.js` — the game (~1,200 lines)
-- `src/world.js` — unified MEADOW tile map + entity seeds + procedural scatter (~155 lines)
-- `src/data.js` — static lookup tables (palette, foes, gear, skill tree, boss names)
+- `src/main.js` — the game (~1,400 lines)
+- `src/world.js` — unified MEADOW tile map + entity seeds + procedural scatter (~190 lines)
+- `src/data.js` — static lookup tables (palette, foes, gear, skill tree, GREAT CORN dialogue)
 - `build.mjs` — full pipeline + compliance gates
 - `tools/map-audit.mjs` — traversal prover (bosses/chests reachable at expected ability tier)
 - `tools/spike-audit.mjs` — placement safety (no chest/decor through spikes, no adjacent-tree crowding)

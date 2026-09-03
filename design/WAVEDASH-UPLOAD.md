@@ -1,7 +1,7 @@
 # WaveDash store-page update — STAGED, ready to paste (refreshed 2026-09-02)
 
-**Latest playtest build:** `mn7122ecf9y7jr6nqkkjdnh1n98dm49r` (2026-09-02, **11,366 B**, git `0b60777`: potion bottle with visible skinny neck + opaque cork). Source == git HEAD in sync. **RELEASE RITUAL: GitHub push + Wavedash deploy always go together (Joey directive).**
-**Playtest URL:** https://wavedash.com/playtest/nat-20-unicorn/778d0513-0a1d-414c-8679-d81ea057daf7
+**Latest deployed build:** `mn7f1ty7fgmbnwey56vegbb0n98dntjw` (2026-09-02, **12,329 B**, git `30a790f`: world 800×160 + east arc + GREEN CORN 6th boss + particle/glyph overhaul). ⚠️ **Source is now AHEAD of the live deploy** — uncommitted work (**12,792 B**: multi-line GREAT CORN dialogue system + redundancy consolidation + defeated-friendly NPCs + gear item icons) not yet pushed; the next `wavedash build push` realigns it. **RELEASE RITUAL: GitHub push + Wavedash deploy always go together (Joey directive).**
+**Playtest URL:** https://wavedash.com/playtest/nat-20-unicorn/175c0910-587b-4093-949c-5730b88fe652
 **Playtest data:** wiped 2026-09-01 (all players, all categories) — clean slate. Wipe still in effect. Achievement definitions confirmed intact (8 rows on record; 2 need repurposing — see below).
 
 **Why this doc exists:** the store page (title, description, cover, screenshots, tags) is
@@ -31,17 +31,18 @@ UNICORN, Hooves of Hope
 A lone unicorn fights the DARKNESS in this pastel pixel platformer-RPG — under 13 KB.
 
 The Darkness stole the world's color. Name your unicorn and cross one large connected
-world to defeat five DARK CORNS (your own shadowed reflections) and reclaim the five
-Rainbow Shards.
+world to defeat the DARK CORNS (your own shadowed reflections) and reclaim the
+Rainbow Shards they shattered.
 
-- One connected 600×120 world — spike pits, ability-gated climbs, floating platforms,
-  hidden chests. Ability gates (double-jump, dash) control where you can reach.
-- Full RPG: 5 stats, a 12-node tiered skill tree, quadratic XP curve, and gear that shows
-  on your unicorn's body piece by piece (mane / horn / body / hooves).
-- Movement kit that unlocks the world: DBL JUMP, TRI JUMP, DASH, LONG DASH.
+- One connected 800×160 world — spike pits, ability-gated climbs, floating platforms,
+  bounce mushrooms, hidden chests. Ability gates (double-jump, dash, bounce) control reach.
+- Full RPG: 5 stats, a 12-node tiered skill tree, quadratic XP curve, and gear that drops
+  as pixel item icons (armor / cape / sword / boots) and recolors the matching body part.
+- Movement kit that unlocks the world: DBL JUMP, TRI JUMP, DASH, LONG DASH, bounce pads.
 - Six enemy kinds plus crowned SELECT elites (~6% roll); each level tier scales enemies.
-- Five named boss Mares, each holding one rainbow band (R-O-Y-B-V), each with a phase-2
-  twist. Progression = base → double-jump → dash to reach the deepest bosses.
+- DARK CORN bosses, each holding one rainbow band (R-O-Y-B-V-G), each with a phase-2 twist.
+  Defeat one and it turns friendly — a redeemed unicorn you can talk to at its arena.
+- A GREAT CORN elder greets you with a chatty intro + re-talk quips (head-stemmed bubbles).
 - Two-slot potion hot-bar (HP + MP, fixed +10 each; POT +5 skill boosts to +15).
 - Plays with keyboard or touch — desktop and mobile from one build. Saves across 2 slots.
 ```
@@ -89,10 +90,12 @@ The 8 achievement records on Wavedash still describe the OLD 5-zone game. Two ar
 | ID | Recorded threshold | Status |
 |---|---|---|
 | EXPLORER | "enter all 5 zones" | ⚠️ STALE — no zones exist. Retire or repurpose (e.g. "reach every corner of the world") |
-| HOARDER | "open all 20 chests" | ⚠️ STALE — unified world has 4 chests. Update threshold to 4 |
+| HOARDER | "open all 20 chests" | ⚠️ STALE — unified world now has **8 chests**. Update threshold to 8 |
+| HALFWAY | "3 of 5 shards" | ⚠️ shard count changed — now **6 bosses** (heading to 7 w/ INDIGO). Re-tune or keep count-agnostic ("half the shards") |
+| PRISMATIC | "all 5 shards (win)" | ⚠️ win is now **all 6** shards (`seeds.bosses.length`). Update or keep count-agnostic ("all shards") |
 
-Others (FIRST_LIGHT, HALFWAY, PRISMATIC, NATURAL_20, APOTHEOSIS, FULLY_GEARED) still describe
-current gameplay correctly and need no changes.
+Others (FIRST_LIGHT, NATURAL_20, APOTHEOSIS, FULLY_GEARED) still describe current gameplay
+correctly and need no changes.
 
 **To update via CLI:**
 ```

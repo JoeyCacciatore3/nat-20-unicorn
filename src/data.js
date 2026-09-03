@@ -10,9 +10,9 @@
 // UNIFIED PALETTE — 15 colors, shared across all 4 body parts. Mane gradient
 // auto-derived via dim(): base → 85% → 70% brightness (no stored triples).
 export const PAL = [
-  '#f5f1f4','#f7d9c0','#ffd75e','#ff9d3c','#ff5d6c','#f9c',
+  '#f5f1f4','#f7d9c0','#ffd75e','#ff9d3c','#ff5d6c','#ff99cc',
   '#e08ae0','#c47fe0','#6bc5ff','#40e8b0','#5ac878',
-  '#d8d8e0','#fff','#2a1f14','#4a3828'
+  '#d8d8e0','#ffffff','#2a1f14','#4a3828'
 ];
 // Derive a darker shade of any hex color (each channel * f). Used for the mane sweep
 // AND rock shading (base = dim(accent)) so we store one accent, not two tones.
@@ -38,9 +38,8 @@ export const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a'
 export const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 2, 0, 1], [6, 4, 36, 3, 2, 1], [9, 4, 22, 3, 1, 2]];
 // P2 = capability bits granted at boss phase 2 (OR'd into f.cap).
 export const P2 = [32, 4, 1, 8, 37, 8];
-// DARK CORNS — displayed as 'DARK ' + BN[bi] + ' CORN', color-aligned to RBC rainbow band. Count = BN.length (data-driven; add a name + RBC/P2 entry + a seeds.bosses placement to add one).
-export const BN = ['RED', 'ORANGE', 'YELLOW', 'BLUE', 'VIOLET', 'GREEN'];
-// Rainbow band each DARK CORN holds, boss-index-aligned to BN.
+// DARK CORN bosses — all named just 'DARK CORN'; differentiated by horn + mane color = their RBC rainbow band.
+// Count = RBC.length (data-driven; add an RBC + P2 entry + a seeds.bosses placement to add one).
 export const RBC = ['#ff5d6c', '#ff9d3c', '#ffd75e', '#4a76ff', '#c47fe0', '#4ad46a'];
 // 7-band rainbow (arc + title + effects).
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
@@ -63,3 +62,8 @@ export const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[3
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base. Cork = 4×3 opaque tan fillRect (extends 2px above bitmap, covers r0).
+
+// GREAT CORN dialogue. '~' prefix = player unicorn speaks (bubble over its head), else GREAT CORN. '|' = row break within one bubble. One bubble per tap = a comedic beat (setup on one, punch on the next). Voice: vain, dramatic, forgetful elder vs. the deadpan foal.
+export const INTRO = ["Oh! You're awake.|I nearly sat on you.", "~...who are you?", "The GREAT CORN.|Obviously. Keep up.", "The DARK CORN|broke our rainbow.", "~...that seems bad.", "Reclaim every shard.|One per beast.", "Right hoof leaps|and zaps. Left steers.", "Weary? My fire mends|all wounds. And egos.", "~Wish me luck.", "Luck's for ponies.|Make it a-maize-ing!"];
+// Re-talk quips — cycled one per approach (JUMP near the GREAT CORN after the intro).
+export const TALK = ["Shards won't fetch|themselves, foal.", "Still here?|So are the DARK CORN.", "You've got this.|Probably.", "Nap at my fire.|I'll allow it."];
