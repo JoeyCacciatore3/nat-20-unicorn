@@ -586,7 +586,7 @@ const spawnDrop = (x, y, n) => {
     const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 0 };
     const r = (Math.random() * 100 | 0) + Math.min(lk, 10) * 4;  // % roll + LUCK
     // gear tier: random roll + LUCK + level vs thresholds
-    if (r >= 85) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 12) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
+    if (r >= 85) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 13) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
     else if (r >= 58) d.t = 1;                  // MP POTION (else t=0: HP POTION)
     drops.push(d);
   }

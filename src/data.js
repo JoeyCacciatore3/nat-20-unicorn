@@ -16,7 +16,7 @@
 export const PAL = [
   '#f5f1f4','#f7d9c0','#ffd75e','#ff9d3c','#ff5d6c','#ff99cc',
   '#e08ae0','#c47fe0','#4a76ff','#40e8b0','#5ac878',
-  '#d8d8e0','#ffffff','#2a1f14','#4a3828','#4ad46a'
+  '#d8d8e0','#ffffff','#2a1f14','#4a3828','#4ad46a','#6a5acd'
 ];
 // Derive a darker shade of any hex color (each channel * f). Used for the mane sweep
 // AND rock shading (base = dim(accent)) so we store one accent, not two tones.
@@ -37,11 +37,11 @@ export const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a'
 // Cap bits: 1=ranged 2=hop 4=summon 8=shockwave 16=chase 32=swift.
 export const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 2, 0, 1], [6, 4, 36, 3, 2, 1], [9, 4, 22, 3, 1, 2]];
 // P2 = capability bits granted at boss phase 2 (OR'd into f.cap).
-export const P2 = [32, 4, 1, 8, 37, 8];
+export const P2 = [32, 4, 1, 8, 37, 8, 10];   // INDIGO (bi=6) — hop + shockwave in the cavern
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC + P2 entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).
-export const RBC = [4, 3, 2, 8, 7, 15];
+export const RBC = [4, 3, 2, 8, 7, 15, 16];
 // 7-band rainbow (arc + title + effects).
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
 // Sky backdrop colour.

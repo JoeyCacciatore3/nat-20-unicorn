@@ -21,7 +21,7 @@ const TIERS = [
 
 // Spawn point (matches main.js SX/SY = 126*T, 57*T → falls to ground row 60).
 const SPAWN = [126, 59];
-const BOSS_NAMES = ['RED   ', 'ORANGE', 'YELLOW', 'BLUE  ', 'VIOLET', 'GREEN '];
+const BOSS_NAMES = ['RED   ', 'ORANGE', 'YELLOW', 'BLUE  ', 'VIOLET', 'GREEN ', 'INDIGO'];
 
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
 const idx = (c, r) => r * W + c;
