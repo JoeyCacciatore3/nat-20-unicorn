@@ -38,7 +38,7 @@ export const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a'
 export const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 0, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 2, 0, 1], [6, 4, 36, 3, 2, 1], [9, 4, 22, 3, 1, 2]];
 // P2 = capability bits granted at boss phase 2 (OR'd into f.cap).
 export const P2 = [32, 4, 1, 8, 37, 8];
-// DARK CORN bosses — all named just 'DARK CORN'; differentiated by horn + mane color = their RBC rainbow band.
+// DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC + P2 entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).
 export const RBC = [4, 3, 2, 8, 7, 15];
@@ -64,7 +64,7 @@ export const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[3
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base. Cork = 4×3 opaque tan fillRect (extends 2px above bitmap, covers r0).
 
-// GREAT CORN dialogue. '~' prefix = player unicorn speaks (bubble over its head), else GREAT CORN. '|' = row break within one bubble. One bubble per tap = a comedic beat (setup on one, punch on the next). Voice: vain, dramatic, forgetful elder vs. the deadpan foal.
-export const INTRO = ["Oh! You're awake.|I nearly sat on you.", "~...who are you?", "The GREAT CORN.|Obviously. Keep up.", "The DARK CORN|broke our rainbow.", "~...that seems bad.", "Reclaim every shard.|One per beast.", "Right hoof leaps|and zaps. Left steers.", "Weary? My fire mends|all wounds. And egos.", "~Wish me luck.", "Luck's for ponies.|Make it a-maize-ing!"];
-// Re-talk quips — cycled one per approach (JUMP near the GREAT CORN after the intro).
-export const TALK = ["Shards won't fetch|themselves, foal.", "Still here?|So are the DARK CORN.", "You've got this.|Probably.", "Nap at my fire.|I'll allow it."];
+// GREATCORN dialogue. '~' prefix = player unicorn speaks (bubble over its head), else GREATCORN. '|' = row break within one bubble. One bubble per tap = a comedic beat (setup on one, punch on the next). Voice: vain, dramatic, forgetful elder vs. the deadpan foal.
+export const INTRO = ["Oh! You're awake.|I nearly sat on you.", "~...who are you?", "The GREATCORN.|Obviously. Keep up.", "The DARKCORN|broke our rainbow.", "~...that seems bad.", "Reclaim every shard.|One per beast.", "Right hoof leaps|and zaps. Left steers.", "Weary? My fire mends|all wounds. And egos.", "~Wish me luck.", "Luck's for ponies.|Make it a-maize-ing!"];
+// Re-talk quips — cycled one per approach (JUMP near the GREATCORN after the intro).
+export const TALK = ["Shards won't fetch|themselves, foal.", "Still here?|So are the DARKCORN.", "You've got this.|Probably.", "Nap at my fire.|I'll allow it."];

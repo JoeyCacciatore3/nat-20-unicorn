@@ -5,7 +5,7 @@
 //   - 4-slot color-driven equipment gear (BODY/MANE/HORN/HOOVES) — each drop
 //     is an RPG item icon: armor / cape / sword / boots (drawPart), tinted by roll color
 //   - ONE open skill tree, 12 single-rank nodes, all player-chosen (no auto-learn)
-//   - Rainbow shards = collection goal (one per DARK CORN boss; win = all bands, seeds.bosses.length)
+//   - Rainbow shards = collection goal (one per DARKCORN boss; win = all bands, seeds.bosses.length)
 //   - Unified character sheet: pause + level-up share layout
 //   - 5-slot inventory (+5 via STASH skill, max 10); potions live in a separate hot-bar
 //     if their stat isn't full else stored for later — click to use, X to drop
@@ -62,7 +62,7 @@ const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume transitions can't drift.
-const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; talk(INTRO); save(); };  // name REQUIRED · auto-opens the GREAT CORN intro (new game only; resume skips it)
+const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; talk(INTRO); save(); };  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
 const resumeGame = () => { load(); phase = 2; started = 1; };
 const pickSlot = (i) => {                                              // slot list is the single pre-play menu — no NEW GAME/CONTINUE layer
   slot = sSel = i;                                                     // sync cursor to touched slot so highlight tracks intent
@@ -462,13 +462,13 @@ const load = () => {
 
 // ---------- player ----------
 const PW = 10, PH = 14;
-const NX = 129 * T, NGY = 60 * T;                 // GREAT CORN guide: center-x (tile 129), feet baseline (tile 60 top) — 56px right of the fire so talk/rest zones never overlap
+const NX = 129 * T, NGY = 60 * T;                 // GREATCORN guide: center-x (tile 129), feet baseline (tile 60 top) — 56px right of the fire so talk/rest zones never overlap
 const SX = 126 * T, SY = NGY - PH;                // spawn point (paddock) — feet at NGY ground baseline so intro plays with unicorn standing (no drop-in)
-const NPCCOL = [7, 2, 2, 7];                       // GREAT CORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
-const NSC = 10 / 7;                                // GREAT CORN render scale — matches the DARK CORN boss silhouette (boss fs=20 ÷ drawU 14-tall bbox)
+const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
+const NSC = 10 / 7;                                // GREATCORN render scale — matches the DARKCORN boss silhouette (boss fs=20 ÷ drawU 14-tall bbox)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
-let nearFire = 0, nearNpc = 0;                    // hearth + GREAT CORN proximity flags (JUMP-to-interact)
+let nearFire = 0, nearNpc = 0;                    // hearth + GREATCORN proximity flags (JUMP-to-interact)
 let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
 // DIALOGUE — dq = active script (INTRO or a 1-line re-talk quip) or 0=closed · di = current bubble · tqi = re-talk cycle index.
 // Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
@@ -764,7 +764,7 @@ const step = (dt) => {
   for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
   // -- bosses: each grants a rainbow shard on first kill (auto-collected progression token, no drop) --
-  seeds.bosses.forEach(([bx, by, bi]) => {                      // bi (rainbow band) from seed — all DARK CORN bosses share the one world
+  seeds.bosses.forEach(([bx, by, bi]) => {                      // bi (rainbow band) from seed — all DARKCORN bosses share the one world
     const bit = 1 << bi;
     if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
@@ -781,7 +781,7 @@ const step = (dt) => {
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(110, 55, .5, 'sawtooth', .18);
-      bann = time + 2.2; bTxt = 'DARK CORN'; bSub = 'KEEPER OF A RAINBOW SHARD';   // all bosses share the name; horn+mane color = identity
+      bann = time + 2.2; bTxt = 'DARKCORN'; bSub = 'KEEPER OF A RAINBOW SHARD';   // all bosses share the name; horn+mane color = identity
     }
   });
 
@@ -878,7 +878,7 @@ const step = (dt) => {
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
   nearFire = 0;
   for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
-  nearNpc = Math.hypot(pl.x - NX, pl.y - NGY) < 34 ? 1 : 0;   // single fixed-point check (no loop) — GREAT CORN re-talk zone; 56px from the fire so zones never overlap
+  nearNpc = Math.hypot(pl.x - NX, pl.y - NGY) < 34 ? 1 : 0;   // single fixed-point check (no loop) — GREATCORN re-talk zone; 56px from the fire so zones never overlap
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
@@ -1026,7 +1026,7 @@ const draw = () => {
     ctx.translate(-fs / 2, -fs);
     // colour: white flash on hit > red pre-strike wind-up tell > elite/base tint. boss=charcoal.
     ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.el ? PAL[9] : FOECOL[f.k];
-    if (f.bit) {                                                // DARK CORN — renders via drawU (canonical unicorn) with a temporary col swap.
+    if (f.bit) {                                                // DARKCORN — renders via drawU (canonical unicorn) with a temporary col swap.
       // Body/hooves: PAL[13] dark (flash→12 white, tell→4 red). Horn+mane: PAL[RBC[bi]] identity band (rage→12 white in phase 2).
       const bd = f.fl > 0 ? 12 : f.wt > .12 ? 4 : 13, hn = f.ph ? 12 : RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);                              // scale drawU 14-bbox → fs
@@ -1078,7 +1078,7 @@ const draw = () => {
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
   }
 
-  // DEFEATED DARK CORNs — linger at their arena as friendly NPCs: GREAT-CORN purple body/hooves,
+  // DEFEATED DARKCORNs — linger at their arena as friendly NPCs: GREATCORN purple body/hooves,
   // but keeping their own band-colored horn + mane. Face the player, gentle idle bob. Same sprite as the boss.
   if (started) for (const [bx, by, bi] of seeds.bosses) if (bs[bi] === 2) {
     const fx = bx * T, fy = by * T;
@@ -1088,7 +1088,7 @@ const draw = () => {
     ctx.restore();
   }
 
-  // GREAT CORN — the guide NPC standing beside the fire. Isolated palette via col swap to NPCCOL,
+  // GREATCORN — the guide NPC standing beside the fire. Isolated palette via col swap to NPCCOL,
   // faces left toward spawn (scale -1), gentle idle bob. Drawn before the player so the hero renders on top.
   if (started) {
     ctx.save();
@@ -1129,7 +1129,7 @@ const draw = () => {
     ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x | 0, f.y | 0);
   }
   ctx.globalAlpha = 1;
-  if (dq) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 4 : NGY - 26, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREAT CORN
+  if (dq) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 4 : NGY - 26, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREATCORN
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
   // ---------- HUD (gameplay-only overlays: boss banner, level-up banner, death vignette) ----------
