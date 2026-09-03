@@ -183,40 +183,41 @@ addEventListener('pointerdown', (e) => {
   // Help/Settings overlay — dismiss on any tap
   if (helpOn) { helpOn = 0; return; }
   if (dq) { adv(); return; }                                     // dialogue: any tap advances one bubble (before HUD icons, so a tap can't leak through)
-  // HUD icon taps: Menu | Save | Mute | ? — SAME row in play AND menu.
-  // Menu TOGGLES the sheet (open when playing, close when open) — no bespoke ✕.
-  if (started && hit(VW - 78, 0, 18, 20)) { paused ^= 1; if (paused) setRow(0); return; }
-  if (started && hit(VW - 60, 0, 18, 20)) { save(); sfx(660, 990, .15, 'triangle', .12); savePop = 1; return; }
-  if (started && hit(VW - 42, 0, 20, 20)) { mute ^= 2; save(); return; }
-  if (started && hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
-  // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
-  if (paused) {                                                // CHARACTER MENU — inventory + (when points remain) stat/skill allocation, one screen
-    // GAMEPAD MENU CONTROLS (checked first, take priority over cell-taps): joystick = cursor nav, JUMP = confirm/select.
-    if (e.pointerType === 'touch' && Math.hypot(vx - joy.x, vy - joy.y) < JR + 8) { grabJoy(joy.x, joy.y, e.pointerId); return; }
-    { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
-    // USE/DROP buttons FIRST — they overlap the grid (y=250-264 sits inside grid y=184-268).
-    // POTION HOT-BAR — tappable in menu too (persistent affordance, matches HUD icon behavior)
+  // Universal in-game input — HUD icons + potions work identically in gameplay AND paused menu.
+  // Wrapped in one started-guard instead of per-line, and potion hits hoisted above the paused
+  // block so the SAME two hit-tests serve both states (was: duplicated inside + outside paused).
+  if (started) {
+    // HUD icons: Menu | Save | Mute | ?  (menu TOGGLES the sheet — no bespoke ✕)
+    if (hit(VW - 78, 0, 18, 20)) { paused ^= 1; if (paused) setRow(0); return; }
+    if (hit(VW - 60, 0, 18, 20)) { save(); sfx(660, 990, .15, 'triangle', .12); savePop = 1; return; }
+    if (hit(VW - 42, 0, 20, 20)) { mute ^= 2; save(); return; }
+    if (hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
+    // POTIONS (bottom-center): tap HP box → quaff(0), MP box → quaff(1). Padded 3px for thumbs.
     if (hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
     if (hit(QMX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
-    if (invSel >= 0 && inv[invSel]) {
-      if (hit(50, 250, 50, 15)) { useItem(invSel); return; }
-      if (hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
+    // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
+    if (paused) {                                                // CHARACTER MENU — inventory + (when points remain) stat/skill allocation, one screen
+      // GAMEPAD MENU CONTROLS (checked first, take priority over cell-taps): joystick = cursor nav, JUMP = confirm/select.
+      if (e.pointerType === 'touch' && Math.hypot(vx - joy.x, vy - joy.y) < JR + 8) { grabJoy(joy.x, joy.y, e.pointerId); return; }
+      { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
+      // USE/DROP buttons — they overlap the grid (y=250-264 sits inside grid y=184-268), checked first.
+      if (invSel >= 0 && inv[invSel]) {
+        if (hit(50, 250, 50, 15)) { useItem(invSel); return; }
+        if (hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
+      }
+      // Inventory grid — tap moves cursor to slot; tap USE/DROP button (above) to act
+      if (hit(38, 184, 140, 84)) {
+        const iC = ((vx - 38) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
+        if (iI < invMax() && inv[iI]) { setRow(5 + iI); return; }
+        return;                                                  // tap on empty inv area — no-op, keeps menu open
+      }
+      // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
+      const ci = ((vx - 39) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette)
+      if (vy > 150 && vy < 180 && vx > 39 && vx < 169 && ci >= 0 && ci < STATS.length) { if (aRow === ci) spend(); else setRow(ci); return; }
+      for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + invMax() + i; if (aRow === r) spend(); else setRow(r); return; } }
+      paused = 0; return;                                        // tap anywhere else closes
     }
-    // Inventory grid — tap moves cursor to slot; tap USE/DROP button (above) to act
-    if (hit(38, 184, 140, 84)) {
-      const iC = ((vx - 38) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
-      if (iI < invMax() && inv[iI]) { setRow(5 + iI); return; }
-      return;                                                  // tap on empty inv area — no-op, keeps menu open
-    }
-    // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
-    const ci = ((vx - 39) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette)
-    if (vy > 150 && vy < 180 && vx > 39 && vx < 169 && ci >= 0 && ci < STATS.length) { if (aRow === ci) spend(); else setRow(ci); return; }
-    for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + invMax() + i; if (aRow === r) spend(); else setRow(r); return; } }
-    paused = 0; return;                                        // tap anywhere else closes
   }
-  // POTION QUICK-SLOTS (bottom-center): tap HP box → quaff(0), MP box → quaff(1). Padded 3px for thumbs.
-  if (started && hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
-  if (started && hit(QMX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
   // JOYSTICK: any touch in the left 40% grabs the stick and re-anchors it there
   if (started && e.pointerType === 'touch' && vx < VW * .4) { grabJoy(vx, vy, e.pointerId); return; }
   for (const [x, y, c] of AB) if (Math.hypot(vx - x, vy - y) < AR + 6) {
@@ -1164,7 +1165,7 @@ const draw = () => {
       const sx = 42 + i * 26, sel = i === aRow;
       if (sel) { ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.fillRect(sx - 3, 152, 25, 23); ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 152, 25, 23);
         if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 150); } }
-      ctx.fillStyle = c; ctx.font = 'bold 8px monospace'; T2(l, sx + 9, 160);
+      ctx.fillStyle = c; T2(l, sx + 9, 160);
       T2(v, sx + 9, 171);
     });
     // INVENTORY — 5×2 grid UNDER the gold box (5 base, +5 STASH → max 10). Click to select, click again to equip.
@@ -1192,7 +1193,7 @@ const draw = () => {
     // SKILL TREE — prerequisite layout (4 rows). Names always visible (locked = dim gray, picked = gold).
     // Diagonal cosmetic paths draw first (behind nodes), showing positional progression:
     // each T1 links to the T2 pair it sits between, each T2 links to adjacent T3(s).
-    ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+    // font + textAlign inherited from top of char sheet (unchanged since L1149)
     if (spts) { ctx.fillStyle = '#ffd75e'; T2('+' + spts, 338, 42); }   // skill points available, above the tree
     const NS = 26;
     // Diagonal connection lines — prerequisite tree (LINK) parent→child paths
@@ -1216,7 +1217,7 @@ const draw = () => {
     // (shards indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // USE/DROP are functional button labels (not a control hint) — control reference lives ONLY in the ? overlay.
     if (invSel >= 0 && inv[invSel]) {
-      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+      // font + textAlign inherited (unchanged since L1149)
       ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
       ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
       ctx.fillRect(110, 250, 50, 14); ctx.strokeRect(110, 250, 50, 14);
