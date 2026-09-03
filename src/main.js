@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v42 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v43 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
@@ -58,7 +58,7 @@ NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // o
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // 2 SAVE SLOTS (n20_s0..1). sMeta reads name+level for the slot list without loading.
-const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 42 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 43 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume transitions can't drift.
@@ -434,8 +434,8 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 42, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
-    t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
+    v: 43, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    t: [ho, he, sp, df, lk], d: pending, k: spts, y: su,
     m: pName, o: oc,
     q: eq, i: inv, p: mute, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth)
   });
@@ -443,14 +443,14 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 42) return;                               // strict v42 gate — no cross-version compat.
+    if (!d || d.v !== 43) return;                               // strict v43 gate — no cross-version compat.
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     chests = seedChests();
     foes = seedFoes();
     [ho, he, sp, df, lk] = d.t;
-    cp = d.c; pl.x = cp[0]; pl.y = cp[1];
+    pl.x = SX; pl.y = SY;                                       // always respawn at paddock (no checkpoint system since 029aef5)
     pending = d.d;                                                 // unspent stat points survive reload — ☰ glows, no auto-open
     spts = d.k; d.y.forEach((v, i) => su[i] = v);
     d.q.forEach((v, i) => eq[i] = v);
@@ -468,7 +468,7 @@ const SX = 126 * T, SY = NGY - PH;                // spawn point (paddock) — f
 const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
 const NSC = 10 / 7;                                // GREATCORN render scale — matches the DARKCORN boss silhouette (boss fs=20 ÷ drawU 14-tall bbox)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
-let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
+let lastSafe = [SX, SY], deathT = 0;
 let nearNpc = 0;                                  // GREATCORN proximity flag (JUMP-to-interact re-talk quips)
 let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
 // DIALOGUE — dq = active script (INTRO or a 1-line re-talk quip) or 0=closed · di = current bubble · tqi = re-talk cycle index.
@@ -515,7 +515,7 @@ const fresh = () => {
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seedChests();
   foes = seedFoes();
-  cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY;
+  lastSafe = [SX, SY]; pl.x = SX; pl.y = SY;
   hp = mHP(); mn = mMN();                             // full at derived max (honest — no more 10/10 magic number coincident with the base-stat formula)
 };
 // Non-ranged foes roll for elite status in mkFoe (~6%). Boss banner state:
@@ -683,7 +683,7 @@ const step = (dt) => {
 
   if (deathT > 0) {
     deathT -= dt;
-    if (deathT <= 0) { resetTransient(); hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.inv = 1.5; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn: clean transients + full HP+MP, reseed foes, reset all non-dead bosses, clear drops; pl.inv overrides resetTransient's 0 for i-frames
+    if (deathT <= 0) { resetTransient(); hp = mHP(); mn = mMN(); pl.x = SX; pl.y = SY; pl.inv = 1.5; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn: clean transients + full HP+MP, always paddock, reseed foes, reset all non-dead bosses, clear drops; pl.inv overrides resetTransient's 0 for i-frames
     return;
   }
   if (!started) return;
