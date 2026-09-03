@@ -614,8 +614,9 @@ const strike = (f, gen, viaStomp) => {
   if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
     f.ph = 1; sfx(220, 110, .35, 'sawtooth', .16);
     const g2 = f.cap |= P2[f.bi];                 // phase 2 GRANTS capabilities — same vocab, pure data
-    if (P2[f.bi] & 4) for (let n = 0; n < 2; n++)                                              // summon minions (event bit — fires on gain)
-      foes.push({ x: f.x + n * 20 - 10, y: f.y - 10, k: 1, vx: 40 * (n ? 1 : -1), hp: 4, dm: 2, fl: 0, t: 0 });
+    if (P2[f.bi] & 4) for (let n = 0; n < 2; n++) {                                            // summon minions (event bit — fires on gain). mkFoe() gives full foe contract (cz/mx/cap) so they render + collide + die; without it fsz()→NaN made them invisible ghosts.
+      const m = mkFoe(f.x + n * 20 - 10, f.y - 10, 1); m.vx = 40 * (n ? 1 : -1); foes.push(m);
+    }
     if (g2 & 32) f.spd = 1.65;                    // SWIFT — faster chase + hop
   }
   if (f.hp <= 0) {
