@@ -469,7 +469,7 @@ const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette
 const NSC = 10 / 7;                                // GREATCORN render scale — matches the DARKCORN boss silhouette (boss fs=20 ÷ drawU 14-tall bbox)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
 let cp = [SX, SY], lastSafe = [SX, SY], deathT = 0;
-let nearFire = 0, nearNpc = 0;                    // hearth + GREATCORN proximity flags (JUMP-to-interact)
+let nearNpc = 0;                                  // GREATCORN proximity flag (JUMP-to-interact re-talk quips)
 let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
 // DIALOGUE — dq = active script (INTRO or a 1-line re-talk quip) or 0=closed · di = current bubble · tqi = re-talk cycle index.
 // Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
@@ -480,11 +480,7 @@ let invSel = -1;                                  // selected inventory slot (-1
 // HEARTH ACTION — JUMP-near-fire = REST: full HP + MP restore, respawn checkpoint set.
 // NOTE: does NOT save the game — the only manual save is the floppy HUD icon (so players
 // can't accidentally save at a bad moment by hitting a checkpoint).
-const rest = () => {
-  const [fx, fy] = seeds.fires[0];
-  hp = mHP(); mn = mMN(); cp = [fx * T - 20, (fy - 1) * T];
-  spray(pl.x + PW / 2, pl.y + PH / 2, 6); pl.inv = .6; sfx(500, 900, .3, 'triangle', .1);   // full heal → rainbow burst ON the unicorn + brief flash (reuses inv blink); no text needed
-};
+
 // Chest reward: item shower only (no heal — fire hearth is the sole heal point). LUCK adds drops.
 const openChest = (i) => {
   if (oc & (1 << i)) return;
@@ -533,7 +529,7 @@ const resetTransient = () => {
   pl.face = 1; pl.sq = 1;
   jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = luT = bann = dq = di = tqi = navCD = 0;
 };
-const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); return 1; } if (nearFire) { rest(); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // JUMP-near-NPC → cycle a re-talk quip
+const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // JUMP-near: NPC → re-talk quip · chest → open. Fire is decorative (no interaction).
 // Player-level progression: every 4 levels adds 1 scale pip. Enemies stay a threat as the
 // player over-levels; bosses reuse the same formula and additionally scale via bi (+dm).
 const scl = () => 2 + (lvl >> 2);
@@ -882,9 +878,7 @@ const step = (dt) => {
   prune(foes, e => e.dead);   // frame-end prune — foes refill only on death (soft reset), never mid-run
 
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
-  nearFire = 0;
-  for (const [fx, fy] of seeds.fires) if (Math.hypot(pl.x - fx * T, pl.y - fy * T) <= 26) { nearFire = 1; break; }
-  nearNpc = Math.hypot(pl.x - NX, pl.y - NGY) < 34 ? 1 : 0;   // single fixed-point check (no loop) — GREATCORN re-talk zone; 56px from the fire so zones never overlap
+  nearNpc = Math.hypot(pl.x - NX, pl.y - NGY) < 34 ? 1 : 0;   // single fixed-point check — GREATCORN re-talk zone
 
   // ITEM DROPS — float, gravity, tile collision, proximity pickup
   for (const d of drops) {
@@ -953,7 +947,7 @@ const draw = () => {
     }
   }
 
-  // Hearth: campfire — checkpoint + full HP/MP restore on JUMP-near (rest()). Does NOT save.
+  // Hearth: campfire — pure atmospheric decoration (rest/checkpoint feature removed 2026-09-03).
   for (const [fx, fy] of seeds.fires) {
     const cxp = fx * T, cyp = fy * T;
     // Campfire: pure static decoration — log + two flame triangles. The shape IS the feature (no animation).
@@ -1240,7 +1234,7 @@ const draw = () => {
       if (paused && c !== 'bJ') continue;            // menu shows only JUMP (= confirm/select); joystick handles nav, back stays on ☰/tap-out
       const usable = (s < 0 || su[s]) && mn >= mp;
       // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
-      const rc = usable ? (c === 'bJ' && (nearFire || nearChest >= 0 || nearNpc) ? '#ffd75e' : col) : '#555';
+      const rc = usable ? (c === 'bJ' && (nearChest >= 0 || nearNpc) ? '#ffd75e' : col) : '#555';
       ctx.globalAlpha = keys.has(c) ? .85 : (touch ? .55 : .38);
       ctx.fillStyle = 'rgba(15,15,20,.75)';
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
@@ -1258,7 +1252,7 @@ const draw = () => {
       // Context-swaps: menu → checkmark (confirm/select); gameplay → double up-chevron (leap), gold near fire/chest (REST/OPEN).
       if (c === 'bJ') {
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        const gold = !paused && (nearFire || nearChest >= 0 || nearNpc);
+        const gold = !paused && (nearChest >= 0 || nearNpc);
         const oc = gold ? '#b8801f' : '#2f6fb0', cc = gold ? '#ffe08a' : '#cfeeff';   // outline / core (gold when an interact is available)
         const path = paused
           ? () => { ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); }              // ✓ confirm
