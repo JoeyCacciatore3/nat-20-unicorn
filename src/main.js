@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v40 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v41 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
@@ -58,7 +58,7 @@ NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // o
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // 2 SAVE SLOTS (n20_s0..1). sMeta reads name+level for the slot list without loading.
-const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 40 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 41 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume transitions can't drift.
@@ -270,9 +270,10 @@ const eq = [null, null, null, null];
 const inv = [];
 const invMax = () => 5 + su[8] * 5;                  // BAG cap: 5 base, +5 STASH (max 10)
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
+// CONTRACT: caller MUST ensure bag has room (useItem splices new item out first — that's what makes the swap safe)
 const equip = (item) => {
   const old = eq[item.s];
-  if (old && old.b > 0 && inv.length < invMax()) inv.push(old);  // stash old if it had stats
+  if (old && old.b > 0) inv.push(old);             // stash old if it had stats
   eq[item.s] = item;
   col[item.s] = item.c;                            // update unicorn color
   eqB = eq.map(e => e ? e.b : 0);
@@ -442,30 +443,31 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 40, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 41, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
-    u: col,
-    q: eq, i: inv, p: mute, P: [hpPot, mpPot],
+    q: eq, i: inv, p: mute, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth)
   });
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 40) return;                               // strict v40 gate — no cross-version compat (added HP+/MP+/POT+ passives).
+    if (!d || d.v !== 41) return;                               // strict v41 gate — no cross-version compat.
+    resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
     chests = seedChests();
     foes = seedFoes();
     [ho, he, sp, df, lk] = d.t;
-    col = d.u;
     cp = d.c; pl.x = cp[0]; pl.y = cp[1];
     pending = d.d;                                                 // unspent stat points survive reload — ☰ glows, no auto-open
     spts = d.k; d.y.forEach((v, i) => su[i] = v);
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
-    if (d.P) { hpPot = d.P[0] | 0; mpPot = d.P[1] | 0; }
-    eqB = eq.map(e => e ? e.b : 0); mute = d.p | 0;
+    hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
+    eqB = eq.map(e => e ? e.b : 0);
+    col = eq.map(e => e ? e.c : 0);                                // derived from equipment (single source of truth)
+    mute = d.p | 0;
   } catch (e) { /* fresh oath */ }
 };
 
@@ -518,6 +520,7 @@ let chests = seedChests();
 let oc = 0, nearChest = -1;                       // opened bitfield · which chest index the player is standing on (-1 = none)
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
+  resetTransient();                                     // clean-state guarantee (velocity, cooldowns, dialogue) — shared with load() + respawn
   hp = 10; xp = 0; lvl = 1; mn = 10; bs.fill(0); hpPot = mpPot = 0;
   eq.fill(null); inv.length = 0; eqB = [0, 0, 0, 0];
   pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
@@ -526,10 +529,19 @@ const fresh = () => {
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seedChests();
   foes = seedFoes();
-  cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY; pl.vx = pl.vy = 0;
+  cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY;
 };
 // Non-ranged foes roll for elite status in mkFoe (~6%). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
+// Clean-gameplay-state reset — single source of truth for "what is zero at a fresh
+// start." Called by fresh() (NEW GAME), load() (CONTINUE), and respawn (death).
+// Without this, transient state (velocity, cooldowns, active dialogue) can bleed
+// across sessions when EXIT-to-title happens without a page reload.
+const resetTransient = () => {
+  pl.vx = pl.vy = pl.air = pl.coyote = pl.inv = pl.ground = pl.t = 0;
+  pl.face = 1; pl.sq = 1;
+  jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = luT = bann = dq = di = tqi = navCD = 0;
+};
 const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); return 1; } if (nearFire) { rest(); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // JUMP-near-NPC → cycle a re-talk quip
 // Player-level progression: every 4 levels adds 1 scale pip. Enemies stay a threat as the
 // player over-levels; bosses reuse the same formula and additionally scale via bi (+dm).
@@ -680,7 +692,7 @@ const step = (dt) => {
 
   if (deathT > 0) {
     deathT -= dt;
-    if (deathT <= 0) { hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.vx = pl.vy = 0; pl.inv = 1.5; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn: full HP+MP, reseed foes, reset ALL non-dead bosses, clear drops
+    if (deathT <= 0) { resetTransient(); hp = mHP(); mn = mMN(); pl.x = cp[0]; pl.y = cp[1]; pl.inv = 1.5; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; }   // respawn: clean transients + full HP+MP, reseed foes, reset all non-dead bosses, clear drops; pl.inv overrides resetTransient's 0 for i-frames
     return;
   }
   if (!started) return;
