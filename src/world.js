@@ -133,30 +133,7 @@ const MEADOW = {
     [532, 55, 2], [545, 58, 2],                                  // EAST SHELF — blob guarding chest, blob by the gap
     [560, 44, 4], [578, 58, 2],                                  // EAST ASCENT — runner on climb, blob on ground
   ],
-  DECO: [
-    // MEADOW paddock / title-hero framing (x111-146) — lush, spaced (trees ≥3 tiles
-    // apart so canopies never touch; campfire x131-134 kept clear).
-    [113, 59, 0], [119, 59, 0], [139, 59, 0], [145, 59, 0],                                 // trees
-    [112, 59, 1], [116, 59, 1], [122, 59, 1], [129, 59, 1], [136, 59, 1], [141, 59, 1],     // grass tufts
-    [118, 59, 6], [121, 59, 6], [128, 59, 6], [137, 59, 6], [143, 59, 6],                    // flowers
-    [126, 59, 3], [135, 59, 3],                                                              // mushrooms
-    // MEADOW eastern open run (x142-277)
-    [142, 59, 0], [155, 59, 0], [165, 59, 0], [202, 59, 0], [212, 59, 0], [228, 59, 0], [238, 59, 0],
-    [148, 59, 1], [150, 59, 1], [180, 59, 1], [183, 59, 1], [225, 59, 1], [255, 59, 1], [261, 59, 1],
-    [160, 59, 6], [173, 59, 6], [195, 59, 6], [210, 59, 6], [245, 59, 6], [250, 59, 6],
-    [174, 56, 0], [204, 55, 1], [266, 57, 1],
-    // terraces / cliffs / peak deco (gameplay regions, unchanged)
-    [20, 69, 2], [126, 69, 2], [120, 69, 2], [190, 69, 2], [240, 69, 2],
-    [86, 53, 0], [73, 50, 0], [78, 50, 1],
-    [53, 25, 0], [45, 23, 1],
-    [17, 11, 2], [15, 11, 1],   // peak-ledge decor (nudged: chest 3 at x=12)
-    // FLAIR — crystal clusters (depths/peak/canopy)
-    [26, 69, 8], [46, 69, 8], [54, 25, 8], [14, 11, 8],          // crystals: west depths (flank VIOLET), canopy, peak
-    // EAST GATE (x466-512) flair
-    [485, 59, 6], [508, 59, 0],                                  // EAST GATE — flower, tree
-    [524, 59, 6], [560, 59, 0],                                  // EAST SHELF — flower, tree
-    [566, 59, 6], [574, 32, 8],                                  // EAST ASCENT — flower, crystal (summit edge, clear of GREEN CORN)
-  ],
+  DECO: [],   // SPIKE: hand-placed removed — all decoration now via scatter()
 };
 
 export const seeds = MEADOW;
@@ -167,8 +144,8 @@ export const seeds = MEADOW;
 export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = grid[y * W + tx]; if (v === 1 || v === 2) return y; } return H; };
 
 // PROCEDURAL FOLIAGE — scatter deco along exposed floor tops. Deterministic (seeded RNG).
-// FOL = [gap, ...types] — 1-in-gap column density; types: 0 tree 1 grass 6 flower.
-const FOL = [3, 1, 1, 6, 1];
+// FOL = [gap, ...types] — 1-in-gap column density; SPIKE: all types via rotation ratios.
+const FOL = [2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 3, 6, 6, 6, 6, 8];   // 3 tree, 6 grass, 1 rock, 1 mushroom, 4 flower, 1 crystal
 const scatter = () => {
   const [gap, ...ty] = FOL, d = [];
   let s = 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
