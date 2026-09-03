@@ -9,9 +9,13 @@
 
 // UNIFIED PALETTE — 15 colors, shared across all 4 body parts. Mane gradient
 // auto-derived via dim(): base → 85% → 70% brightness (no stored triples).
+// GUARD (byte-law #14): PAL[8] must NOT equal ZBG. Sky-blue is reserved for the
+// background — a gear roll of c=8 would produce invisible-against-sky gear. Reusing
+// the mana-blue literal '#4a76ff' here means: (a) distinct-from-sky gear color, and
+// (b) roadroller LZ-backrefs the same string used elsewhere (mana bar, XP text).
 export const PAL = [
   '#f5f1f4','#f7d9c0','#ffd75e','#ff9d3c','#ff5d6c','#ff99cc',
-  '#e08ae0','#c47fe0','#6bc5ff','#40e8b0','#5ac878',
+  '#e08ae0','#c47fe0','#4a76ff','#40e8b0','#5ac878',
   '#d8d8e0','#ffffff','#2a1f14','#4a3828'
 ];
 // Derive a darker shade of any hex color (each channel * f). Used for the mane sweep
