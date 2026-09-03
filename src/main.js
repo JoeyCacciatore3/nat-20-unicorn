@@ -551,6 +551,9 @@ const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: big ? 2.2 : 1.4 });   // big texts (crit / heal / shard) linger longer — the distinct signal, no label word needed
 // Unified particle spray — n bits burst radially. sk=0 → mini rainbow (7 RC bands: jump/heal/chest/shard/etc) · sk=1 → skull sprite (combat/death). One fan, one code path.
 const spray = (x, y, n = 4, sk = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: .5 + Math.random() * .35, sk }); } };
+// Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
+// pass custom for dead-flag or bit-match culling. Used by shots/fbolts/parts/flies/foes/drops.
+const prune = (a, d = e => e.t <= 0) => { for (let i = a.length; i--;) if (d(a[i])) a.splice(i, 1); };
 // Pixel skull sprite — bone dome + big dark eye sockets + nose + teeth. 7×8 bitmap, O=bone D=dark .=skip. u = pixel unit (scales), a = alpha. Shared by combat/death bursts + elite markers.
 const SK = ['.OOOOO.', 'OOOOOOO', 'ODDODDO', 'ODDODDO', 'OOODOOO', '.OOOOO.', '.ODODO.', '..OOO..'];
 const skull = (x, y, u, a = 1) => {
@@ -617,7 +620,7 @@ const strike = (f, gen, viaStomp) => {
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (f.el || Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // elite guarantees a drop
     if (f.el) sfx(784, 1568, .3, 'triangle', .15);   // elite kill flourish (aqua death burst above signals visually)
     if (f.bit) {                                                // BOSS falls
-      for (let i = foes.length; i--;) if (foes[i].bit === f.bit) foes.splice(i, 1);
+      prune(foes, e => e.bit === f.bit);
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
@@ -799,14 +802,14 @@ const step = (dt) => {
       if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0, 0); break; }
     }
   }
-  for (let i = shots.length; i--;) if (shots[i].t <= 0) shots.splice(i, 1);
+  prune(shots);
   // -- foe bolts (CASTER + boss phase 2): hit the player, die on solid --
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
     else if (pl.x + PW > b.x - 2 && pl.x < b.x + 2 && pl.y + PH > b.y - 2 && pl.y < b.y + 2) { hurt(2, 0); b.t = 0; }
   }
-  for (let i = fbolts.length; i--;) if (fbolts[i].t <= 0) fbolts.splice(i, 1);
+  prune(fbolts);
 
   // -- foes --
   for (const f of [...foes]) {
@@ -876,7 +879,7 @@ const step = (dt) => {
     } else if (!hit && (f.wt || 0) > 0) f.wt = Math.max(0, f.wt - dt * 2);  // DECAY, not reset — brief separation keeps threat
     if (f.wt < 0) f.wt = Math.min(0, f.wt + dt);
   }
-  for (let i = foes.length; i--;) if (foes[i].dead) foes.splice(i, 1);   // frame-end prune — foes refill only on death (soft reset), never mid-run
+  prune(foes, e => e.dead);   // frame-end prune — foes refill only on death (soft reset), never mid-run
 
   // -- HEARTH proximity flag (input handling lives in keydown/pointerdown; JUMP is universal interact) --
   nearFire = 0;
@@ -896,12 +899,12 @@ const step = (dt) => {
       if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); }   // only vanish when actually collected
     }
   }
-  for (let i = drops.length; i--;) if (drops[i].dead) drops.splice(i, 1);
+  prune(drops, e => e.dead);
   // fx
   for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
-  for (let i = parts.length; i--;) if (parts[i].t <= 0) parts.splice(i, 1);
+  prune(parts);
   for (const f of flies) { f.t -= dt; f.y -= 28 * dt; }
-  for (let i = flies.length; i--;) if (flies[i].t <= 0) flies.splice(i, 1);
+  prune(flies);
 };
 
 // ---------- render ----------
@@ -1333,7 +1336,7 @@ const draw = () => {
     ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#c33'; ctx.fillText('?', VW - 14, iy + 10);
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {
-      ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(0, 0, VW, VH);
+      fade(.8);
       // Rainbow "SAVED!" per-character
       ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
       const sv = 'GAME SAVED', sw = ctx.measureText(sv).width, sx0 = (VW - sw) / 2;
@@ -1348,7 +1351,7 @@ const draw = () => {
   // !started), so the paddock view doubles as the title backdrop. A light scrim dims
   // the scene just enough to keep the branding legible over the lively foliage.
   if (phase === 0) {
-    ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.fillRect(0, 0, VW, VH);
+    fade(.34);
     // Rainbow arc — uses module-level RC palette (shared with title + effects)
     ctx.lineWidth = 3;
     rArc(VW / 2, 130, 78, 3);
@@ -1381,7 +1384,7 @@ const draw = () => {
   }
   // HELP OVERLAY — controls reference, toggled by "?" button
   if (helpOn && started) {
-    ctx.fillStyle = 'rgba(0,0,0,.88)'; ctx.fillRect(0, 0, VW, VH);
+    fade(.88);
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#ffd75e'; T2('CONTROLS', VW / 2, 60);
     [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H'],['PAUSE','P']].forEach(([a, b], i) => {
