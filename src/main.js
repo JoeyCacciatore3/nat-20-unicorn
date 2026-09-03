@@ -20,7 +20,7 @@
 
 import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
-import { PAL, TC, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
+import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -263,7 +263,6 @@ let ho = 1, he = 1, sp = 1, df = 1, lk = 1;       // every stat starts at 1 — 
 // Unicorn part colors — one palette index per body part (0=BODY, 1=MANE, 2=HORN, 3=HOOVES).
 // Equipping slot s writes col[s], which drives drawU's fill colors.
 let col = [0, 0, 0, 0];
-let npc = 0;   // drawU render flag: when 1, skip equipment trims (GREAT CORN uses an isolated palette, never the player's gear)
 // EQUIPMENT — 4 equipped slots + inventory bag. Items = {t:type, s:slot, c:color, b:bonus}.
 // Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF). Bonus 0=cosmetic.
 const eq = [null, null, null, null];
@@ -344,12 +343,8 @@ const drawU = (bob) => {
   ctx.fillStyle = PAL[col[2]]; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill(); // horn
   mane3(col[1]).forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });// mane 3-color
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
-  // EQUIPMENT — a geared part wears a tier trim (colour = which gear, trim = level).
-  const et = s => !npc && eq[s] ? TC[eq[s].b] : 0, a3 = et(3), a0 = et(0), a2 = et(2), a1 = et(1);
-  if (a3) { ctx.fillStyle = a3; ctx.fillRect(1, 15, 2, 1); ctx.fillRect(7, 15, 2, 1); }              // hoof cuffs
-  if (a0) { ctx.fillStyle = a0; ctx.fillRect(0, 5, 10, 1); }                                         // barding stripe
-  if (a2) { ctx.fillStyle = a2; ctx.fillRect(9, 0, 2, 1); }                                          // horn ring
-  if (a1) { ctx.fillStyle = a1; ctx.fillRect(5, 1, 2, 1); }                                          // mane spark
+  // Equipment does NOT modify the visible sprite beyond the per-slot color (col[]).
+  // Stat bonuses apply via eqB[] → mHP/mMN/ATK/DEF. Joey directive 2026-09-03.
 };
 // DARK CORN unicorn sprite (14-bbox). Legs/body/head use the CALLER's current fillStyle
 // (live boss: hit-flash/tell/black · defeated NPC: GREAT-CORN purple). horn+eye = ec, mane = dim(ec).
@@ -1100,14 +1095,14 @@ const draw = () => {
     ctx.restore();
   }
 
-  // GREAT CORN — the guide NPC standing beside the fire. Isolated palette (npc=1 skips the player's gear trims),
+  // GREAT CORN — the guide NPC standing beside the fire. Isolated palette via col swap to NPCCOL,
   // faces left toward spawn (scale -1), gentle idle bob. Drawn before the player so the hero renders on top.
   if (started) {
     ctx.save();
     ctx.translate(NX, NGY); ctx.scale(-NSC, NSC); ctx.translate(-PW / 2, -PH);   // boss-sized, feet planted at NGY, faces left
-    const bc = col; col = NPCCOL; npc = 1;
+    const bc = col; col = NPCCOL;
     drawU(Math.sin(time * 2));
-    col = bc; npc = 0;
+    col = bc;
     ctx.restore();
   }
 
