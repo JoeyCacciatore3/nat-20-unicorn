@@ -30,6 +30,7 @@ const MEADOW = {
     [0, 0, 3, H], [W - 3, 0, 3, H],        // W-relative borders: whole world scales off W/H
     [3, 60, W - 6, 40],                    // ground + underground mass (rows 60-99, deep enough to seal void beneath surface + caverns)
     // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
+    [155, 60, 3, 2, 0], [155, 61, 3, 1, 3],                      // early practice pit (base-crossable, teaches jumping post-paddock)
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
     [233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
@@ -39,6 +40,8 @@ const MEADOW = {
     [210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route
     [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4],
     [274, 58, 3, 1, 2],
+    // Central→East transition (x=280-287) — DJ climb bridging the flat zone
+    [280, 57, 4, 1, 2], [286, 54, 4, 1, 2],                      // DJ platforms (rise 1 + rise 3 = DJ range)
     // Descent corridor (x150-256, subterranean pocket)
     [150, 66, 107, 4, 0],
     [175, 63, 18, 7, 0],
@@ -132,7 +135,9 @@ const MEADOW = {
     [76, 81.3],     // 9 — underground cavern (via depths corridor + drop)
   ],
   foes: [
+    [148, 58, 1], [160, 58, 4],                                  // paddock-approach patrol (near practice pit)
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
+    [282, 56, 1], [288, 53, 4],                                  // transition zone — crawler on lower DJ platform, runner on higher
     [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
     [92, 52, 1], [78, 49, 2], [86, 53, 5], [62, 40, 1], [95, 37, 4],   // canopy zig-zag — extra crawler + runner
     [75, 35, 2],
