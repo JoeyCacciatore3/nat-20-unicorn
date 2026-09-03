@@ -732,10 +732,11 @@ const step = (dt) => {
     for (const ox of [1, PW - 1]) {
       const tv = tile((pl.x + ox) / T | 0, ty);
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
-        pl.y = top - PH;
-        if (bounceSet.has(ty * W + fc)) {                        // BOUNCE MUSHROOM — big launch; air=0 keeps DJ/TRI for the combo
+        if (bounceSet.has(ty * W + fc)) {                        // BOUNCE MUSHROOM — 10px sprite; land on CAP TOP (not IN it), big launch
+          pl.y = top - PH - 10;                                  // stand on visible mushroom cap top (matches render height at L1013-1015)
           pl.vy = jumpHeld() ? -480 : -430; pl.air = 0; pl.sq = .6; spray(pl.x + PW / 2, feet, 5); sfx(220, 640, .16, 'sine', .13);
         } else {
+          pl.y = top - PH;                                       // normal ground snap: feet at tile top
           if (!wasGround && pl.vy > 250) { pl.sq = 1.35; spray(pl.x + PW / 2, feet, 4); sfx(150, 70, .06, 'square', .07); }
           pl.vy = 0; pl.ground = 1; pl.air = 0;
         }
@@ -854,7 +855,7 @@ const step = (dt) => {
     // CONTACT with wind-up tell: touching sets .wt clock; hurt only fires after 0.3s (visible red flash).
     // Cooldown holds .wt < 0 until the strike can re-arm.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
-    if (hit && pl.vy > 40 && pl.y + PH - f.y < 10) {
+    if (hit && pl.vy > 40 && py + PH <= f.y + 4) {
       strike(f, 0, 1);
       // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center.
       // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
@@ -864,12 +865,11 @@ const step = (dt) => {
       // .wt is NOT reset here — repeat-bouncing must accumulate threat (anti-exploit)
     } else if (hit && (f.wt || 0) >= 0) {
       f.wt = (f.wt || 0) + dt;
-      // Arm on 0.22s of slow contact (telegraph / red-flash for standing melee) OR immediately on a
-      // FAST impact: a quick pass-by (fast foe, or you moving) can't sustain 0.22s in the ~20px
-      // overlap window, so relative speed >90px/s registers on the FIRST overlap frame — no more
-      // running through / behind enemies for free. Guarded to !dashT so the offensive dash-through
-      // stays a clean engage; the 1.2s hurt() i-frame prevents any double-dip.
-      if (f.wt > .22 || (dashT <= 0 && Math.abs((pl.vx || 0) - (f.vx || 0)) > 90)) { hurt(f.dm, 0); f.wt = -.7; }
+      // Arm on 0.22s of slow contact (telegraph / red-flash for standing melee) OR immediately on
+      // FAST impact (relative speed >90px/s registers on the FIRST overlap frame — no free pass-by).
+      // Both triggers uniformly gated by dashT<=0: dash grants i-frames (industry standard: Elden
+      // Ring, Cuphead, Genshin). Hurt's 1.2s i-frame then prevents any post-dash double-dip.
+      if (dashT <= 0 && (f.wt > .22 || Math.abs((pl.vx || 0) - (f.vx || 0)) > 90)) { hurt(f.dm, 0); f.wt = -.7; }
     } else if (!hit && (f.wt || 0) > 0) f.wt = Math.max(0, f.wt - dt * 2);  // DECAY, not reset — brief separation keeps threat
     if (f.wt < 0) f.wt = Math.min(0, f.wt + dt);
   }
