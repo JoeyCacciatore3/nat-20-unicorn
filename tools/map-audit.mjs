@@ -15,6 +15,8 @@ const TIERS = [
   { name: 'base       ', up: 2, h: 5 },
   { name: '+doublejump', up: 4, h: 6 },
   { name: '+dash      ', up: 4, h: 9 },
+  { name: '+trijump   ', up: 6, h: 7 },      // TRI adds a 3rd jump → higher rise + slightly more air-drift
+  { name: '+longdash  ', up: 4, h: 13 },     // LONG DASH doubles dash distance → wider horizontal reach
 ];
 
 // Spawn point (matches main.js SX/SY = 126*T, 57*T → falls to ground row 60).

@@ -17,7 +17,7 @@
 // L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
 //                      death always returns to a campfire. (engine, main.js)
 // ================================================================================
-export const T = 16, W = 800, H = 160;
+export const T = 16, W = 600, H = 160;
 export const grid = new Uint8Array(W * H);
 export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 : grid[ty * W + tx];
 
@@ -26,9 +26,9 @@ const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i 
 // ---------- MEADOW (800×160 unified world, all CORN bosses) ----------
 const MEADOW = {
   MAP: [
-    // envelope — playable band y=0-71, y=72-159 reserved for growth (underground caverns)
+    // envelope — playable y=0-71 surface + optional pockets at y=72+ (underground extensions)
     [0, 0, 3, H], [W - 3, 0, 3, H],        // W-relative borders: whole world scales off W/H
-    [3, 60, W - 6, 12],                    // ground + underground mass (rows 60-71 across full width)
+    [3, 60, W - 6, 40],                    // ground + underground mass (rows 60-99, deep enough to seal void beneath surface + caverns)
     // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
@@ -64,11 +64,17 @@ const MEADOW = {
     [46, 24, 3, 1, 2],
     [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
     [10, 12, 9, 2],
+    // Peak TRI-JUMP secret — chest 8 above BLUE summit (rise 5 requires 3rd jump)
+    [22, 8, 3, 1, 2], [26, 3, 5, 1, 2],   // DJ from summit y=12 to y=8, TRI from y=8 to y=3
     // Depths corridor (x10-139, deep west) — post-DASH route to VIOLET CORN
     [10, 64, 130, 6, 0],
     [108, 60, 3, 4, 0],
     [108, 62, 3, 1, 2], [108, 64, 3, 1, 2], [108, 66, 3, 1, 2], [108, 68, 3, 1, 2],
     [80, 69, 7, 1, 3],
+    // Underground cavern — chest 9 pocket below depths corridor (walls/floor provided by deep ground band)
+    [62, 70, 3, 2, 0],                                                                              // entry drop hole (y=70-71) through corridor floor into cavern
+    [60, 72, 22, 10, 0],                                                                            // cavern chamber (y=72-81, w=22)
+    [63, 80, 3, 1, 2], [63, 78, 3, 1, 2], [63, 76, 3, 1, 2], [63, 74, 3, 1, 2], [63, 72, 3, 1, 2],  // return rungs
     // Paddock DJ hub perch
     [124, 54, 4, 1, 2],
     // ---- East run (x280-476) — post-hub DJ/DASH/LONG DASH/TRI JUMP showcase ----
@@ -121,6 +127,8 @@ const MEADOW = {
     [530.5, 55.3],  // 5 — EAST SHELF mid platform (between spike gaps, DJ)
     [564, 36.3],    // 6 — EAST ASCENT climb summit reward (DJ zig-zag)
     [574, 51.3],    // 7 — EAST ASCENT bounce side ledge (bounce + DJ)
+    [28, 2.3],      // 8 — peak TRI-JUMP secret (TRI gap from y=8 to y=3)
+    [76, 81.3],     // 9 — underground cavern (via depths corridor + drop)
   ],
   foes: [
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
