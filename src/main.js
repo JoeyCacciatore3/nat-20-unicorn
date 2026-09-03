@@ -209,8 +209,8 @@ addEventListener('pointerdown', (e) => {
       return;                                                  // tap on empty inv area — no-op, keeps menu open
     }
     // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
-    const col = ((vx - 39) / 26) | 0;
-    if (vy > 150 && vy < 180 && vx > 39 && vx < 169 && col >= 0 && col < STATS.length) { if (aRow === col) spend(); else setRow(col); return; }
+    const ci = ((vx - 39) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette)
+    if (vy > 150 && vy < 180 && vx > 39 && vx < 169 && ci >= 0 && ci < STATS.length) { if (aRow === ci) spend(); else setRow(ci); return; }
     for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + invMax() + i; if (aRow === r) spend(); else setRow(r); return; } }
     paused = 0; return;                                        // tap anywhere else closes
   }
@@ -287,7 +287,7 @@ const equip = (item) => {
 // Inventory holds ONLY gear now. Potions live exclusively in the bottom hot-bar (see quaff).
 const useItem = (i) => {
   const it = inv[i]; if (!it) return;
-  inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1);
+  inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1); save();   // auto-save: equipment change is progression, matches spend()/openChest()/strike() pattern
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 const quaff = (t) => { const g = 10 + su[11] * 5; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); } };
@@ -494,12 +494,12 @@ const rest = () => {
   hp = mHP(); mn = mMN(); cp = [fx * T - 20, (fy - 1) * T];
   spray(pl.x + PW / 2, pl.y + PH / 2, 6); pl.inv = .6; sfx(500, 900, .3, 'triangle', .1);   // full heal → rainbow burst ON the unicorn + brief flash (reuses inv blink); no text needed
 };
-// Chest reward: item shower + full heal. LUCK adds drops.
+// Chest reward: item shower only (no heal — fire hearth is the sole heal point). LUCK adds drops.
 const openChest = (i) => {
   if (oc & (1 << i)) return;
   oc |= 1 << i;
-  const c = chests[i]; hp = mHP();
-  spawnDrop(c.x, c.y, 2);
+  const c = chests[i];
+  spawnDrop(c.x, c.y, 2);                                     // items only — no heal (fire hearth is the only heal point)
   spray(c.x, c.y - 4, 4); sfx(660, 990, .15, 'triangle', .12);
   save();
 };
@@ -825,8 +825,8 @@ const step = (dt) => {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
       if (f.rc <= 0) {
         f.rc = f.bit ? 1.6 : 2.1;
-        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, sp = f.bit ? 115 : 90;
-        fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * sp, vy: dy / d * sp, t: 2.6 });
+        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = f.bit ? 115 : 90;   // psp = projectile speed (was 'sp' — shadowed MAG stat)
+        fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * psp, vy: dy / d * psp, t: 2.6 });
         sfx(f.bit ? 260 : 380, 180, .14, 'sawtooth', .09);
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire
       }
