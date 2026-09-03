@@ -351,16 +351,6 @@ const drawU = (bob) => {
   // Equipment does NOT modify the visible sprite beyond the per-slot color (col[]).
   // Equipment folds bonuses directly into base stats via equip() (Joey directive 2026-09-03).
 };
-// DARK CORN unicorn sprite (14-bbox). Legs/body/head use the CALLER's current fillStyle
-// (live boss: hit-flash/tell/black · defeated NPC: GREAT-CORN purple). horn+eye = ec, mane = dim(ec).
-// Shared by the live boss draw AND the defeated-boss friendly NPC so both stay identical.
-const drawCorn = (ec, ph, eye = ec) => {   // eye defaults to horn color; defeated/friendly corns pass white for a kind look
-  ctx.fillRect(1, 12 + ph * .3, 2, 4 - ph * .3); ctx.fillRect(7, 12 - ph * .3, 2, 4 + ph * .3);   // legs
-  ctx.fillRect(0, 5, 10, 7); ctx.fillRect(7, 0, 5, 6);                                             // body + head
-  ctx.fillStyle = ec; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill();   // horn
-  ctx.fillStyle = dim(ec, .6); ctx.fillRect(5, 1, 2, 4); ctx.fillRect(3, 3, 2, 4); ctx.fillRect(1, 5, 2, 4);   // mane
-  ctx.fillStyle = eye; ctx.fillRect(10, 2, 1.5, 1.5);                                              // eye
-};
 // CHAT BUBBLE — reusable speech bubble that stems from a head at world (hx, topY).
 // Single continuous path: rounded corners (arcTo) + a downward tail merged into the bottom edge,
 // so one fill+stroke yields a clean outlined bubble with no seam. txt optional ('' = open bubble,
@@ -595,7 +585,7 @@ const spawnDrop = (x, y, n) => {
     const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 0 };
     const r = (Math.random() * 100 | 0) + Math.min(lk, 10) * 4;  // % roll + LUCK
     // gear tier: random roll + LUCK + level vs thresholds
-    if (r >= 85) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 11) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
+    if (r >= 85) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 12) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
     else if (r >= 58) d.t = 1;                  // MP POTION (else t=0: HP POTION)
     drops.push(d);
   }
@@ -629,7 +619,7 @@ const strike = (f, gen, viaStomp) => {
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — collect rainbow shard automatically (progression token, not an item)
         bs[f.bi] = 2;
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
-        spray(f.x, f.y, 8); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / ' + seeds.bosses.length, RBC[f.bi], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
+        spray(f.x, f.y, 8); fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / ' + seeds.bosses.length, PAL[RBC[f.bi]], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
         if (shards() === seeds.bosses.length) {                 // ALL bosses down — the game's objective PAYS OFF
           bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNICORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
         }
@@ -1035,12 +1025,11 @@ const draw = () => {
     ctx.translate(-fs / 2, -fs);
     // colour: white flash on hit > red pre-strike wind-up tell > elite/base tint. boss=charcoal.
     ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.el ? PAL[9] : FOECOL[f.k];
-    if (f.bit) {                                                // DARK CORN — reflection of the player unicorn: same shape,
-      // BLACK body; horn + eye + mane all colored by the boss's rainbow band (bi) — the sole identity signal now names are unified.
-      // Eye + horn flip to bright rage colors in phase 2 (half HP transition).
-      const ec = f.ph ? '#fff' : RBC[f.bi];   // horn + eye = the rainbow band this corn holds (rage-white in phase 2)
-      ctx.scale(fs / 14, fs / 14);                              // scale player unicorn bbox → fs; body fillStyle set above (flash/tell/black)
-      drawCorn(ec, Math.sin(f.t * 8) * 3);                       // walk-cycle bob
+    if (f.bit) {                                                // DARK CORN — renders via drawU (canonical unicorn) with a temporary col swap.
+      // Body/hooves: PAL[13] dark (flash→12 white, tell→4 red). Horn+mane: PAL[RBC[bi]] identity band (rage→12 white in phase 2).
+      const bd = f.fl > 0 ? 12 : f.wt > .12 ? 4 : 13, hn = f.ph ? 12 : RBC[f.bi];
+      ctx.scale(fs / 14, fs / 14);                              // scale drawU 14-bbox → fs
+      const bc = col; col = [bd, hn, hn, bd]; drawU(Math.sin(f.t * 8) * 3); col = bc;
     } else if (sh === 1) {                                      // CRAWLER shape — 4 legs + antennae (k1 CRAWLER, k4 RUNNER, k5 HOPPER)
       ctx.fillRect(s * .2, fs - s + step, s * .6, s);            // legs step
       ctx.fillRect(s * 1.6, fs - s - step * .7, s * .6, s);
@@ -1094,8 +1083,7 @@ const draw = () => {
     const fx = bx * T, fy = by * T;
     ctx.save();
     ctx.translate(fx + 10, fy + 20); ctx.scale(pl.x + PW / 2 < fx + 10 ? -1 : 1, 1); ctx.translate(-10, -20); ctx.scale(NSC, NSC);
-    ctx.fillStyle = PAL[7];                                    // body/hooves = GREAT CORN purple
-    drawCorn(RBC[bi], Math.sin(time * 2 + bi), '#fff');       // white eye = friendly/redeemed
+    const bc = col; col = [7, RBC[bi], RBC[bi], 7]; drawU(Math.sin(time * 2 + bi)); col = bc;   // redeemed corn: purple body + rainbow horn/mane
     ctx.restore();
   }
 
