@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v41 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v42 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
@@ -58,7 +58,7 @@ NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // o
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // 2 SAVE SLOTS (n20_s0..1). sMeta reads name+level for the slot list without loading.
-const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 41 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '0'); return d && d.v === 42 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume transitions can't drift.
@@ -269,14 +269,19 @@ const eq = [null, null, null, null];
 const inv = [];
 const invMax = () => 5 + su[8] * 5;                  // BAG cap: 5 base, +5 STASH (max 10)
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
-// CONTRACT: caller MUST ensure bag has room (useItem splices new item out first — that's what makes the swap safe)
+// Equipment folds directly into base stats (single source of truth). Delta = new bonus − old bonus;
+// stat mutation mirrors spend() so HP/MP grow/shrink together with mHP/mMN (like a level-up).
+// CONTRACT: caller MUST ensure bag has room (useItem splices new item out first — that's what makes the swap safe).
 const equip = (item) => {
-  const old = eq[item.s];
-  if (old && old.b > 0) inv.push(old);             // stash old if it had stats
+  const old = eq[item.s], d = item.b - (old ? old.b : 0);
+  if (old) inv.push(old);
   eq[item.s] = item;
-  col[item.s] = item.c;                            // update unicorn color
-  eqB = eq.map(e => e ? e.b : 0);
-  if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN();   // unequipping better gear drops the ceiling — clamp so bar can't overflow
+  col[item.s] = item.c;
+  if (item.s === 0) { he += d; hp += d * 2; }        // body  → HP  stat (spend() pattern: +2 hp per point)
+  else if (item.s === 1) { sp += d; mn += d * 2; }   // mane  → MAG stat (spend() pattern: +2 mp per point)
+  else if (item.s === 2) ho += d;                    // horn  → STR stat
+  else df += d;                                      // hooves → DEF stat
+  if (hp < 1) hp = 1; if (mn < 0) mn = 0;            // safety: unequipping better body/mane can't drop you below 1 hp / 0 mp
 };
 // Use an inventory slot — equip gear (t=5), consume HP/MP potion (t=0/1). Returns true if consumed.
 // Inventory holds ONLY gear now. Potions live exclusively in the bottom hot-bar (see quaff).
@@ -286,8 +291,7 @@ const useItem = (i) => {
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 const quaff = (t) => { const g = 10 + su[11] * 5; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); } };
-// Cached equipment bonuses (additive on top of base stats)
-let eqB = [0, 0, 0, 0];
+
 // GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 11`) is coupled to
 // PAL.length (15) — indices 4..14. tpos-check.mjs enforces this pairing.
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
@@ -345,7 +349,7 @@ const drawU = (bob) => {
   mane3(col[1]).forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });// mane 3-color
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
   // Equipment does NOT modify the visible sprite beyond the per-slot color (col[]).
-  // Stat bonuses apply via eqB[] → mHP/mMN/ATK/DEF. Joey directive 2026-09-03.
+  // Equipment folds bonuses directly into base stats via equip() (Joey directive 2026-09-03).
 };
 // DARK CORN unicorn sprite (14-bbox). Legs/body/head use the CALLER's current fillStyle
 // (live boss: hit-flash/tell/black · defeated NPC: GREAT-CORN purple). horn+eye = ec, mane = dim(ec).
@@ -384,9 +388,9 @@ let hs = 0, shk = 0;                              // combat feel: hitstop freeze
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 const shards = () => bs.filter(v => v === 2).length;
-const mHP = () => 8 + (he + eqB[0]) * 2 + su[9] * 5;   // base 8 + HP stat + body-gear + HP+ skill (+5)
-const mMN = () => 8 + (sp + eqB[1]) * 2 + su[10] * 5;           // mane eq boosts MAG · +5 from MP+ skill
-const ATK = () => ho + eqB[2];                   // STR stat + horn-gear bonus (all from explicit player choice)
+const mHP = () => 8 + he * 2 + su[9] * 5;         // base 8 + HP stat (equipment folded in) + HP+ skill (+5)
+const mMN = () => 8 + sp * 2 + su[10] * 5;        // base 8 + MAG stat (equipment folded in) + MP+ skill (+5)
+const ATK = () => ho;                             // STR stat (equipment folded in)
 const critChance = () => .08 + lk * .02;                      // 10% base + 2% per LUCK (LUCK 1 = 10%)
 const isCrit = () => Math.random() < critChance();
 const need = () => lvl * lvl + 12;
@@ -439,7 +443,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s' + slot] = JSON.stringify({
-    v: 41, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 42, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], c: [cp[0], cp[1]], d: pending, k: spts, y: su,
     m: pName, o: oc,
     q: eq, i: inv, p: mute, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth)
@@ -448,7 +452,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s' + slot] || '0');
-    if (!d || d.v !== 41) return;                               // strict v41 gate — no cross-version compat.
+    if (!d || d.v !== 42) return;                               // strict v42 gate — no cross-version compat.
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
@@ -461,9 +465,7 @@ const load = () => {
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
     hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
-    eqB = eq.map(e => e ? e.b : 0);
     col = eq.map(e => e ? e.c : 0);                                // derived from equipment (single source of truth)
-    if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN();        // saved vitals may exceed reconstituted ceiling — clamp on load
     mute = d.p | 0;
   } catch (e) { /* fresh oath */ }
 };
@@ -519,7 +521,7 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 const fresh = () => {
   resetTransient();                                     // clean-state guarantee (velocity, cooldowns, dialogue) — shared with load() + respawn
   hp = 10; xp = 0; lvl = 1; mn = 10; bs.fill(0); hpPot = mpPot = 0;
-  eq.fill(null); inv.length = 0; eqB = [0, 0, 0, 0];
+  eq.fill(null); inv.length = 0;
   pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
@@ -664,7 +666,7 @@ function heal() {                                               // instant tap-t
 
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
-  n = Math.max((n >> 2) || 1, n - df - eqB[3]);                // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
+  n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
   hp -= n; pl.inv = 1.2; shk = Math.max(shk, .22);
   sfx(140, 55, .25, 'sawtooth', .12); spray(pl.x, pl.y + 7, 4);
 
