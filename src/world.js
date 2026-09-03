@@ -150,13 +150,12 @@ const MEADOW = {
     [86, 53, 0], [73, 50, 0], [78, 50, 1],
     [53, 25, 0], [45, 23, 1],
     [17, 11, 2], [15, 11, 1],   // peak-ledge decor (nudged: chest 3 at x=12)
-    // NEW FLAIR — cattails (meadow surface) + crystal clusters (depths/peak/canopy)
-    [152, 59, 7], [168, 59, 7], [242, 59, 7],                    // cattails along the open meadow
+    // FLAIR — crystal clusters (depths/peak/canopy)
     [26, 69, 8], [46, 69, 8], [54, 25, 8], [14, 11, 8],          // crystals: west depths (flank VIOLET), canopy, peak
     // EAST GATE (x466-512) flair
-    [468, 59, 7], [485, 59, 6], [508, 59, 0],                    // EAST GATE — cattail, flower, tree
-    [514, 59, 7], [524, 59, 6], [560, 59, 0],                    // EAST SHELF — cattail, flower, tree
-    [566, 59, 6], [578, 59, 7], [574, 32, 8],                    // EAST ASCENT — flower, cattail (ground), crystal (summit edge, clear of GREEN CORN)
+    [485, 59, 6], [508, 59, 0],                                  // EAST GATE — flower, tree
+    [524, 59, 6], [560, 59, 0],                                  // EAST SHELF — flower, tree
+    [566, 59, 6], [574, 32, 8],                                  // EAST ASCENT — flower, crystal (summit edge, clear of GREEN CORN)
   ],
 };
 

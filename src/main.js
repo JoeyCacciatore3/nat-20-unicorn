@@ -967,7 +967,7 @@ const draw = () => {
     ctx.fillRect(c.x - 1, c.y - 1, 2, 3);
   }
   // WORLD DECORATIONS — data-driven from DECO seeds. Positions are data, draw is shared.
-  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=ice crystal 6=flower 7=cattail 8=crystal cluster
+  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=ice crystal 6=flower 8=crystal cluster (7 was cattail — removed)
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
@@ -993,10 +993,6 @@ const draw = () => {
       ctx.fillStyle = GF; ctx.fillRect(px + 7, py - 6, 1, 6);
       ctx.fillStyle = '#f9c'; ctx.fillRect(px + 5, py - 9, 5, 3);
       ctx.fillStyle = '#ffd75e'; ctx.fillRect(px + 7, py - 8, 1, 1);
-    } else if (dt === 7) { // CATTAIL — reed stems + brown seed head (wetland / meadow edge)
-      ctx.fillStyle = GF;
-      ctx.fillRect(px + 5, py - 9, 1, 9); ctx.fillRect(px + 8, py - 13, 1, 13); ctx.fillRect(px + 11, py - 7, 1, 7);
-      ctx.fillStyle = '#7a5230'; ctx.fillRect(px + 7, py - 13, 3, 5);        // seed head on the tall stem
     } else if (dt === 8) { // CRYSTAL CLUSTER — gem shards on a rock base (cavern / peak flair)
       ctx.fillStyle = RB; ctx.fillRect(px + 3, py - 3, 10, 3);               // rock base
       ctx.fillStyle = '#c47fe0'; ctx.fillRect(px + 4, py - 7, 2, 4); ctx.fillRect(px + 10, py - 6, 2, 3);   // side shards
