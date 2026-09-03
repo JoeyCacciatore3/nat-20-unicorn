@@ -1078,16 +1078,6 @@ const draw = () => {
     ctx.fillStyle = '#fff'; ctx.fillRect(b.x - 1, b.y - 1, 2, 2);
   }
 
-  // DEFEATED DARKCORNs — linger at their arena as friendly NPCs: GREATCORN purple body/hooves,
-  // but keeping their own band-colored horn + mane. Face the player, gentle idle bob. Same sprite as the boss.
-  if (started) for (const [bx, by, bi] of seeds.bosses) if (bs[bi] === 2) {
-    const fx = bx * T, fy = by * T;
-    ctx.save();
-    ctx.translate(fx + 10, fy + 20); ctx.scale(pl.x + PW / 2 < fx + 10 ? -1 : 1, 1); ctx.translate(-10, -20); ctx.scale(NSC, NSC);
-    const bc = col; col = [7, RBC[bi], RBC[bi], 7]; drawU(Math.sin(time * 2 + bi)); col = bc;   // redeemed corn: purple body + rainbow horn/mane
-    ctx.restore();
-  }
-
   // GREATCORN — the guide NPC standing beside the fire. Isolated palette via col swap to NPCCOL,
   // faces left toward spawn (scale -1), gentle idle bob. Drawn before the player so the hero renders on top.
   if (started) {
