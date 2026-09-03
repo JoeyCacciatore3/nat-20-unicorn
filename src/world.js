@@ -133,13 +133,15 @@ const MEADOW = {
   foes: [
     [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
     [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
-    [92, 52, 1], [78, 49, 2], [86, 53, 5],
+    [92, 52, 1], [78, 49, 2], [86, 53, 5], [62, 40, 1], [95, 37, 4],   // canopy zig-zag — extra crawler + runner
     [75, 35, 2],
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
+    [24, 1, 1], [30, 1, 4],                                      // peak TRI-JUMP secret — crawler + runner guarding chest 8
+    [70, 80, 6], [66, 80, 5], [76, 80, 3],                       // underground cavern — puff (ranged), hopper, caster guarding chest 9
     [490, 56, 2], [500, 53, 1],                                  // EAST GATE — blob on step, crawler on upper ledge
     [532, 55, 2], [545, 58, 2],                                  // EAST SHELF — blob guarding chest, blob by the gap
-    [560, 44, 4], [578, 58, 2],                                  // EAST ASCENT — runner on climb, blob on ground
+    [560, 44, 4], [578, 58, 2], [566, 30, 3],                    // EAST ASCENT — runner on climb, blob on ground, caster on GREEN summit
   ],
   DECO: [],   // SPIKE: hand-placed removed — all decoration now via scatter()
 };
