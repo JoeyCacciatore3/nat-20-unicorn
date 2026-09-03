@@ -277,11 +277,11 @@ const equip = (item) => {
   if (old) inv.push(old);
   eq[item.s] = item;
   col[item.s] = item.c;
-  if (item.s === 0) { he += d; hp += d * 2; }        // body  → HP  stat (spend() pattern: +2 hp per point)
-  else if (item.s === 1) { sp += d; mn += d * 2; }   // mane  → MAG stat (spend() pattern: +2 mp per point)
+  if (item.s === 0) he += d;                         // body  → HP  stat (max only — equip raises ceiling, current stays; unequip clamps)
+  else if (item.s === 1) sp += d;                    // mane  → MAG stat (same asymmetric rule)
   else if (item.s === 2) ho += d;                    // horn  → STR stat
   else df += d;                                      // hooves → DEF stat
-  if (hp < 1) hp = 1; if (mn < 0) mn = 0;            // safety: unequipping better body/mane can't drop you below 1 hp / 0 mp
+  if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN();  // clamp on unequip-to-lower (equip is no-op — current was already ≤ old max ≤ new max)
 };
 // Use an inventory slot — equip gear (t=5), consume HP/MP potion (t=0/1). Returns true if consumed.
 // Inventory holds ONLY gear now. Potions live exclusively in the bottom hot-bar (see quaff).
@@ -510,7 +510,7 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
   resetTransient();                                     // clean-state guarantee (velocity, cooldowns, dialogue) — shared with load() + respawn
-  hp = 10; xp = 0; lvl = 1; mn = 10; bs.fill(0); hpPot = mpPot = 0;
+  xp = 0; lvl = 1; bs.fill(0); hpPot = mpPot = 0;
   eq.fill(null); inv.length = 0;
   pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
@@ -519,6 +519,7 @@ const fresh = () => {
   chests = seedChests();
   foes = seedFoes();
   cp = [SX, SY]; lastSafe = [SX, SY]; pl.x = SX; pl.y = SY;
+  hp = mHP(); mn = mMN();                             // full at derived max (honest — no more 10/10 magic number coincident with the base-stat formula)
 };
 // Non-ranged foes roll for elite status in mkFoe (~6%). Boss banner state:
 let bann = 0, bTxt = '', bSub = '';
