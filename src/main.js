@@ -276,6 +276,7 @@ const equip = (item) => {
   eq[item.s] = item;
   col[item.s] = item.c;                            // update unicorn color
   eqB = eq.map(e => e ? e.b : 0);
+  if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN();   // unequipping better gear drops the ceiling — clamp so bar can't overflow
 };
 // Use an inventory slot — equip gear (t=5), consume HP/MP potion (t=0/1). Returns true if consumed.
 // Inventory holds ONLY gear now. Potions live exclusively in the bottom hot-bar (see quaff).
@@ -291,8 +292,8 @@ let eqB = [0, 0, 0, 0];
 // PAL.length (15) — indices 4..14. tpos-check.mjs enforces this pairing.
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
-// Stat bar: dark track + coloured fill to `frac` (0..1). Shared by portrait, HUD, boss/tier bars.
-const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * frac, h); };
+// Stat bar: dark track + coloured fill to `frac` (clamped 0..1 so vitals > max render as full, never overflow).
+const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * Math.min(1, frac), h); };
 // Full-screen dim overlay — death vignette.
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
 // Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band. Shared: HUD shard icon, title arc, particle burst. Caller sets lineWidth.
@@ -462,6 +463,7 @@ const load = () => {
     hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
     eqB = eq.map(e => e ? e.b : 0);
     col = eq.map(e => e ? e.c : 0);                                // derived from equipment (single source of truth)
+    if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN();        // saved vitals may exceed reconstituted ceiling — clamp on load
     mute = d.p | 0;
   } catch (e) { /* fresh oath */ }
 };
