@@ -472,8 +472,8 @@ const load = () => {
 
 // ---------- player ----------
 const PW = 10, PH = 14;
-const SX = 126 * T, SY = 57 * T;                  // spawn point (paddock)
 const NX = 129 * T, NGY = 60 * T;                 // GREAT CORN guide: center-x (tile 129), feet baseline (tile 60 top) — 56px right of the fire so talk/rest zones never overlap
+const SX = 126 * T, SY = NGY - PH;                // spawn point (paddock) — feet at NGY ground baseline so intro plays with unicorn standing (no drop-in)
 const NPCCOL = [7, 2, 2, 7];                       // GREAT CORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
 const NSC = 10 / 7;                                // GREAT CORN render scale — matches the DARK CORN boss silhouette (boss fs=20 ÷ drawU 14-tall bbox)
 const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
