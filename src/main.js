@@ -701,8 +701,10 @@ const step = (dt) => {
   // -- jump: buffer + coyote + variable + double --
   pl.coyote = pl.ground ? .1 : pl.coyote - dt;
   if (jbuf > 0) {
-    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }
-    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; jbuf = 0; pl.sq = .7; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }   // TRI JUMP — same sound as ground jump (unified)
+    let ok = 0;
+    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; ok = 1; }
+    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; ok = 1; }   // TRI JUMP — same sound as ground jump (unified tail below)
+    if (ok) { jbuf = 0; pl.sq = .7; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash: flat burst, strike foes
@@ -1129,7 +1131,8 @@ const draw = () => {
     if (time < bann) {                                          // BOSS BANNER — arena-entry announcement
       ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#ffd75e';
       T2(bTxt, VW / 2, 58);
-      if (bSub) { ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68); }
+      // bSub always non-empty when time<bann (both writers at L626/L786 set it together with bann/bTxt)
+      ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68);
     }
     if (time < luT) {                                           // LEVEL UP BANNER — rainbow per-char, matches title 'UNICORN' font/style
       ctx.globalAlpha = Math.min(1, (luT - time) * 3);          // pop in, fade last .33s
