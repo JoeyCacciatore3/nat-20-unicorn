@@ -35,7 +35,7 @@ export const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a'
 // FT[k] = [hp, dm, speed, size, capBits, shape].
 // k1 CRAWLER · k2 BLOB · k3 CASTER · k4 RUNNER · k5 HOPPER · k6 PUFF.
 // Cap bits: 1=ranged 2=hop 4=summon 8=shockwave 16=chase 32=swift.
-export const FT = [, [4, 3, 44, 2, 0, 1], [8, 4, 31, 3, 16, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 2, 0, 1], [6, 4, 36, 3, 18, 1], [9, 4, 22, 3, 1, 2]];
+export const FT = [, [4, 3, 44, 3, 0, 1], [8, 4, 31, 3, 16, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 3, 0, 1], [6, 4, 36, 3, 18, 1], [9, 4, 22, 3, 1, 2]];
 // P2 = capability bits granted at boss phase 2 (OR'd into f.cap).
 export const P2 = [32, 4, 1, 8, 37, 8, 10];   // INDIGO (bi=6) — hop + shockwave in the cavern
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.

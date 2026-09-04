@@ -12,10 +12,10 @@
 // L5 GATE LAW        — an ability wall must be provably impassable without its
 //                      ability and provably passable with it (incl. ceiling).
 // L6 RETURN LAW      — every standable cell reachable with moveset M must reach
-//                      a campfire using M. ENFORCED BY tools/map-audit.mjs — the
+//                      the paddock campfire using M. ENFORCED BY tools/map-audit.mjs — the
 //                      build FAILS if any stuck spot exists.
 // L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
-//                      death always returns to a campfire. (engine, main.js)
+//                      death always respawns at the paddock (sole campfire; no checkpoints since 029aef5). (engine, main.js)
 // ================================================================================
 export const T = 16, W = 600, H = 160;
 export const grid = new Uint8Array(W * H);
