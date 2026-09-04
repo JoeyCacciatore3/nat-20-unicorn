@@ -129,7 +129,7 @@ const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('bJ'); // butto
 // ACTION BUTTONS — all four ALWAYS visible, uniform size. Ring is bright when USABLE
 // (skill unlocked AND enough MP), else dull #555 — one rule covers both "locked" and "out of MP".
 // Each: [x, y, key, brightColor, suIdx (-1 = always unlocked), mpCost]. Fan-arc = landscape thumb-reach.
-const AR = 20;
+const AR = 20, BVS = .7;                          // AR = TOUCH radius (hit = AR+6, unchanged) · BVS = VISUAL scale — buttons draw at 70% (r=14) but accept the same 26px touch (operator 09-04: slim look, forgiving hit)
 const AB = [
   [VW - 36, VH - 34, 'bJ', '#8cf', -1, 0],
   [VW - 92, VH - 30, 'bM', '#ffd75e', 6, 1],
@@ -143,7 +143,7 @@ const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
 // touch in the LEFT 40% re-anchors it under the thumb (Dead Cells floating pattern,
 // ~80% player preference per Playdigious postmortem). Snaps home on release.
 // Y-axis push-down on joystick = crouch/drop-through platform.
-const JHX = 52, JHY = VH - 52, JR = 26, KR = 11, JMX = JR - 8;   // home, base r, knob r, max knob throw
+const JHX = 36, JHY = VH - 34, JR = 26, KR = 11, JMX = JR - 8, JVS = AR * BVS / JR;   // home MIRRORS the JUMP button's corner offsets (VW-36, VH-34) — symmetric thumb anchors · JR = TOUCH base r (grab/clamp math, unchanged) · JVS scales the VISUAL to the buttons' 14px draw radius
 const joy = { x: JHX, y: JHY, dx: 0, dy: 0, id: -1 };
 
 const joySet = () => {                                           // knob offset → digital movement keys
@@ -331,7 +331,7 @@ const rText = (s, y) => {
   for (let i = 0; i < s.length; i++) { const cx = VW / 2 - w / 2 + ch * i; ctx.strokeText(s[i], cx, y); ctx.fillStyle = RC[i % 7]; ctx.fillText(s[i], cx, y); }
 };
 // Shared HP/MP/XP triple stack at (x, y): red HP + blue mana + purple XP (color-coordinated).
-const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeStyle = '#1a1a22'; ctx.lineWidth = 1; ctx.strokeRect(x - .5, y - .5, 69, 11); bar(x, y + 12, 68, 8, mn / mMN(), '#4a76ff'); ctx.strokeRect(x - .5, y + 11.5, 69, 9); bar(x, y + 22, 68, 3, lvl >= CAP ? 1 : xp / need(), '#b06cf0'); };
+const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#ff5d6c'); ctx.strokeStyle = '#1e1928'; ctx.lineWidth = 1; ctx.strokeRect(x - .5, y - .5, 69, 11); bar(x, y + 12, 68, 8, mn / mMN(), '#4a76ff'); ctx.strokeRect(x - .5, y + 11.5, 69, 9); bar(x, y + 22, 68, 3, lvl >= CAP ? 1 : xp / need(), '#b06cf0'); };
 // Shared portrait panel — renders the identity card (title bar, bordered box with
 // HP bar at top, live unicorn silhouette) used by both the PAUSE overlay and the
 // CHARACTER-CREATE screen. Title = player name on PAUSE, 'NEW CHARACTER' on create.
@@ -958,15 +958,17 @@ const draw = () => {
     if (v === 1) {
       // SOLID GROUND — dirt body, lighter surface-top where exposed to air
       ctx.fillStyle = GD; ctx.fillRect(i * T, j * T, T + .5, T + .5);
-      if (tile(i, j - 1) !== 1) tops.push([i * T, j * T, 5]);
+      const a = tile(i, j - 1);
+      if (a !== 1 && a !== 3) tops.push([i * T, j * T, 5]);   // no grass under spikes — they ground in dirt (grass reads safe)
     } else if (v === 2) {
       // PLATFORM — chunky: surface-top + dirt underside
       ctx.fillStyle = GD; ctx.fillRect(i * T, j * T + 2, T + .5, 7);
       tops.push([i * T, j * T, 4]);
     } else {
-      // SPIKES — universal danger color
+      // SPIKES — universal danger color. FULL-TILE height: tips at j*T so the visual fills
+      // the (fully lethal) tile — and pit spikes read grounded in dirt, not floating on grass.
       ctx.fillStyle = '#e05555';
-      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(i * T + k * 4, j * T + T); ctx.lineTo(i * T + k * 4 + 2, j * T + 8); ctx.lineTo(i * T + k * 4 + 4, j * T + T); ctx.fill(); }
+      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(i * T + k * 4, j * T + T); ctx.lineTo(i * T + k * 4 + 2, j * T); ctx.lineTo(i * T + k * 4 + 4, j * T + T); ctx.fill(); }
     }
   }
   ctx.fillStyle = GT; for (const [tx2, ty2, th] of tops) ctx.fillRect(tx2, ty2, T + .5, th);
@@ -1198,7 +1200,7 @@ const draw = () => {
       const ix = 38 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.03)';
       ctx.fillRect(ix, iy, iSz, iSz);
-      ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? SC[SLOT_STAT[it.s]] : '#444');
+      ctx.strokeStyle = i === invSel ? '#ffd75e' : (it ? SC[SLOT_STAT[it.s]] : '#555');
       ctx.lineWidth = i === invSel ? 1 : (it ? it.b * .5 : .5); ctx.strokeRect(ix, iy, iSz, iSz);   // stat-color stroke, tier via width
       if (it) drawPart(it.s, ix + 8, iy + 9, it.c);            // inventory holds ONLY gear now — always draws the part
     }
@@ -1221,7 +1223,7 @@ const draw = () => {
     if (spts) { ctx.fillStyle = '#ffd75e'; T2('+' + spts, 338, 42); }   // skill points available, above the tree
     const NS = 26;
     // Diagonal connection lines — prerequisite tree (LINK) parent→child paths
-    ctx.strokeStyle = '#444'; ctx.lineWidth = .5;
+    ctx.strokeStyle = '#555'; ctx.lineWidth = .5;
     for (let k = 0; k < LINK.length; k += 2) {
       const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
       ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
@@ -1229,8 +1231,8 @@ const draw = () => {
     // Nodes — always show name; locked/available/purchased differentiated by color/stroke only.
     TREE.forEach((nm, i) => {
       const [cx, cy] = TPOS[i];
-      ctx.fillStyle = '#1a1a22'; ctx.fillRect(cx, cy, NS, NS);
-      ctx.fillStyle = su[i] ? 'rgba(255,215,94,.18)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);
+      ctx.fillStyle = '#1e1928'; ctx.fillRect(cx, cy, NS, NS);
+      ctx.fillStyle = su[i] ? 'rgba(255,215,94,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);
       ctx.strokeStyle = su[i] ? '#ffd75e' : '#555'; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
       if (aRow === 5 + iMax + i) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }   // cursor on this skill node
       ctx.fillStyle = su[i] ? '#ffd75e' : '#888';
@@ -1259,12 +1261,14 @@ const draw = () => {
       const usable = (s < 0 || su[s]) && mn >= mp;
       // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
       const rc = usable ? (c === 'bJ' && (nearChest >= 0 || nearNpc) ? '#ffd75e' : col) : '#555';
-      ctx.globalAlpha = keys.has(c) ? .85 : (touch ? .55 : .38);
-      // INTRO TUTORIAL — GREATCORN's controls bubbles (data.js INTRO 6/7/8) spotlight their control: pulsing gold ring + full brightness while he explains it
-      if (dq === INTRO && (di === 7 ? c === 'bJ' : di === 8 && c !== 'bJ')) {
-        ctx.globalAlpha = .95; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(x, y, AR + 5 + Math.sin(time * 6) * 2, 0, 7); ctx.stroke();
-      }
+      ctx.globalAlpha = keys.has(c) ? .85 : .35;   // idle 35% both devices — mobile competitive convention is 20-40% (research 09-04); matches joystick idle; pressed pops to 85%
+      // INTRO TUTORIAL — SUBTRACTIVE spotlight (research 09-04: NN/g "don't match the UI" + static
+      // pop-out): during controls bubbles 6/7/8 the explained control renders full-alpha, all others
+      // dim to .15. No ring, no gold — gold keeps its ONE button meaning (interact-now), and locked
+      // buttons stay visibly dull-grey while spotlit (no "looks usable" lie). Scene is frozen, so a
+      // static contrast jump pops preattentively — no animation needed (Treisman pop-out).
+      if (dq === INTRO && di >= 6 && di <= 8) ctx.globalAlpha = (di === 7 ? c === 'bJ' : di === 8 && c !== 'bJ') ? .95 : .15;
+      ctx.save(); ctx.translate(x, y); ctx.scale(BVS, BVS); ctx.translate(-x, -y);   // scale the WHOLE visual (disc+glyph+linewidths) — glyph code stays untouched
       ctx.fillStyle = 'rgba(15,15,20,.75)';
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
       ctx.strokeStyle = rc; ctx.lineWidth = 2;
@@ -1307,6 +1311,7 @@ const draw = () => {
         ctx.fillStyle = '#e2c9ff'; ctx.fill();                                 // core — bright lavender
         ctx.lineJoin = 'miter';
       }
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
@@ -1314,17 +1319,15 @@ const draw = () => {
   if (started && touch && !savePop && !helpOn) {   // gameplay AND character menu (menu uses it for cursor nav); hidden only under overlays
     const act = joy.id >= 0;
     ctx.globalAlpha = act ? .6 : .35;
-    if (dq === INTRO && di === 6) {                                // tutorial spotlight — "stick or arrows" bubble (touch only; desktop has no stick)
-      ctx.globalAlpha = .95; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(joy.x, joy.y, JR + 5 + Math.sin(time * 6) * 2, 0, 7); ctx.stroke();
-    }
+    if (dq === INTRO && di >= 6 && di <= 8) ctx.globalAlpha = di === 6 ? .95 : .15;   // subtractive spotlight: full while bubble 6 explains the stick, dimmed while buttons are explained
+    ctx.save(); ctx.translate(joy.x, joy.y); ctx.scale(JVS, JVS); ctx.translate(-joy.x, -joy.y);   // scale WHOLE visual (base+knob+throw) — input math untouched
     ctx.fillStyle = 'rgba(15,15,20,.75)';
     ctx.beginPath(); ctx.arc(joy.x, joy.y, JR, 0, 7); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(joy.x, joy.y, JR, 0, 7); ctx.stroke();
     ctx.globalAlpha = act ? .9 : .5; ctx.fillStyle = '#fff';
     ctx.beginPath(); ctx.arc(joy.x + joy.dx, joy.y + joy.dy, KR, 0, 7); ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.restore(); ctx.globalAlpha = 1;
   }
 
   // ---------- PERSISTENT HUD (top-left header + bottom-center potions) — visible in gameplay AND character menu ----------
@@ -1333,7 +1336,7 @@ const draw = () => {
     const qslot = (x, t) => {
       const n = t ? mpPot : hpPot;
       ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
-      ctx.strokeStyle = n ? '#555' : '#444'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);
+      ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);   // one chrome grey everywhere (09-04); filled/empty already signaled by bg tint + glyph alpha + count color
       ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 6, QSY + 6, 12, t ? '#4a76ff' : '#ff5d6c'); ctx.globalAlpha = 1; ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // 4×3 opaque cork (alpha reset before cork so empty slots keep cork solid). Bitmap has 3 skinny neck rows; cork covers r0, r1-2 visible as clear skinny-neck feature.
       ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
     };

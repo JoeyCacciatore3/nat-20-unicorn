@@ -55,7 +55,7 @@ const MEADOW = {
     [246, 60, 3, 6, 0],
     [246, 62, 3, 1, 2], [246, 64, 3, 1, 2], [246, 66, 3, 1, 2], [246, 68, 3, 1, 2],
     [222, 61, 8, 3, 0], [224, 63, 6, 1], [219, 66, 3, 1, 2],
-    [184, 69, 3, 1, 3], [228, 69, 3, 1, 3],
+    [184, 70, 3, 1, 3], [228, 70, 3, 1, 3],   // ambushes sunk INTO the corridor floor — tips flush with walk level (operator 09-04)
     // Western terraces (x40-118) — DJ climb to YELLOW CORN on canopy ledge
     [114, 56, 2, 4],
     [100, 57, 8, 3], [88, 54, 8, 6], [76, 51, 8, 9], [64, 48, 8, 12], [52, 45, 8, 15],
@@ -77,7 +77,7 @@ const MEADOW = {
     [10, 64, 130, 6, 0],
     [108, 60, 3, 4, 0],
     [108, 62, 3, 1, 2], [108, 64, 3, 1, 2], [108, 66, 3, 1, 2], [108, 68, 3, 1, 2],
-    [80, 69, 7, 1, 3],
+    [80, 70, 7, 1, 3],                        // cavern ambush likewise sunk flush
     // Underground cavern — chest 9 pocket below depths corridor (walls/floor provided by deep ground band)
     [62, 70, 3, 2, 0],                                                                              // entry drop hole (y=70-71) through corridor floor into cavern
     [60, 72, 22, 10, 0],                                                                            // cavern chamber (y=72-81, w=22)
@@ -174,26 +174,35 @@ export const seeds = MEADOW;
 // chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.
 export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = grid[y * W + tx]; if (v === 1 || v === 2) return y; } return H; };
 
-// PROCEDURAL FOLIAGE — LAYERED scatter along every exposed floor top. Deterministic (seeded LCG).
-// Composition rules (see research: blue-noise/Poisson-disk, size-class layering, clump-don't-sprinkle):
-//   TREES  — per-row cooldown = 1D Poisson-disk: min 7-col spacing, so anchors never crowd.
-//            Species banded by x>>4 → 16-col GROVES of one kind (pine stands / oak stands, never mixed adjacents).
-//   GROUND — grass/flower runs of 1-3 consecutive columns (patches, not sprinkles), flowers ~30% of runs.
-//   SINGLES — rocks/glow-mushrooms as rare loners (.06) for texture.
+// PROCEDURAL FOLIAGE v3 — LAYERED scatter, research-grounded (2026-09-04 canon: Wei SIGGRAPH'10
+// multi-class blue noise · Deussen SIGGRAPH'98 ecosystem shade rules · stratified quota cycles):
+//   TREES  — per-row cooldown = 1D Poisson-disk (min 7-col spacing); species banded x>>4 → 16-col groves.
+//   GROUND — jittered QUOTA CYCLE (Q): every 8 ground slots deliver 4 grass / 2 flower / 1 shroom / 1 rock.
+//            Deterministic per-window rates — iid rolls have NO local clumping bound (all-grass runs);
+//            a quota cycle guarantees every type appears in every ~15-col stretch. Only GRASS extends
+//            into short runs (patch feel); flowers/rocks/shrooms are cycle-placed singles.
+//   CANOPY — Deussen shade affinity: for 3 ground slots after a tree, flower slots become MUSHROOMS
+//            (shade-tolerant under canopy; sun-lovers claim open gaps) — one swap encodes both rules.
+const Q = [1, 1, 6, 1, 3, 1, 6, 2];   // the quota cycle (type ids: 1 grass · 6 flower · 3 shroom · 2 rock)
 const scatter = () => {
   const d = [];
   let s = 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...seeds.fires, ...(seeds.bounce || []), ...seeds.DECO];
-  const tc = {}, run = {}, rt = {};                              // per-row: tree cooldown, active run length, run type
+  const tc = {}, run = {}, qc = {}, sh = {};                     // per-row: tree cooldown, grass-run left, quota index, shade counter
   for (let x = 5; x < W - 5; x++) {
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
     for (let y = 2; y < H; y++) {
       const v = grid[y * W + x];
       if ((v !== 1 && v !== 2) || grid[(y - 1) * W + x] !== 0) continue;    // exposed floor tops: solid ground AND one-way platform rungs
-      if (run[y] > 0) { run[y]--; d.push([x, y - 1, rt[y]]); }                                    // continue a ground-cover patch
-      else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, (x >> 4) % 2 ? 5 : 0]); tc[y] = x + 7; }   // tree anchor (blue-noise spacing, grove species) — SOLID ground only; no trees on thin rungs (landing readability)
-      else if (rnd() < .35) { rt[y] = rnd() < .3 ? 6 : 1; run[y] = 1 + rnd() * 3 | 0; d.push([x, y - 1, rt[y]]); }   // start a patch (runs 2-4 long)
-      else if (rnd() < .09) d.push([x, y - 1, rnd() < .5 ? 2 : 3]);                               // lone rock / mushroom
+      if (run[y] > 0) { run[y]--; d.push([x, y - 1, 1]); }                                        // grass run continuation
+      else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, (x >> 4) % 2 ? 5 : 0]); tc[y] = x + 7; sh[y] = 3; }   // tree anchor — SOLID only; opens a 3-slot shade zone
+      else if (rnd() < .55) {
+        let t = Q[(qc[y] = (qc[y] || 0) + 1) % 8];               // stratified: rotate the quota table (jittered by the .55 gate)
+        if (sh[y] > 0 && t === 6) t = 3;                         // CANOPY: flower slot under shade → mushroom
+        if (t === 1) run[y] = rnd() * 2 | 0;                     // grass may extend 0-2 extra cols
+        d.push([x, y - 1, t]);
+      }
+      if (sh[y] > 0) sh[y]--;                                    // shade decays per ground slot
     }
   }
   return d;
