@@ -3,7 +3,7 @@
 // Design pillars (see OneStone project "uni-corn" for full history + rationale):
 //   - Stat allocation (STR/HP/MAG/DEF/LUCK), no classes
 //   - 4-slot color-driven equipment gear (BODY/MANE/HORN/HOOVES) — each drop
-//     is an RPG item icon: armor / cape / sword / boots (drawPart), tinted by roll color
+//     is an RPG item icon: armor / cape / horn blade / horseshoe (drawPart), tinted by roll color
 //   - ONE open skill tree, 12 single-rank nodes, all player-chosen (no auto-learn)
 //   - Rainbow shards = collection goal (one per DARKCORN boss; win = all bands, seeds.bosses.length)
 //   - Unified character sheet: pause + level-up share layout
@@ -62,7 +62,12 @@ const sMeta = (i) => { try { const d = JSON.parse(localStorage['n20_s' + i] || '
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume transitions can't drift.
-const beginGame = () => { if (!ent) return; NI.blur(); pName = ent; phase = 2; started = 1; talk(INTRO); save(); };  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
+const beginGame = () => {
+  if (!ent) return; NI.blur(); pName = ent;
+  // DEVICE-CONDITIONAL TUTORIAL — touch is latched before any begin path (slot tap). Swap INTRO 6/7 to touch prompts; the highlight ring names the control, the text names the action.
+  if (touch) { INTRO[6] = 'Push that to walk.'; INTRO[7] = 'That one jumps.|Jump near me to chat.|I permit it.'; }
+  phase = 2; started = 1; talk(INTRO); save();
+};  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
 const resumeGame = () => { load(); phase = 2; started = 1; };
 const pickSlot = (i) => {                                              // slot list is the single pre-play menu — no NEW GAME/CONTINUE layer
   slot = sSel = i;                                                     // sync cursor to touched slot so highlight tracks intent
@@ -446,13 +451,13 @@ const load = () => {
     if (!d || d.v !== 43) return;                               // strict v43 gate — no cross-version compat.
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
-    d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;
+    bs.fill(0); d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;   // fill(0) first: shorter saved arrays must not inherit stale slots from a prior in-session load
     chests = seedChests();
     foes = seedFoes();
     [ho, he, sp, df, lk] = d.t;
     pl.x = SX; pl.y = SY;                                       // always respawn at paddock (no checkpoint system since 029aef5)
     pending = d.d;                                                 // unspent stat points survive reload — ☰ glows, no auto-open
-    spts = d.k; d.y.forEach((v, i) => su[i] = v);
+    spts = d.k; su.fill(0); d.y.forEach((v, i) => su[i] = v);
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
     hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
@@ -566,14 +571,15 @@ const spr = (d, x, y, w, c) => { ctx.fillStyle = c; for (let r = 0; r < d.length
 // CONSUMABLE icon — ONE potion bottle (I_MP bitmask, data.js) for every consumable;
 // the fill color tells what it heals: red = HP (#ff5d6c bar), blue = MP (#4a76ff bar).
 // The cork is a dark-brown 2×1 rect painted on top at the pickup site.
-// GEAR icons — REUSE drawU's exact body-part primitives (visual consistency: the drop IS the part).
-// Gear icon sprites — pro pixel style: dark outline + top-left highlight + shade, tinted by roll color c.
-// slot→item: 0 BODY→chest armor · 1 MANE→cape · 2 HORN→sword · 3 HOOVES→boots. Digits index the palette below (.=skip).
+// GEAR icon sprites — pro pixel style: selective outline + top-left light + shade, tinted by roll color c.
+// slot→item: 0 BODY→chest armor · 1 MANE→cape · 2 HORN→horn blade · 3 HOOVES→horseshoe. Digits index the palette below (.=skip).
+// Icon canon (see uni-corn/research tiny-pixel-icon entry): 45° tip-up-right for the blade, wavy bottom = cape (not shield),
+// U-silhouette = horseshoe (beats front-facing boot pair), collar notch on armor. Gold px = class signal; outline+white+gold stay fixed under tint.
 const GEAR = [
-  ['.011110.','03111120','03111120','03121120','00311200','.031120.','..0220..'],                        // 0 ARMOR (metal breastplate + pauldrons)
-  ['...44...','..0110..','.011120.','.011120.','01111120','01111120','01121120','01222210'],              // 1 CAPE (draping fabric + gold clasp)
-  ['...31...','..0310..','..0310..','..0310..','..0310..','.044440.','..0550..','...0....'],              // 2 SWORD (highlit blade + gold guard)
-  ['011.011.','031.031.','031.031.','031.031.','0111031.','00220022'],                                    // 3 BOOTS (paired boots + dark soles)
+  ['.01..10.','03111120','03111120','03111120','00311200','.031120.','..0220..'],                        // 0 ARMOR (breastplate: collar notch + pauldrons)
+  ['...44...','..0110..','.011120.','.011120.','01111120','01111120','01121120','.2.22.2.'],              // 1 CAPE (drape + gold clasp + wavy hem)
+  ['.......3','......31','.....312','....312.','...312..','..312...','.442....','45......'],              // 2 HORN BLADE (tapered 45°, gold ferrule base)
+  ['.41..14.','.31..11.','011..110','011..110','.111111.','.022220.'],                                    // 3 HORSESHOE (open-top U + gold nail caps)
 ];
 const drawPart = (s, x, y, c) => {
   const m = GEAR[s], p = ['#17131f', PAL[c], dim(PAL[c], .58), '#fff', '#e8b552', '#9c6f22'];   // 0 outline 1 base 2 shade 3 highlight 4 gold 5 gold-shade
@@ -770,7 +776,7 @@ const step = (dt) => {
   seeds.bosses.forEach(([bx, by, bi]) => {                      // bi (rainbow band) from seed — all DARKCORN bosses share the one world
     const bit = 1 << bi;
     if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
-    if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80) {
+    if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80 && Math.abs(pl.y - by * T) < 48) {  // vertical gate: walkway under ORANGE's perch is dy=66 — must not trigger from below
       const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
       // BOSS stat formula: hp = 20*scl() (player-level scaled); dm = 8+bi (per-boss ramp:
       // RED=8, ORANGE=9, YELLOW=10, BLUE=11, VIOLET=12). cz=4 = 4× foe cell size (visual+hit).
@@ -783,8 +789,7 @@ const step = (dt) => {
         hp: fresh ? bhp : st.hp,
         ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
       });
-      sfx(110, 55, .5, 'sawtooth', .18);
-      bann = time + 2.2; bTxt = 'DARKCORN'; bSub = 'KEEPER OF A RAINBOW SHARD';   // all bosses share the name; horn+mane color = identity
+      sfx(110, 55, .5, 'sawtooth', .18);   // encounter sting only — no banner (operator cut it 2026-09-03); banner system still used by victory @L630
     }
   });
 
@@ -830,7 +835,7 @@ const step = (dt) => {
       foes.splice(foes.indexOf(f), 1); continue;
     }
     // CHASE (cap 16) — home on the player; bi scales boss ground speed
-    if (f.cap & 16) f.vx = Math.sign(pl.x + PW / 2 - f.x - fs / 2) * (28 + (f.bi || 0) * 5) * (f.spd || 1);
+    if (f.cap & 16 && (f.bit || Math.abs(pl.x - f.x) < 230)) f.vx = Math.sign(pl.x + PW / 2 - f.x - fs / 2) * (28 + (f.bi || 0) * 5) * (f.spd || 1);
     // HOP (cap 2) — one clock for boss and foe; chasers hop on rhythm, patrollers arm near the player
     if (f.cap & 2) {
       f.hop = (f.hop || 1) - dt;
@@ -955,7 +960,7 @@ const draw = () => {
     ctx.fillStyle = '#ff9d3c'; ctx.beginPath(); ctx.moveTo(cxp - 5, cyp + 5); ctx.lineTo(cxp, cyp - 4); ctx.lineTo(cxp + 5, cyp + 5); ctx.fill();     // outer flame
     ctx.fillStyle = '#ffe08a'; ctx.beginPath(); ctx.moveTo(cxp - 2.5, cyp + 5); ctx.lineTo(cxp, cyp - .4); ctx.lineTo(cxp + 2.5, cyp + 5); ctx.fill(); // inner core
   }
-  // CHESTS — hand-placed (currently 4). Opened chests vanish (persisted in oc).
+  // CHESTS — hand-placed (20 seeds, oc bitfield caps at 31). Opened chests vanish (persisted in oc).
   // JUMP-near-chest opens (touch JUMP button glows gold when nearChest ≥ 0).
   for (const c of chests) {
     if (oc & (1 << c.i)) continue;                          // claimed → gone forever (persisted in oc)
@@ -967,7 +972,7 @@ const draw = () => {
     ctx.fillRect(c.x - 1, c.y - 1, 2, 3);
   }
   // WORLD DECORATIONS — data-driven from DECO seeds. Positions are data, draw is shared.
-  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=ice crystal 6=flower 8=crystal cluster (7 was cattail — removed)
+  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=pine 6=flower (7 cattail + 8 crystal cluster removed; 5 was ice crystal, reused)
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
@@ -985,19 +990,14 @@ const draw = () => {
       ctx.fillStyle = '#8a5a3a'; ctx.fillRect(px + 7, py - 5, 2, 5);
       ctx.fillStyle = '#c47fe0'; ctx.fillRect(px + 4, py - 9, 8, 5);
       ctx.fillStyle = '#e0b0ff'; ctx.fillRect(px + 6, py - 10, 4, 2);
-    } else if (dt === 5) { // ICE CRYSTAL — cyan/white angular
-      ctx.fillStyle = '#8cf'; ctx.fillRect(px + 5, py - 8, 6, 8);
-      ctx.fillStyle = '#cef'; ctx.fillRect(px + 6, py - 10, 4, 3);
-      ctx.fillStyle = '#fff'; ctx.fillRect(px + 7, py - 9, 1, 1);
+    } else if (dt === 5) { // PINE — tall conifer, three stacked narrowing tiers (silhouette contrast vs the round-canopy tree)
+      ctx.fillStyle = GD; ctx.fillRect(px + 7, py - 10, 3, 10);
+      ctx.fillStyle = GF;
+      ctx.fillRect(px + 2, py - 16, 13, 6); ctx.fillRect(px + 4, py - 21, 9, 5); ctx.fillRect(px + 6, py - 25, 5, 4);
     } else if (dt === 6) { // FLOWER — static petals
       ctx.fillStyle = GF; ctx.fillRect(px + 7, py - 6, 1, 6);
       ctx.fillStyle = '#f9c'; ctx.fillRect(px + 5, py - 9, 5, 3);
       ctx.fillStyle = '#ffd75e'; ctx.fillRect(px + 7, py - 8, 1, 1);
-    } else if (dt === 8) { // CRYSTAL CLUSTER — gem shards on a rock base (cavern / peak flair)
-      ctx.fillStyle = RB; ctx.fillRect(px + 3, py - 3, 10, 3);               // rock base
-      ctx.fillStyle = '#c47fe0'; ctx.fillRect(px + 4, py - 7, 2, 4); ctx.fillRect(px + 10, py - 6, 2, 3);   // side shards
-      ctx.fillStyle = '#e0b0ff'; ctx.fillRect(px + 7, py - 11, 2, 8);        // tall center shard
-      ctx.fillStyle = '#fff'; ctx.fillRect(px + 7, py - 11, 1, 2);           // glint
     }
   }
 
@@ -1019,6 +1019,7 @@ const draw = () => {
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
+    if (f.k == 5) ctx.scale(f.gr ? 1.12 : .86, f.gr ? .85 : 1.18);  // HOPPER squash (ground) & stretch (air) — pivot at feet
     ctx.translate(-fs / 2, -fs);
     // colour: white flash on hit > red pre-strike wind-up tell > elite/base tint. boss=charcoal.
     ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : f.el ? PAL[9] : FOECOL[f.k];
@@ -1027,21 +1028,29 @@ const draw = () => {
       const bd = f.fl > 0 ? 12 : f.wt > .12 ? 4 : 13, hn = f.ph ? 12 : RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);                              // scale drawU 14-bbox → fs
       const bc = col; col = [bd, hn, hn, bd]; drawU(Math.sin(f.t * 8) * 3); col = bc;
-    } else if (sh === 1) {                                      // CRAWLER shape — 4 legs + antennae (k1 CRAWLER, k4 RUNNER, k5 HOPPER)
+    } else if (sh === 1) {                                      // CRAWLER shape family — k1 CRAWLER (upright), k4 RUNNER (low-slung variant), k5 HOPPER (squash/stretch via pre-scale)
       ctx.fillRect(s * .2, fs - s + step, s * .6, s);            // legs step
       ctx.fillRect(s * 1.6, fs - s - step * .7, s * .6, s);
       ctx.fillRect(fs - s * 2.2, fs - s + step * .7, s * .6, s);
       ctx.fillRect(fs - s * .8, fs - s - step, s * .6, s);
-      ctx.fillRect(0, s + wob * .4, fs, s * 2.5);                // body
-      ctx.fillRect(s * .8, wob * .4, s * .3, s * 1.2);           // antennae
-      ctx.fillRect(fs - s * 1.1, wob * .4, s * .3, s * 1.2);
+      const rn = f.k == 4, ey = rn ? s * .8 : 0;                 // RUNNER: low-slung body, eye rides lower
+      ctx.fillRect(0, s * (rn ? 1.8 : 1) + wob * .4, fs, s * (rn ? 1.7 : 2.5));  // body
+      if (rn) {                                                  // swept-back speed antennae (trail behind)
+        ctx.fillRect(-s * .6, s * 1.9 + wob * .4, s * 1.3, s * .3);
+        ctx.fillRect(-s * .3, s * 2.4 + wob * .4, s * 1.1, s * .3);
+      } else {
+        ctx.fillRect(s * .8, wob * .4, s * .3, s * 1.2);         // antennae
+        ctx.fillRect(fs - s * 1.1, wob * .4, s * .3, s * 1.2);
+      }
       ctx.fillStyle = '#fff';                                    // eye
-      ctx.fillRect(fs - s * 1.7, s * 1.6, s * .7, s * .7);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(fs - s * 1.4, s * 1.8, s * .3, s * .3);
+      ctx.fillRect(fs - s * 1.7, s * 1.6 + ey, s * .7, s * .7);
+      ctx.fillStyle = '#000';                                    // pupil tracks the player (in local space +x = facing)
+      ctx.fillRect(fs - s * 1.4 + Math.sign(pl.x - f.x) * ((f.vx || 1) < 0 ? -1 : 1) * s * .12, s * 1.8 + ey, s * .3, s * .3);
     } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (k2 BLOB, k6 PUFF)
       const flt = wob * 1.5;
-      for (let i = 0; i < 3; i++) {                              // tendrils sway
+      if (f.k == 6) for (let i = 0; i < 4; i++)                  // PUFF: spiked dome (no tendrils) — reads "don't touch"
+        ctx.fillRect(s * (.6 + i * 1.1), flt - s * .2, s * .3, s * .8);
+      else for (let i = 0; i < 3; i++) {                         // tendrils sway (BLOB)
         const tx = s * (.5 + i * 1.5);
         ctx.fillRect(tx, s * 2 + flt, s * .5, s * 2 + Math.sin(f.t * 4 + i) * s * .5);
       }
@@ -1124,7 +1133,7 @@ const draw = () => {
     if (time < bann) {                                          // BOSS BANNER — arena-entry announcement
       ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#ffd75e';
       T2(bTxt, VW / 2, 58);
-      // bSub always non-empty when time<bann (both writers at L626/L786 set it together with bann/bTxt)
+      // bSub always non-empty when time<bann (sole writer: victory banner — DARKCORN encounter banner removed)
       ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68);
     }
     if (time < luT) {                                           // LEVEL UP BANNER — rainbow per-char, matches title 'UNICORN' font/style
@@ -1151,7 +1160,7 @@ const draw = () => {
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
       ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (matches inventory)
       ctx.strokeStyle = SC[SLOT_STAT[s]]; ctx.lineWidth = eq[s] ? eq[s].b * .5 : .5; ctx.strokeRect(ex, ey, 24, 24);   // stat-color outline; tier shown via stroke width (0.5 / 1 / 1.5)
-      if (eq[s]) drawPart(s, ex + 8, ey + 9, eq[s].c);        // actual gear icon (armor/cape/sword/boots) in its roll color — same sprite as inventory/drops
+      if (eq[s]) drawPart(s, ex + 8, ey + 9, eq[s].c);        // actual gear icon (armor/cape/horn blade/horseshoe) in its roll color — same sprite as inventory/drops
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
       if (eq[s]) { ctx.fillStyle = '#fff'; T2('+' + eq[s].b, ex + 19, ey + 8); }   // tier tucked top-right so it clears the centered icon
     });
@@ -1232,6 +1241,11 @@ const draw = () => {
       // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
       const rc = usable ? (c === 'bJ' && (nearChest >= 0 || nearNpc) ? '#ffd75e' : col) : '#555';
       ctx.globalAlpha = keys.has(c) ? .85 : (touch ? .55 : .38);
+      // INTRO TUTORIAL — GREATCORN's controls bubbles (data.js INTRO 6/7/8) spotlight their control: pulsing gold ring + full brightness while he explains it
+      if (dq === INTRO && (di === 7 ? c === 'bJ' : di === 8 && c !== 'bJ')) {
+        ctx.globalAlpha = .95; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, AR + 5 + Math.sin(time * 6) * 2, 0, 7); ctx.stroke();
+      }
       ctx.fillStyle = 'rgba(15,15,20,.75)';
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
       ctx.strokeStyle = rc; ctx.lineWidth = 2;
@@ -1281,6 +1295,10 @@ const draw = () => {
   if (started && touch && !savePop && !helpOn) {   // gameplay AND character menu (menu uses it for cursor nav); hidden only under overlays
     const act = joy.id >= 0;
     ctx.globalAlpha = act ? .6 : .35;
+    if (dq === INTRO && di === 6) {                                // tutorial spotlight — "stick or arrows" bubble (touch only; desktop has no stick)
+      ctx.globalAlpha = .95; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(joy.x, joy.y, JR + 5 + Math.sin(time * 6) * 2, 0, 7); ctx.stroke();
+    }
     ctx.fillStyle = 'rgba(15,15,20,.75)';
     ctx.beginPath(); ctx.arc(joy.x, joy.y, JR, 0, 7); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;

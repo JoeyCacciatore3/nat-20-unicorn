@@ -34,6 +34,10 @@ const MEADOW = {
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
     [233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
+    [251, 60, 3, 2, 0], [251, 61, 3, 1, 3],                      // RED arena moat — last committed jump before the first boss (base-crossable 3-wide)
+    [258, 62, 14, 6, 0],                                         // RED LAIR — hidden chamber under the meadow (boss found, not stumbled into)
+    [258, 60, 2, 2, 0],                                          // lair mouth — 2-wide drop hole right after the moat (jumpable = skippable)
+    [258, 62, 3, 1, 2], [258, 64, 3, 1, 2], [258, 66, 3, 1, 2],  // return rungs under the mouth (cavern pattern: top rung at chamber top, hole overlap)
     [175, 57, 4, 1, 2], [181, 55, 4, 1, 2], [188, 57, 5, 1, 2],
     [205, 56, 4, 1, 2], [212, 54, 4, 1, 2], [220, 57, 6, 1, 2],
     [240, 56, 4, 1, 2], [247, 54, 4, 1, 2],
@@ -96,6 +100,7 @@ const MEADOW = {
     // East end (x440-475): stepped tower echoing western motif + final walkway
     [440, 59, 3, 1], [443, 58, 3, 2], [446, 57, 3, 3], [449, 56, 3, 4], [452, 55, 3, 5],
     [458, 55, 6, 1, 2],
+    [464, 53, 3, 1, 2], [460, 51, 4, 1, 2],        // ORANGE perch — two rise-2 zig hops above the walkway (single-jump legal, off the direct path)
     // ==== EAST GATE (x466-512) — bounce ridge: spring to a high chest ledge; DJ step route continues east ====
     [470, 60, 4, 2, 0], [470, 61, 4, 1, 3],        // spike pit just past ORANGE's walkway
     [477, 52, 6, 1, 2],                            // HIGH CHEST LEDGE — reachable only by bounce + double-jump
@@ -112,10 +117,10 @@ const MEADOW = {
     [572, 52, 5, 1, 2],                            // ground bounce side ledge — chest 7 (bounce + DJ)
   ],
   fires: [[132.5, 59.5]],
-  bounce: [[158, 59], [480, 59], [575, 59]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex
+  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex
   bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
-    [258, 57, 0],   // RED    — center MEADOW (original)
-    [460, 54, 1],   // ORANGE — far east walkway
+    [263, 66, 0],   // RED    — hidden lair under the meadow (drop hole @x258, behind the moat)
+    [461, 50, 1],   // ORANGE — perch above the east walkway (zig hops via x464 rung)
     [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier)
     [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier)
     [35, 68, 4],    // VIOLET — depths corridor west (DASH-tier)
@@ -133,10 +138,20 @@ const MEADOW = {
     [574, 51.3],    // 7 — EAST ASCENT bounce side ledge (bounce + DJ)
     [28, 2.3],      // 8 — peak TRI-JUMP secret (TRI gap from y=8 to y=3)
     [76, 81.3],     // 9 — underground cavern (via depths corridor + drop)
+    [248, 53.3],    // 10 — meadow DJ platform (x247 ledge, upper hop reward)
+    [272, 55.3],    // 11 — stepped tower top (base-tier climb reward)
+    [20, 69.3],     // 12 — depths corridor west end — fight PAST VIOLET to claim
+    [226, 62.3],    // 13 — descent corridor mid ledge (x224 solid shelf)
+    [320, 47.3],    // 14 — east terrace climb top (DJ walkway x315)
+    [400, 37.3],    // 15 — stack upper landing (bounce pad on top rung + DJ)
+    [453, 54.3],    // 16 — east stepped tower top, ORANGE approach
+    [125, 53.3],    // 17 — paddock hub perch (dash-tier return reward near spawn)
+    [54, 44.3],     // 18 — western terrace summit (canopy climb base reward)
+    [552, 56.3],    // 19 — EAST SHELF step ledge past 2nd spike gap
   ],
   foes: [
     [148, 58, 1], [160, 58, 4],                                  // paddock-approach patrol (near practice pit)
-    [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [260, 58, 3], [252, 58, 5],
+    [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [240, 58, 3], [248, 58, 5],
     [282, 56, 1], [288, 53, 4],                                  // transition zone — crawler on lower DJ platform, runner on higher
     [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
     [92, 52, 1], [78, 49, 2], [86, 53, 5], [62, 40, 1], [95, 37, 4],   // canopy zig-zag — extra crawler + runner
@@ -147,6 +162,7 @@ const MEADOW = {
     [490, 56, 2], [500, 53, 1],                                  // EAST GATE — blob on step, crawler on upper ledge
     [532, 55, 2], [545, 58, 2],                                  // EAST SHELF — blob guarding chest, blob by the gap
     [560, 44, 4], [578, 58, 2], [566, 30, 3],                    // EAST ASCENT — runner on climb, blob on ground, caster on GREEN summit
+    [350, 56, 4], [393, 50, 1], [444, 57, 2],                    // EAST RUN fill — runner on x345 walkway, crawler on stack rung, chase-blob at tower base (ORANGE escort)
   ],
   DECO: [],   // SPIKE: hand-placed removed — all decoration now via scatter()
 };
@@ -158,19 +174,27 @@ export const seeds = MEADOW;
 // chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.
 export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = grid[y * W + tx]; if (v === 1 || v === 2) return y; } return H; };
 
-// PROCEDURAL FOLIAGE — scatter deco along exposed floor tops. Deterministic (seeded RNG).
-// FOL = [gap, ...types] — 1-in-gap column density; SPIKE: all types via rotation ratios.
-const FOL = [2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 3, 6, 6, 6, 6, 8];   // 3 tree, 6 grass, 1 rock, 1 mushroom, 4 flower, 1 crystal
+// PROCEDURAL FOLIAGE — LAYERED scatter along every exposed floor top. Deterministic (seeded LCG).
+// Composition rules (see research: blue-noise/Poisson-disk, size-class layering, clump-don't-sprinkle):
+//   TREES  — per-row cooldown = 1D Poisson-disk: min 7-col spacing, so anchors never crowd.
+//            Species banded by x>>4 → 16-col GROVES of one kind (pine stands / oak stands, never mixed adjacents).
+//   GROUND — grass/flower runs of 1-3 consecutive columns (patches, not sprinkles), flowers ~30% of runs.
+//   SINGLES — rocks/glow-mushrooms as rare loners (.06) for texture.
 const scatter = () => {
-  const [gap, ...ty] = FOL, d = [];
+  const d = [];
   let s = 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...seeds.fires, ...(seeds.bounce || []), ...seeds.DECO];
+  const tc = {}, run = {}, rt = {};                              // per-row: tree cooldown, active run length, run type
   for (let x = 5; x < W - 5; x++) {
-    if (rnd() * gap >= 1) continue;                              // 1-in-gap column density
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
-    let surf = -1;
-    for (let y = 2; y < H; y++) if (grid[y * W + x] === 1 && grid[(y - 1) * W + x] === 0) surf = y;   // lowest exposed floor top (skips ceilings)
-    if (surf > 0) d.push(keep[keep.length] = [x, surf - 1, ty[rnd() * ty.length | 0]]);   // push to keep too so subsequent iterations respect our own placements
+    for (let y = 2; y < H; y++) {
+      const v = grid[y * W + x];
+      if ((v !== 1 && v !== 2) || grid[(y - 1) * W + x] !== 0) continue;    // exposed floor tops: solid ground AND one-way platform rungs
+      if (run[y] > 0) { run[y]--; d.push([x, y - 1, rt[y]]); }                                    // continue a ground-cover patch
+      else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, (x >> 4) % 2 ? 5 : 0]); tc[y] = x + 7; }   // tree anchor (blue-noise spacing, grove species) — SOLID ground only; no trees on thin rungs (landing readability)
+      else if (rnd() < .35) { rt[y] = rnd() < .3 ? 6 : 1; run[y] = 1 + rnd() * 3 | 0; d.push([x, y - 1, rt[y]]); }   // start a patch (runs 2-4 long)
+      else if (rnd() < .09) d.push([x, y - 1, rnd() < .5 ? 2 : 3]);                               // lone rock / mushroom
+    }
   }
   return d;
 };
