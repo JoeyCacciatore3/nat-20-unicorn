@@ -9,7 +9,7 @@
 
 // UNIFIED PALETTE — 15 colors, shared across all 4 body parts. Mane gradient
 // auto-derived via dim(): base → 85% → 70% brightness (no stored triples).
-// GUARD (byte-law #14): PAL[8] must NOT equal ZBG. Sky-blue is reserved for the
+// GUARD (byte-law #14): PAL[8] must NOT equal ANY ZB row's sky (col 5). Sky is reserved for the
 // background — a gear roll of c=8 would produce invisible-against-sky gear. Reusing
 // the mana-blue literal '#4a76ff' here means: (a) distinct-from-sky gear color, and
 // (b) roadroller LZ-backrefs the same string used elsewhere (mana bar, XP text).
@@ -45,11 +45,23 @@ export const RBC = [4, 3, 2, 8, 7, 15, 16];
 // 7-band rainbow (arc + title + effects).
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
 // Sky backdrop colour.
-export const ZBG = '#6bc5ff';
+// ZONE BANDS — [xEndTile, dirt, top, foliage, accent, sky]. Row = first with pl.x < xEnd*16;
+// pl.y > 63*16 overrides to the last row (UNDERGROUND — depths/caverns/RED lair). One lookup
+// rethemes terrain, top strips, trees, pines, rocks, tufts AND sky (all read the destructure).
+// 7 ZONES = 7 DARKCORN. Surface: 5 boss territories by x. Underground: 2 boss layers by depth
+// (shallow y>63 = VIOLET's depths — RED's lair opens into this layer; deep y>74 = INDIGO's cavern).
+export const ZB = [
+  [40,  '#4a3a26', '#8a9a9a', '#3a8a52', '#8a9a9a', '#4a9ad8'],   // PEAK (BLUE) — bare stone tops, storm sky (all reused literals)
+  [112, '#4a3a26', '#3a8a52', '#3a8a52', '#8a9a9a', '#5ab5ef'],   // CANOPY (YELLOW) — cool highland green
+  [280, '#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888', '#6bc5ff'],   // MEADOW (RED) — original identity
+  [476, '#6a4a22', '#8a9a32', '#8a9a32', '#9a8a62', '#7ecfe8'],   // EAST RUN (ORANGE) — dry gold savanna
+  [601, '#52341e', '#3a7a5e', '#3a7a5e', '#7a8a92', '#4a9ad8'],   // SUMMIT (GREEN) — deep teal, storm sky
+  [601, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // DEPTHS (VIOLET) — violet corridor, near-black
+  [601, '#221c2e', '#8a5aca', '#8a5aca', '#6a4a8a', '#1a1626'],   // CAVERN (INDIGO) — deepest: luminous violet floor (1 new literal)
+];
 // Ground palette [dirt, surface-top, foliage, accent]: dirt/top theme solid+platform tiles;
 // foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone
 // (rock base derived darker via dim(accent), so one stored color = two-tone boulder).
-export const ZG = ['#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888'];
 
 // SKILL TREE — prerequisite-based: LINK pairs [parent,child] gate unlock (see main.js canBuy).
 // 12 nodes, 4 visual rows. Indices are stable — su[N] semantics fixed.

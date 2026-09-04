@@ -20,7 +20,7 @@
 
 import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
-import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, RBC, RC, ZBG, ZG, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
+import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, RBC, RC, ZB, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -181,8 +181,8 @@ addEventListener('pointerdown', (e) => {
   }
   // Save popup — CONTINUE / EXIT GAME
   if (savePop) {
-    if (hit(160, 136, 160, 15)) { savePop = 0; return; }
-    if (hit(160, 161, 160, 15)) { save(); paused = 0; helpOn = 0; savePop = 0; started = 0; phase = 0; tMode = 0; sSel = 0; sPop = 0; return; }
+    if (hit(VW / 2 + 20, 244, 70, 20)) { savePop = 0; return; }
+    if (hit(VW / 2 - 90, 244, 70, 20)) { save(); paused = 0; helpOn = 0; savePop = 0; started = 0; phase = 0; tMode = 0; sSel = 0; sPop = 0; return; }
     return;
   }
   // Help/Settings overlay — dismiss on any tap
@@ -207,8 +207,8 @@ addEventListener('pointerdown', (e) => {
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
       // USE/DROP buttons — they overlap the grid (y=250-264 sits inside grid y=184-268), checked first.
       if (invSel >= 0 && inv[invSel]) {
-        if (hit(50, 250, 50, 15)) { useItem(invSel); return; }
-        if (hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
+        if (hit(110, 250, 50, 15)) { useItem(invSel); return; }
+        if (hit(50, 250, 50, 15)) { inv.splice(invSel, 1); return; }
       }
       // Inventory grid — tap moves cursor to slot; tap USE/DROP button (above) to act
       if (hit(38, 184, 140, 84)) {
@@ -536,7 +536,7 @@ const fresh = () => {
   hp = mHP(); mn = mMN();                             // full at derived max (honest — no more 10/10 magic number coincident with the base-stat formula)
 };
 // Non-ranged foes roll for elite status in mkFoe (~6%). Victory banner state (sole writer: boss-defeat @~L630; also reused by nothing else):
-let bann = 0, bTxt = '', bSub = '';
+let bann = 0;                                    // victory-banner deadline (text is literal at the draw site — vars collapsed 09-04)
 // Clean-gameplay-state reset — single source of truth for "what is zero at a fresh
 // start." Called by fresh() (NEW GAME), load() (CONTINUE), and respawn (death).
 // Without this, transient state (velocity, cooldowns, active dialogue) can bleed
@@ -563,7 +563,7 @@ const fsz = (f) => 5 * f.cz;                      // one size rule for sprites +
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big) => flies.push({ x, y, txt, c, big, t: big ? 2.2 : 1.4 });   // big texts (crit / heal / shard) linger longer — the distinct signal, no label word needed
 // Unified particle spray — n bits burst radially. sk=0 → mini rainbow (JUMPS ONLY — ground/double/tri) · sk=1 → skull sprite (DEATHS ONLY — player + foe). Consolidated 09-04: all other events (chest/heal/hurt/crit/shard/landing/bounce/shot/shockwave) carry no burst.
-const spray = (x, y, n = 4, sk = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: .5 + Math.random() * .35, sk }); } };
+const spray = (x, y, n, sk = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: .5 + Math.random() * .35, sk }); } };
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
 // pass custom for dead-flag or bit-match culling. Used by shots/fbolts/parts/flies/foes/drops.
 const prune = (a, d = e => e.t <= 0) => { for (let i = a.length; i--;) if (d(a[i])) a.splice(i, 1); };
@@ -640,7 +640,7 @@ const strike = (f, gen, viaStomp) => {
         hp = mHP(); mn = mMN();                                 // boss reward: full HP + MP restore
         fly(f.x, f.y - 42, 'RAINBOW SHARD ' + shards() + ' / ' + seeds.bosses.length, PAL[RBC[f.bi]], 1);   // y-42 keeps the shard milestone well above damage (y-8) and XP (y-22, y-32)
         if (shards() === seeds.bosses.length) {                 // ALL bosses down — the game's objective PAYS OFF
-          bann = time + 6; bTxt = 'THE DARKNESS LIFTS'; bSub = 'UNICORN · HOOVES OF HOPE';   // victory: color/rainbows restored to the world
+          bann = time + 6;                                            // victory: color/rainbows restored to the world
         }
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);
         save();
@@ -934,11 +934,12 @@ const draw = () => {
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds. Visual detail lives in the ground layer.
-  ctx.fillStyle = ZBG; ctx.fillRect(0, 0, VW, VH);                          // sky backdrop
+  const ZC = pl.y > 1184 ? ZB[6] : pl.y > 1008 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // 7 zones: deep cavern / depths / surface x-bands
+  ctx.fillStyle = ZC[5]; ctx.fillRect(0, 0, VW, VH);                        // banded sky
   // CLOUDS — parallax puffs
   for (const [cx, cy, cw] of [[80, 30, 40], [200, 50, 55], [350, 25, 35], [500, 60, 45], [650, 35, 30]]) {
     const sx = ((cx - cam.x * .15) % (VW + 100)) - 50;
-    ctx.fillStyle = 'rgba(255,255,255,.6)';
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
     ctx.fillRect(sx, cy, cw, 8); ctx.fillRect(sx + 4, cy - 4, cw - 8, 6); ctx.fillRect(sx + 8, cy + 6, cw - 16, 5);
   }
 
@@ -946,7 +947,7 @@ const draw = () => {
   const so = shk > 0 ? Math.random() * 6 - 3 : 0;
   ctx.translate((-cam.x + so) | 0, (-cam.y + so) | 0);
   const x0 = cam.x / T | 0, x1 = Math.min(W, x0 + VW / T + 2), y0 = Math.max(0, cam.y / T | 0), y1 = Math.min(H, y0 + VH / T + 2);
-  const [GD, GT, GF, GA] = ZG, RB = dim(GA, .75);   // [dirt, top, foliage, accent]; RB = derived rock base
+  const [, GD, GT, GF, GA] = ZC, RB = dim(GA, .75);  // band colors: [dirt, top, foliage, accent]; RB = derived rock base
   // TWO-PASS terrain: all dirt bodies first, all surface-top strips after. Interleaving
   // them per-tile made each column's dirt stomp the previous column's antialiased top-strip
   // edge — at fractional SS the re-blends never recompose, leaving a dark tick every tile
@@ -1153,9 +1154,8 @@ const draw = () => {
   if (started && !paused) {
     if (time < bann) {                                          // VICTORY BANNER (encounter banner removed 09-03)
       ctx.textAlign = 'center'; ctx.font = 'bold 13px monospace'; ctx.fillStyle = '#ffd75e';
-      T2(bTxt, VW / 2, 58);
-      // bSub always non-empty when time<bann (sole writer: victory banner — DARKCORN encounter banner removed)
-      ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2(bSub, VW / 2, 68);
+      T2('THE DARKNESS LIFTS', VW / 2, 58);
+      ctx.font = 'bold 8px monospace'; ctx.fillStyle = '#fff'; T2('UNICORN · HOOVES OF HOPE', VW / 2, 68);
     }
     if (time < luT) {                                           // LEVEL UP BANNER — rainbow per-char, matches title 'UNICORN' font/style
       ctx.globalAlpha = Math.min(1, (luT - time) * 3);          // pop in, fade last .33s
@@ -1179,7 +1179,7 @@ const draw = () => {
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 13px pending hint above (if it fired)
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
-      ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (matches inventory)
+      ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (.06, one step dimmer than inventory's .08 — unifying measured +4 B, 09-04)
       ctx.strokeStyle = SC[SLOT_STAT[s]]; ctx.lineWidth = eq[s] ? eq[s].b * .5 : .5; ctx.strokeRect(ex, ey, 24, 24);   // stat-color outline; tier shown via stroke width (0.5 / 1 / 1.5)
       if (eq[s]) drawPart(s, ex + 8, ey + 9, eq[s].c);        // actual gear icon (armor/cape/horn blade/horseshoe) in its roll color — same sprite as inventory/drops
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
@@ -1247,7 +1247,7 @@ const draw = () => {
       ctx.fillStyle = 'rgba(255,215,94,.14)'; ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1;
       ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
       ctx.fillRect(110, 250, 50, 14); ctx.strokeRect(110, 250, 50, 14);
-      ctx.fillStyle = '#ffd75e'; T2('USE', 75, 260); ctx.fillStyle = '#c33'; T2('DROP', 135, 260);
+      ctx.fillStyle = '#c33'; T2('DROP', 75, 258); ctx.fillStyle = '#ffd75e'; T2('USE', 135, 258);
     }
   }
 
@@ -1259,9 +1259,10 @@ const draw = () => {
     for (const [x, y, c, col, s, mp] of AB) {
       if (paused && c !== 'bJ') continue;            // menu shows only JUMP (= confirm/select); joystick handles nav, back = P / tap info panel / tap-out
       const usable = (s < 0 || su[s]) && mn >= mp;
-      // usable → bright (JUMP recolors gold near interactables); locked OR low-MP → dull #555
-      const rc = usable ? (c === 'bJ' && (nearChest >= 0 || nearNpc) ? '#ffd75e' : col) : '#555';
-      ctx.globalAlpha = keys.has(c) ? .85 : .35;   // idle 35% both devices — mobile competitive convention is 20-40% (research 09-04); matches joystick idle; pressed pops to 85%
+      const it = c === 'bJ' && !paused && (nearChest >= 0 || nearNpc);   // interact available — JUMP becomes TALK/OPEN
+      // ONE meaning per channel (09-04): ring = lock state (accent/grey) · alpha = attention (press/spotlight/interact) · gold glyph = interact
+      const rc = usable ? col : '#555';
+      ctx.globalAlpha = keys.has(c) || it ? .85 : .35;   // idle 35% (mobile convention 20-40%, research 09-04); pressed OR interact-available pops to 85% — same attention channel the tutorial spotlight uses
       // INTRO TUTORIAL — SUBTRACTIVE spotlight (research 09-04: NN/g "don't match the UI" + static
       // pop-out): during controls bubbles 6/7/8 the explained control renders full-alpha, all others
       // dim to .15. No ring, no gold — gold keeps its ONE button meaning (interact-now), and locked
@@ -1285,8 +1286,7 @@ const draw = () => {
       // Context-swaps: menu → checkmark (confirm/select); gameplay → double up-chevron (leap), gold near NPC/chest (TALK/OPEN).
       if (c === 'bJ') {
         ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        const gold = !paused && (nearChest >= 0 || nearNpc);
-        const oc = gold ? '#b8801f' : '#2f6fb0', cc = gold ? '#ffe08a' : '#cfeeff';   // outline / core (gold when an interact is available)
+        const oc = '#2f6fb0', cc = '#cfeeff';   // ONE palette, alpha-only states (operator 09-04): interact-available is signaled purely by the .85 alpha pop (`it` in the alpha line) — no color swap
         const path = paused
           ? () => { ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); }              // ✓ confirm
           : () => { for (const py of [y - 8, y + 2]) { ctx.beginPath(); ctx.moveTo(x - 9, py + 7); ctx.lineTo(x, py); ctx.lineTo(x + 9, py + 7); ctx.stroke(); } };  // ⌃⌃ leap
@@ -1335,7 +1335,7 @@ const draw = () => {
     topHUD();
     const qslot = (x, t) => {
       const n = t ? mpPot : hpPot;
-      ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.03') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
+      ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.05') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);   // one chrome grey everywhere (09-04); filled/empty already signaled by bg tint + glyph alpha + count color
       ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 6, QSY + 6, 12, t ? '#4a76ff' : '#ff5d6c'); ctx.globalAlpha = 1; ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // 4×3 opaque cork (alpha reset before cork so empty slots keep cork solid). Bitmap has 3 skinny neck rows; cork covers r0, r1-2 visible as clear skinny-neck feature.
       ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
@@ -1370,8 +1370,9 @@ const draw = () => {
       const sv = 'GAME SAVED', sw = ctx.measureText(sv).width, sx0 = (VW - sw) / 2;
       for (let i = 0; i < sv.length; i++) { ctx.fillStyle = RC[i % 7]; ctx.fillText(sv[i], sx0 + ctx.measureText(sv.slice(0, i)).width + ctx.measureText(sv[i]).width / 2, 110); }
       // CONTINUE + EXIT GAME
-      ctx.fillStyle = '#ffd75e';
-      ctx.font = 'bold 13px monospace'; T2('CONTINUE', VW / 2, 148); T2('EXIT GAME', VW / 2, 175);
+      ctx.font = 'bold 13px monospace';
+      ctx.fillStyle = '#c33';   T2('EXIT GAME', VW / 2 - 55, 258);
+      ctx.fillStyle = '#ffd75e'; T2('CONTINUE', VW / 2 + 55, 258);
     }
   }
   // TITLE screen (phase 0) — the live world renders behind this (sim frozen while
@@ -1404,7 +1405,7 @@ const draw = () => {
       }
       if (sPop) {                                                  // DELETE / CONTINUE popup — bottom strip, slot list stays visible above so player sees which slot is being acted on
         ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(0, 240, VW, 30);
-        ctx.fillStyle = sPop === 2 ? '#f66' : '#666';   T2('DELETE',   VW / 2 - 55, 258);   // destructive on the LEFT
+        ctx.fillStyle = sPop === 2 ? '#c33' : '#888';   T2('DELETE',   VW / 2 - 55, 258);   // destructive on the LEFT
         ctx.fillStyle = sPop === 1 ? '#ffd75e' : '#888'; T2('CONTINUE', VW / 2 + 55, 258);  // safe on the RIGHT (thumb-natural default)
       }
     }
