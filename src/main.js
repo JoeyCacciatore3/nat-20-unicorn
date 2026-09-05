@@ -895,6 +895,8 @@ const step = (dt) => {
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
       pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
       pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(150, 70, .06, 'square', .07);
+      // Post-stomp i-frames: the stomp-launch sets pl.vx=±220, which the SAME-frame per-foe loop would then read as a "fast impact" against ADJACENT foes (>90px/s gate) — dealing damage from foe B milliseconds after stomping foe A. Also covers next-frame lingering overlap with the stomped foe. hurt() already gates on pl.inv>0, so this transparently blocks both cases.
+      pl.inv = Math.max(pl.inv, .12);
       // .wt is NOT reset here — repeat-bouncing must accumulate threat (anti-exploit)
     } else if (hit && (f.wt || 0) >= 0) {
       f.wt = (f.wt || 0) + dt;
@@ -1286,11 +1288,11 @@ const draw = () => {
       // Own green palette (NOT the lock-dimmed ring color rc) so the icon reads green even when unavailable; alpha still conveys state.
       if (c === 'bH') {
         ctx.fillStyle = '#17131f';                                        // dark outline (matches potion — 1px larger all around)
-        ctx.fillRect(x - 6, y - 13, 12, 26); ctx.fillRect(x - 13, y - 6, 26, 12);
-        ctx.fillStyle = '#28a84a';                                        // darker green outer — arms 10-thick (was 8, 25% wider)
-        ctx.fillRect(x - 5, y - 12, 10, 24); ctx.fillRect(x - 12, y - 5, 24, 10);
-        ctx.fillStyle = '#6cf279';                                        // bright green core — arms 6-thick (was 4)
-        ctx.fillRect(x - 3, y - 10, 6, 20); ctx.fillRect(x - 10, y - 3, 20, 6);
+        ctx.fillRect(x - 5, y - 13, 10, 26); ctx.fillRect(x - 13, y - 5, 26, 10);
+        ctx.fillStyle = '#28a84a';                                        // darker green outer — arms 8-thick (skinnier than the 10-wide pass, still with dark outline)
+        ctx.fillRect(x - 4, y - 12, 8, 24); ctx.fillRect(x - 12, y - 4, 24, 8);
+        ctx.fillStyle = '#6cf279';                                        // bright green core — arms 4-thick (proportional)
+        ctx.fillRect(x - 2, y - 10, 4, 20); ctx.fillRect(x - 10, y - 2, 20, 4);
       }
       // JUMP glyph — menu: checkmark (confirm); gameplay: player unicorn + speed lines below (launching upward).
       if (c === 'bJ') {
