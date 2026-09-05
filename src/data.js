@@ -7,7 +7,7 @@
 // GUARD: tools/tpos-check.mjs reads TREE, TPOS and PAL from this file (concatenated
 // with main.js). Keep those three literal shapes greppable: `const NAME = [ … \n];`.
 
-// UNIFIED PALETTE — 15 colors, shared across all 4 body parts. Mane gradient
+// UNIFIED PALETTE — 17 colors, shared across all 4 body parts. Mane gradient
 // auto-derived via dim(): base → 85% → 70% brightness (no stored triples).
 // GUARD (byte-law #14): PAL[8] must NOT equal ANY ZB row's sky (col 5). Sky is reserved for the
 // background — a gear roll of c=8 would produce invisible-against-sky gear. Reusing

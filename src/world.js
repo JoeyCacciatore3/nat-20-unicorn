@@ -23,7 +23,7 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- MEADOW (800×160 unified world, all CORN bosses) ----------
+// ---------- MEADOW (600×160 unified world, all CORN bosses) ----------
 const MEADOW = {
   MAP: [
     // envelope — playable y=0-71 surface + optional pockets at y=72+ (underground extensions)
@@ -210,6 +210,6 @@ const scatter = () => {
 
 // Module-init: paint MEADOW grid + merge hand-placed decor (snapped to surface) with scatter fill.
 for (const m of seeds.MAP) box(...m);
-export const DECO = seeds.DECO.map(([x, y, t]) => [x, groundRow(x, y + 1) - 1, t]).concat(scatter());
+export const DECO = scatter();
 // BOUNCE pads snapped to their solid landing row: [col, solidRow]. Player stands at solidRow-1.
 export const BOUNCE = seeds.bounce.map(([x, y]) => [x, groundRow(x, y + 1)]);

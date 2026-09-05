@@ -18,7 +18,7 @@
 //
 // Save: strict v43 JSON to localStorage. Version bumps discard prior saves.
 
-import { T, W, H, grid, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
+import { T, W, H, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
 import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, RBC, RC, ZB, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
 
@@ -402,12 +402,12 @@ const shards = () => bs.filter(v => v === 2).length;
 const mHP = () => 8 + he * 2 + su[9] * 5;         // base 8 + HP stat (equipment folded in) + HP+ skill (+5)
 const mMN = () => 8 + sp * 2 + su[10] * 5;        // base 8 + MAG stat (equipment folded in) + MP+ skill (+5)
 const ATK = () => ho;                             // STR stat (equipment folded in)
-const critChance = () => .08 + lk * .02;                      // 10% base + 2% per LUCK (LUCK 1 = 10%)
+const critChance = () => .08 + lk * .02;                      // 8% base + 2% per LUCK
 const isCrit = () => Math.random() < critChance();
 const need = () => lvl * lvl + 12;
 const gainXp = (n, x, y) => {
   if (lvl >= CAP) return;
-  xp += n; fly(x, y, '+' + n, '#b06cf0');   // XP text matches the purple XP bar; no label word
+  xp += n; fly(42, 54, '+' + n + ' XP', '#b06cf0', 0, 0, 1);   // HUD-anchored below XP bar; purple matches the bar
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; if (lvl < 14) spts++;    // +3 stat pts every level; skill pts only thru lvl 13 (12 total = tree size — prevents unspendable points keeping the menu glow lit forever at cap)
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save — the ONE auto-save: leveling is the milestone players must not lose
@@ -533,7 +533,7 @@ const fresh = () => {
   lastSafe = [SX, SY]; pl.x = SX; pl.y = SY;
   hp = mHP(); mn = mMN();                             // full at derived max (honest — no more 10/10 magic number coincident with the base-stat formula)
 };
-// Victory banner state (sole writer: boss-defeat @~L630; also reused by nothing else):
+// Victory banner state (sole writer: boss-defeat logic):
 let bann = 0;                                    // victory-banner deadline (text is literal at the draw site — vars collapsed 09-04)
 // Clean-gameplay-state reset — single source of truth for "what is zero at a fresh
 // start." Called by fresh() (NEW GAME), load() (CONTINUE), and respawn (death).
@@ -542,7 +542,7 @@ let bann = 0;                                    // victory-banner deadline (tex
 const resetTransient = () => {
   pl.vx = pl.vy = pl.air = pl.coyote = pl.inv = pl.ground = pl.t = 0;
   pl.face = 1; pl.sq = 1;
-  jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = luT = bann = dq = di = tqi = navCD = bCt = 0;
+  jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = luT = bann = dq = di = tqi = navCD = 0;
 };
 const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // JUMP-near: NPC → re-talk quip · chest → open
 // Player-level progression: every 4 levels adds 1 scale pip. Enemies stay a threat as the
@@ -558,9 +558,9 @@ const seedFoes = () => seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));   
 let foes = seedFoes();
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, big, pot) => flies.push({ x, y, txt, c, big, pot, t: big ? 2.2 : 1.4 });   // big texts (crit / heal / shard) linger longer; pot=1 → draw a mini potion glyph in colour c after the text
-// Unified particle spray — n bits burst radially. sk=0 → mini rainbow (JUMPS ONLY — ground/double/tri) · sk=1 → skull sprite (DEATHS ONLY — player + foe). Consolidated 09-04: all other events (chest/heal/hurt/crit/shard/landing/bounce/shot/shockwave) carry no burst.
-const spray = (x, y, n, sk = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: .5 + Math.random() * .35, sk }); } };
+const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, big, pot, hud, t: big ? 2.2 : 1.4 });   // big texts (crit / heal / shard) linger longer; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world)
+// Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS) · hc=1=heal cross (HEAL cast).
+const spray = (x, y, n, sk = 0, hc = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: .5 + Math.random() * .35, sk, hc }); } };
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
 // pass custom for dead-flag or bit-match culling. Used by shots/fbolts/parts/flies/foes/drops.
 const prune = (a, d = e => e.t <= 0) => { for (let i = a.length; i--;) if (d(a[i])) a.splice(i, 1); };
@@ -570,16 +570,25 @@ const skull = (x, y, u, a = 1, bc = '#e9e3cd') => {
   ctx.globalAlpha = a;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 7; c++) { const ch = SK[r][c]; if (ch === '.') continue; ctx.fillStyle = ch === 'O' ? bc : '#161210'; ctx.fillRect(x + (c - 3.5) * u, y + (r - 4) * u, u + .4, u + .4); }
 };
-// (skull bursts call spray(x, y, n, 1) — the unified helper above; render loop draws p.sk as the bone sprite)
+// HEAL CROSS particle — bright green plus with 1px dark outline. Sized to match rainbow burst (~6px). Same visual language as the HUD heal button.
+const hCross = (x, y, a = 1) => {
+  ctx.globalAlpha = a;
+  for (const [dx, dy, c] of [[-1, 0, '#17131f'], [1, 0, '#17131f'], [0, -1, '#17131f'], [0, 1, '#17131f'], [0, 0, '#6cf279']]) {
+    ctx.fillStyle = c;
+    ctx.fillRect(x - 1 + dx, y - 2 + dy, 2, 4);   // vertical arm (2×4)
+    ctx.fillRect(x - 2 + dx, y - 1 + dy, 4, 2);   // horizontal arm (4×2)
+  }
+};
 // ITEM DROPS — physical pickups from kills/chests.
 // Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear. Shards are progression-only (bs[i]=2, not drops).
 // LUCK adds +1 drop per pip.
 
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
 const spr = (d, x, y, w, c, z = 1) => { ctx.fillStyle = c; for (let r = 0; r < d.length; r++) for (let b = w; b--;) d[r] >> b & 1 && ctx.fillRect(x + (w - 1 - b) * z, y + r * z, z + .03, z + .03); };
-// CONSUMABLE icon — ONE potion bottle (I_MP bitmask, data.js) for every consumable;
-// the fill color tells what it heals: red = HP (#ff5d6c bar), blue = MP (#4a76ff bar).
-// The cork is a dark-brown 2×1 rect painted on top at the pickup site.
+// POTION — outline (4-direction spread in dark) + fill + specular highlight (glass reflection).
+// Same outline technique as gear sprites (#17131f), same highlight convention (top-left light).
+// Cork is a site-specific opaque overlay (HUD alpha-gates the body but keeps the cork solid).
+const pot = (x, y, c, z = 1) => { const o = '#17131f'; for (const d of [-z, z]) { spr(I_MP, x + d, y, 12, o, z); spr(I_MP, x, y + d, 12, o, z); } spr(I_MP, x, y, 12, c, z); ctx.fillStyle = '#fff'; ctx.fillRect(x + 2 * z, y + 5 * z, z, 2 * z); ctx.fillRect(x + 3 * z, y + 4 * z, z, z); };
 // GEAR icon sprites — pro pixel style: selective outline + top-left light + shade, tinted by roll color c.
 // slot→item: 0 BODY→chest armor · 1 MANE→cape · 2 HORN→horn blade · 3 HOOVES→horseshoe. Digits index the palette below (.=skip).
 // Icon canon (see uni-corn/research tiny-pixel-icon entry): 45° tip-up-right for the blade, wavy bottom = cape (not shield),
@@ -664,6 +673,7 @@ function heal() {                                               // instant tap-t
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
   sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1);
+  spray(pl.x + PW / 2, pl.y + PH / 2, 6, 0, 1);   // heal-cross burst around player — mirrors death skull / jump rainbow
 }
 
 const hurt = (n, safe) => {
@@ -746,7 +756,7 @@ const step = (dt) => {
         if (!bounceSet.has(ty * W + fc)) {                       // normal ground (bounce handled in independent post-pass below)
           pl.y = top - PH;
           if (!wasGround && pl.vy > 250) { pl.sq = 1.35; sfx(150, 70, .06, 'square', .07); }
-          pl.vy = 0; pl.ground = 1; pl.air = 0; bCt = 0;
+          pl.vy = 0; pl.ground = 1; pl.air = 0;
         }
         break;
       }
@@ -760,7 +770,7 @@ const step = (dt) => {
     const bf = pl.y + PH, bty = bf / T | 0, bfc = (pl.x + PW / 2) / T | 0;
     if (bounceSet.has(bty * W + bfc) && bf >= bty * T - 4 && bf < bty * T + 8) {
       pl.y = bty * T - PH - 15;
-      bCt = Math.min(bCt + 1, 2); pl.vy = bCt > 1 ? -510 : -360;
+      pl.vy = -510;
       pl.air = 0; jbuf = 0; pl.sq = .6; sfx(220, 640, .16, 'sine', .13);
     }
   }
@@ -950,8 +960,6 @@ const draw = () => {
     ctx.fillRect(sx, cy, cw, 8); ctx.fillRect(sx + 4, cy - 4, cw - 8, 6); ctx.fillRect(sx + 8, cy + 6, cw - 16, 5);
   }
 
-
-
   // SCREEN SHAKE — offset the world translate, not the HUD (which draws after the untranslate)
   const so = shk > 0 ? Math.random() * 6 - 3 : 0;
   ctx.translate((-cam.x + so) | 0, (-cam.y + so) | 0);
@@ -983,7 +991,6 @@ const draw = () => {
   }
   ctx.fillStyle = GT; for (const [tx2, ty2, th] of tops) ctx.fillRect(tx2, ty2, T + .5, th);
 
-
   // CHESTS — hand-placed (20 seeds, oc bitfield caps at 31). Opened chests vanish (persisted in oc).
   // JUMP-near-chest opens (touch JUMP button glows gold when nearChest ≥ 0).
   for (const c of chests) {
@@ -996,7 +1003,7 @@ const draw = () => {
     ctx.fillRect(c.x - 1, c.y - 1, 2, 3);
   }
   // WORLD DECORATIONS — data-driven from DECO seeds. Positions are data, draw is shared.
-  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=pine 6=flower (7 cattail + 8 crystal cluster removed; 5 was ice crystal, reused)
+  // 0=tree 1=grass 2=rock 3=mushroom 4=dead tree 5=pine 6=flower
   for (const [dx, dy, dt] of DECO) {
     const px = dx * T, py = dy * T + T;                          // py = ground surface (feet level)
     if (px < cam.x - T || px > cam.x + VW + T || py < cam.y - T || py > cam.y + VH + T) continue;
@@ -1101,7 +1108,7 @@ const draw = () => {
     ctx.restore();
     if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#ff5d6c');   // shared HP bar (all foes + bosses, shown when damaged)
   }
-  for (const s of shots) { ctx.lineWidth = .5; rArc(s.x, s.y, 2.75, .375); }   // magic bolt = mini rainbow arc — same visual as jump particles
+  for (const s of shots) { ctx.lineWidth = .7; rArc(s.x, s.y, 3.5, .5); }   // magic bolt = rainbow arc projectile
   for (const b of fbolts) skull(b.x, b.y, .7, 1);               // foe bolt = flying skull — mirrors player's rainbow bolt
 
   // GREATCORN — the guide NPC at the paddock. Isolated palette via col swap to NPCCOL,
@@ -1127,22 +1134,24 @@ const draw = () => {
   for (const d of drops) {
     ctx.globalAlpha = Math.min(1, d.life);
     const dy = Math.sin(d.life * 5) * 1.5;
-    if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; spr(I_MP, px, py, 12, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#c9a26a'; ctx.fillRect(px + 4, py - 2, 4, 3); }   // POTION 12×14 body + 4×3 opaque tan cork — rests on ground (bottom at tile top)
+    if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#c9a26a'; ctx.fillRect(px + 4, py - 2, 4, 3); }   // POTION body + highlight + cork
     else drawPart(d.s, d.x - 6, d.y - 11 + dy, d.c, 1.5);   // GEAR — bare sprite (no box), potion-sized (1.5×), rests on ground like potions
   }
   ctx.lineWidth = 1;
-  for (const p of parts) {                                        // 3 particle kinds: p.sk = skull sprite (combat/death) · p.c = single-hue trail dot (dash smear / shot comet) · else = full 7-band rainbow burst
+  for (const p of parts) {                                        // 4 particle kinds: p.sk skull (deaths) · p.hc heal cross (heal cast) · p.c single-hue trail dot (dash smear / shot comet) · else full 7-band rainbow burst
     const al = Math.min(1, p.t * 2.5);
     if (p.sk) { skull(p.x, p.y, .7, al, '#ff5d6c'); continue; }  // death skull = red bone, dark outline — distinct from white foe-bolt skulls
+    if (p.hc) { hCross(p.x, p.y, al); continue; }                 // heal cast = mini green cross with dark outline (matches heal button glyph)
     ctx.globalAlpha = al;
     if (p.c) { ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); continue; }   // coherent hue trail — cheap dot, not a full rainbow
     ctx.lineWidth = .5; rArc(p.x, p.y, 2.75, .375);          // burst rainbow @50% — r/step/width scale together so the 7 bands stay distinct
   }
   ctx.globalAlpha = 1; ctx.lineWidth = 1;
-  for (const f of flies) {                                       // textAlign inherited 'center' from topHUD (last set each frame) — damage/XP centre on their origin
+  for (const f of flies) {                                       // textAlign inherited 'center' from topHUD (last set each frame) — damage centres on origin; hud flies offset by cam to cancel world translate
     ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = (f.big ? 'bold 13px' : 'bold 8px') + ' monospace';
-    ctx.fillStyle = f.c; ctx.fillText(f.txt, f.x | 0, f.y | 0);
-    if (f.pot) spr(I_MP, (f.x | 0) + 6, (f.y | 0) - 9, 12, f.c, .7);   // mini potion glyph just right of the centred "+1" — same sprite, text-sized
+    ctx.fillStyle = f.c; const fx = f.hud ? (f.x + cam.x) | 0 : f.x | 0, fy = f.hud ? (f.y + cam.y) | 0 : f.y | 0;
+    ctx.fillText(f.txt, fx, fy);
+    if (f.pot) pot(fx + 6, fy - 9, f.c, .7);   // mini potion glyph just right of the centred "+1"
   }
   ctx.globalAlpha = 1;
   if (dq && started) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 4 : NGY - 26, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREATCORN; hidden on title
@@ -1276,40 +1285,44 @@ const draw = () => {
       // HEAL glyph — bold green cross fills the disc: vibrant darker-green outline + bright vibrant-green core.
       // Own green palette (NOT the lock-dimmed ring color rc) so the icon reads green even when unavailable; alpha still conveys state.
       if (c === 'bH') {
-        ctx.fillStyle = '#28a84a';                                        // outline — vibrant darker green
-        ctx.fillRect(x - 4, y - 12, 8, 24); ctx.fillRect(x - 12, y - 4, 24, 8);
-        ctx.fillStyle = '#6cf279';                                        // core — bright vibrant green
-        ctx.fillRect(x - 2, y - 10, 4, 20); ctx.fillRect(x - 10, y - 2, 20, 4);
+        ctx.fillStyle = '#17131f';                                        // dark outline (matches potion — 1px larger all around)
+        ctx.fillRect(x - 6, y - 13, 12, 26); ctx.fillRect(x - 13, y - 6, 26, 12);
+        ctx.fillStyle = '#28a84a';                                        // darker green outer — arms 10-thick (was 8, 25% wider)
+        ctx.fillRect(x - 5, y - 12, 10, 24); ctx.fillRect(x - 12, y - 5, 24, 10);
+        ctx.fillStyle = '#6cf279';                                        // bright green core — arms 6-thick (was 4)
+        ctx.fillRect(x - 3, y - 10, 6, 20); ctx.fillRect(x - 10, y - 3, 20, 6);
       }
-      // JUMP glyph — two-tone (deep-blue outline + bright core), matching the HEAL cross treatment.
-      // Context-swaps: menu → checkmark (confirm/select); gameplay → double up-chevron (leap), gold near NPC/chest (TALK/OPEN).
+      // JUMP glyph — menu: checkmark (confirm); gameplay: player unicorn + speed lines below (launching upward).
       if (c === 'bJ') {
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        const oc = '#2f6fb0', cc = '#cfeeff';   // ONE palette, alpha-only states (operator 09-04): interact-available is signaled purely by the .85 alpha pop (`it` in the alpha line) — no color swap
-        const path = paused
-          ? () => { ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); }              // ✓ confirm
-          : () => { for (const py of [y - 8, y + 2]) { ctx.beginPath(); ctx.moveTo(x - 9, py + 7); ctx.lineTo(x, py); ctx.lineTo(x + 9, py + 7); ctx.stroke(); } };  // ⌃⌃ leap
-        ctx.strokeStyle = oc; ctx.lineWidth = 6; path();
-        ctx.strokeStyle = cc; ctx.lineWidth = 3; path();
-        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+        if (paused) {
+          ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          const chk = () => { ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); };
+          ctx.strokeStyle = '#2f6fb0'; ctx.lineWidth = 6; chk();
+          ctx.strokeStyle = '#cfeeff'; ctx.lineWidth = 3; chk();
+          ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+        } else {
+          // Flat unicorn (no rotation) + 3 downward speed lines: outer two aligned, middle offset shorter.
+          ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
+          ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x - 5, y + 9); ctx.lineTo(x - 5, y + 15);   // left line
+          ctx.moveTo(x, y + 11);    ctx.lineTo(x, y + 15);        // middle — starts 2px lower (offset)
+          ctx.moveTo(x + 5, y + 9); ctx.lineTo(x + 5, y + 15);   // right line
+          ctx.stroke();
+        }
       }
-      // DASH glyph — gold two-tone: forward arrow + trailing speed lines (the lunging strike). Own gold palette, alpha conveys locked/low-MP.
+      // DASH glyph — same flat unicorn as JUMP + 3 trailing speed lines: outer two aligned, middle offset shorter.
       if (c === 'bM') {
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        const arrow = () => { ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + 9, y); ctx.moveTo(x + 3, y - 7); ctx.lineTo(x + 10, y); ctx.lineTo(x + 3, y + 7); ctx.stroke(); };
-        const speed = () => { ctx.beginPath(); ctx.moveTo(x - 12, y - 6); ctx.lineTo(x - 7, y - 6); ctx.moveTo(x - 12, y + 6); ctx.lineTo(x - 7, y + 6); ctx.stroke(); };   // motion streaks
-        ctx.strokeStyle = '#b8801f'; ctx.lineWidth = 6; arrow(); ctx.lineWidth = 4; speed();   // outline — darker gold
-        ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 3; arrow(); ctx.lineWidth = 2; speed();   // core — bright gold
-        ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+        ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
+        ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x - 16, y - 5); ctx.lineTo(x - 10, y - 5);    // top line
+        ctx.moveTo(x - 14, y);     ctx.lineTo(x - 10, y);         // middle — starts 2px shorter (offset)
+        ctx.moveTo(x - 16, y + 5); ctx.lineTo(x - 10, y + 5);    // bottom line
+        ctx.stroke();
       }
-      // SHOOT glyph — purple two-tone lightning bolt (filled zigzag + dark edge), matching the family flair.
-      if (c === 'bS') {
-        ctx.lineJoin = 'round';
-        const bolt = () => { ctx.beginPath(); ctx.moveTo(x + 5, y - 12); ctx.lineTo(x - 6, y + 1); ctx.lineTo(x - 1, y + 1); ctx.lineTo(x - 4, y + 12); ctx.lineTo(x + 7, y - 3); ctx.lineTo(x + 1, y - 3); ctx.closePath(); };
-        bolt(); ctx.strokeStyle = '#7b3fd4'; ctx.lineWidth = 4; ctx.stroke();   // outline — deep vibrant purple
-        ctx.fillStyle = '#e2c9ff'; ctx.fill();                                 // core — bright lavender
-        ctx.lineJoin = 'miter';
-      }
+      // SHOOT glyph — rainbow arc matching the projectile sprite.
+      if (c === 'bS') { ctx.lineWidth = 1.5; rArc(x, y + 4, 10, 1.2); }
       ctx.restore();
     }
     ctx.globalAlpha = 1;
@@ -1336,7 +1349,7 @@ const draw = () => {
       const n = t ? mpPot : hpPot;
       ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.05') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);   // one chrome grey everywhere (09-04); filled/empty already signaled by bg tint + glyph alpha + count color
-      ctx.globalAlpha = n ? 1 : .4; spr(I_MP, x + 6, QSY + 6, 12, t ? '#4a76ff' : '#ff5d6c'); ctx.globalAlpha = 1; ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // 4×3 opaque cork (alpha reset before cork so empty slots keep cork solid). Bitmap has 3 skinny neck rows; cork covers r0, r1-2 visible as clear skinny-neck feature.
+      ctx.globalAlpha = n ? 1 : .4; pot(x + 6, QSY + 6, t ? '#4a76ff' : '#ff5d6c'); ctx.globalAlpha = 1; ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // cork always opaque (alpha reset before cork so empty slots keep cork solid)
       ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
     };
     qslot(QHX, 0); qslot(QMX, 1);
@@ -1349,8 +1362,7 @@ const draw = () => {
       ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x, iy, isz, isz);
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, iy, isz, isz);
     };
-    // Menu button is the top-left info panel itself (tap name/bars area; hamburger removed 09-03). Rainbow glow around it = points to spend (stat OR skill).
-    if (!paused && (pending || spts)) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(2.5, 2.5, 86, 41); }
+    // Menu button is the top-left info panel itself (tap name/bars area to open character menu).
     {                                                          // ✕ Back · Mute — always shown (incl. the character menu)
       const sx = VW - 56; box(sx);                              // ✕ — back/exit
       ctx.strokeStyle = '#c33'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(sx + 3, iy + 3); ctx.lineTo(sx + 9, iy + 9); ctx.moveTo(sx + 9, iy + 3); ctx.lineTo(sx + 3, iy + 9); ctx.stroke();
