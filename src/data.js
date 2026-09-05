@@ -34,12 +34,10 @@ export const SC = ['#ffd75e', '#ff5d6c', '#4a76ff', '#9fe89a', '#c47fe0'];   // 
 export const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a', '#8cf'];
 // FT[k] = [hp, dm, speed, size, capBits, shape].
 // k1 CRAWLER · k2 BLOB · k3 CASTER · k4 RUNNER · k5 HOPPER · k6 PUFF.
-// Cap bits: 1=ranged 2=hop 4=summon 8=shockwave 16=chase 32=swift.
+// Cap bits: 1=ranged 2=hop 16=chase (bosses use 19 = the full unicorn kit; summon/shockwave/swift retired).
 export const FT = [, [4, 3, 44, 3, 0, 1], [8, 4, 31, 3, 16, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 3, 0, 1], [6, 4, 36, 3, 18, 1], [9, 4, 22, 3, 1, 2]];
-// P2 = capability bits granted at boss phase 2 (OR'd into f.cap).
-export const P2 = [32, 4, 1, 8, 37, 8, 10];   // INDIGO (bi=6) — hop + shockwave in the cavern
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
-// Count = RBC.length (data-driven; add an RBC + P2 entry + a seeds.bosses placement to add one).
+// Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).
 export const RBC = [4, 3, 2, 8, 7, 15, 16];
 // 7-band rainbow (arc + title + effects).
@@ -66,12 +64,12 @@ export const ZB = [
 // SKILL TREE — prerequisite-based: LINK pairs [parent,child] gate unlock (see main.js canBuy).
 // 12 nodes, 4 visual rows. Indices are stable — su[N] semantics fixed.
 // 0 SHOT · 1 FAR SHOT · 2 HEAL · 3 SUPER HEAL · 4 DBL JUMP · 5 TRI JUMP
-// 6 DASH · 7 LONG DASH · 8 STASH · 9 HP +5 · 10 MP +5 · 11 POT +5
-export const TREE = ['SHOT','FAR SHOT','HEAL','SUPER HEAL','DBL JUMP','TRI JUMP','DASH','LONG DASH','STASH','HP +5','MP +5','POT +5','DBL SHOT','TRI SHOT'];
+// 6 DASH · 7 LONG DASH · 8 DBL SHOT · 9 TRI SHOT
+export const TREE = ['SHOT','FAR SHOT','HEAL','SUPER HEAL','DBL JUMP','TRI JUMP','DASH','LONG DASH','DBL SHOT','TRI SHOT'];
 // Row positions: Row1 y=48 (3), Row2 y=94 (4), Row3 y=140 (3), Row4 y=186 (2). Alternating centering:
 // odd rows use canonical columns 263/325/387; even rows offset to 232/294/356/418 (subset).
 // Layout changes move POSITIONS only — indices match TREE order.
-export const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[418,94],[263,140],[232,94],[387,140],[201,94],[232,140]];
+export const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[201,94],[232,140]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base. Cork = 4×3 opaque tan fillRect (extends 2px above bitmap, covers r0).

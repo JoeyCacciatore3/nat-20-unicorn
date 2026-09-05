@@ -183,10 +183,10 @@ export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = 
 //            into short runs (patch feel); flowers/rocks/shrooms are cycle-placed singles.
 //   CANOPY — Deussen shade affinity: for 3 ground slots after a tree, flower slots become MUSHROOMS
 //            (shade-tolerant under canopy; sun-lovers claim open gaps) — one swap encodes both rules.
-const Q = [1, 1, 6, 1, 3, 1, 6, 2];   // the quota cycle (type ids: 1 grass · 6 flower · 3 shroom · 2 rock)
+const Q = [1, 3, 6, 1, 3, 1, 6, 2];   // the quota cycle (type ids: 1 grass · 6 flower · 3 shroom · 2 rock)
+let seed = 13, rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // shared LCG: ledge growth + foliage
 const scatter = () => {
   const d = [];
-  let s = 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...(seeds.bounce || []), ...seeds.DECO];
   const tc = {}, run = {}, qc = {}, sh = {};                     // per-row: tree cooldown, grass-run left, quota index, shade counter
   for (let x = 5; x < W - 5; x++) {
@@ -196,7 +196,7 @@ const scatter = () => {
       if ((v !== 1 && v !== 2) || grid[(y - 1) * W + x] !== 0) continue;    // exposed floor tops: solid ground AND one-way platform rungs
       if (run[y] > 0) { run[y]--; d.push([x, y - 1, 1]); }                                        // grass run continuation
       else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, (x >> 4) % 2 ? 5 : 0]); tc[y] = x + 7; sh[y] = 3; }   // tree anchor — SOLID only; opens a 3-slot shade zone
-      else if (rnd() < .55) {
+      else if (rnd() < .64) {
         let t = Q[(qc[y] = (qc[y] || 0) + 1) % 8];               // stratified: rotate the quota table (jittered by the .55 gate)
         if (sh[y] > 0 && t === 6) t = 3;                         // CANOPY: flower slot under shade → mushroom
         if (t === 1) run[y] = rnd() * 2 | 0;                     // grass may extend 0-2 extra cols
@@ -210,6 +210,14 @@ const scatter = () => {
 
 // Module-init: paint MEADOW grid + merge hand-placed decor (snapped to surface) with scatter fill.
 for (const m of seeds.MAP) box(...m);
+// COMBAT LEDGES GROW — each foe/boss standing on a one-way ledge widens it a seeded-random ±1-4
+// tiles into open air (solid walls + spike pits preserved) → roomier DARKCORN fights, zero MAP data.
+for (const [fx, fy] of [...seeds.foes, ...seeds.bosses]) {
+  const r = groundRow(fx, fy), n = 2 + (rnd() * 4 | 0);
+  if (grid[r * W + fx] === 2)                                          // only grow floating (v=2) ledges; solid arenas already roomy
+    for (let c = fx - n; c <= fx + n; c++)
+      if (grid[r * W + c] === 0 && grid[(r + 1) * W + c] !== 3) grid[r * W + c] = 2;   // air only; never over spikes
+}
 export const DECO = scatter();
 // BOUNCE pads snapped to their solid landing row: [col, solidRow]. Player stands at solidRow-1.
 export const BOUNCE = seeds.bounce.map(([x, y]) => [x, groundRow(x, y + 1)]);

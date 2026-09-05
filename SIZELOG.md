@@ -1165,3 +1165,61 @@
 2026-09-05  13241 B  (99.5%)  free: 71 B
 2026-09-05  13247 B  (99.5%)  free: 65 B
 2026-09-05  13247 B  (99.5%)  free: 65 B
+2026-09-05  13248 B  (99.5%)  free: 64 B
+2026-09-05  13248 B  (99.5%)  free: 64 B
+2026-09-05  13339 B  (100.2%)  free: -27 B
+2026-09-05  13328 B  (100.1%)  free: -16 B
+2026-09-05  13305 B  (99.9%)  free: 7 B
+2026-09-05  13302 B  (99.9%)  free: 10 B
+2026-09-05  13302 B  (99.9%)  free: 10 B
+2026-09-05  13302 B  (99.9%)  free: 10 B
+2026-09-05  13303 B  (99.9%)  free: 9 B
+2026-09-05  13302 B  (99.9%)  free: 10 B
+2026-09-05  13302 B  (99.9%)  free: 10 B
+2026-09-05  13268 B  (99.7%)  free: 44 B
+2026-09-05  13285 B  (99.8%)  free: 27 B
+2026-09-05  13285 B  (99.8%)  free: 27 B
+2026-09-05  13285 B  (99.8%)  free: 27 B
+2026-09-05  13279 B  (99.8%)  free: 33 B
+2026-09-05  13276 B  (99.7%)  free: 36 B
+2026-09-05  13276 B  (99.7%)  free: 36 B
+2026-09-05  13276 B  (99.7%)  free: 36 B
+2026-09-05  13276 B  (99.7%)  free: 36 B
+2026-09-05  13269 B  (99.7%)  free: 43 B
+2026-09-05  13269 B  (99.7%)  free: 43 B
+2026-09-05  13269 B  (99.7%)  free: 43 B
+2026-09-05  13272 B  (99.7%)  free: 40 B
+2026-09-05  13269 B  (99.7%)  free: 43 B
+2026-09-05  13260 B  (99.6%)  free: 52 B
+2026-09-05  13260 B  (99.6%)  free: 52 B
+2026-09-05  13238 B  (99.4%)  free: 74 B
+2026-09-05  13238 B  (99.4%)  free: 74 B
+2026-09-05  13238 B  (99.4%)  free: 74 B
+2026-09-05  13238 B  (99.4%)  free: 74 B
+2026-09-05  13238 B  (99.4%)  free: 74 B
+2026-09-05  13170 B  (98.9%)  free: 142 B
+2026-09-05  13170 B  (98.9%)  free: 142 B
+2026-09-05  13170 B  (98.9%)  free: 142 B
+2026-09-05  13182 B  (99.0%)  free: 130 B
+2026-09-05  13182 B  (99.0%)  free: 130 B
+2026-09-05  13134 B  (98.7%)  free: 178 B
+2026-09-05  13134 B  (98.7%)  free: 178 B
+2026-09-05  13132 B  (98.6%)  free: 180 B
+2026-09-05  13132 B  (98.6%)  free: 180 B
+2026-09-05  13132 B  (98.6%)  free: 180 B
+2026-09-05  13121 B  (98.6%)  free: 191 B
+2026-09-05  13121 B  (98.6%)  free: 191 B
+2026-09-05  13121 B  (98.6%)  free: 191 B
+2026-09-05  13121 B  (98.6%)  free: 191 B
+2026-09-05  13121 B  (98.6%)  free: 191 B
+
+## Session Batch (2026-09-05) — 12 changes committed
+
+All changes playtested in-browser before shipping. Major rewires:
+
+1. **Boss AI** — DARKCORN uniform 3-move kit (jump+dash+shoot), difficulty via tier (bi) stats + speed ramp. Removed P2 phase-2 escalation table → +68 B.
+2. **Skill tree** — Removed STASH/HP+5/MP+5/POT+5 (14→10 nodes); inventory fixed at 10 slots (no upgrade); potion heal flat 10 HP/10 MP (no upgrade). Renumbered indices, rewired LINK prereqs, bumped save v43→44 → +44 B.
+3. **Icon sprites** — Dash/Jump unicorn .82 smaller (seamless fit), revert to gear-tinted (equipment preview). Heal cross 2-tone (drop mid-green) + ~18% smaller. Byte-neutral to +11 B.
+4. **Comments** — Removed stale skill references (STASH, HP+5, MP+5, POT+5); updated inventory/stats docs.
+
+**Byte flow:** 74 free → +68 (boss) → +44 (tree) → +2 (icons) → +11 (heal) − 8 (comment cleanup) = **191 free final**.

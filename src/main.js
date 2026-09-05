@@ -7,7 +7,7 @@
 //   - ONE open skill tree, 12 single-rank nodes, all player-chosen (no auto-learn)
 //   - Rainbows = collection goal (one per DARKCORN boss; win = all bands, seeds.bosses.length)
 //   - Unified character sheet: pause + level-up share layout
-//   - 5-slot inventory (+5 via STASH skill, max 10); potions live in a separate hot-bar
+//   - 10-slot inventory (fixed max); potions live in a separate hot-bar (5 HP / 5 MP)
 //     if their stat isn't full else stored for later — click to use, X to drop
 //   - HP/MP color-coded: red HP potion + blue MP potion (Diablo convention)
 //   - Fixed world palette; sky (#6bc5ff) + grass (#5ac878) RESERVED for background
@@ -20,7 +20,7 @@
 
 import { T, W, H, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
-import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, P2, RBC, RC, ZB, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
+import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, TREE, TPOS, I_MP, INTRO, TALK } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -58,7 +58,7 @@ NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // o
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // ONE SAVE SLOT (n20_s0). sMeta reads name+level for the title label without loading.
-const sMeta = () => { try { const d = JSON.parse(localStorage['n20_s0'] || '0'); return d && d.v === 43 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = () => { try { const d = JSON.parse(localStorage['n20_s0'] || '0'); return d && d.v === 44 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume transitions can't drift.
@@ -126,22 +126,22 @@ const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('bJ'); // butto
 // JUMP is the universal interact/confirm (menu: select; gameplay: NPC/chest).
 // ACTION BUTTONS — all four ALWAYS visible, uniform size. Ring is bright when USABLE
 // (skill unlocked AND enough MP), else dull #555 — one rule covers both "locked" and "out of MP".
-// Each: [x, y, key, brightColor, suIdx (-1 = always unlocked), mpCost]. Fan-arc = landscape thumb-reach.
+// Each: [x, y, key, brightColor, suIdx (-1 = always unlocked)]. Fan-arc = landscape thumb-reach.
 const AR = 20, BVS = .7;                          // AR = TOUCH radius (hit = AR+6, unchanged) · BVS = VISUAL scale — buttons draw at 70% (r=14) but accept the same 26px touch (operator 09-04: slim look, forgiving hit)
-// [x, y, key, skillGate (-1 = always), mpCost]. Ring accent = one UI color (#8cf); glyph carries identity.
+// [x, y, key, skillGate (-1 = always)]. Every non-JUMP action costs the uniform 3 MP (derived, not stored). Ring accent = one UI color (#8cf); glyph carries identity.
 const AB = [
-  [VW - 36, VH - 34, 'bJ', -1, 0],
-  [VW - 92, VH - 30, 'bM', 6, 1],
-  [VW - 78, VH - 78, 'bS', 0, 2],
-  [VW - 36, VH - 88, 'bH', 2, 3],
+  [VW - 36, VH - 34, 'bJ', -1],
+  [VW - 92, VH - 30, 'bM', 6],
+  [VW - 78, VH - 78, 'bS', 0],
+  [VW - 36, VH - 88, 'bH', 2],
 ];
 const ptrs = new Map();
 const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
 // ---------- floating joystick (movement, touch only) ----------
-// Persistent base at a home position (operator preference: always visible), but any
-// touch in the LEFT 40% re-anchors it under the thumb (Dead Cells floating pattern,
-// ~80% player preference per Playdigious postmortem). Snaps home on release.
-// Y-axis push-down on joystick = crouch/drop-through platform.
+// FIXED base pinned at home (operator directive 2026-09-05: the stick never moves on screen).
+// Any touch in the LEFT 40% grabs it; joy.x/y record the grab origin so the drag is measured
+// RELATIVE to the thumb (natural feel) while the visual base + ring stay drawn at home.
+// Y-axis push-down = crouch/drop-through platform.
 const JHX = 36, JHY = VH - 34, JR = 26, KR = 11, JMX = JR - 8, JVS = AR * BVS / JR;   // home MIRRORS the JUMP button's corner offsets (VW-36, VH-34) — symmetric thumb anchors · JR = TOUCH base r (grab/clamp math, unchanged) · JVS scales the VISUAL to the buttons' 14px draw radius
 const joy = { x: JHX, y: JHY, dx: 0, dy: 0, id: -1 };
 
@@ -150,13 +150,8 @@ const joySet = () => {                                           // knob offset 
   if (joy.dx < -6) keys.add('bL'); else if (joy.dx > 6) keys.add('bR');
   if (joy.dy > 12) keys.add('bD'); else if (joy.dy < -12) keys.add('bU');   // up = menu nav (not jump)
 };
-const joyEnd = () => { joy.id = -1; joy.x = JHX; joy.y = JHY; joy.dx = joy.dy = 0; joySet(); };
-const grabJoy = (vx, vy, id) => {                                // shared: gameplay + menu-nav grabs
-  joy.id = id;
-  joy.x = Math.min(Math.max(vx, JR + 6), VW * .4 - 12);
-  joy.y = Math.min(Math.max(vy, 44), VH - JR - 6);
-  joy.dx = joy.dy = 0; joySet();
-};
+const joyEnd = () => { joy.id = -1; joy.dx = joy.dy = 0; joySet(); };   // base is FIXED at home — only clear the knob + movement keys
+const grabJoy = (vx, vy, id) => { joy.id = id; joy.x = vx; joy.y = vy; joy.dx = joy.dy = 0; joySet(); };   // joy.x/y = grab ORIGIN → drag is relative to the thumb (natural feel); the visual base stays pinned at home (JHX,JHY)
 addEventListener('pointerdown', (e) => {
   boot();
   if (e.pointerType === 'touch') touch = 1;
@@ -201,7 +196,7 @@ addEventListener('pointerdown', (e) => {
     // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
     if (paused) {                                                // CHARACTER MENU — inventory + (when points remain) stat/skill allocation, one screen
       // GAMEPAD MENU CONTROLS (checked first, take priority over cell-taps): joystick = cursor nav, JUMP = confirm/select.
-      if (e.pointerType === 'touch' && Math.hypot(vx - joy.x, vy - joy.y) < JR + 8) { grabJoy(joy.x, joy.y, e.pointerId); return; }
+      if (e.pointerType === 'touch' && Math.hypot(vx - JHX, vy - JHY) < JR + 8) { grabJoy(vx, vy, e.pointerId); return; }
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
       // USE/DROP buttons — they overlap the grid (y=250-264 sits inside grid y=184-268), checked first.
       if (invSel >= 0 && inv[invSel]) {
@@ -221,7 +216,7 @@ addEventListener('pointerdown', (e) => {
       paused = 0; return;                                        // tap anywhere else closes
     }
   }
-  // JOYSTICK: any touch in the left 40% grabs the stick and re-anchors it there
+  // JOYSTICK: any touch in the left 40% grabs the fixed stick (base pinned at home; drag is relative to the grab point)
   if (started && e.pointerType === 'touch' && vx < VW * .4) { grabJoy(vx, vy, e.pointerId); return; }
   for (const [x, y, c] of AB) if (Math.hypot(vx - x, vy - y) < AR + 6) {
     // JUMP button contextualizes: near NPC it's INTERACT, not jump
@@ -285,7 +280,7 @@ let col = [0, 0, 0, 0];
 // Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF). Bonus 0=cosmetic.
 const eq = [null, null, null, null];
 const inv = [];
-const invMax = () => 5 + su[8] * 5;                  // BAG cap: 5 base, +5 STASH (max 10)
+const invMax = () => 10;                             // BAG cap fixed at 10 from the start (STASH skill removed 2026-09-05)
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
 // Equipment folds directly into base stats (single source of truth). Delta = new bonus − old bonus;
 // stat mutation mirrors spend() so HP/MP grow/shrink together with mHP/mMN (like a level-up).
@@ -308,7 +303,7 @@ const useItem = (i) => {
   inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1);           // no auto-save — player owns save via ✕ button
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
-const quaff = (t) => { const g = 10 + su[11] * 5; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); } };
+const quaff = (t) => { const g = 10; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); } };
 
 // GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 13`) is coupled to
 // PAL.length (17) — indices 4..16. tpos-check.mjs enforces this pairing (swatches - 4 === range).
@@ -395,8 +390,8 @@ let hs = 0, shk = 0, hf = 0;                      // combat feel: hitstop freeze
 // Boss state: 0=unvisited, 1=on screen OR defeated-uncollected, 2=rainbow collected, {hp,ph,spd,rc}=leash stash
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 const rainbows = () => bs.filter(v => v === 2).length;
-const mHP = () => 8 + he * 2 + su[9] * 5;         // base 8 + HP stat (equipment folded in) + HP+ skill (+5)
-const mMN = () => 8 + sp * 2 + su[10] * 5;        // base 8 + MAG stat (equipment folded in) + MP+ skill (+5)
+const mHP = () => 8 + he * 2;                     // base 8 + HP stat (equipment folded in); HP+5 skill removed 2026-09-05
+const mMN = () => 8 + sp * 2;                     // base 8 + MAG stat (equipment folded in); MP+5 skill removed 2026-09-05
 const ATK = () => ho;                             // STR stat (equipment folded in)
 const critChance = () => .08 + lk * .02;                      // 8% base + 2% per LUCK
 const isCrit = () => Math.random() < critChance();
@@ -425,7 +420,7 @@ const STATS = [
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE.length).fill(0);
 // LINK encodes the prerequisite tree: pairs [parent, child]. A node is buyable when any parent is owned (roots always available).
-const LINK = [0,10, 0,4, 2,4, 2,7, 6,7, 6,8, 10,9, 4,9, 4,5, 7,5, 7,11, 8,11, 9,3, 5,3, 5,1, 11,1, 0,12, 12,13];
+const LINK = [0,4, 2,4, 2,7, 6,7, 4,5, 7,5, 5,3, 5,1, 0,8, 8,9];
 const canBuy = i => { let r = 1; for (let k = 1; k < LINK.length; k += 2) if (LINK[k] === i) { if (su[LINK[k-1]]) return 1; r = 0; } return r; };
 let aRow = 0;
 const SN = () => 5 + invMax() + TREE.length;                  // unified cursor span: stats(0-4) → inv(5..5+iMax-1) → skills(5+iMax..end)
@@ -450,7 +445,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
   localStorage['n20_s0'] = JSON.stringify({
-    v: 43, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 44, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], d: pending, k: spts, y: su,
     m: pName, o: oc,
     q: eq, i: inv, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
@@ -459,7 +454,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['n20_s0'] || '0');
-    if (!d || d.v !== 43) return;                               // strict v43 gate — no cross-version compat.
+    if (!d || d.v !== 44) return;                               // strict v44 gate — no cross-version compat.
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     bs.fill(0); d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;   // fill(0) first: shorter saved arrays must not inherit stale slots from a prior in-session load
@@ -554,7 +549,7 @@ let foes = seedFoes();
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, big, pot, hud, t: big ? 2.6 : 1.8 });   // big texts (crit / heal) linger longer; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world). Bumped 1.4→1.8s (2.2→2.6s big) so numbers stay readable through fade.
 // Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS) · hc=1=heal cross (HEAL cast).
-const spray = (x, y, n, sk = 0, hc = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: 1 + Math.random() * .5, sk, hc, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump/heal puff, big = victory burst)   // z = rainbow-arc size multiplier (1 = subtle jump/heal puff, big = victory burst)   // lifetime 1.0-1.5s (was 0.5-0.85s) — bursts linger long enough to actually read what died / healed / jumped
+const spray = (x, y, n, sk = 0, hc = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: 1 + Math.random() * .5, sk, hc, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump/heal puff, big = victory burst). lifetime 1.0-1.5s — bursts linger long enough to read what died / healed / jumped
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
 // pass custom for dead-flag or bit-match culling. Used by shots/fbolts/parts/flies/foes/drops.
 const prune = (a, d = e => e.t <= 0) => { for (let i = a.length; i--;) if (d(a[i])) a.splice(i, 1); };
@@ -586,19 +581,20 @@ const pot = (x, y, c, z = 1) => { const o = '#17131f'; for (const d of [-z, z]) 
 // ACTION ICONS — the four glyphs on the action buttons, extracted so the skill-tree nodes render the same visuals. Every helper is centered on (x, y); tree callers wrap in scale(.65) to fit the 26px cells. Count params scale with skill upgrades (1/2/3 chevrons or stacked arcs).
 const iShot = (x, y, n, r = 10) => { ctx.lineWidth = 1.5; for (let j = 0; j < n; j++) rArc(x, y + 4 - j * 8 + (n - 1) * 4, r, r * .12); };   // stack self-centers on y: +(n-1)*4 shifts the baseline down as arcs grow up, so DBL/TRI SHOT fit the 26px node cell (n=1 button/SHOT unaffected)
 const iHeal = (x, y) => {
-  ctx.fillStyle = '#17131f'; ctx.fillRect(x - 5, y - 13, 10, 26); ctx.fillRect(x - 13, y - 5, 26, 10);
-  ctx.fillStyle = '#28a84a'; ctx.fillRect(x - 4, y - 12, 8, 24); ctx.fillRect(x - 12, y - 4, 24, 8);
-  ctx.fillStyle = '#6cf279'; ctx.fillRect(x - 2, y - 10, 4, 20); ctx.fillRect(x - 10, y - 2, 20, 4);
+  ctx.fillStyle = '#17131f'; ctx.fillRect(x - 4, y - 11, 8, 22); ctx.fillRect(x - 11, y - 4, 22, 8);
+  ctx.fillStyle = '#6cf279'; ctx.fillRect(x - 3, y - 10, 6, 20); ctx.fillRect(x - 10, y - 3, 20, 6);   // solid bright-green interior + 1px dark outline; ~18% smaller (2026-09-05)
 };
 const iJump = (x, y, n) => {
-  ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.scale(.82, .82); ctx.translate(-5, -8);   // gear-tinted like the live player (equipment preview), slightly smaller to seat in the ring
+  drawU(0); ctx.restore();
   ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
   ctx.beginPath();
   for (let j = 0; j < n; j++) { const by = y + 9 + j * 3; ctx.moveTo(x - 3, by + 3); ctx.lineTo(x, by); ctx.lineTo(x + 3, by + 3); }
   ctx.stroke();
 };
 const iDash = (x, y, n) => {
-  ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.scale(.82, .82); ctx.translate(-5, -8);   // gear-tinted like the live player (equipment preview), slightly smaller to seat in the ring
+  drawU(0); ctx.restore();
   ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
   ctx.beginPath();
   for (let j = 0; j < n; j++) { const bx = x - 9 - j * 3; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3); }
@@ -631,20 +627,15 @@ const spawnDrop = (x, y, n) => {
   }
 };
 
-const strike = (f, gen) => {
+const strike = (f) => {
   const crit = isCrit(), dmg = ATK() * (crit ? 2 : 1);
   f.hp -= dmg; f.fl = .12;   // hurt-flash 120ms — also the dash re-hit gate (longer = enemy dash-immunity window, slight advantage)
   fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
   if (crit) { hs = .06; fanfare(); }               // no crit skulls — skulls mean DEATH only (operator 09-04)
-  if (gen) mn = Math.min(mMN(), mn + 1);          // dash hits GENERATE mana
   // BOSS PHASE 2 — first crossing of half HP, permanent
   if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
-    f.ph = 1; sfx(220, 110, .35, 'sawtooth', .16);
-    const g2 = f.cap |= P2[f.bi];                 // phase 2 GRANTS capabilities — same vocab, pure data
-    if (P2[f.bi] & 4) for (let n = 0; n < 2; n++) {                                            // summon minions (event bit — fires on gain). mkFoe() gives full foe contract (cz/mx/cap) so they render + collide + die; without it the 5*cz size→NaN made them invisible ghosts.
-      const m = mkFoe(f.x + n * 20 - 10, f.y - 10, 1); m.vx = 40 * (n ? 1 : -1); foes.push(m);
-    }
-    if (g2 & 32) f.spd = 1.65;                    // SWIFT — faster chase + hop
+    f.ph = 1; f.spd *= 1.5;                        // ENRAGE at half HP — faster chase + hop (uniform; no new moves)
+    sfx(220, 110, .35, 'sawtooth', .16);
   }
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
@@ -667,18 +658,18 @@ const strike = (f, gen) => {
 // Strikes foes it passes through, hits GENERATE mana.
 function shoot() {                                              // magic bolt (gold): 2 mana
   if (!started || paused || deathT > 0 || !su[0]) return;
-  if (mn < 2) return;                                              // silent fail — matches HEAL/DASH convention (MP bar shows the answer)
-  mn -= 2; sfx(700, 1300, .12, 'triangle', .09);
+  if (mn < 3) return;                                              // silent fail — matches HEAL/DASH convention (MP bar shows the answer)
+  mn -= 3; sfx(700, 1300, .12, 'triangle', .09);
   // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT / TRI SHOT add stacked projectiles UPWARD from the base (first shot = current single-shot origin).
-  for (let i = 0; i < 1 + su[12] + su[13]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 8, vx: pl.face * 270, t: .55 + .25 * su[1] });
+  for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 8, vx: pl.face * 270, t: .55 + .25 * su[1] });
 }
-function dash() {                                               // THE attack verb: burst + strike-through; 1 mana (dash-hits refund it via `gen` in strike)
-  if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 1) return;
+function dash() {                                               // THE attack verb: burst + strike-through; 3 MP (uniform). Attacks NEVER regen mana (potions/level-up/boss only).
+  if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
   if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
-  dashCd = .45; pl.sq = .6; mn -= 1; sfx(600, 200, .12, 'sawtooth', .12);
+  dashCd = .45; pl.sq = .6; mn -= 3; sfx(600, 200, .12, 'sawtooth', .12);
 }
-function heal() {                                               // instant tap-to-cast; 3 mana, +3 HP base (+6 with SUPER HEAL)
+function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +3 HP base (+6 with SUPER HEAL)
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
@@ -742,7 +733,7 @@ const step = (dt) => {
     parts.push({ x: pl.x + PW / 2, y: pl.y + PH / 2, vx: 0, vy: 0, t: .3 });      // rainbow arc trail — same particle as jump burst
     for (const f of [...foes]) {
       const fz = 5 * f.cz;
-      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, 1);
+      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f);
     }
   } else {
     pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
@@ -807,16 +798,15 @@ const step = (dt) => {
     if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80 && Math.abs(pl.y - by * T) < 48) {  // vertical gate: walkway under ORANGE's perch is dy=66 — must not trigger from below
       const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
-      // BOSS stat formula: hp = 20*(2+(lvl>>2)) (player-level scaled); dm = 8+bi (per-boss ramp:
-      // RED=8, ORANGE=9, YELLOW=10, BLUE=11, VIOLET=12). cz=4 = 4× foe cell size (visual+hit).
+      // BOSS stats (uniform kit, tier-scaled by bi): hp=(20+bi*4)*(2+lvl>>2) · dm=8+bi · spd=1+bi*.1
+      // (higher DARKCORN chase + hop faster). cap 19 = full unicorn kit (jump+dash+shoot), identical for all 7.
       bs[bi] = 1;
-      const bhp = 20 * (2 + (lvl >> 2)) | 0;
+      const bhp = (20 + bi * 4) * (2 + (lvl >> 2)) | 0;
       foes.push({
         x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 8 + bi,
-        fl: 0, t: 0, mx: bhp,
-        cap: 18 | (fresh ? 0 : st.ph && P2[bi]),
+        fl: 0, t: 0, mx: bhp, cap: 19,
         hp: fresh ? bhp : st.hp,
-        ph: fresh ? 0 : st.ph, spd: fresh ? 0 : st.spd, rc: fresh ? undefined : st.rc,
+        ph: fresh ? 0 : st.ph, spd: fresh ? 1 + bi * .1 : st.spd, rc: fresh ? undefined : st.rc,
       });
       sfx(784, 1568, .3, 'triangle', .15);   // encounter sting — boss spawn sound
     }
@@ -828,7 +818,7 @@ const step = (dt) => {
     if (solid(s.x, s.y)) { s.t = 0; }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = 5 * f.cz;
-      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0); break; }
+      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f); break; }
     }
   }
   prune(shots);
@@ -867,7 +857,7 @@ const step = (dt) => {
     // AND solid/platform floor 3px ahead (reuses the edge-turn probe: %3 truthy = solid/plat,
     // falsy = air/spike). Stops chasers marching off ledges or into spike pits, and — because
     // it gates air-steer too — stops hopping chasers steering into a pit mid-jump.
-    if (f.cap & 16 && (f.bit || Math.abs(pl.x - f.x) < 230)) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (!solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * (28 + (f.bi || 0) * 5) * (f.spd || 1); }
+    if (f.cap & 16 && (f.bit || Math.abs(pl.x - f.x) < 230)) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (!solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * 28 * (f.spd || 1); }
     // HOP (cap 2) — one clock for boss and foe; chasers hop on rhythm, patrollers arm near the player
     if (f.cap & 2) {
       f.hop = (f.hop || 1) - dt;
@@ -881,17 +871,12 @@ const step = (dt) => {
         } else { f.vx *= -1; f.hop = .3; }
       }
     }
-    const wasGr = f.gr;
+
     f.vy = Math.min(400, (f.vy || 0) + 900 * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
     const tv = tile((f.x + fs / 2) / T | 0, ty);
     if (f.vy > 0 && (tv === 1 || tv === 2)) {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
-      // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
-      if (f.cap & 8 && !wasGr) {
-        sfx(90, 40, .3, 'sawtooth', .18);   // shockwave impact = bass sfx (shake fires only via hurt() when it catches you)
-        if (pl.gr && Math.abs(pl.x - f.x) < 64) hurt(3, 0);
-      }
     }
     f.x += f.vx * dt;
     // WALL SNAP + EDGE TURN — two-stage horizontal collision (mirrors player L744-746 pattern):
@@ -907,7 +892,7 @@ const step = (dt) => {
     // Cooldown holds .wt < 0 until the strike can re-arm.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && py + PH <= f.y + 4) {
-      strike(f, 0);
+      strike(f);
       // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center.
       // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
@@ -1021,7 +1006,7 @@ const draw = () => {
   ctx.fillStyle = GT; for (const [tx2, ty2, th] of tops) ctx.fillRect(tx2, ty2, T + .5, th);
 
   // CHESTS — hand-placed (20 seeds, oc bitfield caps at 31). Opened chests vanish (persisted in oc).
-  // JUMP-near-chest opens (touch JUMP button glows gold when nearChest ≥ 0).
+  // JUMP-near-chest opens (JUMP is always usable; stand on a chest / by GREATCORN and press JUMP).
   for (const c of chests) {
     if (oc & (1 << c.i)) continue;                          // claimed → gone forever (persisted in oc)
     ctx.fillStyle = '#6b4a2b';                              // dark oak base
@@ -1229,7 +1214,7 @@ const draw = () => {
       ctx.fillStyle = c; T2(l, sx + 9, 160);
       T2(v, sx + 9, 171);
     });
-    // INVENTORY — 5×2 grid UNDER the stat row (5 base, +5 STASH → max 10). Click to select, click again to equip.
+    // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip.
     const iMax = invMax(), iSz = 24, iGap = 28;
     for (let i = 0; i < iMax; i++) {
       const ix = 38 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
@@ -1263,7 +1248,7 @@ const draw = () => {
       const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
       ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
     }
-    // Nodes — action skills render the SAME icon as their action button (via iShot/iHeal/iJump/iDash, wrapped in scale to fit); modifier skills (STASH, HP+5, MP+5, POT+5) keep the text label. Chevron / stacked-arc count on upgrade nodes matches the button's own scaling rule.
+    // Nodes — all 10 are action skills, rendering the SAME icon as their action button (via iShot/iHeal/iJump/iDash, wrapped in scale to fit). Chevron / stacked-arc count on upgrade nodes matches the button's own scaling rule. (Modifier skills STASH/HP+5/MP+5/POT+5 removed 2026-09-05.)
     TREE.forEach((nm, i) => {
       const [cx, cy] = TPOS[i];
       ctx.fillStyle = su[i] ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);   // tint over the #1e1928 menu bg (portraitPanel already painted it — no opaque base needed)
@@ -1278,7 +1263,7 @@ const draw = () => {
       } else {                   // ACTION SKILL — icon (scaled to fit cell)
         ctx.globalAlpha = su[i] ? 1 : .5;
         ctx.save(); ctx.translate(mx, my); ctx.scale(.65, .65); ctx.translate(-mx, -my);
-        if (i === 0 || i === 12 || i === 13) iShot(mx, my, i === 0 ? 1 : i - 10);   // SHOT / DBL SHOT / TRI SHOT (1/2/3 stacked arcs)
+        if (i === 0 || i === 8 || i === 9) iShot(mx, my, i === 0 ? 1 : i - 6);   // SHOT / DBL SHOT / TRI SHOT (1/2/3 stacked arcs)
         else if (i === 1) iShot(mx, my, 1, 13);   // FAR SHOT: same arc but bigger (extended reach)
         else if (i === 2 || i === 3) iHeal(mx, my);   // HEAL / SUPER HEAL — same cross (tree position + owned-border differentiate)
         else if (i === 4 || i === 5) iJump(mx, my, i - 2);   // DBL / TRI JUMP (2 / 3 chevrons)
@@ -1302,13 +1287,12 @@ const draw = () => {
   // Shown in gameplay AND the character menu (menu: JUMP = confirm/select; close = tap-out/P).
   if (started && !savePop && !helpOn) {
     ctx.textAlign = 'center';
-    for (const [x, y, c, s, mp] of AB) {
+    for (const [x, y, c, s] of AB) {
       if (paused && c !== 'bJ') continue;            // menu shows only JUMP (= confirm/select); joystick handles nav, back = P / tap info panel / tap-out
-      const usable = (s < 0 || su[s]) && mn >= mp;
-      const it = c === 'bJ' && !paused && (nearChest >= 0 || nearNpc);   // interact available — JUMP becomes TALK/OPEN
-      // ONE meaning per channel: ring = usability (blue/grey) · alpha = usability at rest + press pop · gold glyph = interact
+      const usable = s < 0 || (su[s] && mn >= 3);    // JUMP always free; every other action costs the uniform 3 MP
+      // TWO states only (operator 09-05): usable = constant highlighted blue · locked-or-below-MP = dim. No press-pop, no interact-pop — a usable button never changes.
       const rc = usable ? '#8cf' : '#555';
-      ctx.globalAlpha = keys.has(c) || it ? 1 : usable ? .7 : .3;   // usable rests at .7 · locked/no-MP dim at .3 · pressed OR interact pops to full
+      ctx.globalAlpha = usable ? 1 : .3;
       // INTRO TUTORIAL — SUBTRACTIVE spotlight (research 09-04: NN/g "don't match the UI" + static
       // pop-out): during controls bubbles 6/7/8 the explained control renders full-alpha, all others
       // dim to .15. No ring, no gold — gold keeps its ONE button meaning (interact-now), and locked
@@ -1341,13 +1325,13 @@ const draw = () => {
     const act = joy.id >= 0;
     ctx.globalAlpha = act ? 1 : .7;   // always usable → rests at .7 like the buttons; engaging pops to full
     if (dq === INTRO && di >= 6 && di <= 8) ctx.globalAlpha = di === 6 ? .95 : .15;   // subtractive spotlight: full while bubble 6 explains the stick, dimmed while buttons are explained
-    ctx.save(); ctx.translate(joy.x, joy.y); ctx.scale(JVS, JVS); ctx.translate(-joy.x, -joy.y);   // scale WHOLE visual (base+knob+throw) — input math untouched
+    ctx.save(); ctx.translate(JHX, JHY); ctx.scale(JVS, JVS); ctx.translate(-JHX, -JHY);   // scale WHOLE visual (base+knob+throw); base pinned at fixed home
     ctx.fillStyle = 'rgba(15,15,20,.75)';
-    ctx.beginPath(); ctx.arc(joy.x, joy.y, JR, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(JHX, JHY, JR, 0, 7); ctx.fill();
     ctx.strokeStyle = '#8cf'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(joy.x, joy.y, JR, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(JHX, JHY, JR, 0, 7); ctx.stroke();
     ctx.fillStyle = '#8cf';   // knob inherits base alpha (fill-vs-stroke contrast distinguishes it from the ring — no separate alpha needed)
-    ctx.beginPath(); ctx.arc(joy.x + joy.dx, joy.y + joy.dy, KR, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(JHX + joy.dx, JHY + joy.dy, KR, 0, 7); ctx.fill();
     ctx.restore(); ctx.globalAlpha = 1;
   }
 
@@ -1356,7 +1340,7 @@ const draw = () => {
     topHUD();
     const qslot = (x, t) => {
       const n = t ? mpPot : hpPot;
-      ctx.fillStyle = 'rgba(255,255,255,' + (n ? '.08' : '.05') + ')'; ctx.fillRect(x, QSY, QSZ, QSZ);
+      ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x, QSY, QSZ, QSZ);   // one box tint everywhere; fill/empty signaled by glyph alpha + count color
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);   // one chrome grey everywhere (09-04); filled/empty already signaled by bg tint + glyph alpha + count color
       ctx.globalAlpha = n ? 1 : .4; pot(x + 6, QSY + 6, t ? '#4a76ff' : '#ff5d6c'); ctx.globalAlpha = 1; ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // cork always opaque (alpha reset before cork so empty slots keep cork solid)
       ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);

@@ -14,7 +14,7 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 
 ## Progression
 - **Every level:** +3 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point
-- **Skill tree:** prerequisite-based tree, 12 single-rank skills — all player-chosen
+- **Skill tree:** prerequisite-based tree, 10 single-rank action skills — all player-chosen
 - **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn, wears a tier trim (silver/gold/prismatic), AND gives stat bonuses
 - **Level 15 cap** — all stat gains come from level-up points, no hidden cap bonus
 - **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
@@ -24,7 +24,7 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
 - Everyone starts the same neutral white unicorn — **NEW GAME** jumps straight to the next empty save slot and asks ONE thing (your name — required), then begins; **CONTINUE** (greyed until you have a save) opens the 2-slot screen to pick which save to resume (name + level shown per slot). Both slots full → NEW GAME falls back to the slot screen.
 - Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
-- **5-slot inventory** for gear only (+5 via STASH skill = 10 max). Click to select, click again to equip; X to discard. Potions live exclusively in the bottom hot-bar (see below).
+- **10-slot inventory** for gear only (fixed max, no expansion). Click to select, click again to equip; X to discard. Potions live exclusively in the bottom hot-bar (see below).
 - Gear renders as pixel-art item icons — BODY→armor, MANE→cape, HORN→sword, HOOVES→boots — tinted by the drop's roll color (the same color it paints onto that body part when equipped). Identical in drops, the inventory grid, and the equipped slots.
 - **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
 
@@ -34,9 +34,9 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 - Defense: `max(incoming/4, incoming - DEF)` — bosses always deal ≥25%
 - 6 enemy kinds built from one capability-bit system + elite variants (~6% roll, 3× HP)
 - Enemies scale with player level (`2 + lvl>>2`) — stay a threat as you level
-- 6 **DARK CORN** bosses — all share the name; each is identified by its horn+mane color = the rainbow band it holds (R-O-Y-B-V-G). All in the unified world:
-  - RED (paddock east) · ORANGE (far east walkway) · YELLOW (canopy ledge, DJ) · BLUE (peak ledge, DJ) · VIOLET (depths west, DASH) · GREEN (east-arc summit, bounce+DJ)
-- Per-boss damage ramp (8 + band index): RED 8, ORANGE 9, YELLOW 10, BLUE 11, VIOLET 12, GREEN 13
+- 7 **DARK CORN** bosses — all share the name; each is identified by its horn+mane color = the rainbow band it holds. All in the unified world:
+  - RED (paddock east) · ORANGE (far east walkway) · YELLOW (canopy ledge) · BLUE (peak ledge) · VIOLET (depths west) · GREEN (east-arc summit) · INDIGO (final boss, world tree)
+- All bosses use the **same 3-move kit** (jump + dash + shoot); difficulty scales with tier: HP = `(16 + bi×4) × (2 + lvl>>2)`, damage = `8 + bi`, speed = `1 + bi×0.1`. Phase 2 (half HP) enrages: 1.5× speed multiplier on chase/hop.
 - Defeated DARK CORNs turn friendly — they linger at their arena as GREAT-CORN-purple NPCs (keeping their band horn+mane; eyes go white)
 
 ## Item Drops
@@ -50,13 +50,13 @@ Drops fall to the ground and **stay there until you die** — no despawn timer, 
 **RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect them all → THE DARKNESS LIFTS.
 
 ## Skill Tree
-Prerequisite-based tree, 12 skills across 4 visual rows. Unlocking a node opens its connected downstream nodes:
+Prerequisite-based tree, 10 action skills across 4 visual rows. Unlocking a node opens its connected downstream nodes:
 - **Row 1** (always available): SHOT, HEAL, DASH
-- **Row 2**: MP +5, DBL JUMP, LONG DASH, STASH
-- **Row 3**: HP +5, TRI JUMP, POT +5
-- **Row 4** (endgame capstones): SUPER HEAL, FAR SHOT
+- **Row 2**: DBL JUMP, LONG DASH
+- **Row 3**: TRI JUMP
+- **Row 4** (endgame capstones): SUPER HEAL, FAR SHOT, DBL SHOT, TRI SHOT
 
-Picked nodes go gold; unpicked read a uniform muted gray. Diagonal connection lines show which nodes unlock which. Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
+All skills are action abilities (ranged, healing, movement, or projectile upgrades). No stat-modifier skills. Picked nodes go gold; unpicked read a uniform muted gray. Diagonal connection lines show which nodes unlock which. Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
 
 ## Controls
 | | Keyboard | Touch |
