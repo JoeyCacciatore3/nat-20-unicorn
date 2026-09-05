@@ -19,9 +19,10 @@ if (!treeMatch) { console.error('❌ TPOS check: TREE literal not found'); proce
 // Count skill names in the flat string array.
 const TREE = treeMatch[1].match(/'[^']+'/g) || [];
 
-// 4-row layout: Row1 y=48 (3), Row2 y=94 (4), Row3 y=140 (3), Row4 y=186 (2).
+// 4-row layout: Row1 y=48 (3), Row2 y=94 (5), Row3 y=140 (4), Row4 y=186 (2).
 // TPOS is hand-tuned for the tier layout — verify by direct comparison.
-const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[418,94],[263,140],[232,94],[387,140]];
+// Indices 12=DBL SHOT (201,94 — leftmost row 2), 13=TRI SHOT (232,140 — leftmost row 3).
+const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[418,94],[263,140],[232,94],[387,140],[201,94],[232,140]];
 if (TPOS.length !== TREE.length) { console.error(`❌ TPOS length ${TPOS.length} ≠ TREE length ${TREE.length}`); process.exit(1); }
 const expected = JSON.stringify(TPOS);
 

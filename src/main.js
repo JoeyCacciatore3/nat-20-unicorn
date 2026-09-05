@@ -409,7 +409,7 @@ const gainXp = (n, x, y) => {
   if (lvl >= CAP) return;
   xp += n; fly(42, 54, '+' + n + ' XP', '#b06cf0', 0, 0, 1);   // HUD-anchored below XP bar; purple matches the bar
   while (xp >= need() && lvl < CAP) {
-    xp -= need(); lvl++; pending += 3; if (lvl < 14) spts++;    // +3 stat pts every level; skill pts only thru lvl 13 (12 total = tree size — prevents unspendable points keeping the menu glow lit forever at cap)
+    xp -= need(); lvl++; pending += 3; if (lvl < TREE.length + 2) spts++;    // +3 stat pts every level; skill pts capped at TREE.length (one per node) — dynamic so adding tree nodes auto-extends the cap
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save — the ONE auto-save: leveling is the milestone players must not lose
     luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font)
   }
@@ -429,7 +429,7 @@ const STATS = [
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE.length).fill(0);
 // LINK encodes the prerequisite tree: pairs [parent, child]. A node is buyable when any parent is owned (roots always available).
-const LINK = [0,10, 0,4, 2,4, 2,7, 6,7, 6,8, 10,9, 4,9, 4,5, 7,5, 7,11, 8,11, 9,3, 5,3, 5,1, 11,1];
+const LINK = [0,10, 0,4, 2,4, 2,7, 6,7, 6,8, 10,9, 4,9, 4,5, 7,5, 7,11, 8,11, 9,3, 5,3, 5,1, 11,1, 0,12, 12,13];
 const canBuy = i => { let r = 1; for (let k = 1; k < LINK.length; k += 2) if (LINK[k] === i) { if (su[LINK[k-1]]) return 1; r = 0; } return r; };
 let aRow = 0;
 const SN = () => 5 + invMax() + TREE.length;                  // unified cursor span: stats(0-4) → inv(5..5+iMax-1) → skills(5+iMax..end)
@@ -660,7 +660,8 @@ function shoot() {                                              // magic bolt (g
   if (!started || paused || deathT > 0 || !su[0]) return;
   if (mn < 2) return;                                              // silent fail — matches HEAL/DASH convention (MP bar shows the answer)
   mn -= 2; sfx(700, 1300, .12, 'triangle', .09);
-  shots.push({ x: pl.x + PW / 2, y: pl.y + 5, vx: pl.face * 270, t: .55 + .25 * su[1] });   // base range SHORT; FAR SHOT extends (.55s→.80s)
+  // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT / TRI SHOT add stacked projectiles UPWARD from the base (first shot = current single-shot origin).
+  for (let i = 0; i < 1 + su[12] + su[13]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 8, vx: pl.face * 270, t: .55 + .25 * su[1] });
 }
 function dash() {                                               // THE attack verb: burst + strike-through; 1 mana (dash-hits refund it via `gen` in strike)
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 1) return;
