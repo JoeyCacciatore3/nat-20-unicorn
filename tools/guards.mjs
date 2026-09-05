@@ -5,7 +5,7 @@
 //
 // ┌── FULL GUARD MAP (what runs, and where) ──────────────────────────────────────┐
 // │ SOURCE guards  — pre-build, validate src/ (subprocesses at the top of build.mjs) │
-// │   • tools/map-audit.mjs   Return Law: every reachable tile can path to a campfire │
+// │   • tools/map-audit.mjs   Return Law: every reachable tile can path to spawn     │
 // │   • tools/tpos-check.mjs   TREE edited ⇒ TPOS must be regenerated (no drift)      │
 // │   • tools/spike-audit.mjs  no chest / hand-placed DECO overlaps a spike (tile 3)  │
 // │ OUTPUT guards  — during build, validate the artifact (the functions below)       │

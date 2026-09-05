@@ -6,8 +6,8 @@
 //      the spike layer and renders INSIDE it.
 //   2. DECOR STACK  — two hand-placed DECO seeds at the same tile column overlap
 //      visually (both snap to the same ground surface).
-//   3. DECOR ON CRITICAL — hand-placed DECO at the same tile column as a chest,
-//      boss, or campfire obscures gameplay-relevant sprites.
+//   3. DECOR ON CRITICAL — hand-placed DECO at the same tile column as a chest
+//      or boss obscures gameplay-relevant sprites.
 //   4. SCATTER ON SPIKE — a scattered decoration landing on/above a spike tile.
 //
 // Run: node tools/spike-audit.mjs   (exits non-zero on any violation)

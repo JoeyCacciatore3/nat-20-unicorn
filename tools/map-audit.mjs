@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // map-audit.mjs — RETURN LAW (L6) + GATE LAW (L5) enforcer for the unified world.
 // Simulates conservative player movement at each ability tier, and FAILS (exit 1) if:
-//   - any standable cell reachable from spawn cannot return to a campfire
+//   - any standable cell reachable from spawn cannot return to the paddock spawn
 //   - a boss or chest is unreachable at every audited tier
 //
 // Movement model (conservative, in tiles):
