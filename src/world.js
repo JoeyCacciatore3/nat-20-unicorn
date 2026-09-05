@@ -14,8 +14,8 @@
 // L6 RETURN LAW      — every standable cell reachable with moveset M must reach
 //                      the paddock using M. ENFORCED BY tools/map-audit.mjs — the
 //                      build FAILS if any stuck spot exists.
-// L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
-//                      death always respawns at the paddock. (engine, main.js)
+// L7 DEATH LAW       — spikes always hurt + return to last safe ground (no void:
+//                      tile() walls the world bottom); death respawns at paddock.
 // ================================================================================
 export const T = 16, W = 600, H = 160;
 export const grid = new Uint8Array(W * H);

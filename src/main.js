@@ -130,11 +130,12 @@ const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('bJ'); // butto
 // (skill unlocked AND enough MP), else dull #555 — one rule covers both "locked" and "out of MP".
 // Each: [x, y, key, brightColor, suIdx (-1 = always unlocked), mpCost]. Fan-arc = landscape thumb-reach.
 const AR = 20, BVS = .7;                          // AR = TOUCH radius (hit = AR+6, unchanged) · BVS = VISUAL scale — buttons draw at 70% (r=14) but accept the same 26px touch (operator 09-04: slim look, forgiving hit)
+// [x, y, key, skillGate (-1 = always), mpCost]. Ring accent = one UI color (#8cf); glyph carries identity.
 const AB = [
-  [VW - 36, VH - 34, 'bJ', '#8cf', -1, 0],
-  [VW - 92, VH - 30, 'bM', '#ffd75e', 6, 1],
-  [VW - 78, VH - 78, 'bS', '#c9a6f7', 0, 2],
-  [VW - 36, VH - 88, 'bH', '#9fe89a', 2, 3],
+  [VW - 36, VH - 34, 'bJ', -1, 0],
+  [VW - 92, VH - 30, 'bM', 6, 1],
+  [VW - 78, VH - 78, 'bS', 0, 2],
+  [VW - 36, VH - 88, 'bH', 2, 3],
 ];
 const ptrs = new Map();
 const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
@@ -195,7 +196,7 @@ addEventListener('pointerdown', (e) => {
     // Character menu = tap the top-left info panel (name/HP/MP/XP). Toggles open; ✕ button (top-right) closes.
     if (hit(0, 0, 90, 44)) { paused ^= 1; if (paused) setRow(0); return; }
     if (hit(VW - 60, 0, 18, 20)) { if (paused) paused = 0; else { save(); savePop = 1; } return; }   // ✕ BACK — menu: close · gameplay: save + exit popup
-    if (hit(VW - 42, 0, 20, 20)) { mute ^= 2; save(); return; }
+    if (hit(VW - 42, 0, 20, 20)) { mute ^= 2; return; }   // speaker = pure runtime audio toggle (NOT saved)
     if (hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
     // POTIONS (bottom-center): tap HP box → quaff(0), MP box → quaff(1). Padded 3px for thumbs.
     if (hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
@@ -250,9 +251,7 @@ addEventListener('contextmenu', (e) => e.preventDefault());                     
 // ---------- audio ----------
 let AC;
 function boot() { if (!AC) AC = new AudioContext(); AC.resume(); }        // audio-only wake — the game only starts when the title menu is accepted
-let mute = 0;                                     // 0 or 2 (legacy save value); ANY truthy = muted
-// SFX toggle — shown in help overlay. [x, w, labelFn, actionFn]
-// SFX toggle is now the speaker HUD icon (tap to mute/unmute)
+let mute = 0;                                     // runtime audio toggle: 0 = on, 2 = muted. Not persisted — resets each session.
 const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
   if (mute || !AC) return; const r = .97 + Math.random() * .06;
   const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime + dl;
@@ -314,8 +313,8 @@ const useItem = (i) => {
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 const quaff = (t) => { const g = 10 + su[11] * 5; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); } };
 
-// GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 11`) is coupled to
-// PAL.length (15) — indices 4..14. tpos-check.mjs enforces this pairing.
+// GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 13`) is coupled to
+// PAL.length (17) — indices 4..16. tpos-check.mjs enforces this pairing (swatches - 4 === range).
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
 // Stat bar: dark track + coloured fill to `frac` (clamped 0..1 so vitals > max render as full, never overflow).
@@ -395,7 +394,7 @@ let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 15;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via the prerequisite tree (LINK)
-let hs = 0, shk = 0;                              // combat feel: hitstop freeze + screen shake, both in seconds
+let hs = 0, shk = 0, hf = 0;                      // combat feel: hitstop freeze + screen shake (seconds) + hf = hurt-flash timer (unicorn flashes red)
 // Boss state: 0=unvisited, 1=on screen, 2=killed(shard taken), {hp,ph,spd,rc}=leash stash
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 const shards = () => bs.filter(v => v === 2).length;
@@ -457,7 +456,7 @@ const save = () => {
     v: 43, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: [ho, he, sp, df, lk], d: pending, k: spts, y: su,
     m: pName, o: oc,
-    q: eq, i: inv, p: mute, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth)
+    q: eq, i: inv, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
   });
 };
 const load = () => {
@@ -477,7 +476,6 @@ const load = () => {
     inv.length = 0; d.i.forEach(v => inv.push(v));
     hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
     col = eq.map(e => e ? e.c : 0);                                // derived from equipment (single source of truth)
-    mute = d.p | 0;
   } catch (e) { /* fresh oath */ }
 };
 
@@ -542,7 +540,7 @@ let bann = 0;                                    // victory-banner deadline (tex
 const resetTransient = () => {
   pl.vx = pl.vy = pl.air = pl.coyote = pl.inv = pl.ground = pl.t = 0;
   pl.face = 1; pl.sq = 1;
-  jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = luT = bann = dq = di = tqi = navCD = 0;
+  jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = hf = luT = bann = dq = di = tqi = navCD = 0;
 };
 const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // JUMP-near: NPC → re-talk quip · chest → open
 // Player-level progression: every 4 levels adds 1 scale pip. Enemies stay a threat as the
@@ -605,7 +603,7 @@ const iJump = (x, y, n) => {
 };
 const iDash = (x, y, n) => {
   ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
-  ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
   ctx.beginPath();
   for (let j = 0; j < n; j++) { const bx = x - 9 - j * 3; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3); }
   ctx.stroke();
@@ -637,11 +635,9 @@ const spawnDrop = (x, y, n) => {
   }
 };
 
-const strike = (f, gen, viaStomp) => {
+const strike = (f, gen) => {
   const crit = isCrit(), dmg = ATK() * (crit ? 2 : 1);
-  f.hp -= dmg; f.fl = .08;
-  if (!f.bit && !viaStomp) f.vx += (crit ? 220 : 140) * (f.x > pl.x ? 1 : -1); // KNOCKBACK — bosses hold their arena
-  shk = Math.max(shk, crit ? .22 : .09);
+  f.hp -= dmg; f.fl = .12;   // hurt-flash 120ms — also the dash re-hit gate (longer = enemy dash-immunity window, slight advantage)
   fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
   if (crit) { hs = .06; fanfare(); }               // no crit skulls — skulls mean DEATH only (operator 09-04)
   if (gen) mn = Math.min(mMN(), mn + 1);          // dash hits GENERATE mana
@@ -701,7 +697,7 @@ function heal() {                                               // instant tap-t
 const hurt = (n, safe) => {
   if (pl.inv > 0 || deathT > 0) return;
   n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp -= n; pl.inv = 1.2; shk = Math.max(shk, .22); hs = .04;
+  hp -= n; pl.inv = 1.2; shk = Math.max(shk, .22); hs = .04; hf = .14;   // hf: unicorn flashes red for 140ms
   sfx(140, 55, .25, 'sawtooth', .12);
 
   if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 7, 1); return; }   // player death — skulls burst from the fallen unicorn
@@ -721,7 +717,7 @@ const step = (dt) => {
     return;
   }
   if (dq || savePop || helpOn) return;             // dialogue / save-popup / help overlays freeze the sim — they swallow input, so the world must not act while the player can't (fairness)
-  time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt;
+  time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt; hf -= dt;
   pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
   if (deathT > 0) {
@@ -754,7 +750,7 @@ const step = (dt) => {
     parts.push({ x: pl.x + PW / 2, y: pl.y + PH / 2, vx: 0, vy: 0, t: .3 });      // rainbow arc trail — same particle as jump burst
     for (const f of [...foes]) {
       const fz = fsz(f);
-      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, 1, 0);
+      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f, 1);
     }
   } else {
     pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
@@ -808,7 +804,6 @@ const step = (dt) => {
 
   for (const [ox, oy] of [[1, PH - 1], [PW - 1, PH - 1], [PW / 2, PH]])
     if (spike(pl.x + ox, pl.y + oy)) { hurt(2, 1); break; }
-  if (pl.y > H * T) hurt(2, 1);
 
   // -- chest proximity — JUMP-to-open handled in keydown; here just flag the nearest --
   nearChest = -1;
@@ -841,7 +836,7 @@ const step = (dt) => {
     if (solid(s.x, s.y)) { s.t = 0; }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = fsz(f);
-      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0, 0); break; }
+      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 0); break; }
     }
   }
   prune(shots);
@@ -893,7 +888,7 @@ const step = (dt) => {
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
       // SHOCKWAVE (cap 8) — ring the ground on landing; bosses gain it at phase 2, any foe row can carry it
       if (f.cap & 8 && !wasGr) {
-        shk = Math.max(shk, .3); sfx(90, 40, .3, 'sawtooth', .18);   // shockwave impact = shake + bass sfx (no burst — particles are jump/death only, operator 09-04)
+        sfx(90, 40, .3, 'sawtooth', .18);   // shockwave impact = bass sfx (shake fires only via hurt() when it catches you)
         if (pl.ground && Math.abs(pl.x - f.x) < 64) hurt(3, 0);
       }
     }
@@ -911,7 +906,7 @@ const step = (dt) => {
     // Cooldown holds .wt < 0 until the strike can re-arm.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && py + PH <= f.y + 4) {
-      strike(f, 0, 1);
+      strike(f, 0);
       // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center.
       // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
@@ -1149,10 +1144,12 @@ const draw = () => {
   }
 
   // unicorn — always visible (title shows the opening scene with player + Greatcorn)
-  if (pl.inv <= 0 || Math.sin(time * 20) > 0) {
+  if (hf > 0 || pl.inv <= 0 || Math.sin(time * 20) > 0) {   // hf overrides the i-frame blink so the red hurt-flash always shows
     ctx.save();
     ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale((2 - pl.sq) * pl.face, pl.sq); ctx.translate(-PW / 2, -PH);
+    const bkc = col; if (hf > 0) col = [4, 4, 4, 4];   // hurt flash — whole unicorn red (PAL[4] = damage-red)
     drawU(pl.ground && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.ground ? 0 : 2));
+    col = bkc;
     ctx.restore();
   }
 
@@ -1223,7 +1220,7 @@ const draw = () => {
     const SL = [['STR', ho], ['HP', he], ['MAG', sp], ['DEF', df], ['LCK', lk]];
     SL.forEach(([l, v], i) => { const c = SC[i];
       const sx = 42 + i * 26, sel = i === aRow;
-      if (sel) { ctx.fillStyle = 'rgba(136,204,255,.14)'; ctx.fillRect(sx - 3, 152, 25, 23); ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 152, 25, 23);
+      if (sel) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 152, 25, 23);   // cursor = blue border in all regions; .14 fill = "owned skill" (one meaning per channel)
         if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 150); } }
       ctx.fillStyle = c; T2(l, sx + 9, 160);
       T2(v, sx + 9, 171);
@@ -1302,13 +1299,13 @@ const draw = () => {
   // Shown in gameplay AND the character menu (menu: JUMP = confirm/select; close = tap-out/P).
   if (started && !savePop && !helpOn) {
     ctx.textAlign = 'center';
-    for (const [x, y, c, col, s, mp] of AB) {
+    for (const [x, y, c, s, mp] of AB) {
       if (paused && c !== 'bJ') continue;            // menu shows only JUMP (= confirm/select); joystick handles nav, back = P / tap info panel / tap-out
       const usable = (s < 0 || su[s]) && mn >= mp;
       const it = c === 'bJ' && !paused && (nearChest >= 0 || nearNpc);   // interact available — JUMP becomes TALK/OPEN
-      // ONE meaning per channel (09-04): ring = lock state (accent/grey) · alpha = attention (press/spotlight/interact) · gold glyph = interact
-      const rc = usable ? col : '#555';
-      ctx.globalAlpha = keys.has(c) || it ? .85 : .35;   // idle 35% (mobile convention 20-40%, research 09-04); pressed OR interact-available pops to 85% — same attention channel the tutorial spotlight uses
+      // ONE meaning per channel: ring = usability (blue/grey) · alpha = usability at rest + press pop · gold glyph = interact
+      const rc = usable ? '#8cf' : '#555';
+      ctx.globalAlpha = keys.has(c) || it ? 1 : usable ? .7 : .3;   // usable rests at .7 · locked/no-MP dim at .3 · pressed OR interact pops to full
       // INTRO TUTORIAL — SUBTRACTIVE spotlight (research 09-04: NN/g "don't match the UI" + static
       // pop-out): during controls bubbles 6/7/8 the explained control renders full-alpha, all others
       // dim to .15. No ring, no gold — gold keeps its ONE button meaning (interact-now), and locked
@@ -1325,9 +1322,8 @@ const draw = () => {
       if (c === 'bJ') {
         if (paused) {
           ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-          const chk = () => { ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke(); };
-          ctx.strokeStyle = '#2f6fb0'; ctx.lineWidth = 6; chk();
-          ctx.strokeStyle = '#cfeeff'; ctx.lineWidth = 3; chk();
+          ctx.strokeStyle = '#8cf'; ctx.lineWidth = 4;   // menu-confirm ✓ — single stroke in the UI accent
+          ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke();
           ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
         } else iJump(x, y, 1 + su[4] + su[5]);
       }
@@ -1340,14 +1336,14 @@ const draw = () => {
   // joystick — persistent base; knob tracks thumb; brightens while held. Gameplay only (hidden in the character menu).
   if (started && touch && !savePop && !helpOn) {   // gameplay AND character menu (menu uses it for cursor nav); hidden only under overlays
     const act = joy.id >= 0;
-    ctx.globalAlpha = act ? .6 : .35;
+    ctx.globalAlpha = act ? 1 : .7;   // always usable → rests at .7 like the buttons; engaging pops to full
     if (dq === INTRO && di >= 6 && di <= 8) ctx.globalAlpha = di === 6 ? .95 : .15;   // subtractive spotlight: full while bubble 6 explains the stick, dimmed while buttons are explained
     ctx.save(); ctx.translate(joy.x, joy.y); ctx.scale(JVS, JVS); ctx.translate(-joy.x, -joy.y);   // scale WHOLE visual (base+knob+throw) — input math untouched
     ctx.fillStyle = 'rgba(15,15,20,.75)';
     ctx.beginPath(); ctx.arc(joy.x, joy.y, JR, 0, 7); ctx.fill();
     ctx.strokeStyle = '#8cf'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(joy.x, joy.y, JR, 0, 7); ctx.stroke();
-    ctx.globalAlpha = act ? .9 : .5; ctx.fillStyle = '#8cf';
+    ctx.fillStyle = '#8cf';   // knob inherits base alpha (fill-vs-stroke contrast distinguishes it from the ring — no separate alpha needed)
     ctx.beginPath(); ctx.arc(joy.x + joy.dx, joy.y + joy.dy, KR, 0, 7); ctx.fill();
     ctx.restore(); ctx.globalAlpha = 1;
   }
@@ -1371,13 +1367,12 @@ const draw = () => {
     const iy = 4, isz = 12, box = (x) => {
       ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x, iy, isz, isz);
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, iy, isz, isz);
-    };
+    }, xm = (x) => { ctx.strokeStyle = '#c33'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 3, iy + 3); ctx.lineTo(x + 9, iy + 9); ctx.moveTo(x + 9, iy + 3); ctx.lineTo(x + 3, iy + 9); ctx.stroke(); };   // red ✕ — shared by back button + muted-speaker
     // Menu button is the top-left info panel itself (tap name/bars area to open character menu).
     {                                                          // ✕ Back · Mute — always shown (incl. the character menu)
-      const sx = VW - 56; box(sx);                              // ✕ — back/exit
-      ctx.strokeStyle = '#c33'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(sx + 3, iy + 3); ctx.lineTo(sx + 9, iy + 9); ctx.moveTo(sx + 9, iy + 3); ctx.lineTo(sx + 3, iy + 9); ctx.stroke();
+      const sx = VW - 56; box(sx); xm(sx);                      // ✕ — back/exit
       const mx = VW - 38; box(mx);                              // Speaker — mute
-      if (mute) { ctx.strokeStyle = '#c33'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(mx + 3, iy + 3); ctx.lineTo(mx + 9, iy + 9); ctx.moveTo(mx + 9, iy + 3); ctx.lineTo(mx + 3, iy + 9); ctx.stroke(); }
+      if (mute) xm(mx);
       else { ctx.fillStyle = '#ccc'; ctx.fillRect(mx + 3, iy + 5, 2, 3); ctx.beginPath(); ctx.moveTo(mx + 5, iy + 5); ctx.lineTo(mx + 8, iy + 3); ctx.lineTo(mx + 8, iy + 10); ctx.lineTo(mx + 5, iy + 8); ctx.fill(); }
     }
     box(VW - 20);                                               // ? — help (always, incl. level-up)
