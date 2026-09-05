@@ -74,11 +74,10 @@ for (const tr of TIERS) {
   const F = bfs([idx(...SPAWN)], moves);
   const rev = new Map();
   for (const k of F) for (const t of moves(k)) { if (!rev.has(t)) rev.set(t, []); rev.get(t).push(k); }
-  const fireCells = [];
-  for (const [fx, fy] of seeds.fires)
-    for (let dc = -2; dc <= 2; dc++) for (let dr = -2; dr <= 2; dr++)
-      if (standSet.has(idx((fx | 0) + dc, (fy | 0) + dr))) fireCells.push(idx((fx | 0) + dc, (fy | 0) + dr));
-  const B = bfs(fireCells.filter(k => F.has(k)), (k) => rev.get(k) || []);
+  const homeCells = [];
+  for (let dc = -2; dc <= 2; dc++) for (let dr = -2; dr <= 2; dr++)
+    if (standSet.has(idx(126 + dc, 60 + dr))) homeCells.push(idx(126 + dc, 60 + dr));   // paddock spawn (tile 126,60)
+  const B = bfs(homeCells.filter(k => F.has(k)), (k) => rev.get(k) || []);
   const stuck = [...F].filter(k => !B.has(k));
 
   const reach = (px, py) => {

@@ -82,7 +82,7 @@ for (let a = 0; a < snapped.length; a++) {
 const critical = [
   ...seeds.chests.map((s, i) => ['chest', i, s[0], (s[1] | 0) - 1]),
   ...seeds.bosses.map((s, i) => ['boss ', i, s[0], s[1]]),
-  ...seeds.fires.map((s, i) => ['fire ', i, s[0], s[1] | 0]),
+
 ];
 hand.forEach((d, i) => {
   const [dx, dy] = d;

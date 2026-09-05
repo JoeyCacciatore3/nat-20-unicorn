@@ -1,7 +1,7 @@
 # WaveDash store-page update — STAGED, ready to paste (refreshed 2026-09-02)
 
-**Latest deployed build:** `mn7f1ty7fgmbnwey56vegbb0n98dntjw` (2026-09-02, **12,329 B**, git `30a790f`: world 800×160 + east arc + GREEN CORN 6th boss + particle/glyph overhaul). ⚠️ **Source is now AHEAD of the live deploy** — uncommitted work (**12,792 B**: multi-line GREAT CORN dialogue system + redundancy consolidation + defeated-friendly NPCs + gear item icons) not yet pushed; the next `wavedash build push` realigns it. **RELEASE RITUAL: GitHub push + Wavedash deploy always go together (Joey directive).**
-**Playtest URL:** https://wavedash.com/playtest/nat-20-unicorn/175c0910-587b-4093-949c-5730b88fe652
+**Latest deployed build:** `mn719n5j7pm0dv1cp3se4fb6vd8dsfkf` (2026-09-04, **13,212 B**, git `e748b3e`: 7 zones-per-DARKCORN + music engine + touch UI overhaul + scatter v3 + hidden bosses + binary-choice popup unification). Source and live deploy are ALIGNED. **RELEASE RITUAL: GitHub push + Wavedash deploy always go together (Joey directive).**
+**Playtest URL:** https://wavedash.com/playtest/nat-20-unicorn/90c398b7-5063-4a61-8757-69c7b2d3efdf
 **Playtest data:** wiped 2026-09-01 (all players, all categories) — clean slate. Wipe still in effect. Achievement definitions confirmed intact (8 rows on record; 2 need repurposing — see below).
 
 **Why this doc exists:** the store page (title, description, cover, screenshots, tags) is

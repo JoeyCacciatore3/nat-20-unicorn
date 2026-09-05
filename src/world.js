@@ -12,10 +12,10 @@
 // L5 GATE LAW        — an ability wall must be provably impassable without its
 //                      ability and provably passable with it (incl. ceiling).
 // L6 RETURN LAW      — every standable cell reachable with moveset M must reach
-//                      the paddock campfire using M. ENFORCED BY tools/map-audit.mjs — the
+//                      the paddock using M. ENFORCED BY tools/map-audit.mjs — the
 //                      build FAILS if any stuck spot exists.
 // L7 DEATH LAW       — spikes/void always hurt + return to last safe ground;
-//                      death always respawns at the paddock (sole campfire; no checkpoints since 029aef5). (engine, main.js)
+//                      death always respawns at the paddock. (engine, main.js)
 // ================================================================================
 export const T = 16, W = 600, H = 160;
 export const grid = new Uint8Array(W * H);
@@ -116,7 +116,7 @@ const MEADOW = {
     [568, 33, 8, 1],                               // solid summit landing (seeds E4 GREEN CORN)
     [572, 52, 5, 1, 2],                            // ground bounce side ledge — chest 7 (bounce + DJ)
   ],
-  fires: [[132.5, 59.5]],
+
   bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex
   bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
     [263, 66, 0],   // RED    — hidden lair under the meadow (drop hole @x258, behind the moat)
@@ -187,7 +187,7 @@ const Q = [1, 1, 6, 1, 3, 1, 6, 2];   // the quota cycle (type ids: 1 grass · 6
 const scatter = () => {
   const d = [];
   let s = 13, rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
-  const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...seeds.fires, ...(seeds.bounce || []), ...seeds.DECO];
+  const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...(seeds.bounce || []), ...seeds.DECO];
   const tc = {}, run = {}, qc = {}, sh = {};                     // per-row: tree cooldown, grass-run left, quota index, shade counter
   for (let x = 5; x < W - 5; x++) {
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
