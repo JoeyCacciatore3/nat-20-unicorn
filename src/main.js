@@ -558,9 +558,9 @@ const seedFoes = () => seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));   
 let foes = seedFoes();
 const fsz = (f) => 5 * f.cz;                      // one size rule for sprites + collision (cz always set by mkFoe/boss inline)
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, big, pot, hud, t: big ? 2.2 : 1.4 });   // big texts (crit / heal / shard) linger longer; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world)
+const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, big, pot, hud, t: big ? 2.6 : 1.8 });   // big texts (crit / heal / shard) linger longer; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world). Bumped 1.4→1.8s (2.2→2.6s big) so numbers stay readable through fade.
 // Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS) · hc=1=heal cross (HEAL cast).
-const spray = (x, y, n, sk = 0, hc = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: .5 + Math.random() * .35, sk, hc }); } };
+const spray = (x, y, n, sk = 0, hc = 0) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: 1 + Math.random() * .5, sk, hc }); } };   // lifetime 1.0-1.5s (was 0.5-0.85s) — bursts linger long enough to actually read what died / healed / jumped
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
 // pass custom for dead-flag or bit-match culling. Used by shots/fbolts/parts/flies/foes/drops.
 const prune = (a, d = e => e.t <= 0) => { for (let i = a.length; i--;) if (d(a[i])) a.splice(i, 1); };
@@ -919,10 +919,12 @@ const step = (dt) => {
     d.life += dt;   // age (float/bob only) — NO despawn: drops leave the world only on player death, exactly like foes
     d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
     if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ground
-    if (Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
+    // GRACE PERIOD: drop must be visible for ≥0.35s before pickup — matches the fast fade-in (below in draw loop) so you always SEE the drop before it vanishes into inventory. Fixes the stomp-kill case where drop spawned inside pickup radius and disappeared before rendering.
+    if (d.life > .35 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
       // Potion → hot-bar counter (cap 5, drop stays on ground if full). Gear → bag (drop stays on ground if bag full).
-      const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(d.x, d.y, '+1', '#ff5d6c', 0, 1), 1))
-        : d.t === 1 ? (mpPot < 5 && (mpPot++, fly(d.x, d.y, '+1', '#4a76ff', 0, 1), 1))
+      // Potion "+1" flies are HUD-anchored above the matching hot-bar slot (HP left, MP right) — clear, separated, never fights with damage numbers at the kill site.
+      const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(QHX + 12, QSY - 6, '+1', '#ff5d6c', 0, 1, 1), 1))
+        : d.t === 1 ? (mpPot < 5 && (mpPot++, fly(QMX + 12, QSY - 6, '+1', '#4a76ff', 0, 1, 1), 1))
         : inv.length < invMax() && (inv.push({ s: d.s, c: d.c, b: d.b }), fly(d.x, d.y, '+BAG', '#ffd75e'), 1);
       if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); }   // only vanish when actually collected
     }
@@ -931,7 +933,7 @@ const step = (dt) => {
   // fx
   for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }
   prune(parts);
-  for (const f of flies) { f.t -= dt; f.y -= 28 * dt; }
+  for (const f of flies) { f.t -= dt; f.y -= 22 * dt; }   // float speed 22 px/s (was 28) — text stays near origin longer, easier to read
   prune(flies);
 };
 
@@ -1135,7 +1137,7 @@ const draw = () => {
 
   // Item drops — pixel sprites, bob gently, fade near end of life
   for (const d of drops) {
-    ctx.globalAlpha = Math.min(1, d.life);
+    ctx.globalAlpha = Math.min(1, d.life * 3);   // fade IN over ~0.33s (was 1.0s) — reaches full opacity BEFORE the 0.35s pickup grace expires, so drops are always solidly visible when grabbed
     const dy = Math.sin(d.life * 5) * 1.5;
     if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#c9a26a'; ctx.fillRect(px + 4, py - 2, 4, 3); }   // POTION body + highlight + cork
     else drawPart(d.s, d.x - 6, d.y - 11 + dy, d.c, 1.5);   // GEAR — bare sprite (no box), potion-sized (1.5×), rests on ground like potions
