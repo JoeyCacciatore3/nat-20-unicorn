@@ -1,121 +1,112 @@
-# WaveDash store-page update — STAGED, ready to paste (refreshed 2026-09-02)
+# Wavedash store-page update — STAGED, ready to paste (refreshed 2026-09-05)
 
-**Latest deployed build:** `mn719n5j7pm0dv1cp3se4fb6vd8dsfkf` (2026-09-04, **13,212 B**, git `e748b3e`: 7 zones-per-DARKCORN + music engine + touch UI overhaul + scatter v3 + hidden bosses + binary-choice popup unification). Source and live deploy are ALIGNED. **RELEASE RITUAL: GitHub push + Wavedash deploy always go together (Joey directive).**
-**Playtest URL:** https://wavedash.com/playtest/nat-20-unicorn/90c398b7-5063-4a61-8757-69c7b2d3efdf
-**Playtest data:** wiped 2026-09-01 (all players, all categories) — clean slate. Wipe still in effect. Achievement definitions confirmed intact (8 rows on record; 2 need repurposing — see below).
+**Live deploy:** build `mn7ftbxsrdd4a9v13t0ncha4vx8dtk3t` (**13,230 B**, git `a9afc90`). Source and deploy are **ALIGNED**.
+**Play URL:** https://wavedash.com/playtest/nat-20-unicorn/5f83bf86-7903-401d-ae67-9aa57425958b
+**All copy re-verified against `src/*.js` on 2026-09-05** (prior version described a stale 6-boss / 12-node / 800×160 build — corrected throughout).
 
-**Why this doc exists:** the store page (title, description, cover, screenshots, tags) is
-editable **only** in the web Developer Portal — it is session-auth gated. The CLI/API key
-(`wd_…`) has NO store-metadata endpoint. An agent with only the API key **cannot** push
-these — they need your logged-in browser. Everything below is pre-written so your part is
-copy-paste + file-pick.
+**Why this doc exists:** the store page (title, description, cover, screenshots, tags, trailer) is editable **only** in the web Developer Portal — session-auth gated. The CLI/API key has NO store-metadata endpoint. An agent cannot push these; they need your logged-in browser. Everything below is pre-written so your part is copy-paste + file-pick.
 
-Portal: **https://wavedash.com/dev-portal** → game **nat-20-unicorn** → Store page / Metadata.
+Portal: **https://wavedash.com/dev-portal** → game **nat-20-unicorn** → Store page.
 
 ---
 
-## 1. TITLE — the big one (currently WRONG on WaveDash)
-The store currently shows **`NAT 20 UNICORN`** (old working name). Change to:
-
+## 1. TITLE
+Store currently shows the old working name. Change to:
 ```
 UNICORN, Hooves of Hope
 ```
-
-> Note: the URL slug `nat-20-unicorn` is permanent and fine to leave — only the display title changes.
-
----
-
-## 2. DESCRIPTION (paste verbatim — unified-world accurate)
-
-```
-A lone unicorn fights the DARKNESS in this pastel pixel platformer-RPG — under 13 KB.
-
-The Darkness stole the world's color. Name your unicorn and cross one large connected
-world to defeat the DARK CORNS (your own shadowed reflections) and reclaim the
-Rainbow Shards they shattered.
-
-- One connected 800×160 world — spike pits, ability-gated climbs, floating platforms,
-  bounce mushrooms, hidden chests. Ability gates (double-jump, dash, bounce) control reach.
-- Full RPG: 5 stats, a 12-node tiered skill tree, quadratic XP curve, and gear that drops
-  as pixel item icons (armor / cape / sword / boots) and recolors the matching body part.
-- Movement kit that unlocks the world: DBL JUMP, TRI JUMP, DASH, LONG DASH, bounce pads.
-- Six enemy kinds plus crowned SELECT elites (~6% roll); each level tier scales enemies.
-- DARK CORN bosses, each holding one rainbow band (R-O-Y-B-V-G), each with a phase-2 twist.
-  Defeat one and it turns friendly — a redeemed unicorn you can talk to at its arena.
-- A GREAT CORN elder greets you with a chatty intro + re-talk quips (head-stemmed bubbles).
-- Two-slot potion hot-bar (HP + MP, fixed +10 each; POT +5 skill boosts to +15).
-- Plays with keyboard or touch — desktop and mobile from one build. Saves across 2 slots.
-```
-
-**Tags:** `platformer` · `rpg` · `pixel-art` · `action` · `adventure` · `singleplayer`
+> The URL slug `nat-20-unicorn` is permanent and fine to leave — only the display title changes.
 
 ---
 
-## 3. SCREENSHOTS
+## 2. DESCRIPTION (paste — Wavedash-style: one-line hook, then skimmable beats)
 
-**⚠️ ALL CURRENT SCREENSHOTS ARE STALE.** They were captured 2026-08-31 from the old
-5-zone build. The unified-world consolidation (Sep 2 today) removed CAVE/CLIFFS/PEAK/DEPTHS
-as separate zones — everything now lives in one big MEADOW map.
+```
+The world lost its color. You're the last unicorn who can bring it back.
 
-**Screenshot refresh needed before Wavedash store upload:**
+The DARKCORN shattered the rainbow and drained the world to grey. Name your unicorn, grow strong, and hunt down all seven DARKCORN to reclaim the rainbow shards — a full pixel-art platformer-RPG in under 13 KB.
 
-| Order | Suggested file | Shows |
-|---|---|---|
-| 1 | `01_west_climb.png` | Western climb showing DJ terraces + YELLOW/BLUE CORN reach (LEAD: gameplay) |
-| 2 | `02_east_run.png` | East extension with DASH gap + LONG DASH gap + TRI-JUMP stack |
-| 3 | `03_boss_fight.png` | One of the CORN bosses mid-fight (RED at center or ORANGE at east walkway) |
-| 4 | `04_char_menu.png` | Character menu — new HUD (LV/name/rainbow) + 4-tier skill tree + colored equipment |
-| 5 | `05_title.png` | Title screen — rainbow "UNICORN / Hooves of Hope" |
+- Level up 5 stats and spend points across a 14-node skill tree: double & triple jump, dash-attack, ranged shots, healing, and more.
+- Loot gear that drops as pixel icons and recolors your unicorn — horn, mane, body, and hooves each carry a stat.
+- Battle 6 enemy types across one big connected world; every DARKCORN is a mirror of you with a phase-2 twist.
+- Explore 7 regions — meadows, high canopy, storm peaks, and underground caverns — opened up by the abilities you earn.
+- Crit with LUCK, heal in a pinch, rest at hearths, and hunt down 20 hidden chests.
 
-Capture at native 960×540 via the Wavedash playtest URL or local `dist/index.html`.
-Path: `design/screenshots/` (overwrite existing stale files).
+Plays with keyboard or touch, desktop or mobile — one build, both.
 
-> The OLD screenshots (5-zone, pre-rename) are archived in
-> `design/screenshots/_stale_aug30/` — do NOT upload those.
+Controls — Keyboard: WASD/arrows move · Space jump · J dash · L shot · H heal · P pause. Touch: floating joystick + action buttons.
+```
+
+---
+
+## 3. TAGS (pick 5–8; Wavedash says favor accuracy over reach)
+```
+platformer · rpg · action · pixel-art · metroidvania · adventure · fantasy · singleplayer
+```
+> `metroidvania` is honest here (one connected map, ability-gated reach). Drop it if you'd rather stay conservative.
 
 ---
 
 ## 4. COVER ART
-`design/cover_square.png` (720×720) — rainbow arc + pixel unicorn + `UNICORN` /
-`Hooves of Hope`, starry black. Title-correct and content-rule compliant. Keep as-is.
-(Cover uses solid gold title; in-game title uses rainbow per-letter — cosmetic, not
-worth regenerating unless you want an exact match.)
+```
+design/cover_square.png   (720×720 — title-correct, content-rule compliant, keep as-is)
+```
 
 ---
 
-## 5. ACHIEVEMENTS — 2 need updating on Wavedash-side
+## 5. SCREENSHOTS (upload 3–5, gameplay first — REFRESHED 2026-09-05)
+Captured from the current build (`dist/index.html`, 960×540). Upload in this order:
 
-The 8 achievement records on Wavedash still describe the OLD 5-zone game. Two are stale:
-
-| ID | Recorded threshold | Status |
+| # | File | Shows |
 |---|---|---|
-| EXPLORER | "enter all 5 zones" | ⚠️ STALE — no zones exist. Retire or repurpose (e.g. "reach every corner of the world") |
-| HOARDER | "open all 20 chests" | ⚠️ STALE — unified world now has **8 chests**. Update threshold to 8 |
-| HALFWAY | "3 of 5 shards" | ⚠️ shard count changed — now **6 bosses** (heading to 7 w/ INDIGO). Re-tune or keep count-agnostic ("half the shards") |
-| PRISMATIC | "all 5 shards (win)" | ⚠️ win is now **all 6** shards (`seeds.bosses.length`). Update or keep count-agnostic ("all shards") |
+| 1 | `design/screenshots/01_intro.png` | GREATCORN intro bubble + HUD + action buttons (gameplay lead) |
+| 2 | `design/screenshots/02_world.png` | Spike-pit traversal, bounce mushroom, platforms, enemies |
+| 3 | `design/screenshots/03_exploration.png` | Meadow — spikes, mushroom, enemy, open sky |
+| 4 | `design/screenshots/04_skill_tree.png` | Character menu: stats + equipment slots + 14-node skill tree (UI/feature shot) |
+| 5 | `design/screenshots/05_title.png` | Title screen — rainbow UNICORN / HOOVES OF HOPE |
 
-Others (FIRST_LIGHT, NATURAL_20, APOTHEOSIS, FULLY_GEARED) still describe current gameplay
-correctly and need no changes.
+> Old 5-zone captures are archived in `design/screenshots/_stale_aug31/` — do NOT upload those.
 
-**To update via CLI:**
+---
+
+## 6. TRAILER (optional but recommended)
 ```
-wavedash achievement update EXPLORER --description "..." --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
-wavedash achievement update HOARDER --description "..." --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
-# or:
-wavedash achievement delete EXPLORER --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
+design/trailer.mp4   (960×540, 15.6s — opens on gameplay hook, closes on title card)
+```
+Wavedash likes a short trailer that hooks in the first few seconds — this one opens mid-jump over a spike pit.
+
+---
+
+## 7. ACHIEVEMENTS — thresholds need CLI re-tune (Wavedash-side)
+The 8 records may still describe the old 5-zone build. Verify live state:
+```
+wavedash achievement list --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
+```
+Correct thresholds for the CURRENT 7-boss / 7-shard / 20-chest build:
+
+| ID | Correct threshold | Action |
+|---|---|---|
+| PRISMATIC | all **7** shards (win) | update — was 5 |
+| HALFWAY | 3–4 of 7 shards (or count-agnostic) | update — was "3 of 5" |
+| EXPLORER | reach all **7** zones (or "every corner") | update — was "5 zones" |
+| HOARDER | open all **20** chests | ✓ likely already correct (source has 20 chests) |
+| FIRST_LIGHT / NATURAL_20 / APOTHEOSIS (LV15) / FULLY_GEARED | unchanged | ✓ valid |
+
+```
+wavedash achievement update EXPLORER  --description "..." --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
+wavedash achievement update HALFWAY   --description "..." --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
+wavedash achievement update PRISMATIC --description "..." --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
 ```
 
 ---
 
-## What the operator needs to do (portal login required)
+## What the operator does (portal login required)
+1. **Title** → `UNICORN, Hooves of Hope`
+2. **Description** → paste Section 2
+3. **Tags** → Section 3
+4. **Cover art** → `design/cover_square.png`
+5. **Screenshots** → upload the 5 from Section 5, in order
+6. **Trailer** → `design/trailer.mp4` (optional)
+7. **Achievements** → re-tune 3 thresholds via CLI (Section 7)
 
-1. **Change title** on store page from `NAT 20 UNICORN` → `UNICORN, Hooves of Hope`
-2. **Paste description** from Section 2 above
-3. **Add tags** from Section 2
-4. **Upload cover art** (`design/cover_square.png`) — unchanged, still valid
-5. **Refresh screenshots** — see Section 3 (blocking on capture from unified-world build)
-6. **Update EXPLORER + HOARDER achievements** via CLI (Section 5) or delete/recreate
-
-Deferred until:
-- Screenshot capture is a ~10 minute task with the Wavedash playtest URL and any screenshot tool
-- Achievement CLI edits take ~2 minutes once decided
+**Deadlines:** js13k submit ≤ Sep 13 13:00 CEST · Wavedash publish ≤ Sep 20 CEST.
