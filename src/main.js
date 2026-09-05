@@ -589,6 +589,27 @@ const spr = (d, x, y, w, c, z = 1) => { ctx.fillStyle = c; for (let r = 0; r < d
 // Same outline technique as gear sprites (#17131f), same highlight convention (top-left light).
 // Cork is a site-specific opaque overlay (HUD alpha-gates the body but keeps the cork solid).
 const pot = (x, y, c, z = 1) => { const o = '#17131f'; for (const d of [-z, z]) { spr(I_MP, x + d, y, 12, o, z); spr(I_MP, x, y + d, 12, o, z); } spr(I_MP, x, y, 12, c, z); ctx.fillStyle = '#fff'; ctx.fillRect(x + 2 * z, y + 5 * z, z, 2 * z); ctx.fillRect(x + 3 * z, y + 4 * z, z, z); };
+// ACTION ICONS — the four glyphs on the action buttons, extracted so the skill-tree nodes render the same visuals. Every helper is centered on (x, y); tree callers wrap in scale(.65) to fit the 26px cells. Count params scale with skill upgrades (1/2/3 chevrons or stacked arcs).
+const iShot = (x, y, n, r = 10) => { ctx.lineWidth = 1.5; for (let j = 0; j < n; j++) rArc(x, y + 4 - j * 8, r, r * .12); };
+const iHeal = (x, y) => {
+  ctx.fillStyle = '#17131f'; ctx.fillRect(x - 5, y - 13, 10, 26); ctx.fillRect(x - 13, y - 5, 26, 10);
+  ctx.fillStyle = '#28a84a'; ctx.fillRect(x - 4, y - 12, 8, 24); ctx.fillRect(x - 12, y - 4, 24, 8);
+  ctx.fillStyle = '#6cf279'; ctx.fillRect(x - 2, y - 10, 4, 20); ctx.fillRect(x - 10, y - 2, 20, 4);
+};
+const iJump = (x, y, n) => {
+  ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
+  ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let j = 0; j < n; j++) { const by = y + 9 + j * 3; ctx.moveTo(x - 3, by + 3); ctx.lineTo(x, by); ctx.lineTo(x + 3, by + 3); }
+  ctx.stroke();
+};
+const iDash = (x, y, n) => {
+  ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
+  ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let j = 0; j < n; j++) { const bx = x - 9 - j * 3; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3); }
+  ctx.stroke();
+};
 // GEAR icon sprites — pro pixel style: selective outline + top-left light + shade, tinted by roll color c.
 // slot→item: 0 BODY→chest armor · 1 MANE→cape · 2 HORN→horn blade · 3 HOOVES→horseshoe. Digits index the palette below (.=skip).
 // Icon canon (see uni-corn/research tiny-pixel-icon entry): 45° tip-up-right for the blade, wavy bottom = cape (not shield),
@@ -1241,17 +1262,29 @@ const draw = () => {
       const [ax, ay] = TPOS[LINK[k]], [bx, by] = TPOS[LINK[k + 1]];
       ctx.beginPath(); ctx.moveTo(ax + NS / 2, ay + NS); ctx.lineTo(bx + NS / 2, by); ctx.stroke();
     }
-    // Nodes — always show name; locked/available/purchased differentiated by color/stroke only.
+    // Nodes — action skills render the SAME icon as their action button (via iShot/iHeal/iJump/iDash, wrapped in scale to fit); modifier skills (STASH, HP+5, MP+5, POT+5) keep the text label. Chevron / stacked-arc count on upgrade nodes matches the button's own scaling rule.
     TREE.forEach((nm, i) => {
       const [cx, cy] = TPOS[i];
       ctx.fillStyle = '#1e1928'; ctx.fillRect(cx, cy, NS, NS);
       ctx.fillStyle = su[i] ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);
       ctx.strokeStyle = su[i] ? '#8cf' : '#555'; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
-      if (aRow === 5 + iMax + i) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }   // cursor on this skill node
-      ctx.fillStyle = su[i] ? '#ffd75e' : '#888';
-      const w = nm.split(' ');
-      if (w.length > 1) { ctx.fillText(w[0], cx + NS / 2, cy + 11); ctx.fillText(w.slice(1).join(' '), cx + NS / 2, cy + 21); }
-      else ctx.fillText(nm, cx + NS / 2, cy + 17);
+      if (aRow === 5 + iMax + i) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }
+      const mx = cx + 13, my = cy + 13;
+      if (i >= 8 && i <= 11) {   // MODIFIER — text label
+        ctx.fillStyle = su[i] ? '#ffd75e' : '#888';
+        const w = nm.split(' ');
+        if (w.length > 1) { ctx.fillText(w[0], mx, cy + 11); ctx.fillText(w.slice(1).join(' '), mx, cy + 21); }
+        else ctx.fillText(nm, mx, cy + 17);
+      } else {                   // ACTION SKILL — icon (scaled to fit cell)
+        ctx.globalAlpha = su[i] ? 1 : .5;
+        ctx.save(); ctx.translate(mx, my); ctx.scale(.65, .65); ctx.translate(-mx, -my);
+        if (i === 0 || i === 12 || i === 13) iShot(mx, my, i === 0 ? 1 : i - 10);   // SHOT / DBL SHOT / TRI SHOT (1/2/3 stacked arcs)
+        else if (i === 1) iShot(mx, my, 1, 13);   // FAR SHOT: same arc but bigger (extended reach)
+        else if (i === 2 || i === 3) iHeal(mx, my);   // HEAL / SUPER HEAL — same cross (tree position + owned-border differentiate)
+        else if (i === 4 || i === 5) iJump(mx, my, i - 2);   // DBL / TRI JUMP (2 / 3 chevrons)
+        else if (i === 6 || i === 7) iDash(mx, my, i - 5);   // DASH / LONG DASH (1 / 2 chevrons)
+        ctx.restore(); ctx.globalAlpha = 1;
+      }
     });
     // (shards indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // USE/DROP are functional button labels (not a control hint) — control reference lives ONLY in the ? overlay.
@@ -1287,17 +1320,8 @@ const draw = () => {
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
       ctx.strokeStyle = rc; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.stroke();
-      // HEAL glyph — bold green cross fills the disc: vibrant darker-green outline + bright vibrant-green core.
-      // Own green palette (NOT the lock-dimmed ring color rc) so the icon reads green even when unavailable; alpha still conveys state.
-      if (c === 'bH') {
-        ctx.fillStyle = '#17131f';                                        // dark outline (matches potion — 1px larger all around)
-        ctx.fillRect(x - 5, y - 13, 10, 26); ctx.fillRect(x - 13, y - 5, 26, 10);
-        ctx.fillStyle = '#28a84a';                                        // darker green outer — arms 8-thick (skinnier than the 10-wide pass, still with dark outline)
-        ctx.fillRect(x - 4, y - 12, 8, 24); ctx.fillRect(x - 12, y - 4, 24, 8);
-        ctx.fillStyle = '#6cf279';                                        // bright green core — arms 4-thick (proportional)
-        ctx.fillRect(x - 2, y - 10, 4, 20); ctx.fillRect(x - 10, y - 2, 20, 4);
-      }
-      // JUMP glyph — menu: checkmark (confirm); gameplay: player unicorn + speed lines below (launching upward).
+      // Action-button glyphs — all four routed through the shared iShot / iHeal / iJump / iDash helpers (same code paths as skill-tree icons). JUMP has a paused-checkmark alternate for menu-confirm.
+      if (c === 'bH') iHeal(x, y);
       if (c === 'bJ') {
         if (paused) {
           ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1305,25 +1329,10 @@ const draw = () => {
           ctx.strokeStyle = '#2f6fb0'; ctx.lineWidth = 6; chk();
           ctx.strokeStyle = '#cfeeff'; ctx.lineWidth = 3; chk();
           ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
-        } else {
-          // Flat unicorn + upward chevron(s) below — count SCALES with jump upgrades: 1 base, +1 DBL JUMP (su[4]), +1 TRI JUMP (su[5]). Peak-on-arm interlock reads as a single "wave up" motion.
-          ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
-          ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          for (let i = 0; i <= su[4] + su[5]; i++) { const by = y + 9 + i * 3; ctx.moveTo(x - 3, by + 3); ctx.lineTo(x, by); ctx.lineTo(x + 3, by + 3); }
-          ctx.stroke();
-        }
+        } else iJump(x, y, 1 + su[4] + su[5]);
       }
-      // DASH glyph — same flat unicorn + right-pointing chevron(s) behind — count SCALES with dash upgrades: 1 base, +1 LONG DASH (su[7]). Tip-on-arm interlock for the 2-chevron case.
-      if (c === 'bM') {
-        ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
-        ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        for (let i = 0; i <= su[7]; i++) { const bx = x - 9 - i * 3; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3); }
-        ctx.stroke();
-      }
-      // SHOOT glyph — rainbow arc matching the projectile sprite.
-      if (c === 'bS') { ctx.lineWidth = 1.5; rArc(x, y + 4, 10, 1.2); }
+      if (c === 'bM') iDash(x, y, 1 + su[7]);
+      if (c === 'bS') iShot(x, y, 1);
       ctx.restore();
     }
     ctx.globalAlpha = 1;
