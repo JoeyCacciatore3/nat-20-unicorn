@@ -1306,24 +1306,20 @@ const draw = () => {
           ctx.strokeStyle = '#cfeeff'; ctx.lineWidth = 3; chk();
           ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
         } else {
-          // Flat unicorn (no rotation) + 3 downward speed lines: outer two aligned, middle offset shorter.
+          // Flat unicorn + upward chevron(s) below — count SCALES with jump upgrades: 1 base, +1 DBL JUMP (su[4]), +1 TRI JUMP (su[5]). Peak-on-arm interlock reads as a single "wave up" motion.
           ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
           ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
           ctx.beginPath();
-          ctx.moveTo(x - 5, y + 9); ctx.lineTo(x - 5, y + 15);   // left line
-          ctx.moveTo(x, y + 11);    ctx.lineTo(x, y + 15);        // middle — starts 2px lower (offset)
-          ctx.moveTo(x + 5, y + 9); ctx.lineTo(x + 5, y + 15);   // right line
+          for (let i = 0; i <= su[4] + su[5]; i++) { const by = y + 9 + i * 3; ctx.moveTo(x - 3, by + 3); ctx.lineTo(x, by); ctx.lineTo(x + 3, by + 3); }
           ctx.stroke();
         }
       }
-      // DASH glyph — same flat unicorn as JUMP + 3 trailing speed lines: outer two aligned, middle offset shorter.
+      // DASH glyph — same flat unicorn + right-pointing chevron(s) behind — count SCALES with dash upgrades: 1 base, +1 LONG DASH (su[7]). Tip-on-arm interlock for the 2-chevron case.
       if (c === 'bM') {
         ctx.save(); ctx.translate(x - 5, y - 8); drawU(0); ctx.restore();
         ctx.strokeStyle = '#ffe08a'; ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(x - 16, y - 5); ctx.lineTo(x - 10, y - 5);    // top line
-        ctx.moveTo(x - 14, y);     ctx.lineTo(x - 10, y);         // middle — starts 2px shorter (offset)
-        ctx.moveTo(x - 16, y + 5); ctx.lineTo(x - 10, y + 5);    // bottom line
+        for (let i = 0; i <= su[7]; i++) { const bx = x - 9 - i * 3; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3); }
         ctx.stroke();
       }
       // SHOOT glyph — rainbow arc matching the projectile sprite.
