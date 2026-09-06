@@ -545,10 +545,11 @@ const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); retur
 
 // LEVEL SCALAR (inlined at each use — helper measured net-negative under roadroller): tr = 2 + (lvl>>2), 2 at LV1-3, +1 every 4 levels. HP & damage tier off this for BOTH foes and bosses.
 const mkFoe = (x, y, k) => {
-  // Kind + level IS the difficulty (no elite subsystem). HP & DAMAGE scale by tr/2; SIZE is uniform (cz 3, no per-kind/random size).
+  // Kind + level IS the difficulty (no elite subsystem). HP & DAMAGE scale by tr/2; SIZE is uniform (cz 4 — sprite 20×20 matches player + boss scale, gives room for the 6×6 universal eye).
+  // spd = fv/28 so chase code `f.vx = d * 28 * (f.spd||1)` resolves to the FT speed → each foe's chase speed matches its patrol speed, so k4 (70) actually feels 2× as fast as k2 (31) during chase, and k1's hop cd shortens by its speed ratio. Bosses set their own spd (L802).
   const [fh, fd, fv, fb] = FT[k], tr = 2 + (lvl >> 2);
   const zh = fh * tr / 2 | 0;
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd * tr / 2 | 0, fl: 0, t: Math.random() * 7, cz: 3 };
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd * tr / 2 | 0, fl: 0, t: Math.random() * 7, cz: 4, spd: fv / 28 };
 };
 const seedFoes = () => [...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(x * T, y * T, k));   // reseed helper — single source for init/load/fresh/respawn (foesX = decorative fill, held out of world.js ledge-grow to keep sky-ladder RNG stable)
 let foes = seedFoes();
@@ -676,6 +677,7 @@ const hurt = (n, safe) => {
   if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while ANY flash active (hf → red/green/blue) OR stomp/respawn window (pl.inv). Single guard blocks physical AND projectiles.
   n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
   hp -= n; shk = Math.max(shk, .22); hs = .04; hf = .8; hfc = 4;   // hf = unified invuln timer; hfc=4 = red PAL[4]. Damage · heal · dash all share this channel — one flash = one meaning ("I'm invincible right now").
+  fly(pl.x + PW / 2, pl.y - 8, '-' + n, '#ff5d6c');                 // damage popup above head — mirrors enemy damage numbers so player sees hit amount in-world
   sfx(140, 55, .25, 'sawtooth', .12);
 
   if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 7, 1); return; }   // player death — skulls burst from the fallen unicorn
@@ -1050,38 +1052,39 @@ const draw = () => {
       const eye = (cx, cy) => { ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(cx - 2, cy - 1, 4, 2); ctx.fillRect(cx - 1, cy - 2, 2, 4); ctx.fillStyle = '#000'; ctx.fillRect(cx - 1 + pd, cy - 1, 2, 2); };
       const flt = wob * 1.5;
       if (f.k == 1) {                                           // k1 walker-small — small body + separate head with eye + 4 stubby legs
+        // 4 legs — mirror-paired around fs/2 (leg1↔leg4, leg2↔leg3). Alternating step offsets = walk animation.
         oR(s * .5, fs - s * .9 + step, s * .5, s * .9); oR(s * 1.6, fs - s * .9 - step * .7, s * .5, s * .9);
         oR(fs - s * 2.1, fs - s * .9 + step * .7, s * .5, s * .9); oR(fs - s, fs - s * .9 - step, s * .5, s * .9);
-        oR(s * .6, s * 1.9 + wob * .3, fs - s * 1.2, s * 1.6); // body (narrower — negative space at sides)
-        oR(s * 1.2 + wob * .2, wob * .3, s * 2.6, s * 1.4);    // head (separate, gap above body carries the eye)
-        eye(s * 2.5 + wob * .2, s * .7 + wob * .3);
-      } else if (f.k == 4) {                                    // k4 walker-fast — low elongated body + forward head + 2 legs + swept speed lines
-        oR(0, s * 2.5, fs * .75, s * 1.3);                     // long low body (leaves room for head to lean forward)
-        oR(fs * .65, s * 2.2, s * 1.7, s * 1.6);               // head (larger, forward — carries eye + leans)
-        oR(s * .3, fs - s * .8 + step, s * .5, s * .8); oR(s * 1.5, fs - s * .8 - step, s * .5, s * .8);   // 2 legs
+        oR(s * .8, s * 2.2 + wob * .3, fs - s * 1.6, s * 1.4); // body — width symmetric around fs/2
+        oR(fs / 2 - s * 1.5 + wob * .2, wob * .3, s * 3, s * 1.9);   // head — centered on midline, wob only shifts x (no width distortion)
+        eye(fs / 2 + wob * .2, s + wob * .3);                  // eye — centered on head, follows head sway
+      } else if (f.k == 4) {                                    // k4 walker-fast — INTENTIONALLY asymmetric (racing pose: head forward, legs rear, speed lines trailing)
+        oR(0, s * 2.6, fs * .7, s * 1.2);                      // long low body (leaves room for head to lean forward)
+        oR(fs * .55, s * 2, s * 2.2, s * 2);                   // head (larger + taller, forward-lean — carries eye)
+        oR(s * .3, fs - s * .8 + step, s * .5, s * .8); oR(s * 1.5, fs - s * .8 - step, s * .5, s * .8);   // 2 legs at rear
         oR(-s * .8, s * 2.7, s * .8, s * .3); oR(-s * .5, s * 3.3, s * .7, s * .3);   // 2 swept speed lines (behind, into the run)
-        eye(fs * .85, s * 2.8);
-      } else if (f.k == 5) {                                    // k5 walker-hop — tall body + 2 CHUNKY legs (squash/stretch preserved)
-        oR(s * .7, fs - s * 1.3, s * 1.3, s * 1.3);            // chunky left leg
+        eye(fs * .8, s * 2.9);
+      } else if (f.k == 5) {                                    // k5 walker-hop — tall body + 2 CHUNKY legs (squash/stretch preserved) — fully symmetric around fs/2
+        oR(s * .7, fs - s * 1.3, s * 1.3, s * 1.3);            // chunky left leg (mirror of right)
         oR(fs - s * 2, fs - s * 1.3, s * 1.3, s * 1.3);        // chunky right leg
-        oR(s * .5, s * .5 + wob * .3, fs - s, s * 3.2);        // tall body (narrower than v2)
-        eye(fs / 2, s * 2 + wob * .3);
-      } else if (f.k == 2) {                                    // k2 floater-tent — orb-ish dome + 3 v1-style variable-height tendrils (wavy)
-        for (let i = 0; i < 3; i++) {                          // v1 tendril formula: fixed base, height oscillates per-tendril → wave illusion
-          const tx = s * (.5 + i * 1.5);
-          oR(tx, s * 2.1 + flt, s * .5, s * 2 + Math.sin(f.t * 2 + i * .8) * s * .5);
+        oR(s * .5, s * .4 + wob * .3, fs - s, s * 3.4);        // tall body
+        eye(fs / 2, s * 1.6 + wob * .3);                       // eye centered
+      } else if (f.k == 2) {                                    // k2 floater-tent — dome + 3 tendrils, all centered on fs/2 (middle tendril sits on midline)
+        for (let i = 0; i < 3; i++) {                          // tendrils span the width symmetrically; middle centered, outer pair equidistant
+          const tx = fs / 2 - s * 1.75 + i * s * 1.5;           // i=0: fs/2 - s*1.75 · i=1: fs/2 - s*.25 (centered) · i=2: fs/2 + s*1.25
+          oR(tx, s * 2.4 + flt, s * .5, s * 2 + Math.sin(f.t * 2 + i * .8) * s * .5);
         }
-        oR(s * .4, s * .7 + flt, fs - s * .8, s * 1.5);        // dome body (compact — no arms clutter)
-        eye(fs / 2, s * 1.3 + flt);
-      } else if (f.k == 6) {                                    // k6 floater-spike — dome + 4 upright spikes on top (no arms)
-        for (let i = 0; i < 4; i++) oR(s * (.6 + i * 1.1), flt - s * .3, s * .4, s * .9);   // 4 upright spikes — 2px wide (readable, not spindly)
-        oR(s * .3, s * .8 + flt, fs - s * .6, s * 2);          // dome body
-        eye(fs / 2, s * 1.6 + flt);
-      } else {                                                  // k3 caster — hood peak + robe body + universal eye in hood shadow (no sleeve arms)
-        oR(s * .3, s * 2.6, fs - s * .6, s * 1.4);             // lower robe (wider = shoulder line)
-        oR(s * .5, s * 1.4, fs - s, s * 1.4);                  // upper robe (narrower)
-        oR(s * 1.1, wob * .3, fs - s * 2.2, s * 1.4);          // hood peak (pointed silhouette)
-        eye(fs / 2, s * 1.7 + wob * .3);                       // eye peers from hood shadow — universal round eye
+        oR(s * .3, s * .5 + flt, fs - s * .6, s * 2);          // dome body — centered
+        eye(fs / 2, s * 1.4 + flt);
+      } else if (f.k == 6) {                                    // k6 floater-spike — dome + 4 upright spikes, symmetric around fs/2 (pair-mirrored)
+        for (let i = 0; i < 4; i++) oR(fs / 2 - s * 2 + i * s * 1.2, flt - s * .3, s * .4, s * .9);   // 4 spikes: pair-mirrored around midline (i=0,3 outer; i=1,2 inner)
+        oR(s * .3, s * .8 + flt, fs - s * .6, s * 2.3);        // dome body — centered
+        eye(fs / 2, s * 1.8 + flt);
+      } else {                                                  // k3 caster — hood peak + robe body + universal eye — fully symmetric around fs/2
+        oR(s * .3, s * 2.8, fs - s * .6, s * 1.4);             // lower robe (wider = shoulder line)
+        oR(s * .5, s * 1.5, fs - s, s * 1.6);                  // upper robe
+        oR(s * 1, wob * .3, fs - s * 2, s * 1.7);              // hood peak (taller for eye clearance)
+        eye(fs / 2, s * .8 + wob * .3);                        // eye peers from hood shadow — universal round eye
       }
       if (f.rc !== undefined && f.rc < .5) {                    // charge-orb tell — ranged foes only, unchanged
         const p = (.5 - f.rc) * 2;

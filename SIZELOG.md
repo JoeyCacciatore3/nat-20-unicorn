@@ -1343,3 +1343,8 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-06  13140 B  (98.7%)  free: 172 B
 2026-09-06  13126 B  (98.6%)  free: 186 B
 2026-09-06  13096 B  (98.4%)  free: 216 B
+2026-09-06  13102 B  (98.4%)  free: 210 B
+2026-09-06  13105 B  (98.4%)  free: 207 B
+2026-09-06  13109 B  (98.5%)  free: 203 B
+2026-09-06  13107 B  (98.5%)  free: 205 B
+2026-09-06  13114 B  (98.5%)  free: 198 B

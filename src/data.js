@@ -34,10 +34,15 @@ export const SC = ['#ff5d6c', '#6cf279', '#4a76ff', '#c47fe0', '#ff9d3c'];   // 
 // FOECOL as PAL indices (regrouped 2026-09-06 for max contrast vs every zone + byte savings vs hex strings). k1=pink · k2=teal · k3=violet · k4=orange · k5=gold · k6=light-purple. All bodies get 1px black outline → figure/ground pop on any background.
 export const FOECOL = [, 5, 9, 7, 3, 2, 6];
 // FT[k] = [hp, dm, speed, capBits]. Shape column retired in v3 sprite rewrite (2026-09-06) — drawFoe dispatches on f.k directly.
-// (size is UNIFORM — render uses cz 3 for all regular foes, 4 for bosses; no per-kind or random size.)
+// (size is UNIFORM — render uses cz 4 for all regular foes, 4 for bosses; no per-kind or random size.)
 // k1 walker-small · k2 floater-tent · k3 caster · k4 walker-fast · k5 walker-hop · k6 floater-spike.
-// Cap bits: 1=ranged 2=hop 16=chase (bosses use 19 = the full unicorn kit; summon/shockwave/swift retired).
-export const FT = [, [4, 3, 44, 0], [8, 4, 31, 16], [12, 5, 26.7, 1], [5, 3, 70, 0], [6, 4, 36, 18], [9, 4, 22, 1]];
+// Cap bits: 1=ranged 2=hop 16=chase (bosses use 19 = the full unicorn kit — same code path, all enemies dispatch through unified attack orchestration).
+// Cap assignment (2026-09-06 v3 combat expansion — 4 of 6 enemies now have MULTI-ATTACK combos for real tactical distinction):
+//   k1=2 hop-only (leaping puddle · 1 move) · k2=17 chase+ranged (tentacle stalker-spitter · 2 moves) ·
+//   k3=19 chase+ranged+hop (ELITE — full unicorn kit, mini-boss feel · 3 moves) · k4=16 pure chase (fast rush hunter · 1 move) ·
+//   k5=18 chase+hop (frog leaper · 2 moves) · k6=3 ranged+hop (bouncing spike-sniper · 2 moves).
+//   Every cap value unique. k1 & k4 stay simple, everyone else runs 2-3 attacks. Contact damage universal (unlisted).
+export const FT = [, [4, 3, 44, 2], [8, 4, 31, 17], [12, 5, 26.7, 19], [5, 3, 70, 16], [6, 4, 36, 18], [9, 4, 22, 3]];
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).
