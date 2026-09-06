@@ -68,18 +68,18 @@ export const ZB = [
 // foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone
 // (rock base derived darker via dim(accent), so one stored color = two-tone boulder).
 
-// SKILL TREE — prerequisite-based: LINK pairs [parent,child] gate unlock (see main.js canBuy).
+// SKILL TREE — level-gated rows (see main.js canBuy = lvl>=[1,9,1,6,3,6,1,3,6,9][i]).
 // 10 nodes, 4 visual rows. Indices are stable — su[N] semantics fixed. Nodes render as ICONS
 // (iShot/iHeal/iJump/iDash), NOT names, so TREE only needs its LENGTH — the strings are 1-char
 // placeholders (tpos-check counts quoted entries to gate TPOS.length; content is irrelevant).
 // 0 SHOT · 1 FAR SHOT · 2 HEAL · 3 SUPER HEAL · 4 DBL JUMP · 5 TRI JUMP
 // 6 DASH · 7 LONG DASH · 8 DBL SHOT · 9 TRI SHOT
-export const TREE = ['a','b','c','d','e','f','g','h','i','j'];
+export const TREE = 10;   // node count — was ['a'..'j'] string array but the labels were never rendered (grep-verified 2026-09-06). All skill nodes draw via iShot/iHeal/iJump/iDash icons, no text. Consumed as `TREE` (bare number) in main.js.
 // Row positions: Row1 y=48 (3), Row2 y=94 (2), Row3 y=140 (3), Row4 y=186 (2). 3-2-3-2 grid:
 // rows 1&3 share columns 263/325/387; rows 2&4 share 294/356. Three-column layout by family:
 // LEFT col = SHOT chain (SHOT→[swap]→TRI JUMP→FAR SHOT), MID col = HEAL chain (HEAL→SUPER HEAL),
 // RIGHT col = MOBILITY (DASH→LONG DASH→[swap]→TRI SHOT). DBL SHOT/DBL JUMP + TRI SHOT/TRI JUMP
-// swap tiers/columns so mobility unlocks earlier — connector lines cross cosmetically, prereqs stay same-family in LINK.
+// swap tiers/columns so mobility unlocks earlier. Level gates: Row1=LV1, Row2=LV3, Row3=LV6, Row4=LV9.
 export const TPOS = [[263,48],[294,186],[325,48],[325,140],[294,94],[263,140],[387,48],[356,94],[387,140],[356,186]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.

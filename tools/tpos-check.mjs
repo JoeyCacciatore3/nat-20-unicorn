@@ -12,12 +12,14 @@ import { readFileSync } from 'node:fs';
 const src = readFileSync(new URL('../src/data.js', import.meta.url), 'utf8')
   + readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 
-// Extract TREE literal — flat string array bounded by `const TREE = [` … `];`
-const treeMatch = src.match(/const TREE = \[(.*?)\];/);
-if (!treeMatch) { console.error('❌ TPOS check: TREE literal not found'); process.exit(1); }
-
-// Count skill names in the flat string array.
-const TREE = treeMatch[1].match(/'[^']+'/g) || [];
+// Extract TREE literal — accepts either the numeric shorthand `const TREE = 10;`
+// (current) or the legacy string-array form `const TREE = ['a','b',...];`
+// (auto-migrated 2026-09 — labels were never rendered, dropped for bytes).
+const treeNum = src.match(/const TREE = (\d+);/);
+const treeArr = src.match(/const TREE = \[(.*?)\];/);
+if (!treeNum && !treeArr) { console.error('❌ TPOS check: TREE literal not found'); process.exit(1); }
+const treeLen = treeNum ? +treeNum[1] : (treeArr[1].match(/'[^']+'/g) || []).length;
+const TREE = { length: treeLen };   // sentinel shape so downstream .length checks still read
 
 // 4-row layout: Row1 y=48 (3), Row2 y=94 (2), Row3 y=140 (3), Row4 y=186 (2).
 // TPOS is hand-tuned for the 3-2-3-2 tier layout — verify by direct comparison.
