@@ -122,7 +122,7 @@ const MEADOW = {
     [580, 56, 6, 1, 2], [588, 53, 5, 1, 2], [582, 50, 4, 1, 2],   // stepped shelves climbing into the corner
   ],
 
-  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [200, 59], [318, 59], [365, 59], [420, 59]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex (last 4 = MEADOW mid + EAST RUN fill for vibrance)
+  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 (was 200/365) — shifted out of spike pits at 196-200 and 360-367 where groundRow was snapping the mushroom inside the pit floor.
   bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
     [263, 66, 0],   // RED    — hidden lair under the meadow (drop hole @x258, behind the moat)
     [461, 50, 1],   // ORANGE — perch above the east walkway (zig hops via x464 rung)

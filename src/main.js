@@ -205,9 +205,9 @@ addEventListener('pointerdown', (e) => {
       if (invSel >= 0 && inv[invSel] && hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
       // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts. One action path, no redundant tap-again.
       for (const [s, ex, ey] of [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]]) if (hit(ex, ey, 24, 24)) { const r = EB() + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
-      // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP)
-      if (hit(38, 184, 140, 84)) {
-        const iC = ((vx - 38) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
+      // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP). Coords match render at (50, 172) after 2026-09-06 shift up-right to clear joystick visual.
+      if (hit(50, 172, 140, 84)) {
+        const iC = ((vx - 50) / 28) | 0, iR = ((vy - 172) / 28) | 0, iI = iR * 5 + iC;
         if (iI < BAG && inv[iI]) { const r = 5 + iI; if (aRow === r) spend(); else setRow(r); return; }
         return;                                                  // tap on empty inv area — no-op, keeps menu open
       }
@@ -407,6 +407,7 @@ const gainXp = (n, x, y) => {
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 3; if (lvl < TREE.length + 2) spts++;    // +3 stat pts every level; skill pts capped at TREE.length (one per node) — dynamic so adding tree nodes auto-extends the cap
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save — the ONE auto-save: leveling is the milestone players must not lose
+    foes.forEach(f => { if (!f.bit) { const t = 2 + (lvl >> 2); f.mx = FT[f.k][0] * t / 2 | 0; f.hp = Math.min(f.hp, f.mx); f.dm = FT[f.k][1] * t / 2 | 0; } });   // RESCALE LIVE FOES to new player tier — bug fix: mkFoe locked stats at spawn-time tr, so existing enemies never scaled with player level. Bosses have their own tr baked in at encounter-spawn, skip. HP clamps to new max (preserves damage taken); dm updates so hits actually escalate.
     luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font)
     if (deathT <= 0) { paused = 1; setRow(0); }   // AUTO-PAUSE into character menu on level-up — force allocation each level; banner still renders over menu
   }
@@ -524,6 +525,7 @@ const fresh = () => {
   pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
+  aRow = 0; invSel = -1;   // reset menu cursor — else prior-session invSel persists across EXIT→NEW GAME (harmless with empty bag but a stale-state smell)
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seedChests();
   foes = seedFoes();
@@ -676,7 +678,7 @@ function heal() {                                               // instant tap-t
 const hurt = (n, safe) => {
   if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while ANY flash active (hf → red/green/blue) OR stomp/respawn window (pl.inv). Single guard blocks physical AND projectiles.
   n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp -= n; shk = Math.max(shk, .22); hs = .04; hf = .8; hfc = 4;   // hf = unified invuln timer; hfc=4 = red PAL[4]. Damage · heal · dash all share this channel — one flash = one meaning ("I'm invincible right now").
+  hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hs = .04; hf = .8; hfc = 4;   // hf = unified invuln timer; hfc=4 = red PAL[4]. Damage · heal · dash all share this channel — one flash = one meaning ("I'm invincible right now"). hp clamped ≥0 so HP bar never renders a negative-width frame on lethal hits.
   fly(pl.x + PW / 2, pl.y - 8, '-' + n, '#ff5d6c');                 // damage popup above head — mirrors enemy damage numbers so player sees hit amount in-world
   sfx(140, 55, .25, 'sawtooth', .12);
 
@@ -857,7 +859,7 @@ const step = (dt) => {
         // Bosses hop unconditionally (arenas are flat + build-audited).
         const s = Math.sign(f.vx) || 1;
         if (f.bit || tile((f.x + fs / 2 + s * T) / T | 0, (f.y + fs + 6) / T | 0) % 3) {
-          f.vy = -230; f.gr = 0; f.hop = (f.cap & 16 ? 2.4 : 1 + Math.random()) / (f.spd || 1);
+          f.vy = -280; f.gr = 0; f.hop = (f.cap & 16 ? 2.4 : 1 + Math.random()) / (f.spd || 1);   // vy -280 → jump apex ~44px = clears 2-tile pits (was -230, apex ~29px, couldn't escape spike pits)
         } else { f.vx *= -1; f.hop = .3; }
       }
     }
@@ -1049,7 +1051,7 @@ const draw = () => {
       const bod = PAL[FOECOL[f.k]];
       const pd = Math.sign(pl.x - f.x) * ((f.vx || 1) < 0 ? -1 : 1);   // pupil offset (accounts for local flip)
       const oR = (x, y, w, h) => { ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = bod; ctx.fillRect(x, y, w, h); };
-      const eye = (cx, cy) => { ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(cx - 2, cy - 1, 4, 2); ctx.fillRect(cx - 1, cy - 2, 2, 4); ctx.fillStyle = '#000'; ctx.fillRect(cx - 1 + pd, cy - 1, 2, 2); };
+      const eye = (cx, cy) => { ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(cx - 2, cy - 2, 4, 4); ctx.fillStyle = '#000'; ctx.fillRect(cx - 1 + pd, cy - 1, 2, 2); };   // standard eyeball: 6×6 black outline → 4×4 solid white → 2×2 black tracking pupil (was reversed with a white cross inside black — read as a slit not an eye)
       const flt = wob * 1.5;
       if (f.k == 1) {                                           // k1 walker-small — small body + separate head with eye + 4 stubby legs
         // 4 legs — mirror-paired around fs/2 (leg1↔leg4, leg2↔leg3). Alternating step offsets = walk animation.
@@ -1169,19 +1171,19 @@ const draw = () => {
       if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 6, ey + 22);       // primary stat → BOTTOM-LEFT, in its stat colour (SC): STR red · HP green · MAG blue · DEF violet · LCK orange
         if (eq[s].u != null) { ctx.fillStyle = SC[eq[s].u]; T2('+' + eq[s].v, ex + 18, ey + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
     });
-    // STATS — one row across the bottom of the box; cursor = gold column (always visible; "+1" hint only when a point is available)
+    // STATS — one row above the inventory; cursor = blue column. Row nudged UP 12px + RIGHT 10px (2026-09-06) to give inv room to clear the joystick visual.
     const SL = [['STR', ho], ['HP', he], ['MAG', sp], ['DEF', df], ['LCK', lk]];
     SL.forEach(([l, v], i) => { const c = SC[i];
-      const sx = 42 + i * 26, sel = i === aRow;
-      if (sel) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 158, 25, 23);   // cursor = blue border; row nudged down 6px to clear the unicorn art above
-        if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 156); } }
-      ctx.fillStyle = c; T2(l, sx + 9, 166);
-      T2(v, sx + 9, 177);
+      const sx = 52 + i * 26, sel = i === aRow;
+      if (sel) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23);
+        if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 144); } }
+      ctx.fillStyle = c; T2(l, sx + 9, 154);
+      T2(v, sx + 9, 165);
     });
-    // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip.
+    // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip. Grid shifted UP 12px + RIGHT 12px (2026-09-06) so bottom row clears the joystick visual (x=22-50, y=222-250) with edge-touching, no overlap.
     const iMax = BAG, iSz = 24, iGap = 28;
     for (let i = 0; i < iMax; i++) {
-      const ix = 38 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
+      const ix = 50 + (i % 5) * iGap, iy = 172 + ((i / 5) | 0) * iGap, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.05)';
       ctx.fillRect(ix, iy, iSz, iSz);
       ctx.strokeStyle = i === invSel ? '#8cf' : '#555';
@@ -1234,7 +1236,7 @@ const draw = () => {
       ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
       if (act === 'EQUIP') { ctx.fillRect(110, 250, 50, 14); ctx.strokeRect(110, 250, 50, 14); }   // DROP box (bag only)
       ctx.fillStyle = '#8cf'; T2(act, 75, 258);
-      if (act === 'EQUIP') { ctx.fillStyle = '#c33'; T2('DROP', 135, 258); }
+      if (act === 'EQUIP') { ctx.fillStyle = '#8cf'; T2('DROP', 135, 258); }   // DROP = same blue-on-blue treatment as EQUIP (matches every other active button in the game — joystick / action / top cluster all use #8cf)
     }
   }
 
@@ -1315,14 +1317,15 @@ const draw = () => {
     const iy = 4, isz = 12, box = (x) => {
       ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, iy, isz, isz);
       ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5; ctx.strokeRect(x, iy, isz, isz);
-    }, xm = (x) => { ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 3, iy + 3); ctx.lineTo(x + 9, iy + 9); ctx.moveTo(x + 9, iy + 3); ctx.lineTo(x + 3, iy + 9); ctx.stroke(); };   // neutral ✕ — shared by back button + muted-speaker
+    }, xm = (x) => { ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 3, iy + 3); ctx.lineTo(x + 9, iy + 9); ctx.moveTo(x + 9, iy + 3); ctx.lineTo(x + 3, iy + 9); ctx.stroke(); };   // neutral ✕ — reserved for the back button ONLY (no duplicate Xs on the top bar)
     const sx = VW - 56, hx = VW - 38, xx = VW - 20;
-    box(sx);                                                    // 🔊 speaker (leftmost)
-    if (mute) xm(sx);
-    else { ctx.fillStyle = '#ccc'; ctx.fillRect(sx + 3, iy + 5, 2, 3); ctx.beginPath(); ctx.moveTo(sx + 5, iy + 5); ctx.lineTo(sx + 8, iy + 3); ctx.lineTo(sx + 8, iy + 10); ctx.lineTo(sx + 5, iy + 8); ctx.fill(); }
+    box(sx);                                                    // 🔊 speaker (leftmost) — always draw the cone; add red diagonal slash when muted (standard mute glyph, visually distinct from the back ✕)
+    ctx.fillStyle = mute ? '#666' : '#ccc';
+    ctx.fillRect(sx + 3, iy + 5, 2, 3); ctx.beginPath(); ctx.moveTo(sx + 5, iy + 5); ctx.lineTo(sx + 8, iy + 3); ctx.lineTo(sx + 8, iy + 10); ctx.lineTo(sx + 5, iy + 8); ctx.fill();
+    if (mute) { ctx.strokeStyle = '#e33'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(sx + 2, iy + 10); ctx.lineTo(sx + 10, iy + 2); ctx.stroke(); }
     box(hx);                                                    // ? help (middle)
     ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#ccc'; ctx.fillText('?', hx + 6, iy + 10);
-    box(xx); xm(xx);                                            // ✕ back/exit (corner)
+    box(xx); xm(xx);                                            // ✕ back/exit (corner) — the ONLY ✕ on the top bar
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {
       fade(.8);
