@@ -22,7 +22,7 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
-- Everyone starts the same neutral white unicorn — **NEW GAME** jumps straight to the next empty save slot and asks ONE thing (your name — required), then begins; **CONTINUE** (greyed until you have a save) opens the 2-slot screen to pick which save to resume (name + level shown per slot). Both slots full → NEW GAME falls back to the slot screen.
+- Everyone starts the same neutral white unicorn — **ONE save slot**. Empty save → the title shows **NEW GAME**, which asks ONE thing (your name — required), then begins. Occupied save → the title shows your `NAME · LVx`, tapping it opens a **CONTINUE / DELETE** popup.
 - Gear comes from the shared loot roll — LUCK raises the drop chance; bosses drop guaranteed. Vibrant colors are earned.
 - **10-slot inventory** for gear only (fixed max, no expansion). Tap a bag slot to select, tap again (or the EQUIP button / JUMP / Enter) to equip; DROP discards. Tap an equipped slot and confirm to UNEQUIP it back to the bag. Potions live exclusively in the bottom hot-bar (see below).
 - Gear renders as pixel-art item icons — BODY→armor, MANE→cape, HORN→sword, HOOVES→boots — tinted by the drop's roll color (the same color it paints onto that body part when equipped). Identical in drops, the inventory grid, and the equipped slots.
@@ -78,7 +78,7 @@ All skills are action abilities (ranged, healing, movement, or projectile upgrad
 Dash starts at half distance; LONG DASH doubles it.
 
 ## World
-**One unified map (800×160 tiles = 12,800×2,560 px).** No portals, no zone transitions —
+**One unified map (600×160 tiles = 9,600×2,560 px).** No portals, no zone transitions —
 walk from any boss to any other. The DARK CORNS live in different regions:
 
 - **Paddock** (center, x≈120) — spawn point, campfire, GREAT CORN guide, RED-band DARK CORN just east
@@ -107,7 +107,7 @@ Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at
 **Current: 13,130 / 13,312 B (98.6%) — 182 B free**
 
 ## Save format
-Keys: `localStorage.n20_s0..1` (2 slots). Version: **v44** — strict version gate, auto-discards older saves.
+Keys: `localStorage.n20_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.
 Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[])/gear items {s,c,b,u?,v?}, p(mute), P(potions [hp,mp])}`.
 
 ## Structure
