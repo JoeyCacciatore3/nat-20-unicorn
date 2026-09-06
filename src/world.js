@@ -73,6 +73,9 @@ const MEADOW = {
     [10, 12, 9, 2],
     // Peak TRI-JUMP secret — chest 8 above BLUE summit (rise 5 requires 3rd jump)
     [22, 8, 3, 1, 2], [26, 3, 5, 1, 2],   // DJ from summit y=12 to y=8, TRI from y=8 to y=3
+    // ---- WEST BASEMENT (x5-47) — was barren floor below the BLUE peak: varied platform course + mushrooms + foes ----
+    [7, 57, 9, 1, 2], [19, 54, 4, 1, 2], [27, 56, 7, 1, 2], [38, 53, 5, 1, 2], [44, 56, 4, 1, 2],   // varying-length one-way shelves (float over the floor; drop-through, so always returnable)
+    [13, 60, 3, 2, 0], [13, 61, 3, 1, 3],   // shallow spike pit (2-deep, base-crossable) — hazard interest
     // Depths corridor (x10-139, deep west) — post-DASH route to VIOLET CORN
     [10, 64, 130, 6, 0],
     [108, 60, 3, 4, 0],
@@ -115,6 +118,8 @@ const MEADOW = {
     [566, 41, 5, 1, 2], [562, 37, 6, 1, 2],        // continue up — chest 6 on the 562 ledge
     [568, 33, 8, 1],                               // solid summit landing (seeds E4 GREEN CORN)
     [572, 52, 5, 1, 2],                            // ground bounce side ledge — chest 7 (bounce + DJ)
+    // ---- EAST END-CAP (x579-595) — was barren NE corner past GREEN: stepped platforms + mushroom + foes ----
+    [580, 56, 6, 1, 2], [588, 53, 5, 1, 2], [582, 50, 4, 1, 2],   // stepped shelves climbing into the corner
   ],
 
   bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex
@@ -163,6 +168,8 @@ const MEADOW = {
     [532, 55, 2], [545, 58, 2],                                  // EAST SHELF — blob guarding chest, blob by the gap
     [560, 44, 4], [578, 58, 2], [566, 30, 3],                    // EAST ASCENT — runner on climb, blob on ground, caster on GREEN summit
     [350, 56, 4], [393, 50, 1], [444, 57, 2],                    // EAST RUN fill — runner on x345 walkway, crawler on stack rung, chase-blob at tower base (ORANGE escort)
+    [9, 56, 1], [22, 59, 2], [40, 52, 4], [32, 55, 5],           // WEST BASEMENT — crawler on low shelf, blob on floor, runner high, hopper mid
+    [585, 55, 5], [583, 49, 3],                                  // EAST END-CAP — hopper on low platform, caster guarding the upper corner ledge
   ],
   DECO: [],   // SPIKE: hand-placed removed — all decoration now via scatter()
 };
@@ -195,7 +202,7 @@ const scatter = () => {
       const v = grid[y * W + x];
       if ((v !== 1 && v !== 2) || grid[(y - 1) * W + x] !== 0) continue;    // exposed floor tops: solid ground AND one-way platform rungs
       if (run[y] > 0) { run[y]--; d.push([x, y - 1, 1]); }                                        // grass run continuation
-      else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, (x >> 4) % 2 ? 5 : 0]); tc[y] = x + 7; sh[y] = 3; }   // tree anchor — SOLID only; opens a 3-slot shade zone
+      else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, 0]); tc[y] = x + 7; sh[y] = 3; }   // tree anchor — SOLID only; round TREE (dt0), opens a 3-slot shade zone (pine removed)
       else if (rnd() < .64) {
         let t = Q[(qc[y] = (qc[y] || 0) + 1) % 8];               // stratified: rotate the quota table (jittered by the .55 gate)
         if (sh[y] > 0 && t === 6) t = 3;                         // CANOPY: flower slot under shade → mushroom
@@ -217,6 +224,20 @@ for (const [fx, fy] of [...seeds.foes, ...seeds.bosses]) {
   if (grid[r * W + fx] === 2)                                          // only grow floating (v=2) ledges; solid arenas already roomy
     for (let c = fx - n; c <= fx + n; c++)
       if (grid[r * W + c] === 0 && grid[(r + 1) * W + c] !== 3) grid[r * W + c] = 2;   // air only; never over spikes
+}
+// SKY LADDERS — procedural aerial platforms: drop-through one-way ledges stacked in DJ range
+// (rise 4/tier) over the OPEN FLAT ZONES, filling empty sky with varying-length jump routes.
+// Deterministic (shared LCG), ZERO MAP data — one loop generates dozens of ledges. Only over
+// near-ground surface (flat, open sky above); drop-through = always returnable (RETURN LAW safe);
+// single-row clear-check avoids overlapping crafted terrain; map-audit gates any chest/boss it blocks.
+for (let x = 135; x < W - 10; x += 7) {
+  let s = 62; for (let y = 46; y < 62; y++) if (grid[y * W + x] === 1) { s = y; break; }
+  if (s < 57 || s > 60 || rnd() < .4) continue;
+  for (let t = 1 + (rnd() * 4 | 0); t--;) {
+    const y = s - 4 - t * 4, w = [4, 6, 8, 12][rnd() * 4 | 0], px = x - (w >> 1);
+    let ok = y > 19; for (let c = px; c < px + w; c++) if (grid[y * W + c]) ok = 0;
+    if (ok) box(px, y, w, 1, 2);
+  }
 }
 export const DECO = scatter();
 // BOUNCE pads snapped to their solid landing row: [col, solidRow]. Player stands at solidRow-1.

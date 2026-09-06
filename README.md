@@ -16,8 +16,8 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 - **Every level:** +3 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point
 - **Skill tree:** prerequisite-based tree, 10 single-rank action skills — all player-chosen
 - **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn AND gives a stat bonus (its slot's stat, scaling with level; higher-level gear can carry a second sub-stat)
-- **Level 15 cap** — all stat gains come from level-up points, no hidden cap bonus
-- **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
+- **Level 20 cap** — all stat gains come from level-up points, no hidden cap bonus
+- **XP curve:** quadratic (`L*L + 40`) — steady pace (~5 kills/level early), later levels earned
 - **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Allocation lives inside the ONE character menu (open via ☰ or P) — there is no separate level-up screen. The header is always `LV n` (cyan) + your name (gold); a **`+N`** shows centered under the unicorn for unspent stat points and above the skill tree for unspent skill points. **One cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Close with ☰ or P. With no points it's simply a read-only character sheet. **On touch, the left joystick moves that cursor and the JUMP button confirms** — the same stick-and-button you play with, so the menu never forces precise cell-tapping.
 
 ## Equipment
@@ -29,7 +29,7 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 - **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
 
 ## Combat
-`damage = STR × (crit ? 2 : 1)` (STR = the `ho` stat, gear folded in)
+Damage splits by attack type: **physical (DASH/STOMP) = STR**, **magic (SHOOT) = MAG** — both `× (crit ? 2 : 1)`, gear folded in. (MAG also sets max MP, so it's a real caster stat.)
 - Crit chance: **12% + LUCK × 3%** — the same percentage also drives the loot-drop roll (one LUCK number, two effects)
 - Defense: `max(incoming/4, incoming - DEF)` — bosses always deal ≥25%
 - 6 enemy kinds built from one capability-bit system (no elites). All enemies are the same size.
@@ -56,8 +56,8 @@ Drops fall to the ground (landing on solid ground OR one-way platforms) and **st
 Prerequisite-based tree, 10 action skills across 4 visual rows. Unlocking a node opens its connected downstream nodes:
 - **Row 1** (always available): SHOT, HEAL, DASH
 - **Row 2**: DBL JUMP, LONG DASH
-- **Row 3**: TRI JUMP
-- **Row 4** (endgame capstones): SUPER HEAL, FAR SHOT, DBL SHOT, TRI SHOT
+- **Row 3**: FAR SHOT, TRI JUMP, DBL SHOT
+- **Row 4** (endgame capstones): SUPER HEAL, TRI SHOT
 
 All skills are action abilities (ranged, healing, movement, or projectile upgrades). No stat-modifier skills. Picked nodes go gold; unpicked read a uniform muted gray. Diagonal connection lines show which nodes unlock which. Skills are spent in the character menu (open via the glowing ☰ or P) with the same left/right cursor as stats — one unified allocation flow, no separate skill-buying mode.
 

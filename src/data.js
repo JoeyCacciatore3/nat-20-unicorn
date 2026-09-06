@@ -26,8 +26,8 @@ export const mane3 = i => [PAL[i], dim(PAL[i], .85), dim(PAL[i], .7)];
 export const SLOT_STAT = [1, 2, 0, 3];                // slot→stat index: HP, MAG, STR, DEF
 export const SLOT_LBL = ['BODY', 'MANE', 'HORN', 'HOOVES'];
 // Stat colors — used by menu bars/labels AND by equipment strokes (menu box + inv slot + world drop)
-// so gear identity is visible at pickup: red=HP, blue=MAG, gold=STR, light-blue=DEF, green=LUCK.
-export const SC = ['#ffd75e', '#ff5d6c', '#4a76ff', '#9fe89a', '#c47fe0'];   // STR gold · HP red · MAG blue · DEF green · LUCK violet (reuses VIOLET boss color)
+// so gear identity is visible at pickup: STR red · HP green · MAG blue · DEF violet · LUCK orange.
+export const SC = ['#ff5d6c', '#6cf279', '#4a76ff', '#c47fe0', '#ff9d3c'];   // STR red (attack=damage) · HP green (=HP bar/heal/potion) · MAG blue (=MP bar) · DEF violet (PAL[7]) · LUCK orange (PAL[3]) — one colour per meaning, zero stat/HUD clashes
 
 // FOECOL — k1..k6 body colors. Sky #6bc5ff + grass #5ac878 are RESERVED for the
 // background (PICO-8 fg/bg separation): foes use saturated warms + darker cools.
@@ -44,32 +44,33 @@ export const RBC = [4, 3, 2, 8, 7, 15, 16];
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
 // Sky backdrop colour.
 // ZONE BANDS — [xEndTile, dirt, top, foliage, accent, sky]. Row = first with pl.x < xEnd*16;
-// pl.y > 63*16 overrides to the last row (UNDERGROUND — depths/caverns/RED lair). One lookup
-// rethemes terrain, top strips, trees, pines, rocks, tufts AND sky (all read the destructure).
-// 7 ZONES = 7 DARKCORN. Surface: 5 boss territories by x. Underground: 2 boss layers by depth
-// (shallow y>63 = VIOLET's depths — RED's lair opens into this layer; deep y>74 = INDIGO's cavern).
+// pl.y > 63*16 overrides to the last row (UNDERGROUND — all depths/caverns/RED lair, ONE theme). One
+// lookup rethemes terrain, top strips, trees, rocks, tufts AND sky (all read the destructure).
+// 6 ZONES: 5 surface boss territories by x + 1 unified underground theme for every below-surface zone.
 export const ZB = [
   [40,  '#4a3a26', '#8a9a9a', '#3a8a52', '#8a9a9a', '#4a9ad8'],   // PEAK (BLUE) — bare stone tops, storm sky (all reused literals)
   [112, '#4a3a26', '#3a8a52', '#3a8a52', '#8a9a9a', '#5ab5ef'],   // CANOPY (YELLOW) — cool highland green
   [280, '#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888', '#6bc5ff'],   // MEADOW (RED) — original identity
   [476, '#6a4a22', '#8a9a32', '#8a9a32', '#9a8a62', '#7ecfe8'],   // EAST RUN (ORANGE) — dry gold savanna
   [601, '#52341e', '#3a7a5e', '#3a7a5e', '#7a8a92', '#4a9ad8'],   // SUMMIT (GREEN) — deep teal, storm sky
-  [601, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // DEPTHS (VIOLET) — violet corridor, near-black
-  [601, '#221c2e', '#8a5aca', '#8a5aca', '#6a4a8a', '#1a1626'],   // CAVERN (INDIGO) — deepest: luminous violet floor (1 new literal)
+  [601, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // UNDERGROUND (all depths + caverns) — ONE unified violet theme for every below-surface zone
 ];
 // Ground palette [dirt, surface-top, foliage, accent]: dirt/top theme solid+platform tiles;
 // foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone
 // (rock base derived darker via dim(accent), so one stored color = two-tone boulder).
 
 // SKILL TREE — prerequisite-based: LINK pairs [parent,child] gate unlock (see main.js canBuy).
-// 12 nodes, 4 visual rows. Indices are stable — su[N] semantics fixed.
+// 10 nodes, 4 visual rows. Indices are stable — su[N] semantics fixed. Nodes render as ICONS
+// (iShot/iHeal/iJump/iDash), NOT names, so TREE only needs its LENGTH — the strings are 1-char
+// placeholders (tpos-check counts quoted entries to gate TPOS.length; content is irrelevant).
 // 0 SHOT · 1 FAR SHOT · 2 HEAL · 3 SUPER HEAL · 4 DBL JUMP · 5 TRI JUMP
 // 6 DASH · 7 LONG DASH · 8 DBL SHOT · 9 TRI SHOT
-export const TREE = ['SHOT','FAR SHOT','HEAL','SUPER HEAL','DBL JUMP','TRI JUMP','DASH','LONG DASH','DBL SHOT','TRI SHOT'];
-// Row positions: Row1 y=48 (3), Row2 y=94 (4), Row3 y=140 (3), Row4 y=186 (2). Alternating centering:
-// odd rows use canonical columns 263/325/387; even rows offset to 232/294/356/418 (subset).
+export const TREE = ['a','b','c','d','e','f','g','h','i','j'];
+// Row positions: Row1 y=48 (3), Row2 y=94 (2), Row3 y=140 (3), Row4 y=186 (2). 3-2-3-2 grid:
+// rows 1&3 share columns 263/325/387; rows 2&4 share 294/356. Final tier (row4) = SUPER HEAL(3) +
+// TRI SHOT(9); FAR SHOT(1) sits row3-left. Visual alignment over strict tier order.
 // Layout changes move POSITIONS only — indices match TREE order.
-export const TPOS = [[263,48],[356,186],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[201,94],[232,140]];
+export const TPOS = [[263,48],[263,140],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[387,140],[356,186]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base. Cork = 4×3 opaque tan fillRect (extends 2px above bitmap, covers r0).
