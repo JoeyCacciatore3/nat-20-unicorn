@@ -899,7 +899,7 @@ const step = (dt) => {
   for (const d of drops) {
     d.life += dt;   // age (float/bob only) — NO despawn: drops leave the world only on player death, exactly like foes
     d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
-    if (d.vy > 0 && tile(d.x / T | 0, (d.y + 3) / T | 0) % 3) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ground OR one-way platform (%3 standable — matches enemy/player)
+    if (d.vy > 0 && tile(d.x / T | 0, (d.y + 3) / T | 0)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ANY non-air tile — solid, platform, AND spike (drops physically settle on spikes like any surface; unlike player/enemy who use %3 to skip spikes because spikes damage them)
     // GRACE PERIOD: drop must be visible for ≥0.35s before pickup — matches the fast fade-in (below in draw loop) so you always SEE the drop before it vanishes into inventory. Fixes the stomp-kill case where drop spawned inside pickup radius and disappeared before rendering.
     if (d.life > .35 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
       if (d.t === 9) {                                          // RAINBOW — progression pickup: always collected. Bank the boss (bs→2), pause, burst, autosave.
