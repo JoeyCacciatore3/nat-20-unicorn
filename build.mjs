@@ -38,7 +38,7 @@ console.log('3/6 pack (roadroller)…');
 // -D (dirty decoder) is safe: canvas id is 2 chars (cv), no single-letter DOM globals.
 // Single viewport meta with viewport-fit=cover (the second one superseded the first — measured: removing the
 // duplicate saves 5 B post-zip). -webkit-user-select dropped (user-select alone covers all 2020+ browsers).
-const SHELL = '<title>UNICORN</title>'
+const SHELL = '<title>HOOVES OF HOPE</title>'
   + '<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">'
   + '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden;-webkit-tap-highlight-color:transparent;user-select:none}canvas{width:100%;height:100%;display:block;touch-action:none}</style>'
   + '<canvas id=cv></canvas>';

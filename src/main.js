@@ -1,4 +1,4 @@
-// UNICORN, Hooves of Hope — 2D pixel-art platformer. Canvas 2D, no WebGL.
+// HOOVES OF HOPE — 2D pixel-art platformer. Canvas 2D, no WebGL.
 //
 // Design pillars (see OneStone project "uni-corn" for full history + rationale):
 //   - Stat allocation (STR/HP/MAG/DEF/LUCK), no classes
@@ -188,9 +188,9 @@ addEventListener('pointerdown', (e) => {
   if (started) {
     // Character menu = tap the top-left info panel (name/HP/MP/XP). Toggles open; ✕ button (top-right) closes.
     if (hit(0, 0, 90, 44)) { paused ^= 1; if (paused) setRow(0); return; }
-    if (hit(VW - 60, 0, 18, 20)) { if (paused) paused = 0; else { save(); savePop = 1; } return; }   // ✕ BACK — menu: close · gameplay: save + exit popup
-    if (hit(VW - 42, 0, 20, 20)) { mute ^= 2; return; }   // speaker = pure runtime audio toggle (NOT saved)
-    if (hit(VW - 22, 0, 22, 20)) { helpOn = 1; return; }
+    if (hit(VW - 60, 0, 18, 20)) { mute ^= 2; return; }   // 🔊 Speaker — leftmost of the top-right cluster (pure runtime audio toggle, NOT saved)
+    if (hit(VW - 42, 0, 20, 20)) { helpOn = 1; return; }   // ? HELP — middle
+    if (hit(VW - 22, 0, 22, 20)) { if (paused) paused = 0; else { save(); savePop = 1; } return; }   // ✕ BACK — corner (traditional close position) — menu: close · gameplay: save + exit popup
     // POTIONS (bottom-center): tap HP box → quaff(0), MP box → quaff(1). Padded 3px for thumbs.
     if (hit(QHX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
     if (hit(QMX - 3, QSY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
@@ -200,9 +200,9 @@ addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch' && Math.hypot(vx - JHX, vy - JHY) < JR + 8) { grabJoy(vx, vy, e.pointerId); return; }
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
       // ACTION / DROP buttons — overlap the grid (y=250-264 inside grid y=184-268), checked first.
-      // Right box = EQUIP/UNEQUIP via spend() (dispatches by cursor region). Left box = DROP (bag only).
-      if (((invSel >= 0 && inv[invSel]) || (aRow >= EB() && eq[aRow - EB()])) && hit(110, 250, 50, 15)) { spend(); return; }
-      if (invSel >= 0 && inv[invSel] && hit(50, 250, 50, 15)) { inv.splice(invSel, 1); return; }
+      // LEFT box = EQUIP/UNEQUIP via spend() (dispatches by cursor region). Right box = DROP (bag only). Left placement puts primary action nearest the joystick thumb.
+      if (((invSel >= 0 && inv[invSel]) || (aRow >= EB() && eq[aRow - EB()])) && hit(50, 250, 50, 15)) { spend(); return; }
+      if (invSel >= 0 && inv[invSel] && hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
       // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts. One action path, no redundant tap-again.
       for (const [s, ex, ey] of [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]]) if (hit(ex, ey, 24, 24)) { const r = EB() + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
       // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP)
@@ -320,7 +320,7 @@ const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
 // Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band. Shared: HUD rainbow icon, ground rainbow pickup, title arc, particle burst. Caller sets lineWidth.
 const rArc = (cx, cy, r, step) => { for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(cx, cy, r - i * step, Math.PI, 0); ctx.stroke(); } };
-// Per-character rainbow title text (bold 30px, black outline, even spacing) centered on VW/2 at baseline y. Shared: LEVEL UP banner + title 'UNICORN'. Caller owns globalAlpha.
+// Per-character rainbow title text (bold 30px, black outline, even spacing) centered on VW/2 at baseline y. Shared: LEVEL UP banner + title 'HOOVES OF HOPE'. Caller owns globalAlpha.
 const rText = (s, y, f) => {
   ctx.font = 'bold ' + (f || 30) + 'px monospace'; ctx.textAlign = 'left'; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
   const w = ctx.measureText(s).width, ch = w / s.length;
@@ -391,7 +391,7 @@ let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via the prerequisite tree (LINK)
-let hs = 0, shk = 0, hf = 0;                      // combat feel: hitstop freeze + screen shake (seconds) + hf = hurt-flash timer (unicorn flashes red)
+let hs = 0, shk = 0, hf = 0, hfc = 4;             // combat feel: hitstop freeze + screen shake (seconds) + hf = INVULN-flash timer + hfc = flash PAL index (4=red hurt · 15=green heal). Dash uses SILENT pl.inv (its movement is the visual). hf>0 OR pl.inv>0 = invulnerable to all damage.
 // Boss state: 0=unvisited, 1=on screen OR defeated-uncollected, 2=rainbow collected, {hp,rc}=leash stash
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 
@@ -408,10 +408,9 @@ const gainXp = (n, x, y) => {
     xp -= need(); lvl++; pending += 3; if (lvl < TREE.length + 2) spts++;    // +3 stat pts every level; skill pts capped at TREE.length (one per node) — dynamic so adding tree nodes auto-extends the cap
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save — the ONE auto-save: leveling is the milestone players must not lose
     luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font)
+    if (deathT <= 0) { paused = 1; setRow(0); }   // AUTO-PAUSE into character menu on level-up — force allocation each level; banner still renders over menu
   }
   if (lvl >= CAP) xp = 0;
-  // NO auto-pause: leveling never freezes play. The top-left info panel glows (see HUD) to
-  // signal pending points; tapping it opens the allocation screen deliberately.
 };
 // STATS — [name, applyFn]. Colors live inline in the SL render array (below).
 const STATS = [
@@ -425,7 +424,8 @@ const STATS = [
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE.length).fill(0);
 // LINK encodes the prerequisite tree: pairs [parent, child]. A node is buyable when any parent is owned (roots always available).
-const LINK = [0,4, 2,4, 2,7, 6,7, 4,5, 7,5, 5,3, 5,1, 0,8, 8,9];
+// 7 links, all same-family: SHOT→DBLS→TRIS→FAR · HEAL→SHEAL · DASH→LDASH→DBLJ→TRIJ. Clean order of ops, one chain per family.
+const LINK = [0,8, 8,9, 9,1, 2,3, 6,7, 7,4, 4,5];
 const canBuy = i => { let r = 1; for (let k = 1; k < LINK.length; k += 2) if (LINK[k] === i) { if (su[LINK[k-1]]) return 1; r = 0; } return r; };
 let aRow = 0;
 const EB = () => 5 + BAG + TREE.length;                  // equip-region base: worn slots (0-3) appended AFTER skills so stats/inv/skills keep their row numbers
@@ -500,7 +500,7 @@ const openChest = (i) => {
   oc |= 1 << i;
   const c = chests[i];
   spawnDrop(c.x, c.y, 2);                                     // items only — heals come from potions / HEAL spell / level-up (rest feature removed)
-  sfx(660, 990, .15, 'triangle', .12);   // no chest burst — the emerging item IS the visual (operator 09-04: particles = jump/death only)
+  fanfare();   // chest = same "positive milestone" cue as level-up + crit — one shared reward sound reduces audio noise. No burst (emerging item IS the visual).
 };
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
@@ -550,7 +550,7 @@ const mkFoe = (x, y, k) => {
   const zh = fh * tr / 2 | 0;
   return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd * tr / 2 | 0, fl: 0, t: Math.random() * 7, cz: 3 };
 };
-const seedFoes = () => seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));   // reseed helper — single source for init/load/fresh/respawn
+const seedFoes = () => [...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(x * T, y * T, k));   // reseed helper — single source for init/load/fresh/respawn (foesX = decorative fill, held out of world.js ledge-grow to keep sky-ladder RNG stable)
 let foes = seedFoes();
 
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
@@ -662,20 +662,20 @@ function dash() {                                               // THE attack ve
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
   if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
-  dashCd = .45; mn -= 3; sfx(600, 200, .12, 'sawtooth', .12); fly(AFX, AFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost at the universal action-feedback spot
+  dashCd = .45; mn -= 3; pl.inv = .4; sfx(600, 200, .12, 'sawtooth', .12); fly(AFX, AFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost + 0.4s SILENT i-frame (pl.inv, no colour flash) — dash burst IS the visual, no need for a body tint on top. Chain-safe: dashCd=.45 > .4 inv. Blocks physical + projectiles via hurt()'s pl.inv guard.
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +3 HP base (+6 with SUPER HEAL)
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
-  sfx(520, 1040, .25, 'triangle', .12); fly(AFX, AFY, '-3', '#4a76ff', 0, 0, 1);   // HEAL: MP cost (blue) — the action-feedback popup is ALWAYS the MP spend, nothing else (HP gained shows on the bar)
-  pl.inv = .5;   // HEAL grants a brief i-frame buff (same non-flashing invuln channel as stomp/respawn; hurt() gates on pl.inv) — no particle
+  sfx(520, 1040, .25, 'triangle', .12); fly(AFX, AFY, '-3', '#4a76ff', 0, 0, 1); fly(pl.x + PW / 2, pl.y - 8, '+' + hm, '#6cf279');   // HEAL: MP cost popup at AFX/AFY + green +N popup above head so heal amount is visible in-world (mirrors damage numbers)
+  hf = .8; hfc = 15;   // HEAL grants 0.8s i-frame + green PAL[15] flash — same unified invuln window as hurt/dash; green = heal, red = hurt, blue = dash
 }
 
 const hurt = (n, safe) => {
-  if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while flashing red (hf) OR in a stomp/respawn window (pl.inv)
+  if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while ANY flash active (hf → red/green/blue) OR stomp/respawn window (pl.inv). Single guard blocks physical AND projectiles.
   n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp -= n; shk = Math.max(shk, .22); hs = .04; hf = .8;   // hf = ONE timer: red flash AND hurt-invuln, same 0.8s window — red = invincible. (stomp/respawn use pl.inv, no red)
+  hp -= n; shk = Math.max(shk, .22); hs = .04; hf = .8; hfc = 4;   // hf = unified invuln timer; hfc=4 = red PAL[4]. Damage · heal · dash all share this channel — one flash = one meaning ("I'm invincible right now").
   sfx(140, 55, .25, 'sawtooth', .12);
 
   if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 7, 1); return; }   // player death — skulls burst from the fallen unicorn
@@ -883,8 +883,8 @@ const step = (dt) => {
       // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center. pl.air=0 keeps DJ for chained stomps.
       pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
       pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; sfx(150, 70, .06, 'square', .07);
-      pl.inv = Math.max(pl.inv, .12);   // brief i-frame so the stomp-launch vx isn't read as a same-frame hit vs adjacent foes
-    } else if (hit && dashT <= 0) hurt(f.dm, 0);   // touch = immediate damage (dash grants i-frames)
+      pl.inv = Math.max(pl.inv, .2);   // post-stomp silent i-frame — 0.2s (mid-tune between original 0.12s and 0.3s): enough to clear one adjacent foe from the stomp-launch vx without granting a full face-tank window
+    } else if (hit) hurt(f.dm, 0);   // touch = immediate damage; dash i-frame gate lives in hurt() now (hf-guard blocks physical + projectiles uniformly)
   }
   prune(foes, e => e.dead);   // frame-end prune — foes refill only on death (soft reset), never mid-run
 
@@ -937,7 +937,7 @@ const draw = () => {
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds. Visual detail lives in the ground layer.
-  const ZC = !phase ? ZB[2] : pl.y > 1008 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow sky; ALL underground (y>1008) shares ONE theme (ZB[5]); surface = x-bands
+  const ZC = !phase ? ZB[2] : pl.y > 1136 ? ZB[6] : pl.y > 1008 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by depth: y>1136 (=72*16, cavern chamber top) = INDIGO ZB[6], y>1008 = VIOLET ZB[5]; surface = x-bands
   ctx.fillStyle = ZC[5]; ctx.fillRect(0, 0, VW, VH);                        // banded sky
   // CLOUDS — procedural puffs spanning the whole map (parallax .15), culled off-screen.
   // Primes in bitwise ops give deterministic pseudo-random spread. y ≥ 50 clears HUD.
@@ -1030,68 +1030,66 @@ const draw = () => {
   // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds. One draw path,
   // boss silhouette scaled up. cz = boss cell multiplier (kind determines base size).
   for (const f of foes) {
-    const s = f.cz, fs = 5 * s, wob = Math.sin(f.t * .75) * 1.5, sh = FT[f.k][4];   // sh = body shape from the type table (index 4 after size column removed)
-    const step = Math.sin(f.t) * s * .35;                   // leg-step animation, shared
+    // "Watching Family" v3 (2026-09-06) — TWO body families (walkers + floaters), each enemy ONE distinguishing feature (Kirby rule).
+    // Kept from v2: universal round white eye + tracking pupil (species signature) + 1px black outline (figure/ground pop on any background) + FOECOL as PAL indices.
+    // Changed from v2: walkers get a separate HEAD block (eye rides the head, gap between body/head/legs = negative space, per Slynyrd rule). Floaters got their arm attachments removed (arms violated Kirby "one attachment" rule and cluttered silhouettes). k2 tendrils use v1 variable-height math for organic sway.
+    const s = f.cz, fs = 5 * s, wob = Math.sin(f.t * .75) * 1.5, step = Math.sin(f.t) * s * .35;
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
-    if (f.k == 5) ctx.scale(f.gr ? 1.12 : .86, f.gr ? .85 : 1.18);  // HOPPER squash (ground) & stretch (air) — pivot at feet
+    if (f.k == 5) ctx.scale(f.gr ? 1.12 : .86, f.gr ? .85 : 1.18);  // k5 walker-hop squash/stretch — pivot at feet
     ctx.translate(-fs / 2, -fs);
-    // colour: kind tint only (boss=charcoal). Enemies NEVER flash — only the player unicorn flashes (red, when hurt). f.fl remains as a gameplay timer (dash/stomp re-hit gate), just unrendered.
-    ctx.fillStyle = f.bit ? '#2a2a33' : FOECOL[f.k];
-    if (f.bit) {                                                // DARKCORN — renders via drawU (canonical unicorn) with a temporary col swap.
-      // Body/hooves: PAL[13] dark. Horn+mane: PAL[RBC[bi]] identity band (per-boss rainbow colour). No enrage/phase state.
+    if (f.bit) {                                                // DARKCORN — unchanged (renders via drawU with colour swap)
       const bd = 13, hn = RBC[f.bi];
-      ctx.scale(fs / 14, fs / 14);                              // scale drawU 14-bbox → fs
+      ctx.scale(fs / 14, fs / 14);
       const bc = col; col = [bd, hn, hn, bd]; drawU(Math.sin(f.t) * 3); col = bc;
-    } else if (sh === 1) {                                      // CRAWLER shape family — k1 CRAWLER (upright), k4 RUNNER (low-slung variant), k5 HOPPER (squash/stretch via pre-scale)
-      ctx.fillRect(s * .2, fs - s + step, s * .6, s);            // legs step
-      ctx.fillRect(s * 1.6, fs - s - step * .7, s * .6, s);
-      ctx.fillRect(fs - s * 2.2, fs - s + step * .7, s * .6, s);
-      ctx.fillRect(fs - s * .8, fs - s - step, s * .6, s);
-      const rn = f.k == 4, ey = rn ? s * .8 : 0;                 // RUNNER: low-slung body, eye rides lower
-      ctx.fillRect(0, s * (rn ? 1.8 : 1) + wob * .4, fs, s * (rn ? 1.7 : 2.5));  // body
-      if (rn) {                                                  // swept-back speed antennae (trail behind)
-        ctx.fillRect(-s * .6, s * 1.9 + wob * .4, s * 1.3, s * .3);
-        ctx.fillRect(-s * .3, s * 2.4 + wob * .4, s * 1.1, s * .3);
-      } else {
-        ctx.fillRect(s * .8, wob * .4, s * .3, s * 1.2);         // antennae
-        ctx.fillRect(fs - s * 1.1, wob * .4, s * .3, s * 1.2);
-      }
-      ctx.fillStyle = '#fff';                                    // eye
-      ctx.fillRect(fs - s * 1.7, s * 1.6 + ey, s * .7, s * .7);
-      ctx.fillStyle = '#000';                                    // pupil tracks the player (in local space +x = facing)
-      ctx.fillRect(fs - s * 1.4 + Math.sign(pl.x - f.x) * ((f.vx || 1) < 0 ? -1 : 1) * s * .12, s * 1.8 + ey, s * .3, s * .3);
-    } else if (sh === 2) {                                      // JELLY shape — dome + 3 dangling tendrils (k2 BLOB, k6 PUFF)
+    } else {
+      const bod = PAL[FOECOL[f.k]];
+      const pd = Math.sign(pl.x - f.x) * ((f.vx || 1) < 0 ? -1 : 1);   // pupil offset (accounts for local flip)
+      const oR = (x, y, w, h) => { ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = bod; ctx.fillRect(x, y, w, h); };
+      const eye = (cx, cy) => { ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(cx - 2, cy - 1, 4, 2); ctx.fillRect(cx - 1, cy - 2, 2, 4); ctx.fillStyle = '#000'; ctx.fillRect(cx - 1 + pd, cy - 1, 2, 2); };
       const flt = wob * 1.5;
-      if (f.k == 6) for (let i = 0; i < 4; i++)                  // PUFF: spiked dome (no tendrils) — reads "don't touch"
-        ctx.fillRect(s * (.6 + i * 1.1), flt - s * .2, s * .3, s * .8);
-      else for (let i = 0; i < 3; i++) {                         // tendrils sway (BLOB)
-        const tx = s * (.5 + i * 1.5);
-        ctx.fillRect(tx, s * 2 + flt, s * .5, s * 2 + Math.sin(f.t * .5 + i) * s * .5);
+      if (f.k == 1) {                                           // k1 walker-small — small body + separate head with eye + 4 stubby legs
+        oR(s * .5, fs - s * .9 + step, s * .5, s * .9); oR(s * 1.6, fs - s * .9 - step * .7, s * .5, s * .9);
+        oR(fs - s * 2.1, fs - s * .9 + step * .7, s * .5, s * .9); oR(fs - s, fs - s * .9 - step, s * .5, s * .9);
+        oR(s * .6, s * 1.9 + wob * .3, fs - s * 1.2, s * 1.6); // body (narrower — negative space at sides)
+        oR(s * 1.2 + wob * .2, wob * .3, s * 2.6, s * 1.4);    // head (separate, gap above body carries the eye)
+        eye(s * 2.5 + wob * .2, s * .7 + wob * .3);
+      } else if (f.k == 4) {                                    // k4 walker-fast — low elongated body + forward head + 2 legs + swept speed lines
+        oR(0, s * 2.5, fs * .75, s * 1.3);                     // long low body (leaves room for head to lean forward)
+        oR(fs * .65, s * 2.2, s * 1.7, s * 1.6);               // head (larger, forward — carries eye + leans)
+        oR(s * .3, fs - s * .8 + step, s * .5, s * .8); oR(s * 1.5, fs - s * .8 - step, s * .5, s * .8);   // 2 legs
+        oR(-s * .8, s * 2.7, s * .8, s * .3); oR(-s * .5, s * 3.3, s * .7, s * .3);   // 2 swept speed lines (behind, into the run)
+        eye(fs * .85, s * 2.8);
+      } else if (f.k == 5) {                                    // k5 walker-hop — tall body + 2 CHUNKY legs (squash/stretch preserved)
+        oR(s * .7, fs - s * 1.3, s * 1.3, s * 1.3);            // chunky left leg
+        oR(fs - s * 2, fs - s * 1.3, s * 1.3, s * 1.3);        // chunky right leg
+        oR(s * .5, s * .5 + wob * .3, fs - s, s * 3.2);        // tall body (narrower than v2)
+        eye(fs / 2, s * 2 + wob * .3);
+      } else if (f.k == 2) {                                    // k2 floater-tent — orb-ish dome + 3 v1-style variable-height tendrils (wavy)
+        for (let i = 0; i < 3; i++) {                          // v1 tendril formula: fixed base, height oscillates per-tendril → wave illusion
+          const tx = s * (.5 + i * 1.5);
+          oR(tx, s * 2.1 + flt, s * .5, s * 2 + Math.sin(f.t * 2 + i * .8) * s * .5);
+        }
+        oR(s * .4, s * .7 + flt, fs - s * .8, s * 1.5);        // dome body (compact — no arms clutter)
+        eye(fs / 2, s * 1.3 + flt);
+      } else if (f.k == 6) {                                    // k6 floater-spike — dome + 4 upright spikes on top (no arms)
+        for (let i = 0; i < 4; i++) oR(s * (.6 + i * 1.1), flt - s * .3, s * .4, s * .9);   // 4 upright spikes — 2px wide (readable, not spindly)
+        oR(s * .3, s * .8 + flt, fs - s * .6, s * 2);          // dome body
+        eye(fs / 2, s * 1.6 + flt);
+      } else {                                                  // k3 caster — hood peak + robe body + universal eye in hood shadow (no sleeve arms)
+        oR(s * .3, s * 2.6, fs - s * .6, s * 1.4);             // lower robe (wider = shoulder line)
+        oR(s * .5, s * 1.4, fs - s, s * 1.4);                  // upper robe (narrower)
+        oR(s * 1.1, wob * .3, fs - s * 2.2, s * 1.4);          // hood peak (pointed silhouette)
+        eye(fs / 2, s * 1.7 + wob * .3);                       // eye peers from hood shadow — universal round eye
       }
-      ctx.fillRect(s * .3, s * .4 + flt, fs - s * .6, s * 2);    // body dome
-      ctx.fillRect(0, s + flt, s * .3, s * 1.4);
-      ctx.fillRect(fs - s * .3, s + flt, s * .3, s * 1.4);
-      ctx.fillStyle = '#fff';                                    // paired eyes
-      ctx.fillRect(s, s + flt, s * .6, s * .6);
-      ctx.fillRect(fs - s * 1.6, s + flt, s * .6, s * .6);
-    } else {                                                    // CASTER shape — hooded robe + glowing rune-eye (k3 CASTER)
-      ctx.fillRect(s * .2, s * 1.5, fs - s * .4, s * 2.7);       // robe
-      ctx.fillRect(0, s * 2, s * .4, s * 1.5);                   // shoulders
-      ctx.fillRect(fs - s * .4, s * 2, s * .4, s * 1.5);
-      ctx.fillRect(s * 1.2, wob * .3, fs - s * 2.4, s * 1.4);    // hood top
-      ctx.fillRect(s * .8, wob * .3 + s * .6, fs - s * 1.6, s * 1); // hood brim
-      ctx.fillStyle = '#ffd75e';                                 // rune eye
-      ctx.fillRect(fs / 2 - s * .3, s * .9 + wob * .3, s * .6, s * .35);
-    }
-    if (!f.bit && f.rc !== undefined && f.rc < .5) {            // charge orb tell — ANY ranged foe, any shape
-      const p = (.5 - f.rc) * 2;
-      ctx.fillStyle = '#c47fe0';
-      ctx.fillRect(fs - s * .5, s * 2.5, s * (.8 + p * .6), s * (.8 + p * .6));
+      if (f.rc !== undefined && f.rc < .5) {                    // charge-orb tell — ranged foes only, unchanged
+        const p = (.5 - f.rc) * 2;
+        ctx.fillStyle = '#c47fe0'; ctx.fillRect(fs - s * .5, s * 2.5, s * (.8 + p * .6), s * (.8 + p * .6));
+      }
     }
     ctx.restore();
-    if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');   // shared HP bar (all foes + bosses) — SAME heal-green as the player HP bar (health = green everywhere)
+    if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');
   }
   for (const s of shots) { ctx.lineWidth = .7; rArc(s.x, s.y, 3.5, .5); }   // magic bolt = rainbow arc projectile
   for (const b of fbolts) skull(b.x, b.y, .7, 1);               // foe bolt = flying skull — mirrors player's rainbow bolt
@@ -1107,10 +1105,10 @@ const draw = () => {
     ctx.restore();
   }
 
-  // unicorn — always visible. Only player flash is red-on-hurt (hf). No i-frame blink (it read as a stray white flash); i-frames still gate hurt via pl.inv.
+  // unicorn — always visible. Player flash (hf) is the ONE invuln signal: red=hurt · green=heal · blue=dash. Colour = hfc PAL index. Any active flash = immune to all damage (physical + projectile).
   ctx.save();
   ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
-  const bkc = col; if (hf > 0) col = [4, 4, 4, 4];   // hurt flash — whole unicorn red (PAL[4] = damage-red). The one and only player flash.
+  const bkc = col; if (hf > 0) col = [hfc, hfc, hfc, hfc];   // invuln flash — whole unicorn tinted to PAL[hfc]: 4=red hurt · 15=green heal · 8=blue dash.
   drawU(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
   col = bkc;
   ctx.restore();
@@ -1144,14 +1142,7 @@ const draw = () => {
 
   // ---------- HUD (gameplay-only overlays: victory banner, level-up banner, death vignette) ----------
   // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
-  if (started && !paused) {
-    if (time < luT) {                                           // LEVEL UP BANNER — rainbow per-char, matches title 'UNICORN' font/style
-      ctx.globalAlpha = Math.min(1, (luT - time) * 3);          // pop in, fade last .33s
-      rText('LEVEL UP', 48);
-      ctx.globalAlpha = 1;
-    }
-    fade(1 - Math.abs(deathT - .8) / .8);
-  }
+  if (started && !paused) fade(1 - Math.abs(deathT - .8) / .8);
 
   // CHARACTER SHEET overlay — cursor navigates freely across stats / inventory / skill tree.
   // Space/Enter on cursor position dispatches: spend stat pt, use item, or spend skill pt.
@@ -1233,14 +1224,14 @@ const draw = () => {
       ctx.restore(); ctx.globalAlpha = 1;
     });
     // (rainbow indicator lives in topHUD now — top-left, persistent in gameplay + menu)
-    // ACTION labels — honest verb for the selected gear: EQUIP (bag) / UNEQUIP (worn). Right box routes through spend(); DROP (left) is bag-only (worn gear can't be trashed — take it off first). Control reference lives ONLY in the ? overlay.
+    // ACTION labels — honest verb for the selected gear: EQUIP (bag) / UNEQUIP (worn). LEFT box routes through spend(); DROP (right) is bag-only (worn gear can't be trashed — take it off first). Primary action sits on left, closer to joystick thumb. Control reference lives ONLY in the ? overlay.
     const wi = aRow - EB(), act = invSel >= 0 && inv[invSel] ? 'EQUIP' : wi >= 0 && eq[wi] ? 'UNEQUIP' : 0;
     if (act) {
       ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(136,204,255,.14)';
-      ctx.fillRect(110, 250, 50, 14); ctx.strokeRect(110, 250, 50, 14);
-      if (act === 'EQUIP') { ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14); }   // DROP box (bag only)
-      ctx.fillStyle = '#8cf'; T2(act, 135, 258);
-      if (act === 'EQUIP') { ctx.fillStyle = '#c33'; T2('DROP', 75, 258); }
+      ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
+      if (act === 'EQUIP') { ctx.fillRect(110, 250, 50, 14); ctx.strokeRect(110, 250, 50, 14); }   // DROP box (bag only)
+      ctx.fillStyle = '#8cf'; T2(act, 75, 258);
+      if (act === 'EQUIP') { ctx.fillStyle = '#c33'; T2('DROP', 135, 258); }
     }
   }
 
@@ -1310,24 +1301,25 @@ const draw = () => {
       ctx.globalAlpha = 1;
     };
     qslot(QHX, 0); qslot(QMX, 1);
+    if (time < luT) { ctx.globalAlpha = Math.min(1, (luT - time) * 3); rText('LEVEL UP', 48); ctx.globalAlpha = 1; }   // LEVEL UP banner — renders over menu (auto-pause opens char sheet on level)
   }
   // Top-right icon row — unified 12×12 buttons using the character-menu box style
   // (rgba(255,255,255,.05) fill + #555 0.5-stroke, matching inventory + skill nodes).
   // One helper draws every wrapper; only the glyph inside changes.
   if (started) {
+    // Top-right control cluster — square boxes with the shared blue ring (#8cf, same accent as action buttons + joystick).
+    // Order: 🔊 Speaker (left) · ? Help (middle) · ✕ Back (corner, traditional close position). Always shown, incl. the character menu.
     const iy = 4, isz = 12, box = (x) => {
-      ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x, iy, isz, isz);
-      ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, iy, isz, isz);
-    }, xm = (x) => { ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 3, iy + 3); ctx.lineTo(x + 9, iy + 9); ctx.moveTo(x + 9, iy + 3); ctx.lineTo(x + 3, iy + 9); ctx.stroke(); };   // neutral ✕ — shared by back button + muted-speaker (matches mute glyph #ccc; red reserved for caution/destructive)
-    // Menu button is the top-left info panel itself (tap name/bars area to open character menu).
-    {                                                          // ✕ Back · Mute — always shown (incl. the character menu)
-      const sx = VW - 56; box(sx); xm(sx);                      // ✕ — back/exit
-      const mx = VW - 38; box(mx);                              // Speaker — mute
-      if (mute) xm(mx);
-      else { ctx.fillStyle = '#ccc'; ctx.fillRect(mx + 3, iy + 5, 2, 3); ctx.beginPath(); ctx.moveTo(mx + 5, iy + 5); ctx.lineTo(mx + 8, iy + 3); ctx.lineTo(mx + 8, iy + 10); ctx.lineTo(mx + 5, iy + 8); ctx.fill(); }
-    }
-    box(VW - 20);                                               // ? — help (always, incl. level-up)
-    ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#ccc'; ctx.fillText('?', VW - 14, iy + 10);   // neutral ? — help is not caution
+      ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, iy, isz, isz);
+      ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5; ctx.strokeRect(x, iy, isz, isz);
+    }, xm = (x) => { ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 3, iy + 3); ctx.lineTo(x + 9, iy + 9); ctx.moveTo(x + 9, iy + 3); ctx.lineTo(x + 3, iy + 9); ctx.stroke(); };   // neutral ✕ — shared by back button + muted-speaker
+    const sx = VW - 56, hx = VW - 38, xx = VW - 20;
+    box(sx);                                                    // 🔊 speaker (leftmost)
+    if (mute) xm(sx);
+    else { ctx.fillStyle = '#ccc'; ctx.fillRect(sx + 3, iy + 5, 2, 3); ctx.beginPath(); ctx.moveTo(sx + 5, iy + 5); ctx.lineTo(sx + 8, iy + 3); ctx.lineTo(sx + 8, iy + 10); ctx.lineTo(sx + 5, iy + 8); ctx.fill(); }
+    box(hx);                                                    // ? help (middle)
+    ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#ccc'; ctx.fillText('?', hx + 6, iy + 10);
+    box(xx); xm(xx);                                            // ✕ back/exit (corner)
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {
       fade(.8);
@@ -1350,8 +1342,7 @@ const draw = () => {
     const bkc = col; col = [0, 0, 2, 0]; drawU(0); col = bkc;
     ['#ff5d6c', '#ffd75e', '#6bc5ff'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });
     ctx.restore();
-    rText('UNICORN', 168);
-    rText('HOOVES OF HOPE', 188, 13);
+    rText('HOOVES OF HOPE', 178);
     ctx.textAlign = 'center';
     if (tMode === 1) {
       const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');

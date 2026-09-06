@@ -19,10 +19,10 @@ if (!treeMatch) { console.error('❌ TPOS check: TREE literal not found'); proce
 // Count skill names in the flat string array.
 const TREE = treeMatch[1].match(/'[^']+'/g) || [];
 
-// 4-row layout: Row1 y=48 (3), Row2 y=94 (3), Row3 y=140 (2), Row4 y=186 (2).
-// TPOS is hand-tuned for the tier layout — verify by direct comparison.
-// 3-2-3-2 grid. Final tier (row4) = SUPER HEAL(3) + TRI SHOT(9,356,186). FAR SHOT(1)=263,140 row3-left; DBL SHOT(8)=387,140 row3-right.
-const TPOS = [[263,48],[263,140],[325,48],[294,186],[294,94],[325,140],[387,48],[356,94],[387,140],[356,186]];
+// 4-row layout: Row1 y=48 (3), Row2 y=94 (2), Row3 y=140 (3), Row4 y=186 (2).
+// TPOS is hand-tuned for the 3-2-3-2 tier layout — verify by direct comparison.
+// Three columns: LEFT=SHOT chain, MID=HEAL, RIGHT=MOBILITY. DBL SHOT(8)=row3-right, DBL JUMP(4)=row2-left, TRI SHOT(9)=row4-right, TRI JUMP(5)=row3-left (swap: mobility unlocks earlier).
+const TPOS = [[263,48],[294,186],[325,48],[325,140],[294,94],[263,140],[387,48],[356,94],[387,140],[356,186]];
 if (TPOS.length !== TREE.length) { console.error(`❌ TPOS length ${TPOS.length} ≠ TREE length ${TREE.length}`); process.exit(1); }
 const expected = JSON.stringify(TPOS);
 

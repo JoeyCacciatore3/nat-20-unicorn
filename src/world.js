@@ -122,7 +122,7 @@ const MEADOW = {
     [580, 56, 6, 1, 2], [588, 53, 5, 1, 2], [582, 50, 4, 1, 2],   // stepped shelves climbing into the corner
   ],
 
-  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex
+  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [200, 59], [318, 59], [365, 59], [420, 59]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex (last 4 = MEADOW mid + EAST RUN fill for vibrance)
   bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
     [263, 66, 0],   // RED    — hidden lair under the meadow (drop hole @x258, behind the moat)
     [461, 50, 1],   // ORANGE — perch above the east walkway (zig hops via x464 rung)
@@ -170,6 +170,13 @@ const MEADOW = {
     [350, 56, 4], [393, 50, 1], [444, 57, 2],                    // EAST RUN fill — runner on x345 walkway, crawler on stack rung, chase-blob at tower base (ORANGE escort)
     [9, 56, 1], [22, 59, 2], [40, 52, 4], [32, 55, 5],           // WEST BASEMENT — crawler on low shelf, blob on floor, runner high, hopper mid
     [585, 55, 5], [583, 49, 3],                                  // EAST END-CAP — hopper on low platform, caster guarding the upper corner ledge
+  ],
+  // FILL FOES — gameplay-only spawns kept OUT of the ledge-grow loop so their
+  // count doesn't shift the shared LCG (sky-ladder RNG must stay stable, or the
+  // map audit breaks). main.js seedFoes concatenates these into the live foe list.
+  foesX: [
+    [300, 58, 2], [340, 58, 4], [370, 58, 1], [408, 58, 3], [430, 58, 5],   // EAST RUN fill — blob/runner/crawler/caster/hopper across the empty 300-430 flat
+    [130, 68, 2], [220, 68, 4],                                             // UNDERGROUND fill — depths corridor + descent corridor
   ],
   DECO: [],   // SPIKE: hand-placed removed — all decoration now via scatter()
 };
