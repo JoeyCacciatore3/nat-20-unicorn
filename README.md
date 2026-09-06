@@ -15,7 +15,7 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 ## Progression
 - **Every level:** +3 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point
 - **Skill tree:** prerequisite-based tree, 10 single-rank action skills — all player-chosen
-- **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn, wears a tier trim (silver/gold/prismatic), AND gives stat bonuses
+- **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn AND gives a stat bonus (its slot's stat, scaling with level; higher-level gear can carry a second sub-stat)
 - **Level 15 cap** — all stat gains come from level-up points, no hidden cap bonus
 - **XP curve:** quadratic (`L*L + 12`) — early levels quick, later levels earned
 - **Leveling never pauses play.** Each level fully restores HP + MP; the top-right **☰ menu button glows rainbow** whenever you have points to spend. Allocation lives inside the ONE character menu (open via ☰ or P) — there is no separate level-up screen. The header is always `LV n` (cyan) + your name (gold); a **`+N`** shows centered under the unicorn for unspent stat points and above the skill tree for unspent skill points. **One cursor moves left/right across the stats AND into the skill tree**, and SPACE / tap spends the matching point (stat point on a stat, skill point on a skill). Close with ☰ or P. With no points it's simply a read-only character sheet. **On touch, the left joystick moves that cursor and the JUMP button confirms** — the same stick-and-button you play with, so the menu never forces precise cell-tapping.
@@ -23,29 +23,32 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 ## Equipment
 4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
 - Everyone starts the same neutral white unicorn — **NEW GAME** jumps straight to the next empty save slot and asks ONE thing (your name — required), then begins; **CONTINUE** (greyed until you have a save) opens the 2-slot screen to pick which save to resume (name + level shown per slot). Both slots full → NEW GAME falls back to the slot screen.
-- Gear comes from the shared loot roll — LUCK raises the chance and tier; elites & bosses roll it more times (higher chance, never guaranteed). Vibrant colors are earned.
-- **10-slot inventory** for gear only (fixed max, no expansion). Click to select, click again to equip; X to discard. Potions live exclusively in the bottom hot-bar (see below).
+- Gear comes from the shared loot roll — LUCK raises the drop chance; bosses drop guaranteed. Vibrant colors are earned.
+- **10-slot inventory** for gear only (fixed max, no expansion). Tap a bag slot to select, tap again (or the EQUIP button / JUMP / Enter) to equip; DROP discards. Tap an equipped slot and confirm to UNEQUIP it back to the bag. Potions live exclusively in the bottom hot-bar (see below).
 - Gear renders as pixel-art item icons — BODY→armor, MANE→cape, HORN→sword, HOOVES→boots — tinted by the drop's roll color (the same color it paints onto that body part when equipped). Identical in drops, the inventory grid, and the equipped slots.
 - **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
 
 ## Combat
-`damage = ATK × (crit ? 2 : 1)` where `ATK = STR + horn_gear`
-- Crit chance: 8% + LUCK × 2% (LUCK-driven, no dice)
+`damage = STR × (crit ? 2 : 1)` (STR = the `ho` stat, gear folded in)
+- Crit chance: **12% + LUCK × 3%** — the same percentage also drives the loot-drop roll (one LUCK number, two effects)
 - Defense: `max(incoming/4, incoming - DEF)` — bosses always deal ≥25%
-- 6 enemy kinds built from one capability-bit system + elite variants (~6% roll, 3× HP)
-- Enemies scale with player level (`2 + lvl>>2`) — stay a threat as you level
+- 6 enemy kinds built from one capability-bit system (no elites). All enemies are the same size.
+- **One universal level scalar** `tier = 2 + (lvl>>2)` scales both HP AND damage for regular foes and bosses, so deep-zone enemies stay a real threat.
+- Enemy melee (`base × tier/2`) and **ranged bolts scale identically** — a bolt carries the shooter's damage, so ranged stays as dangerous as melee (it's dodgeable).
+- **I-frames, one 0.8s rule:** the player is red-and-invincible for 0.8s after a hit (red = invincible; stomp/respawn use silent invuln). Enemies get a 0.8s physical i-frame after a stomp/dash hit (shots exempt, so multi-shot skills still land) — you can no longer melt a boss by bouncing in place; you must vary attacks and reposition.
+- **Only the player flashes** (red, on hurt). Enemies never flash.
 - 7 **DARK CORN** bosses — all share the name; each is identified by its horn+mane color = the rainbow band it holds. All in the unified world:
   - RED (paddock east) · ORANGE (far east walkway) · YELLOW (canopy ledge) · BLUE (peak ledge) · VIOLET (depths west) · GREEN (east-arc summit) · INDIGO (final boss, world tree)
-- All bosses use the **same 3-move kit** (jump + dash + shoot); difficulty scales with tier: HP = `(16 + bi×4) × (2 + lvl>>2)`, damage = `8 + bi`, speed = `1 + bi×0.1`. Phase 2 (half HP) enrages: 1.5× speed multiplier on chase/hop.
+- All bosses use the **same 3-move kit** (jump + dash + shoot); difficulty scales with tier: HP = `(20 + bi×4) × tier`, damage = `(8 + bi) × tier/2`, speed = `1 + bi×0.1`. No enrage phase — pure HP/damage/speed tiers.
 - Defeated DARK CORNs turn friendly — they linger at their arena as GREAT-CORN-purple NPCs (keeping their band horn+mane; eyes go white)
 
 ## Item Drops
-One loot roll (`d100 + LUCK×4`) for every kill and chest:
-- **HP POTION** (red bottle, +10 HP) — floor
-- **MP POTION** (blue bottle, +10 MP) — mid
-- **GEAR PART** (BODY/MANE/HORN/HOOVES) — ceiling, LUCK boosts tier
+A kill drops loot at chance `12% + LUCK×3%` (bosses guaranteed, 2 drops). Each drop is a flat **60% gear / 40% potion** split (potion = 50/50 HP/MP) — gear is the reward, not an afterthought:
+- **HP POTION** (red bottle, +10 HP)
+- **MP POTION** (blue bottle, +10 MP)
+- **GEAR PART** (BODY/MANE/HORN/HOOVES) — primary stat bonus `1 + (lvl>>2)`; at LV4+ a ~50% chance of a second sub-stat (`1 + (lvl>>3)` on a different stat). No tiers — deeper gear is simply stronger.
 
-Drops fall to the ground and **stay there until you die** — no despawn timer, no auto-magnet (drops obey the same persistence rule as enemies). **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume). **Gear** goes to the inventory to equip later. Potions NEVER enter the inventory — if the hot-bar slot is full the drop simply waits on the ground until you drink one. Same for gear if the bag is full. XP comes only from kills.
+Drops fall to the ground (landing on solid ground OR one-way platforms) and **stay there until you die** — no despawn timer, no auto-magnet. **HP/MP potions fill a two-slot hot-bar** (bottom-center, stack to 5 each) — **tap/click a slot to drink** (no auto-consume). **Gear** goes to the inventory to equip later. Potions NEVER enter the inventory — if the hot-bar slot is full the drop waits on the ground. Same for gear if the bag is full. XP comes only from kills.
 
 **RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect them all → THE DARKNESS LIFTS.
 
@@ -101,11 +104,11 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 12,792 / 13,312 B (96.1%) — 520 B free**
+**Current: 13,130 / 13,312 B (98.6%) — 182 B free**
 
 ## Save format
-Keys: `localStorage.n20_s0..1` (2 slots). Version: **v40** — strict version gate, auto-discards older saves.
-Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su[12]), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[]), p(mute), P(potions [hp,mp])}`.
+Keys: `localStorage.n20_s0..1` (2 slots). Version: **v44** — strict version gate, auto-discards older saves.
+Fields: `{v, h(p), x(p), l(vl), n(mn), g(bosses), t(stats), c(checkpoint), d(pending), k(spts), y(su), m(name), o(chestBits), u(col[4]), q(eq[4]), i(inv[])/gear items {s,c,b,u?,v?}, p(mute), P(potions [hp,mp])}`.
 
 ## Structure
 - `src/main.js` — the game (~1,400 lines)

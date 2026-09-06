@@ -32,10 +32,10 @@ export const SC = ['#ffd75e', '#ff5d6c', '#4a76ff', '#9fe89a', '#c47fe0'];   // 
 // FOECOL — k1..k6 body colors. Sky #6bc5ff + grass #5ac878 are RESERVED for the
 // background (PICO-8 fg/bg separation): foes use saturated warms + darker cools.
 export const FOECOL = ['', '#c9a6f7', '#ff9d3c', '#e05555', '#e08ae0', '#9fe89a', '#8cf'];
-// FT[k] = [hp, dm, speed, size, capBits, shape].
+// FT[k] = [hp, dm, speed, capBits, shape].  (size is UNIFORM — render uses cz 3 for all regular foes, 4 for bosses; no per-kind or random size.)
 // k1 CRAWLER · k2 BLOB · k3 CASTER · k4 RUNNER · k5 HOPPER · k6 PUFF.
 // Cap bits: 1=ranged 2=hop 16=chase (bosses use 19 = the full unicorn kit; summon/shockwave/swift retired).
-export const FT = [, [4, 3, 44, 3, 0, 1], [8, 4, 31, 3, 16, 2], [12, 5, 26.7, 4, 1, 3], [5, 3, 70, 3, 0, 1], [6, 4, 36, 3, 18, 1], [9, 4, 22, 3, 1, 2]];
+export const FT = [, [4, 3, 44, 0, 1], [8, 4, 31, 16, 2], [12, 5, 26.7, 1, 3], [5, 3, 70, 0, 1], [6, 4, 36, 18, 1], [9, 4, 22, 1, 2]];
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).

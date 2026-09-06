@@ -50,7 +50,7 @@ if (actual !== expected) {
 const palMatch = src.match(/const PAL = \[([\s\S]*?)\n\];/);
 if (palMatch) {
   const swatches = (palMatch[1].match(/'#[^']+'/g) || []).length;
-  const gearRangeMatch = src.match(/Math\.random\(\) \* (\d+)\) \| 0;? *const t/);
+  const gearRangeMatch = src.match(/4 \+ Math\.random\(\) \* (\d+)\)/);
   const gearRange = gearRangeMatch ? +gearRangeMatch[1] : NaN;
   if (swatches - 4 !== gearRange) {
     console.error(`❌ PAL/gear-range drift: PAL has ${swatches} swatches, gear range is ${gearRange} (expected ${swatches - 4}).`);

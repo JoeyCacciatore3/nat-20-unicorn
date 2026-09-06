@@ -113,7 +113,7 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (J_KEYS.includes(e.code)) jbuf = .12;
   if (e.code === 'KeyJ') dash();                          // J = dash — the attack verb (contact damage during dash)
-  if (e.code === 'KeyL') shoot();
+  if (e.code === 'KeyL') shoot();                         // L = shoot — one bolt per TAP (no rapid fire)
   if (e.code === 'KeyH') heal();
   if (e.code === 'KeyP' && deathT <= 0) { paused = 1; setRow(0); }   // P opens the menu (close handled in the paused block above)
 
@@ -127,7 +127,7 @@ const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('bJ'); // butto
 // ACTION BUTTONS — all four ALWAYS visible, uniform size. Ring is bright when USABLE
 // (skill unlocked AND enough MP), else dull #555 — one rule covers both "locked" and "out of MP".
 // Each: [x, y, key, brightColor, suIdx (-1 = always unlocked)]. Fan-arc = landscape thumb-reach.
-const AR = 20, BVS = .7;                          // AR = TOUCH radius (hit = AR+6, unchanged) · BVS = VISUAL scale — buttons draw at 70% (r=14) but accept the same 26px touch (operator 09-04: slim look, forgiving hit)
+const AR = 20, BVS = .7;                          // AR = touch radius (hit = AR+6) · BVS = visual scale (buttons draw at 70%, r=14, but keep the 26px touch target)
 // [x, y, key, skillGate (-1 = always)]. Every non-JUMP action costs the uniform 3 MP (derived, not stored). Ring accent = one UI color (#8cf); glyph carries identity.
 const AB = [
   [VW - 36, VH - 34, 'bJ', -1],
@@ -135,6 +135,7 @@ const AB = [
   [VW - 78, VH - 78, 'bS', 0],
   [VW - 36, VH - 88, 'bH', 2],
 ];
+const AFX = VW - 88, AFY = VH - 100;              // action-feedback popup spot, above the button cluster. Every action shows the same blue MP-cost popup here.
 const ptrs = new Map();
 const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
 // ---------- floating joystick (movement, touch only) ----------
@@ -198,21 +199,22 @@ addEventListener('pointerdown', (e) => {
       // GAMEPAD MENU CONTROLS (checked first, take priority over cell-taps): joystick = cursor nav, JUMP = confirm/select.
       if (e.pointerType === 'touch' && Math.hypot(vx - JHX, vy - JHY) < JR + 8) { grabJoy(vx, vy, e.pointerId); return; }
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
-      // USE/DROP buttons — they overlap the grid (y=250-264 sits inside grid y=184-268), checked first.
-      if (invSel >= 0 && inv[invSel]) {
-        if (hit(110, 250, 50, 15)) { useItem(invSel); return; }
-        if (hit(50, 250, 50, 15)) { inv.splice(invSel, 1); return; }
-      }
-      // Inventory grid — tap moves cursor to slot; tap USE/DROP button (above) to act
+      // ACTION / DROP buttons — overlap the grid (y=250-264 inside grid y=184-268), checked first.
+      // Right box = EQUIP/UNEQUIP via spend() (dispatches by cursor region). Left box = DROP (bag only).
+      if (((invSel >= 0 && inv[invSel]) || (aRow >= EB() && eq[aRow - EB()])) && hit(110, 250, 50, 15)) { spend(); return; }
+      if (invSel >= 0 && inv[invSel] && hit(50, 250, 50, 15)) { inv.splice(invSel, 1); return; }
+      // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts. One action path, no redundant tap-again.
+      for (const [s, ex, ey] of [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]]) if (hit(ex, ey, 24, 24)) { const r = EB() + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
+      // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP)
       if (hit(38, 184, 140, 84)) {
         const iC = ((vx - 38) / 28) | 0, iR = ((vy - 184) / 28) | 0, iI = iR * 5 + iC;
-        if (iI < invMax() && inv[iI]) { setRow(5 + iI); return; }
+        if (iI < BAG && inv[iI]) { const r = 5 + iI; if (aRow === r) spend(); else setRow(r); return; }
         return;                                                  // tap on empty inv area — no-op, keeps menu open
       }
       // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
       const ci = ((vx - 39) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette)
       if (vy > 150 && vy < 180 && vx > 39 && vx < 169 && ci >= 0 && ci < STATS.length) { if (aRow === ci) spend(); else setRow(ci); return; }
-      for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + invMax() + i; if (aRow === r) spend(); else setRow(r); return; } }
+      for (let i = 0; i < TREE.length; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + BAG + i; if (aRow === r) spend(); else setRow(r); return; } }
       paused = 0; return;                                        // tap anywhere else closes
     }
   }
@@ -224,7 +226,7 @@ addEventListener('pointerdown', (e) => {
     ptrs.set(e.pointerId, c); keys.add(c);
     if (c === 'bJ') jbuf = .12;
     if (c === 'bM') dash();
-    if (c === 'bS') shoot();
+    if (c === 'bS') shoot();   // one bolt per TAP (no rapid fire / hold-to-auto-fire)
     if (c === 'bH') heal();
   }
 });
@@ -280,27 +282,30 @@ let col = [0, 0, 0, 0];
 // Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF). Bonus 0=cosmetic.
 const eq = [null, null, null, null];
 const inv = [];
-const invMax = () => 10;                             // BAG cap fixed at 10 from the start (STASH skill removed 2026-09-05)
+const BAG = 10;                                       // BAG cap (fixed; STASH skill removed 2026-09-05). Inlined as a const, not a helper — measured smaller under roadroller.
 // Equip: apply color + stat bonus. Unequip old item back to inventory if it has a bonus.
 // Equipment folds directly into base stats (single source of truth). Delta = new bonus − old bonus;
 // stat mutation mirrors spend() so HP/MP grow/shrink together with mHP/mMN (like a level-up).
 // CONTRACT: caller MUST ensure bag has room (useItem splices new item out first — that's what makes the swap safe).
+// STAT-INDEX applier (0 STR · 1 HP · 2 MAG · 3 DEF · 4 LUCK) — the ONE place gear touches stats. Used by primary AND sub-stats. No tiers: magnitudes come from level at drop.
+const addStat = (i, d) => { if (i === 0) ho += d; else if (i === 1) he += d; else if (i === 2) sp += d; else if (i === 3) df += d; else lk += d; };
+// Apply an item's whole contribution: PRIMARY (its slot's stat via SLOT_STAT) + optional SUB-stat (it.u index / it.v amount). g=+1 equip, -1 unequip; clamp vitals to new max after.
+const applyItem = (it, g) => { addStat(SLOT_STAT[it.s], g * it.b); if (it.u != null) addStat(it.u, g * it.v); if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN(); };
 const equip = (item) => {
-  const old = eq[item.s], d = item.b - (old ? old.b : 0);
-  if (old) inv.push(old);
-  eq[item.s] = item;
-  col[item.s] = item.c;
-  if (item.s === 0) he += d;                         // body  → HP  stat (max only — equip raises ceiling, current stays; unequip clamps)
-  else if (item.s === 1) sp += d;                    // mane  → MAG stat (same asymmetric rule)
-  else if (item.s === 2) ho += d;                    // horn  → STR stat
-  else df += d;                                      // hooves → DEF stat
-  if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN();  // clamp on unequip-to-lower (equip is no-op — current was already ≤ old max ≤ new max)
+  const old = eq[item.s];
+  if (old) { applyItem(old, -1); inv.push(old); }    // strip the swapped-out item's stats fully, back to bag
+  eq[item.s] = item; col[item.s] = item.c;
+  applyItem(item, 1);                                 // add the new item's stats (primary + any sub)
 };
-// Use an inventory slot — equip gear (t=5), consume HP/MP potion (t=0/1). Returns true if consumed.
-// Inventory holds ONLY gear now. Potions live exclusively in the bottom hot-bar (see quaff).
+// Bag holds ONLY gear (potions live in the hot-bar). Using a bag slot = EQUIP it.
 const useItem = (i) => {
   const it = inv[i]; if (!it) return;
   inv.splice(i, 1); equip(it); sfx(660, 880, .12, 'triangle', .1);           // no auto-save — player owns save via ✕ button
+};
+// UNEQUIP — worn slot s back to the bag (needs a free slot; no-op if full). Reverse of equip: strip stats, drop tint.
+const unequip = (s) => {
+  const it = eq[s]; if (!it || inv.length >= BAG) return;
+  applyItem(it, -1); eq[s] = null; col[s] = 0; inv.push(it); sfx(880, 660, .12, 'triangle', .1);
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 const quaff = (t) => { const g = 10; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); } };
@@ -387,15 +392,15 @@ let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP q
 const CAP = 15;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via the prerequisite tree (LINK)
 let hs = 0, shk = 0, hf = 0;                      // combat feel: hitstop freeze + screen shake (seconds) + hf = hurt-flash timer (unicorn flashes red)
-// Boss state: 0=unvisited, 1=on screen OR defeated-uncollected, 2=rainbow collected, {hp,ph,spd,rc}=leash stash
+// Boss state: 0=unvisited, 1=on screen OR defeated-uncollected, 2=rainbow collected, {hp,rc}=leash stash
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
-const rainbows = () => bs.filter(v => v === 2).length;
-const mHP = () => 8 + he * 2;                     // base 8 + HP stat (equipment folded in); HP+5 skill removed 2026-09-05
-const mMN = () => 8 + sp * 2;                     // base 8 + MAG stat (equipment folded in); MP+5 skill removed 2026-09-05
-const ATK = () => ho;                             // STR stat (equipment folded in)
-const critChance = () => .08 + lk * .02;                      // 8% base + 2% per LUCK
-const isCrit = () => Math.random() < critChance();
-const need = () => lvl * lvl + 12;
+
+const rainbows = () => bs.filter(v => v === 2).length;   // banked-boss count. KEEP as helper — inlining the .filter body measured +12 B.
+const mHP = () => 8 + he * 2;                     // base 8 + HP stat
+const mMN = () => 8 + sp * 2;                     // base 8 + MAG stat
+// ATK (=ho) and LUCK% (.12+lk*.03) inlined at their use sites — low-use helpers are net-negative under roadroller.
+
+const need = () => lvl * lvl + 12;               // XP to next level. KEPT as helper (inlining alongside rainbows measured net-negative).
 const gainXp = (n, x, y) => {
   if (lvl >= CAP) return;
   xp += n; fly(42, 54, '+' + n + ' XP', '#b06cf0', 0, 0, 1);   // HUD-anchored below XP bar; purple matches the bar
@@ -423,22 +428,23 @@ let spts = 0; const su = Array(TREE.length).fill(0);
 const LINK = [0,4, 2,4, 2,7, 6,7, 4,5, 7,5, 5,3, 5,1, 0,8, 8,9];
 const canBuy = i => { let r = 1; for (let k = 1; k < LINK.length; k += 2) if (LINK[k] === i) { if (su[LINK[k-1]]) return 1; r = 0; } return r; };
 let aRow = 0;
-const SN = () => 5 + invMax() + TREE.length;                  // unified cursor span: stats(0-4) → inv(5..5+iMax-1) → skills(5+iMax..end)
+const EB = () => 5 + BAG + TREE.length;                  // equip-region base: worn slots (0-3) appended AFTER skills so stats/inv/skills keep their row numbers
+const SN = () => EB() + 4;                                    // unified cursor span: stats(0-4) → inv(5..) → skills(..EB-1) → worn(EB..EB+3)
 // setRow: assign cursor + auto-sync invSel so existing tooltip / USE-DROP button logic works unchanged.
-const setRow = (r) => { const iMax = invMax(); aRow = r; invSel = r >= 5 && r < 5 + iMax ? r - 5 : -1; };
+const setRow = (r) => { const iMax = BAG; aRow = r; invSel = r >= 5 && r < 5 + iMax ? r - 5 : -1; };
 const spend = () => {
-  const iMax = invMax();
+  const iMax = BAG;
   if (aRow < 5) {                                             // STAT — costs a pending point
     if (!pending) return;
     STATS[aRow][1](); pending--;
   } else if (aRow < 5 + iMax) {                               // INV — use/equip item at slot
     if (!inv[aRow - 5]) return;
     useItem(aRow - 5); return;                                // useItem plays its own sfx + splices; do NOT double-save
-  } else {                                                    // SKILL node — costs a skill point (respects lock/owned)
+  } else if (aRow < EB()) {                                    // SKILL node — costs a skill point (respects lock/owned)
     const i = aRow - 5 - iMax;
     if (!spts || su[i] || !canBuy(i)) return;
     su[i] = 1; spts--;
-  }
+  } else { unequip(aRow - EB()); return; }                     // WORN slot — take gear off; unequip plays its own sfx + guards bag-full
   sfx(660, 990, .15, 'triangle', .12);                         // no auto-save, no auto-close — player saves via ✕ when ready
 };
 
@@ -476,8 +482,8 @@ const PW = 10, PH = 14;
 const NX = 129 * T, NGY = 60 * T;                 // GREATCORN guide: center-x (tile 129), feet baseline (tile 60 top)
 const SX = 126 * T, SY = NGY - PH;                // spawn point (paddock) — feet at NGY ground baseline so intro plays with unicorn standing (no drop-in)
 const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
-const NSC = 10 / 7;                                // canonical unicorn render scale — SHARED by player, GREATCORN, and DARKCORN so all three silhouettes match (boss fs=20 ÷ drawU 14-tall bbox = 10/7). Player COLLISION stays PW×PH — map/ceiling proofs unchanged; a hitbox smaller than the sprite is player-friendly.
-const pl = { x: SX, y: SY, vx: 0, vy: 0, ground: 0, face: 1, coyote: 0, air: 0, sq: 1, inv: 0, t: 0 };
+const NSC = 10 / 7;                                // unicorn render scale, shared by player/GREATCORN/DARKCORN (boss fs=20 ÷ 14-tall bbox). Collision stays PW×PH.
+const pl = { x: SX, y: SY, vx: 0, vy: 0, gr: 0, face: 1, coyote: 0, air: 0, inv: 0, t: 0 };   // gr = on-ground flag
 let lastSafe = [SX, SY], deathT = 0;
 let nearNpc = 0;                                  // GREATCORN proximity flag (JUMP-to-interact re-talk quips)
 let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
@@ -530,18 +536,19 @@ const fresh = () => {
 // across sessions when EXIT-to-title happens without a page reload.
 const resetTransient = () => {
   pl.vx = pl.vy = pl.air = pl.coyote = pl.inv = pl.gr = pl.t = 0;
-  pl.face = 1; pl.sq = 1;
+  pl.face = 1;
   jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = hf = luT = dq = di = tqi = navCD = 0;
 };
 const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // JUMP-near: NPC → re-talk quip · chest → open
 // Player-level progression: every 4 levels adds 1 scale pip. Enemies stay a threat as the
 // player over-levels; bosses reuse the same formula and additionally scale via bi (+dm).
 
+// LEVEL SCALAR (inlined at each use — helper measured net-negative under roadroller): tr = 2 + (lvl>>2), 2 at LV1-3, +1 every 4 levels. HP & damage tier off this for BOTH foes and bosses.
 const mkFoe = (x, y, k) => {
-  // All foes scale with player level via 2+(lvl>>2). No elite subsystem — kind + level IS the difficulty.
-  const [fh, fd, fv, fz, fb] = FT[k];
-  const zh = fh * (2 + (lvl >> 2)) / 2 | 0;
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd, fl: 0, t: Math.random() * 7, cz: fz };
+  // Kind + level IS the difficulty (no elite subsystem). HP & DAMAGE scale by tr/2; SIZE is uniform (cz 3, no per-kind/random size).
+  const [fh, fd, fv, fb] = FT[k], tr = 2 + (lvl >> 2);
+  const zh = fh * tr / 2 | 0;
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd * tr / 2 | 0, fl: 0, t: Math.random() * 7, cz: 3 };
 };
 const seedFoes = () => seeds.foes.map(([x, y, k]) => mkFoe(x * T, y * T, k));   // reseed helper — single source for init/load/fresh/respawn
 let foes = seedFoes();
@@ -614,34 +621,28 @@ const drawPart = (s, x, y, c, z = 1) => {
   const m = GEAR[s], p = ['#17131f', PAL[c], dim(PAL[c], .58), '#fff', '#e8b552', '#9c6f22'];   // 0 outline 1 base 2 shade 3 highlight 4 gold 5 gold-shade
   for (let r = 0; r < m.length; r++) for (let k = 0; k < m[r].length; k++) { const v = m[r][k]; if (v === '.') continue; ctx.fillStyle = p[+v]; ctx.fillRect(x + (k - 1) * z, y + r * z, z + .03, z + .03); }
 };
-// ONE loot table: HP POTION floor → MP POTION → GEAR (LUCK lifts roll, raising tier & frequency).
-// Bosses drop a RAINBOW (t:9) on first kill — collect it to bank the boss (bs→2).
+// ONE loot table, flat split — GEAR is the reward (60%), potion the minority (40%, HP/MP 50/50).
+// LUCK does NOT bias drop TYPE; it lifts DROP CHANCE (.12+lk*.03, at the kill site) + GEAR TIER (below). Bosses call this guaranteed.
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 0 };
-    const r = (Math.random() * 100 | 0) + Math.min(lk, 10) * 4;  // % roll + LUCK
-    // gear tier: random roll + LUCK + level vs thresholds
-    if (r >= 85) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 13) | 0; const t = (1 + Math.random() * 20 | 0) + (lk >> 1) + (lvl >> 2); d.b = t >= 24 ? 3 : t >= 17 ? 2 : 1; }
-    else if (r >= 58) d.t = 1;                  // MP POTION (else t=0: HP POTION)
+    // GEAR (60%): slot + color + level-scaled PRIMARY bonus (no tiers) + optional SUB-stat at LV4+ (a different stat, ~50%). tpos-check.mjs couples "4 + Math.random() * 13" color range to PAL.length.
+    if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 13) | 0; d.b = 1 + (lvl >> 2); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (lvl >> 3); } }
+    else d.t = Math.random() < .5 ? 0 : 1;      // POTION (40%): HP (0) or MP (1), 50/50
     drops.push(d);
   }
 };
 
 const strike = (f) => {
-  const crit = isCrit(), dmg = ATK() * (crit ? 2 : 1);
-  f.hp -= dmg; f.fl = .12;   // hurt-flash 120ms — also the dash re-hit gate (longer = enemy dash-immunity window, slight advantage)
+  const crit = Math.random() < .12 + lk * .03, dmg = ho * (crit ? 2 : 1);   // crit at LUCK% (.12+lk*.03); dmg = STR (ho), doubled on crit
+  f.hp -= dmg;   // pure damage. The physical hit-cooldown (f.fl) is set by the DASH + STOMP sites — NOT by shots, so DBL/TRI SHOT volleys all land.
   fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
   if (crit) { hs = .06; fanfare(); }               // no crit skulls — skulls mean DEATH only (operator 09-04)
-  // BOSS PHASE 2 — first crossing of half HP, permanent
-  if (f.bit && !f.ph && f.hp <= f.mx / 2 && f.hp > 0) {
-    f.ph = 1; f.spd *= 1.5;                        // ENRAGE at half HP — faster chase + hop (uniform; no new moves)
-    sfx(220, 110, .35, 'sawtooth', .16);
-  }
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     spray(f.x, f.y, 5, 1); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // XP: kind-capped base + crit bonus + boss escalation
-    if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .15 + lk * .03) spawnDrop(f.x, f.y, 1);   // LUCK scales drop rate
+    if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + lk * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit) {                                                // BOSS falls
       prune(foes, e => e.bit === f.bit);
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — drop the rainbow as a collectible; mark defeated (1 = stays dead while alive, not yet counted)
@@ -656,10 +657,9 @@ const strike = (f) => {
 // ---------- verbs ----------
 // DASH is the attack verb: gated behind DASH skill. Half distance base, LONG DASH doubles.
 // Strikes foes it passes through, hits GENERATE mana.
-function shoot() {                                              // magic bolt (gold): 2 mana
-  if (!started || paused || deathT > 0 || !su[0]) return;
-  if (mn < 3) return;                                              // silent fail — matches HEAL/DASH convention (MP bar shows the answer)
-  mn -= 3; sfx(700, 1300, .12, 'triangle', .09);
+function shoot() {                                              // magic bolt (gold): 3 mana. TAP to fire — ONE bolt per press. NO rapid fire / hold-to-auto-fire (deliberately not wanted).
+  if (!started || paused || deathT > 0 || !su[0] || mn < 3) return;   // silent fail — MP bar shows the answer
+  mn -= 3; sfx(700, 1300, .12, 'triangle', .09); fly(AFX, AFY, '-3', '#4a76ff', 0, 0, 1);   // SHOOT: MP cost at the universal action-feedback spot
   // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT / TRI SHOT add stacked projectiles UPWARD from the base (first shot = current single-shot origin).
   for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 8, vx: pl.face * 270, t: .55 + .25 * su[1] });
 }
@@ -667,20 +667,20 @@ function dash() {                                               // THE attack ve
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
   if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
-  dashCd = .45; pl.sq = .6; mn -= 3; sfx(600, 200, .12, 'sawtooth', .12);
+  dashCd = .45; mn -= 3; sfx(600, 200, .12, 'sawtooth', .12); fly(AFX, AFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost at the universal action-feedback spot
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +3 HP base (+6 with SUPER HEAL)
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
-  sfx(520, 1040, .25, 'triangle', .12); fly(pl.x, pl.y - 12, '+' + hm, '#9fe89a', 1);
+  sfx(520, 1040, .25, 'triangle', .12); fly(AFX, AFY, '-3', '#4a76ff', 0, 0, 1);   // HEAL: MP cost (blue) — the action-feedback popup is ALWAYS the MP spend, nothing else (HP gained shows on the bar)
   spray(pl.x + PW / 2, pl.y + PH / 2, 6, 0, 1);   // heal-cross burst around player — mirrors death skull / jump rainbow
 }
 
 const hurt = (n, safe) => {
-  if (pl.inv > 0 || deathT > 0) return;
+  if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while flashing red (hf) OR in a stomp/respawn window (pl.inv)
   n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp -= n; pl.inv = 1.2; shk = Math.max(shk, .22); hs = .04; hf = .14;   // hf: unicorn flashes red for 140ms
+  hp -= n; shk = Math.max(shk, .22); hs = .04; hf = .8;   // hf = ONE timer: red flash AND hurt-invuln, same 0.8s window — red = invincible. (stomp/respawn use pl.inv, no red)
   sfx(140, 55, .25, 'sawtooth', .12);
 
   if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 7, 1); return; }   // player death — skulls burst from the fallen unicorn
@@ -701,7 +701,6 @@ const step = (dt) => {
   }
   if (dq || savePop || helpOn) return;             // dialogue / save-popup / help overlays freeze the sim — they swallow input, so the world must not act while the player can't (fairness)
   time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt; hf -= dt;
-  pl.sq += (1 - pl.sq) * Math.min(1, dt * 10);
 
   if (deathT > 0) {
     deathT -= dt;
@@ -725,7 +724,7 @@ const step = (dt) => {
     let ok = 0;
     if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; ok = 1; }
     else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; ok = 1; }   // TRI JUMP
-    if (ok) { jbuf = 0; pl.sq = .7; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }
+    if (ok) { jbuf = 0; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }
   }
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash: flat burst, strike foes
@@ -733,7 +732,7 @@ const step = (dt) => {
     parts.push({ x: pl.x + PW / 2, y: pl.y + PH / 2, vx: 0, vy: 0, t: .3 });      // rainbow arc trail — same particle as jump burst
     for (const f of [...foes]) {
       const fz = 5 * f.cz;
-      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) strike(f);
+      if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) { strike(f); f.fl = .8; }   // one hit per dash pass; then 0.8s enemy i-frame
     }
   } else {
     pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
@@ -755,8 +754,8 @@ const step = (dt) => {
       const tv = tile((pl.x + ox) / T | 0, ty);
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
         if (!bounceSet.has(ty * W + fc)) {                       // normal ground (bounce handled in independent post-pass below)
-          pl.y = top - PH;
-          if (!wasGround && pl.vy > 250) { pl.sq = 1.35; sfx(150, 70, .06, 'square', .07); }
+          pl.y = top - PH;   // rest feet on the tile top (top already computed above for the platform from-above guard)
+          if (!wasGround && pl.vy > 250) sfx(150, 70, .06, 'square', .07);   // hard-land thud (no squash)
           pl.vy = 0; pl.gr = 1; pl.air = 0;
         }
         break;
@@ -772,7 +771,7 @@ const step = (dt) => {
     if (bounceSet.has(bty * W + bfc) && bf >= bty * T - 4 && bf < bty * T + 8) {
       pl.y = bty * T - PH - 15;
       pl.vy = -510;
-      pl.air = 0; jbuf = 0; pl.sq = .6; sfx(220, 640, .16, 'sine', .13);
+      pl.air = 0; jbuf = 0; sfx(220, 640, .16, 'sine', .13);
     }
   }
   if (pl.gr) {
@@ -798,15 +797,15 @@ const step = (dt) => {
     if (bs[bi] === 1 || bs[bi] === 2) return;                     // engaged OR killed → skip (killed bosses stay dead)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80 && Math.abs(pl.y - by * T) < 48) {  // vertical gate: walkway under ORANGE's perch is dy=66 — must not trigger from below
       const st = bs[bi], fresh = !st;                             // st truthy only when leash-stashed (mid-fight state)
-      // BOSS stats (uniform kit, tier-scaled by bi): hp=(20+bi*4)*(2+lvl>>2) · dm=8+bi · spd=1+bi*.1
+      // BOSS stats — same level scalar tr=2+(lvl>>2) as regular foes: hp=(20+bi*4)*tr · dm=(8+bi)*tr/2 · spd=1+bi*.1 (bi = boss tier).
       // (higher DARKCORN chase + hop faster). cap 19 = full unicorn kit (jump+dash+shoot), identical for all 7.
       bs[bi] = 1;
-      const bhp = (20 + bi * 4) * (2 + (lvl >> 2)) | 0;
+      const tr = 2 + (lvl >> 2), bhp = (20 + bi * 4) * tr | 0;
       foes.push({
-        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: 8 + bi,
+        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: (8 + bi) * tr / 2 | 0,
         fl: 0, t: 0, mx: bhp, cap: 19,
         hp: fresh ? bhp : st.hp,
-        ph: fresh ? 0 : st.ph, spd: fresh ? 1 + bi * .1 : st.spd, rc: fresh ? undefined : st.rc,
+        spd: 1 + bi * .1, rc: fresh ? undefined : st.rc,   // spd constant per boss (no enrage); rc preserved across leash
       });
       sfx(784, 1568, .3, 'triangle', .15);   // encounter sting — boss spawn sound
     }
@@ -826,7 +825,7 @@ const step = (dt) => {
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
-    else if (pl.x + PW > b.x - 2 && pl.x < b.x + 2 && pl.y + PH > b.y - 2 && pl.y < b.y + 2) { hurt(2, 0); b.t = 0; }
+    else if (pl.x + PW > b.x - 2 && pl.x < b.x + 2 && pl.y + PH > b.y - 2 && pl.y < b.y + 2) { hurt(b.dm, 0); b.t = 0; }   // bolt dmg = shooter's dm (same scaled value as melee — one system)
   }
   prune(fbolts);
 
@@ -843,13 +842,13 @@ const step = (dt) => {
       if (f.rc <= 0) {
         f.rc = f.bit ? 1.6 : 2.1;
         const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = f.bit ? 115 : 90;   // psp = projectile speed (was 'sp' — shadowed MAG stat)
-        fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * psp, vy: dy / d * psp, t: 2.6 });
+        fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * psp, vy: dy / d * psp, t: 2.6, dm: f.dm });   // carry shooter dm → bolt scales exactly like melee
         sfx(f.bit ? 260 : 380, 180, .14, 'sawtooth', .09);
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire
       }
     }
-    if (f.bit && Math.hypot(pl.x - f.x, pl.y - f.y) > 220) {    // BOSS LEASH — walk-out: stash hp/phase so re-trigger resumes, no free heal
-      bs[f.bi] = { hp: f.hp, ph: f.ph || 0, spd: f.spd || 0, rc: f.rc };
+    if (f.bit && Math.hypot(pl.x - f.x, pl.y - f.y) > 220) {    // BOSS LEASH — walk-out: stash hp + shoot-cooldown so re-trigger resumes, no free heal (no phase/spd — rage removed)
+      bs[f.bi] = { hp: f.hp, rc: f.rc };
       foes.splice(foes.indexOf(f), 1); continue;
     }
     // CHASE (cap 16) — home on the player; bi scales boss ground speed.
@@ -874,8 +873,7 @@ const step = (dt) => {
 
     f.vy = Math.min(400, (f.vy || 0) + 900 * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
-    const tv = tile((f.x + fs / 2) / T | 0, ty);
-    if (f.vy > 0 && (tv === 1 || tv === 2)) {
+    if (f.vy > 0 && tile((f.x + fs / 2) / T | 0, ty) % 3) {   // %3 standable (solid/platform) — same idiom as chase/hop/edge gates; rest feet on tile top
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
     }
     f.x += f.vx * dt;
@@ -892,12 +890,12 @@ const step = (dt) => {
     // Cooldown holds .wt < 0 until the strike can re-arm.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
     if (hit && pl.vy > 40 && py + PH <= f.y + 4) {
-      strike(f);
+      if (f.fl <= 0) { strike(f); f.fl = .8; }   // damage only outside the 0.8s enemy i-frame → bounce-stomping in place no longer melts a boss; you bounce off harmlessly and must vary attacks / time it
       // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center.
       // pl.air = 0 keeps DJ available so a skilled player can chain stomps; the
       // horizontal push means an unskilled player lands far away instead of bunny-hopping.
       pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
-      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; pl.sq = .75; sfx(150, 70, .06, 'square', .07);
+      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; sfx(150, 70, .06, 'square', .07);
       // Post-stomp i-frames: the stomp-launch sets pl.vx=±220, which the SAME-frame per-foe loop would then read as a "fast impact" against ADJACENT foes (>90px/s gate) — dealing damage from foe B milliseconds after stomping foe A. Also covers next-frame lingering overlap with the stomped foe. hurt() already gates on pl.inv>0, so this transparently blocks both cases.
       pl.inv = Math.max(pl.inv, .12);
       // .wt is NOT reset here — repeat-bouncing must accumulate threat (anti-exploit)
@@ -920,21 +918,21 @@ const step = (dt) => {
   for (const d of drops) {
     d.life += dt;   // age (float/bob only) — NO despawn: drops leave the world only on player death, exactly like foes
     d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
-    if (d.vy > 0 && solid(d.x, d.y + 3)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ground
+    if (d.vy > 0 && tile(d.x / T | 0, (d.y + 3) / T | 0) % 3) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ground OR one-way platform (%3 standable — matches enemy/player)
     // GRACE PERIOD: drop must be visible for ≥0.35s before pickup — matches the fast fade-in (below in draw loop) so you always SEE the drop before it vanishes into inventory. Fixes the stomp-kill case where drop spawned inside pickup radius and disappeared before rendering.
     if (d.life > .35 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
       if (d.t === 9) {                                          // RAINBOW — progression pickup: always collected. Bank the boss (bs→2), pause, burst, autosave.
         bs[d.bi] = 2; d.dead = 1; hs = .3;                      // hitstop: world freezes briefly for the collect moment
         spray(pl.x + PW / 2, pl.y - 6, 12);                     // rainbow particle burst above the head (reuses the death-burst spray; no skull flag = 7-band rainbow)
         sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);   // triumphant arpeggio
-        if (rainbows() === seeds.bosses.length) for (let i = 0; i < 60; i++) spray(pl.x + (Math.random() - .5) * VW, pl.y + (Math.random() - .5) * VH, 1, 0, 0, 4);   // VICTORY — big rainbows (z=4) burst across the whole screen
+        if (rainbows() === seeds.bosses.length) for (let i = 0; i < 60; i++) spray(pl.x + (Math.random() - .5) * VW, pl.y + (Math.random() - .5) * VH, 1, 0, 0, 4);   // VICTORY — big rainbows (z=4) burst across screen
         save(); continue;
       }
       // Potion → hot-bar counter (cap 5, drop stays on ground if full). Gear → bag (drop stays on ground if bag full).
       // Potion "+1" flies are HUD-anchored above the matching hot-bar slot (HP left, MP right) — clear, separated, never fights with damage numbers at the kill site.
       const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(QHX + 12, QSY - 6, '+1', '#ff5d6c', 0, 1, 1), 1))
         : d.t === 1 ? (mpPot < 5 && (mpPot++, fly(QMX + 12, QSY - 6, '+1', '#4a76ff', 0, 1, 1), 1))
-        : inv.length < invMax() && (inv.push({ s: d.s, c: d.c, b: d.b }), fly(d.x, d.y, '+BAG', '#ffd75e'), 1);
+        : inv.length < BAG && (inv.push({ s: d.s, c: d.c, b: d.b, u: d.u, v: d.v }), fly(d.x, d.y, '+BAG', '#ffd75e'), 1);   // u/v = optional sub-stat (undefined → omitted from save)
       if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); }   // only vanish when actually collected
     }
   }
@@ -1059,18 +1057,18 @@ const draw = () => {
   // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds. One draw path,
   // boss silhouette scaled up. cz = boss cell multiplier (kind determines base size).
   for (const f of foes) {
-    const s = f.cz, fs = 5 * s, wob = Math.sin(f.t * .75) * 1.5, sh = FT[f.k][5];   // sh = body shape from the type table
+    const s = f.cz, fs = 5 * s, wob = Math.sin(f.t * .75) * 1.5, sh = FT[f.k][4];   // sh = body shape from the type table (index 4 after size column removed)
     const step = Math.sin(f.t) * s * .35;                   // leg-step animation, shared
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
     if (f.k == 5) ctx.scale(f.gr ? 1.12 : .86, f.gr ? .85 : 1.18);  // HOPPER squash (ground) & stretch (air) — pivot at feet
     ctx.translate(-fs / 2, -fs);
-    // colour: white flash on hit > red pre-strike wind-up tell > kind tint. boss=charcoal.
-    ctx.fillStyle = f.fl > 0 ? '#fff' : f.wt > .12 ? '#ffb0b0' : f.bit ? '#2a2a33' : FOECOL[f.k];
+    // colour: kind tint only (boss=charcoal). Enemies NEVER flash — only the player unicorn flashes (red, when hurt). f.fl/f.wt remain as gameplay timers (dash re-hit gate + attack wind-up), just unrendered.
+    ctx.fillStyle = f.bit ? '#2a2a33' : FOECOL[f.k];
     if (f.bit) {                                                // DARKCORN — renders via drawU (canonical unicorn) with a temporary col swap.
-      // Body/hooves: PAL[13] dark (flash→12 white, tell→4 red). Horn+mane: PAL[RBC[bi]] identity band (rage→12 white in phase 2).
-      const bd = f.fl > 0 ? 12 : f.wt > .12 ? 4 : 13, hn = f.ph ? 12 : RBC[f.bi];
+      // Body/hooves: PAL[13] dark. Horn+mane: PAL[RBC[bi]] identity band (per-boss rainbow colour). No enrage/phase state.
+      const bd = 13, hn = RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);                              // scale drawU 14-bbox → fs
       const bc = col; col = [bd, hn, hn, bd]; drawU(Math.sin(f.t) * 3); col = bc;
     } else if (sh === 1) {                                      // CRAWLER shape family — k1 CRAWLER (upright), k4 RUNNER (low-slung variant), k5 HOPPER (squash/stretch via pre-scale)
@@ -1136,15 +1134,13 @@ const draw = () => {
     ctx.restore();
   }
 
-  // unicorn — always visible (title shows the opening scene with player + Greatcorn)
-  if (hf > 0 || pl.inv <= 0 || Math.sin(time * 20) > 0) {   // hf overrides the i-frame blink so the red hurt-flash always shows
-    ctx.save();
-    ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale((2 - pl.sq) * pl.face * NSC, pl.sq * NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
-    const bkc = col; if (hf > 0) col = [4, 4, 4, 4];   // hurt flash — whole unicorn red (PAL[4] = damage-red)
-    drawU(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
-    col = bkc;
-    ctx.restore();
-  }
+  // unicorn — always visible. Only player flash is red-on-hurt (hf). No i-frame blink (it read as a stray white flash); i-frames still gate hurt via pl.inv.
+  ctx.save();
+  ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
+  const bkc = col; if (hf > 0) col = [4, 4, 4, 4];   // hurt flash — whole unicorn red (PAL[4] = damage-red). The one and only player flash.
+  drawU(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
+  col = bkc;
+  ctx.restore();
 
   // Item drops — pixel sprites, bob gently, fade near end of life
   for (const d of drops) {
@@ -1165,7 +1161,7 @@ const draw = () => {
   }
   ctx.globalAlpha = 1; ctx.lineWidth = 1;
   for (const f of flies) {                                       // textAlign inherited 'center' from topHUD (last set each frame) — damage centres on origin; hud flies offset by cam to cancel world translate
-    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = (f.big ? 'bold 13px' : 'bold 8px') + ' monospace';
+    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = 'bold 10px monospace';   // ALL popups one uniform size (10px). `big` now only controls lifetime (crit lingers), not size.
     ctx.fillStyle = f.c; const fx = f.hud ? (f.x + cam.x) | 0 : f.x | 0, fy = f.hud ? (f.y + cam.y) | 0 : f.y | 0;
     ctx.fillText(f.txt, fx, fy);
     if (f.pot) pot(fx + 6, fy - 9, f.c, .7);   // mini potion glyph just right of the centred "+1"
@@ -1201,9 +1197,10 @@ const draw = () => {
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
       ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (.06, one step dimmer than inventory's .08 — unifying measured +4 B, 09-04)
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);   // unified passive border
+      if (aRow === EB() + s) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(ex - 1, ey - 1, 26, 26); }   // cursor = blue border (unified with stats/inv/skills)
       if (eq[s]) drawPart(s, ex + 6, ey + 4, eq[s].c, 2);     // gear icon @2× — fills the 24px cell (was 1×, floated tiny). same sprite as inventory/drops
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
-      if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 19, ey + 8); }   // bonus in STAT COLOR — STR=red, HP=green, MAG=blue, DEF=orange, LCK=purple
+      if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 19, ey + 8); }   // bonus in STAT COLOR (SC): STR gold · HP red · MAG blue · DEF green · LCK violet
     });
     // STATS — one row across the bottom of the box; cursor = gold column (always visible; "+1" hint only when a point is available)
     const SL = [['STR', ho], ['HP', he], ['MAG', sp], ['DEF', df], ['LCK', lk]];
@@ -1215,7 +1212,7 @@ const draw = () => {
       T2(v, sx + 9, 171);
     });
     // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip.
-    const iMax = invMax(), iSz = 24, iGap = 28;
+    const iMax = BAG, iSz = 24, iGap = 28;
     for (let i = 0; i < iMax; i++) {
       const ix = 38 + (i % 5) * iGap, iy = 184 + ((i / 5) | 0) * iGap, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.05)';
@@ -1229,8 +1226,8 @@ const draw = () => {
     // popup direction (up + slight right) reads naturally from wherever the user tapped.
     if (invSel >= 0 && inv[invSel]) {
       const it = inv[invSel];
-      const desc = SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0];   // gear only (potions live in the hot-bar)
-      const tw = 90, tx = Math.min(VW - tw - 4, 48 + (invSel % 5) * 28);
+      const desc = SLOT_LBL[it.s] + ' +' + it.b + ' ' + STATS[SLOT_STAT[it.s]][0] + (it.u != null ? '  +' + it.v + ' ' + STATS[it.u][0] : '');   // primary + optional sub-stat
+      const tw = it.u != null ? 124 : 90, tx = Math.min(VW - tw - 4, 48 + (invSel % 5) * 28);
       const ty = Math.max(4, 156 + ((invSel / 5) | 0) * 28);   // 4px above the selected slot's row
       ctx.fillStyle = '#1e1928'; ctx.fillRect(tx, ty, tw, 20);
       ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(tx, ty, tw, 20);
@@ -1272,13 +1269,14 @@ const draw = () => {
       }
     });
     // (rainbow indicator lives in topHUD now — top-left, persistent in gameplay + menu)
-    // USE/DROP are functional button labels (not a control hint) — control reference lives ONLY in the ? overlay.
-    if (invSel >= 0 && inv[invSel]) {
-      // font + textAlign inherited (unchanged since L1149)
-      ctx.fillStyle = 'rgba(136,204,255,.14)'; ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1;
-      ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
+    // ACTION labels — honest verb for the selected gear: EQUIP (bag) / UNEQUIP (worn). Right box routes through spend(); DROP (left) is bag-only (worn gear can't be trashed — take it off first). Control reference lives ONLY in the ? overlay.
+    const wi = aRow - EB(), act = invSel >= 0 && inv[invSel] ? 'EQUIP' : wi >= 0 && eq[wi] ? 'UNEQUIP' : 0;
+    if (act) {
+      ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(136,204,255,.14)';
       ctx.fillRect(110, 250, 50, 14); ctx.strokeRect(110, 250, 50, 14);
-      ctx.fillStyle = '#c33'; T2('DROP', 75, 258); ctx.fillStyle = '#8cf'; T2('USE', 135, 258);
+      if (act === 'EQUIP') { ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14); }   // DROP box (bag only)
+      ctx.fillStyle = '#8cf'; T2(act, 135, 258);
+      if (act === 'EQUIP') { ctx.fillStyle = '#c33'; T2('DROP', 75, 258); }
     }
   }
 
@@ -1340,10 +1338,12 @@ const draw = () => {
     topHUD();
     const qslot = (x, t) => {
       const n = t ? mpPot : hpPot;
-      ctx.fillStyle = 'rgba(255,255,255,.05)'; ctx.fillRect(x, QSY, QSZ, QSZ);   // one box tint everywhere; fill/empty signaled by glyph alpha + count color
-      ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(x, QSY, QSZ, QSZ);   // one chrome grey everywhere (09-04); filled/empty already signaled by bg tint + glyph alpha + count color
-      ctx.globalAlpha = n ? 1 : .4; pot(x + 6, QSY + 6, t ? '#4a76ff' : '#ff5d6c'); ctx.globalAlpha = 1; ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // cork always opaque (alpha reset before cork so empty slots keep cork solid)
+      ctx.globalAlpha = n ? 1 : .3;                                                  // whole-slot state mirrors action buttons: usable = full, empty = dim
+      ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, QSY, QSZ, QSZ);          // dark disc — same fill as the action buttons
+      ctx.strokeStyle = n ? '#8cf' : '#555'; ctx.lineWidth = 2; ctx.strokeRect(x, QSY, QSZ, QSZ);   // BLUE overlay when usable (matches action buttons), grey when empty — reads as a button you can press
+      pot(x + 6, QSY + 6, t ? '#4a76ff' : '#ff5d6c'); ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // potion glyph + cork
       ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
+      ctx.globalAlpha = 1;
     };
     qslot(QHX, 0); qslot(QMX, 1);
   }
