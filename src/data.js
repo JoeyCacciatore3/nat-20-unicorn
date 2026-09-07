@@ -39,7 +39,7 @@ export const FOECOL = [, 5, 9, 7, 3, 2, 6];
 // Cap bits: 1=ranged 2=hop 16=chase (bosses use 19 = the full unicorn kit — same code path, all enemies dispatch through unified attack orchestration).
 // Cap assignment (2026-09-06 v3 combat expansion — 4 of 6 enemies now have MULTI-ATTACK combos for real tactical distinction):
 //   k1=2 hop-only (leaping puddle · 1 move) · k2=17 chase+ranged (tentacle stalker-spitter · 2 moves) ·
-//   k3=19 chase+ranged+hop (ELITE — full unicorn kit, mini-boss feel · 3 moves) · k4=16 pure chase (fast rush hunter · 1 move) ·
+//   k3=19 chase+ranged+hop (full unicorn kit, mini-boss feel · 3 moves) · k4=16 pure chase (fast rush hunter · 1 move) ·
 //   k5=18 chase+hop (frog leaper · 2 moves) · k6=3 ranged+hop (bouncing spike-sniper · 2 moves).
 //   Every cap value unique. k1 & k4 stay simple, everyone else runs 2-3 attacks. Contact damage universal (unlisted).
 export const FT = [, [4, 3, 44, 2], [8, 4, 31, 17], [12, 5, 26.7, 19], [5, 3, 70, 16], [6, 4, 36, 18], [9, 4, 22, 3]];
@@ -75,12 +75,12 @@ export const ZB = [
 // 0 SHOT · 1 FAR SHOT · 2 HEAL · 3 SUPER HEAL · 4 DBL JUMP · 5 TRI JUMP
 // 6 DASH · 7 LONG DASH · 8 DBL SHOT · 9 TRI SHOT
 export const TREE = 10;   // node count — was ['a'..'j'] string array but the labels were never rendered (grep-verified 2026-09-06). All skill nodes draw via iShot/iHeal/iJump/iDash icons, no text. Consumed as `TREE` (bare number) in main.js.
-// Row positions: Row1 y=48 (3), Row2 y=94 (2), Row3 y=140 (3), Row4 y=186 (2). 3-2-3-2 grid:
-// rows 1&3 share columns 263/325/387; rows 2&4 share 294/356. Three-column layout by family:
+// Row positions: Row1 y=58 (3), Row2 y=98 (2), Row3 y=138 (3), Row4 y=178 (2). 3-2-3-2 grid, 40px spacing. Row1 y=58 aligns the top nodes with the top of the MANE/HORN equipment boxes (ey=58).
+// rows 1&3 share columns 248/304/360; rows 2&4 share 276/332 (left column over the MP/mana potion box x=243-267, SHOT centre x=261). Three-column layout by family:
 // LEFT col = SHOT chain (SHOT→[swap]→TRI JUMP→FAR SHOT), MID col = HEAL chain (HEAL→SUPER HEAL),
 // RIGHT col = MOBILITY (DASH→LONG DASH→[swap]→TRI SHOT). DBL SHOT/DBL JUMP + TRI SHOT/TRI JUMP
 // swap tiers/columns so mobility unlocks earlier. Level gates: Row1=LV1, Row2=LV3, Row3=LV6, Row4=LV9.
-export const TPOS = [[263,48],[294,186],[325,48],[325,140],[294,94],[263,140],[387,48],[356,94],[387,140],[356,186]];
+export const TPOS = [[248,58],[276,178],[304,58],[304,138],[276,98],[248,138],[360,58],[332,98],[360,138],[332,178]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base. Cork = 4×3 opaque tan fillRect (extends 2px above bitmap, covers r0).
@@ -88,6 +88,6 @@ export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,50
 // GREATCORN dialogue. '~' prefix = player unicorn speaks (bubble over its head), else GREATCORN. '|' = row break within one bubble. One bubble per tap = a comedic beat (setup on one, punch on the next). Voice: vain, dramatic, forgetful elder vs. the deadpan pony.
 // COUPLING: bubbles 6/7/8 are the controls tutorial — main.js SPOTLIGHTS joystick / JUMP / locked buttons by these exact indices (subtractive: target full-alpha, others dimmed). Reordering INTRO breaks the spotlight.
 // Bubbles 6/7 are the KEYBOARD variants; beginGame() overwrites them with touch variants when `touch` is set (device-conditional prompts — never dual-name inputs).
-export const INTRO = ["Oh! You're awake.|I nearly sat on you.", "~...who are you?", "The GREATCORN.|Obviously. Keep up.", "The DARKCORN|broke my rainbow.", "~...that seems bad.", "Reclaim every rainbow.|One per DARKCORN.|There are seven.", "Arrow keys walk.|WASD for rebels.", "SPACE jumps.|Jump near me to chat.|I permit it.", "The dull buttons?|Locked. Greatness|is earned.", "Hurt? Potions, spells,|or my sympathy.|Two of those exist.", "~Wish me luck.", "Luck's for ponies.|I'd come along, but|I'm load-bearing."];
+export const INTRO = ["Oh! You're awake.|I nearly sat on you.", "~...who are you?", "The GREATCORN.|Obviously. Keep up.", "The DARKCORN|broke my rainbow.", "~...that seems bad.", "Reclaim every rainbow.|One per DARKCORN.|There are seven.", "Arrow keys walk.|WASD for rebels.", "SPACE jumps.|Jump near me to chat.|I permit it.", "The dull buttons?|Locked. Greatness|is earned.", "Wounded? Return to me.|I restore you fully:|health and magic both.", "~Wish me luck.", "Luck's for ponies.|I'd come along, but|I'm load-bearing."];
 // Re-talk quips — cycled one per approach (JUMP near the GREATCORN after the intro).
 export const TALK = ["Rainbows won't fetch|themselves, pony.", "Still here?|So are the DARKCORN.", "You've got this.|Probably.", "Stop bouncing at me.|I'm not a mushroom.", "This mane grooms|itself. Out of|respect."];

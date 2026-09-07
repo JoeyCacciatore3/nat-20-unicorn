@@ -4,7 +4,7 @@
 //   - Stat allocation (STR/HP/MAG/DEF/LUCK), no classes
 //   - 4-slot color-driven equipment gear (BODY/MANE/HORN/HOOVES) — each drop
 //     is an RPG item icon: armor / cape / horn blade / horseshoe (drawPart), tinted by roll color
-//   - ONE open skill tree, 12 single-rank nodes, all player-chosen (no auto-learn)
+//   - ONE open skill tree, 10 single-rank nodes, all player-chosen (no auto-learn)
 //   - Rainbows = collection goal (one per DARKCORN boss; win = all bands, seeds.bosses.length)
 //   - Unified character sheet: pause + level-up share layout
 //   - 10-slot inventory (fixed max); potions live in a separate hot-bar (5 HP / 5 MP)
@@ -16,7 +16,7 @@
 //   npm run build   (also runs map audit + tpos-check, logs to SIZELOG.md)
 //   wavedash build push -m "message"
 //
-// Save: strict v43 JSON to localStorage. Version bumps discard prior saves.
+// Save: strict v44 JSON to localStorage. Version bumps discard prior saves.
 
 import { T, W, H, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
@@ -104,8 +104,10 @@ addEventListener('keydown', (e) => {
   if (phase === 0) return titleKey(e);
   if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → skills)
     if (e.code === 'KeyP') paused = 0;                          // P closes
-    else if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') setRow((aRow + SN - 1) % SN);
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') setRow((aRow + 1) % SN);
+    else if (e.code === 'ArrowLeft' || e.code === 'KeyA') navSel(-1, 0);
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD') navSel(1, 0);
+    else if (e.code === 'ArrowUp' || e.code === 'KeyW') navSel(0, -1);
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') navSel(0, 1);
     else if (e.code === 'Enter' || e.code === 'Space') spend();
     return;
   }
@@ -129,12 +131,12 @@ const held = (...c) => c.some(k => keys.has(k));
 // (skill unlocked AND enough MP), else dull #555 — one rule covers both "locked" and "out of MP".
 // Each: [x, y, key, brightColor, suIdx (-1 = always unlocked)]. Fan-arc = landscape thumb-reach.
 const AR = 20, BVS = .7;                          // AR = touch radius (hit = AR+6) · BVS = visual scale (buttons draw at 70%, r=14, but keep the 26px touch target)
-// [x, y, key, skillGate (-1 = always)]. Every non-JUMP action costs the uniform 3 MP (derived, not stored). Ring accent = one UI color (#8cf); glyph carries identity.
+// [TOUCH x, y, key, skillGate (-1 = always)]. These are the TAP-zone centres (r=AR+6). The VISUALS draw 7px pulled toward the cluster centre (424,216) — see the render loop — so touch zones stay maximally spread (0 overlap) while the buttons cluster tight. Symmetric 2×2: touch cols VW-30/VW-82, rows VH-28/VH-80 (52px apart = exactly 2×touch-r, zones just kiss). Every non-JUMP action costs the uniform 3 MP. Ring accent = one UI color (#8cf); glyph carries identity.
 const AB = [
-  [VW - 36, VH - 34, 'bJ', -1],
-  [VW - 92, VH - 30, 'bM', 6],
-  [VW - 78, VH - 78, 'bS', 0],
-  [VW - 36, VH - 88, 'bH', 2],
+  [VW - 30, VH - 28, 'bJ', -1],   // BR corner
+  [VW - 82, VH - 28, 'bM', 6],    // BL
+  [VW - 82, VH - 80, 'bS', 0],    // TL
+  [VW - 30, VH - 80, 'bH', 2],    // TR
 ];
 const PFX = VW / 2, PFY = QSY - 6;                // PLAYER FEEDBACK SPOT — one source of truth for every player-side popup EXCEPT damage: XP · MP cost · HEAL amount · quaff · pickup. Anchored above the potion hot-bar (screen-space via hud=1 flag). Damage stays in world (above player OR above enemy).
 const ptrs = new Map();
@@ -202,19 +204,19 @@ addEventListener('pointerdown', (e) => {
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
       // ACTION / DROP buttons — overlap the grid (y=250-264 inside grid y=184-268), checked first.
       // LEFT box = EQUIP/UNEQUIP via spend() (dispatches by cursor region). Right box = DROP (bag only). Left placement puts primary action nearest the joystick thumb.
-      if (((invSel >= 0 && inv[invSel]) || (aRow >= EB && eq[aRow - EB])) && hit(50, 250, 50, 15)) { spend(); return; }
-      if (invSel >= 0 && inv[invSel] && hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
+      if ((inv[aRow - 5] || (aRow >= EB && eq[aRow - EB])) && hit(50, 250, 50, 15)) { spend(); return; }
+      if (inv[aRow - 5] && hit(110, 250, 50, 15)) { inv.splice(aRow - 5, 1); return; }
       // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts. One action path, no redundant tap-again.
-      for (const [s, ex, ey] of [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]]) if (hit(ex, ey, 24, 24)) { const r = EB + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
+      for (const [s, ex, ey] of EQ) if (hit(ex, ey, 24, 24)) { const r = EB + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
       // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP). Coords match render at (50, 172) after 2026-09-06 shift up-right to clear joystick visual.
-      if (hit(50, 172, 140, 84)) {
-        const iC = ((vx - 50) / 28) | 0, iR = ((vy - 172) / 28) | 0, iI = iR * 5 + iC;
+      if (hit(62, 172, 140, 84)) {
+        const iC = ((vx - 62) / 28) | 0, iR = ((vy - 172) / 28) | 0, iI = iR * 5 + iC;
         if (iI < BAG && inv[iI]) { const r = 5 + iI; if (aRow === r) spend(); else setRow(r); return; }
         return;                                                  // tap on empty inv area — no-op, keeps menu open
       }
       // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
-      const ci = ((vx - 39) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette)
-      if (vy > 156 && vy < 182 && vx > 39 && vx < 169 && ci >= 0 && ci < 5) { if (aRow === ci) spend(); else setRow(ci); return; }
+      const ci = ((vx - 56) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette). 56 = stat render base (sx 69) minus the same ~13px left-lead the tap zone always had
+      if (vy > 156 && vy < 182 && vx > 56 && vx < 186 && ci >= 0 && ci < 5) { if (aRow === ci) spend(); else setRow(ci); return; }
       for (let i = 0; i < TREE; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + BAG + i; if (aRow === r) spend(); else setRow(r); return; } }
       paused = 0; return;                                        // tap anywhere else closes
     }
@@ -275,7 +277,7 @@ setInterval(() => {
 
 // ---------- RPG: stats, equipment, skill tree ----------
 // 5 stats: STR (physical dmg: dash+stomp) · HP (max ♥) · MAG (magic dmg: shoot + max ✦) · DEF (dmg reduction) · LUCK (crit + drops)
-let ho = 1, he = 1, sp = 1, df = 1, lk = 1;       // every stat starts at 1 — no dead stats at creation
+let st = [1, 1, 1, 1, 1];       // 5 base stats indexed [0]STR [1]HP [2]MAG [3]DEF [4]LCK — one array (not 5 named vars) so equip/level/save all dispatch by index, no if-else. Each starts at 1 (no dead stats).
 // Unicorn part colors — one palette index per body part (0=BODY, 1=MANE, 2=HORN, 3=HOOVES).
 // Equipping slot s writes col[s], which drives drawU's fill colors.
 let col = [0, 0, 0, 0];
@@ -289,9 +291,8 @@ const BAG = 10;                                       // BAG cap (fixed; STASH s
 // stat mutation mirrors spend() so HP/MP grow/shrink together with mHP/mMN (like a level-up).
 // CONTRACT: caller MUST ensure bag has room (useItem splices new item out first — that's what makes the swap safe).
 // STAT-INDEX applier (0 STR · 1 HP · 2 MAG · 3 DEF · 4 LUCK) — the ONE place gear touches stats. Used by primary AND sub-stats. No tiers: magnitudes come from level at drop.
-const addStat = (i, d) => { if (i === 0) ho += d; else if (i === 1) he += d; else if (i === 2) sp += d; else if (i === 3) df += d; else lk += d; };
-// Apply an item's whole contribution: PRIMARY (its slot's stat via SLOT_STAT) + optional SUB-stat (it.u index / it.v amount). g=+1 equip, -1 unequip; clamp vitals to new max after.
-const applyItem = (it, g) => { addStat(SLOT_STAT[it.s], g * it.b); if (it.u != null) addStat(it.u, g * it.v); if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN(); };
+// Apply an item's whole contribution: PRIMARY (its slot's stat via SLOT_STAT) + optional SUB-stat (it.u index / it.v amount). g=+1 equip, -1 unequip; clamp vitals to new max after. Direct st[i]+=d (array index replaces the old addStat if-else).
+const applyItem = (it, g) => { st[SLOT_STAT[it.s]] += g * it.b; if (it.u != null) st[it.u] += g * it.v; if (hp > mHP()) hp = mHP(); if (mn > mMN()) mn = mMN(); };
 const equip = (item) => {
   const old = eq[item.s];
   if (old) { applyItem(old, -1); inv.push(old); }    // strip the swapped-out item's stats fully, back to bag
@@ -336,8 +337,8 @@ const bars = (x, y) => { bar(x, y, 68, 10, hp / mHP(), '#6cf279'); ctx.strokeSty
 // Header/bars/HP-MP numbers live in topHUD() now so they're identical between gameplay and menu.
 const portraitPanel = () => {
   ctx.fillStyle = '#1e1928'; ctx.fillRect(0, 0, VW, VH);
-  ctx.save(); ctx.translate(104, 106); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);
-  drawU(0);
+  ctx.save(); ctx.translate(130, 94); ctx.scale(2.6, 2.6); ctx.translate(-6, -8);   // y 106→94: unicorn raised 12px so the +N pending indicator sits cleanly in the gap between BODY/HOOVES without touching the legs
+  drawUo(0);
   ctx.restore();
 };
 // TOP-LEFT PERSISTENT HUD — identical in gameplay AND in the character menu. Renders:
@@ -361,16 +362,26 @@ const topHUD = () => {
 };
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
 // scale sets pixel scale. All colors come from col[0..3] (body/mane/horn/hooves).
-const drawU = (bob) => {
+const drawU = (bob, h) => {   // h=1 → skip the horn (used by the outline pass, which outlines the horn separately). Default (no h) draws the full sprite unchanged.
   ctx.fillStyle = PAL[col[3]];                                                                      // hooves (whole leg)
   ctx.fillRect(1, 12 + bob * .3, 2, 4 - bob * .3); ctx.fillRect(7, 12 - bob * .3, 2, 4 + bob * .3);
   ctx.fillStyle = PAL[col[0]]; ctx.fillRect(0, 5, 10, 7); ctx.fillRect(7, 0, 5, 6);                 // body + head
   ctx.fillRect(-2, 6, 2, 4); ctx.fillRect(-3, 9, 2, 2);                                              // TAIL — 2-segment: base + half-height sweep down-left
-  ctx.fillStyle = PAL[col[2]]; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill(); // horn
+  if (!h) { ctx.fillStyle = PAL[col[2]]; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill(); } // horn (skipped in the outline body pass)
   mane3(col[1]).forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });// mane 3-color
   ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
   // Equipment does NOT modify the visible sprite beyond the per-slot color (col[]).
   // Equipment folds bonuses directly into base stats via equip() (Joey directive 2026-09-03).
+};
+// drawU + enemy-style dark outline. Two-part, because the offset-silhouette trick can't outline the thin diagonal HORN cleanly (offsetting a razor triangle scatters spikes, never caps the tip):
+//  1) BODY — 4-direction near-black (PAL[13]) silhouette behind the sprite (horn skipped, h=1) → clean 1px rim.
+//  2) HORN — one solid dark triangle ~1px larger than the colored horn, colored horn drawn on top (the enemy oR "bigger shape behind" method) → a single clean edge that closes to a point.
+// drawU is untouched for default calls, so the base sprite is unchanged.
+const drawUo = (bob) => {
+  const bc = col; col = [13, 13, 13, 13];
+  for (const [a, b] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { ctx.translate(a, b); drawU(bob, 1); ctx.translate(-a, -b); }   // body outline, horn skipped
+  ctx.fillStyle = PAL[13]; ctx.beginPath(); ctx.moveTo(9.2, .6); ctx.lineTo(14.6, -6.1); ctx.lineTo(12, 2); ctx.fill();     // horn outline = enlarged dark triangle (capped point)
+  col = bc; drawU(bob);
 };
 // CHAT BUBBLE — reusable speech bubble that stems from a head at world (hx, topY).
 // Single continuous path: rounded corners (arcTo) + a downward tail merged into the bottom edge,
@@ -395,14 +406,14 @@ let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via level-gated rows (canBuy = lvl>=req per node)
-let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY rainbow collect, 0.3s) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-flash timer · hfc = flash PAL index (4=red hurt · 15=green heal). Dash uses SILENT pl.inv. hf>0 OR pl.inv>0 = invulnerable.
+let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY rainbow collect, 0.3s) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-strobe timer · hfc = flash PAL index (4=red hurt · 15=green heal · 8=blue dash). pl.inv now covers only stomp + respawn (silent). hf>0 OR pl.inv>0 = invulnerable.
 // Boss state: 0=unvisited, 1=on screen OR defeated-uncollected, 2=rainbow collected (leash stash retired 2026-09)
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 
 const rainbows = () => bs.filter(v => v === 2).length;   // banked-boss count. KEEP as helper — inlining the .filter body measured +12 B.
-const mHP = () => 8 + he * 2;                     // base 8 + HP stat
-const mMN = () => 8 + sp * 2;                     // base 8 + MAG stat
-// ATK (=ho) and LUCK% (.12+lk*.03) inlined at their use sites — low-use helpers are net-negative under roadroller.
+const mHP = () => 8 + st[1] * 2;                     // base 8 + HP stat (st[1])
+const mMN = () => 8 + st[2] * 2;                     // base 8 + MAG stat (st[2])
+// ATK (=st[0]) and LUCK% (.12+st[4]*.03) inlined at their use sites — low-use helpers are net-negative under roadroller.
 
 const need = () => lvl * lvl + 40;               // XP to next level. +40 floor keeps early levels from flooding (~5 kills/level vs ~2); quadratic ramps toward CAP. KEPT as helper (inlining measured net-negative).
 const gainXp = (n, x, y) => {
@@ -418,7 +429,7 @@ const gainXp = (n, x, y) => {
   if (lvl >= CAP) xp = 0;
 };
 // STATS — pending-point mutators indexed 0-4 (STR/HP/MAG/DEF/LUCK). Labels/colors live in SL/SC (menu render), not here — kept lean.
-const STATS = [() => ho++, () => { he++; hp += 2; }, () => { sp++; mn += 2; }, () => df++, () => lk++];
+// stat-point spend inlined in spend() (st[aRow]++ + HP/MAG vital bump) — the STATS closure array retired with the stat array-ize (2026-09-07).
 
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE).fill(0);
@@ -428,13 +439,33 @@ let spts = 0; const su = Array(TREE).fill(0);
 const canBuy = i => lvl >= [1,9,1,6,3,6,1,3,6,9][i];
 let aRow = 0;
 const EB = 5 + BAG + TREE;                        // equip-region base: worn slots (0-3) appended AFTER skills so stats/inv/skills keep their row numbers. Const (was helper) — BAG+TREE both const, value never changes.
+const EQ = [[1, 64, 58], [2, 172, 58], [0, 64, 106], [3, 172, 106]];   // worn-slot layout [gearIdx, x, y] (MANE tl · HORN tr · BODY bl · HOOVES br). SINGLE source for menu render + tap — was duplicated verbatim in both, a sync hazard on every layout nudge.
 const SN = EB + 4;                                // unified cursor span: stats(0-4) → inv(5..) → skills(..EB-1) → worn(EB..EB+3)
-// setRow: assign cursor + auto-sync invSel so existing tooltip / USE-DROP button logic works unchanged.
-const setRow = (r) => { aRow = r; invSel = r >= 5 && r < 5 + BAG ? r - 5 : -1; };
+// setRow: THE single cursor mutator. Bag selection is derived from aRow on read (aRow-5 in bag range) — no separate invSel state.
+const setRow = (r) => { aRow = r; };
+// cxy: screen CENTRE of any cursor cell — the spatial map that powers directional nav (↑↓←→ pick the nearest cell, not linear index stepping).
+// Regions: stats(0-4 row) · inventory(5-14, 5×2) · skills(15-24, TPOS grid) · worn gear(EB..EB+3, 2×2). Coords mirror the menu render block.
+const cxy = (r) =>
+  r < 5 ? [78 + r * 26, 157] :
+  r < 5 + BAG ? [74 + (r - 5) % 5 * 28, 184 + ((r - 5) / 5 | 0) * 28] :
+  r < EB ? [TPOS[r - 5 - BAG][0] + 13, TPOS[r - 5 - BAG][1] + 13] :
+  [(r - EB) > 1 ? 184 : 76, (r - EB) % 3 ? 70 : 118];
+// navSel: move cursor to the nearest cell in direction (dx,dy). Cost = forward distance + 2× perpendicular offset; candidates behind the direction are skipped; edge with nothing beyond = no-op.
+const navSel = (dx, dy) => {
+  const [x0, y0] = cxy(aRow); let b = -1, bc = 1e9;
+  for (let r = 0; r < SN; r++) {
+    if (r === aRow) continue;
+    const [x, y] = cxy(r), ax = x - x0, ay = y - y0, p = ax * dx + ay * dy;
+    if (p <= 0) continue;
+    const c = p + Math.abs(ax * dy - ay * dx) * 2;
+    if (c < bc) { bc = c; b = r; }
+  }
+  if (b >= 0) setRow(b);
+};
 const spend = () => {
   if (aRow < 5) {                                             // STAT — costs a pending point
     if (!pending) return;
-    STATS[aRow](); pending--;
+    st[aRow]++; if (aRow === 1) hp += 2; else if (aRow === 2) mn += 2; pending--;   // raise the stat; HP(1)/MAG(2) also +2 to the current vital so the point is felt immediately
   } else if (aRow < 5 + BAG) {                                // INV — use/equip item at slot
     if (!inv[aRow - 5]) return;
     useItem(aRow - 5); return;                                // useItem plays its own sfx + splices; do NOT double-save
@@ -450,7 +481,7 @@ const spend = () => {
 const save = () => {
   localStorage['n20_s0'] = JSON.stringify({
     v: 44, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
-    t: [ho, he, sp, df, lk], d: pending, k: spts, y: su,
+    t: st, d: pending, k: spts, y: su,
     m: pName, o: oc,
     q: eq, i: inv, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
   });
@@ -464,7 +495,7 @@ const load = () => {
     bs.fill(0); d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;   // fill(0) first: shorter saved arrays must not inherit stale slots from a prior in-session load
     chests = seedChests();
     foes = seedFoes();
-    [ho, he, sp, df, lk] = d.t;
+    st = d.t;
     pl.x = SX; pl.y = SY;                                       // always respawn at paddock (no checkpoint system since 029aef5)
     pending = d.d;                                                 // unspent stat points survive reload — info panel glows, no auto-open
     spts = d.k; su.fill(0); d.y.forEach((v, i) => su[i] = v);
@@ -489,9 +520,9 @@ let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay;
 // Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
 let dq = 0, di = 0, tqi = 0;
 const talk = (s) => { dq = s; di = 0; };
-const adv = () => { if (++di >= dq.length) dq = 0; };
+const adv = () => { if (++di >= dq.length) { dq = 0; hp = mHP(); mn = mMN(); hf = IFR; hfc = 15; spray(pl.x + PW / 2, pl.y + PH / 2, 5, 2); } };   // dialogue closed = done talking to the GREATCORN → he blesses you: full HP+MP restore + green flash + 5 heal-cross particles. Fires for intro close AND every re-talk quip (all dialogue is GC).
 
-let invSel = -1;                                  // selected inventory slot (-1 = none) — first click selects, second click on same slot uses/equips
+// bag selection is derived: the selected item is inv[aRow-5] (undefined for non-bag rows, since inv.length ≤ BAG is invariant). No stored invSel state (retired 2026-09-07 — spatial-nav made it pure derived state).
 // Chest reward: item shower only (no heal — heals come from potions / HEAL spell / level-up). LUCK adds drops.
 const openChest = (i) => {
   if (oc & (1 << i)) return;
@@ -503,7 +534,7 @@ const openChest = (i) => {
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
-const RUN = 115, V0 = 250;
+const RUN = 115, V0 = 250, IFR = 1.2;   // IFR = invuln/flash window (sec) for hurt + heal. Dash uses its own shorter .5s dodge window (below). Tune here.
 
 const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -519,10 +550,10 @@ const fresh = () => {
   resetTransient();                                     // clean-state guarantee (velocity, cooldowns, dialogue) — shared with load() + respawn
   xp = 0; lvl = 1; bs.fill(0); hpPot = mpPot = 0;
   eq.fill(null); inv.length = 0;
-  pending = 0; ho = he = sp = df = lk = 1; col = [0, 0, 0, 0];
+  pending = 0; st = [1, 1, 1, 1, 1]; col = [0, 0, 0, 0];
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
-  aRow = 0; invSel = -1;   // reset menu cursor — else prior-session invSel persists across EXIT→NEW GAME (harmless with empty bag but a stale-state smell)
+  aRow = 0;   // reset menu cursor (bag selection is derived from aRow, nothing else to clear)
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seedChests();
   foes = seedFoes();
@@ -556,7 +587,7 @@ let foes = seedFoes();
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
 const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, big, pot, hud, t: big ? 2.6 : 1.8 });   // big texts (crit / heal) linger longer; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world). Bumped 1.4→1.8s (2.2→2.6s big) so numbers stay readable through fade.
 // Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS).
-const spray = (x, y, n, sk = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 40 + Math.random() * 90; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 65, t: 1 + Math.random() * .5, sk, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump puff, big = victory burst). lifetime 1.0-1.5s — bursts linger long enough to read what died / jumped
+const spray = (x, y, n, sk = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 22 + Math.random() * 46; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 42, t: 1 + Math.random() * .5, sk, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump puff, big = victory burst). lifetime 1.0-1.5s UNCHANGED. Launch speed 22-68 (was 40-130) + pop -42 (was -65): TIGHTER burst — particles stay near origin (09-07) so a death reads as "died HERE", not a sprawl that looks like incoming spread.
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
 // pass custom for dead-flag or bit-match culling. Used by shots/fbolts/parts/flies/foes/drops.
 const prune = (a, d = e => e.t <= 0) => { for (let i = a.length; i--;) if (d(a[i])) a.splice(i, 1); };
@@ -571,14 +602,16 @@ const skull = (x, y, u, a = 1, bc = '#e9e3cd') => {
 // LUCK adds +1 drop per pip.
 
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
-const spr = (d, x, y, w, c, z = 1) => { ctx.fillStyle = c; for (let r = 0; r < d.length; r++) for (let b = w; b--;) d[r] >> b & 1 && ctx.fillRect(x + (w - 1 - b) * z, y + r * z, z + .03, z + .03); };
-// POTION — outline (4-direction spread in dark) + fill + specular highlight (glass reflection).
-// Same outline technique as gear sprites (#17131f), same highlight convention (top-left light).
-// Cork is a site-specific opaque overlay (HUD alpha-gates the body but keeps the cork solid).
-const pot = (x, y, c, z = 1) => { const o = '#17131f'; for (const d of [-z, z]) { spr(I_MP, x + d, y, 12, o, z); spr(I_MP, x, y + d, 12, o, z); } spr(I_MP, x, y, 12, c, z); ctx.fillStyle = '#fff'; ctx.fillRect(x + 2 * z, y + 5 * z, z, 2 * z); ctx.fillRect(x + 3 * z, y + 4 * z, z, z); };
+const spr = (d, x, y, w, c, z = 1) => { ctx.fillStyle = c; for (let r = 0; r < d.length; r++) for (let b = w; b--;) d[r] >> b & 1 && ctx.fillRect(x + (w - 1 - b) * z, y + r * z, z + .5, z + .5); };   // cells overlap by .5 (was .03) so adjacent same-colour fills merge seamlessly under the non-integer frame scale (SS) — the tiny .03 left AA seams that revealed the dark underlayer as a grid. spr is potion-only + single-colour per call, so the overlap is invisible interior (no colour smear).
+// POTION — self-contained sprite: body (4-dir dark outline + solid fill) + corked stopper (dark outline + solid tan) + specular highlight.
+// Same outline technique as the enemy/gear sprites (#17131f, drawn 1px larger then colour on top) so every area is crisp with no see-through. Cork lives HERE now (was a bare outline-less fillRect duplicated at each call site).
+const pot = (x, y, c, z = 1) => { const o = '#17131f';
+  for (const d of [-z, z]) { spr(I_MP, x + d, y, 12, o, z); spr(I_MP, x, y + d, 12, o, z); } spr(I_MP, x, y, 12, c, z);   // body: 4-dir dark outline + solid fill
+  ctx.fillStyle = o; ctx.fillRect(x + 3 * z, y - 3 * z, 6 * z, 5 * z); ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 4 * z, y - 2 * z, 4 * z, 3 * z);   // cork: dark outline (1px larger) + solid tan on top
+  ctx.fillStyle = '#fff'; ctx.fillRect(x + 2 * z, y + 5 * z, z, 2 * z); ctx.fillRect(x + 3 * z, y + 4 * z, z, z); };   // specular glass highlight (top-left)
 // ACTION ICONS — the four glyphs on the action buttons, extracted so the skill-tree nodes render the same visuals. Every helper is centered on (x, y); tree callers wrap in scale(.65) to fit the 26px cells. Count params scale with skill upgrades (1/2/3 chevrons or stacked arcs).
 const iShot = (x, y, n, r = 10) => { ctx.lineWidth = 1.5;
-  if (n > 2) { const rr = r * .58; rArc(x, y - 3, rr, rr * .12); rArc(x - 7, y + 7, rr, rr * .12); rArc(x + 7, y + 7, rr, rr * .12); }   // TRI SHOT — triangle: top-mid + bottom-left + bottom-right (small rainbows), matching the fan the unicorn fires
+  if (n > 2) { const rr = r * .72, g = 10; for (let j = 0; j < 3; j++) rArc(x, y + g + rr / 2 - j * g, rr, rr * .12); }   // TRI SHOT — 3 straight rainbows stacked (r*.72 + 10px gap). Self-centered: baseline g+rr/2 puts the stack's midpoint exactly at y, still inside the 26px node.
   else for (let j = 0; j < n; j++) rArc(x, y + 4 - j * 14 + (n - 1) * 7, r, r * .12);   // 1/2 = stacked; 14px gap keeps DBL SHOT's two rainbows from overlapping; +(n-1)*7 self-centers
 };
 const iHeal = (x, y, up) => {
@@ -586,19 +619,16 @@ const iHeal = (x, y, up) => {
   ctx.fillStyle = '#17131f'; ctx.fillRect(x - 4, y - 11, 8, 22); ctx.fillRect(x - 11, y - 4, 22, 8);
   ctx.fillStyle = '#6cf279'; ctx.fillRect(x - 3, y - 10, 6, 20); ctx.fillRect(x - 10, y - 3, 20, 6);   // solid bright-green interior + 1px dark outline; ~18% smaller (2026-09-05)
 };
-const iJump = (x, y, n) => {
-  ctx.save(); ctx.translate(x, y); ctx.scale(.82, .82); ctx.translate(-5, -8);   // gear-tinted like the live player (equipment preview), slightly smaller to seat in the ring
-  drawU(0); ctx.restore();
-  ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
-  ctx.beginPath();
+const iCorn = (x, y) => {   // GC-palette unicorn icon base (jump/dash nodes) — fixed purple/gold via NPCCOL (constant as the player recolors), then arms the #8cf stroke for the chevron overlay
+  ctx.save(); ctx.translate(x, y); ctx.scale(.82, .82); ctx.translate(-5, -8);
+  const bc = col; col = NPCCOL; drawUo(0); col = bc; ctx.restore();
+  ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5; ctx.beginPath();
+};
+const iJump = (x, y, n) => { iCorn(x, y);
   for (let j = 0; j < n; j++) { const by = y + 9 + j * 3; ctx.moveTo(x - 3, by + 3); ctx.lineTo(x, by); ctx.lineTo(x + 3, by + 3); }
   ctx.stroke();
 };
-const iDash = (x, y, n) => {
-  ctx.save(); ctx.translate(x, y); ctx.scale(.82, .82); ctx.translate(-5, -8);   // gear-tinted like the live player (equipment preview), slightly smaller to seat in the ring
-  drawU(0); ctx.restore();
-  ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5;
-  ctx.beginPath();
+const iDash = (x, y, n) => { iCorn(x, y);
   for (let j = 0; j < n; j++) { const bx = x - 9 - j * 3; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3); }
   ctx.stroke();
 };
@@ -629,7 +659,7 @@ const spawnDrop = (x, y, n) => {
 };
 
 const strike = (f, mag) => {
-  const crit = Math.random() < .12 + lk * .03, dmg = (mag ? sp : ho) * (crit ? 2 : 1);   // SHOOT=MAG(sp) · DASH/STOMP=STR(ho); ×2 on crit (LUCK .12+lk*.03). Player→enemy is RAW — enemies have NO DEF stat; DEF only reduces enemy→player (in hurt())
+  const crit = Math.random() < .12 + st[4] * .03, dmg = st[mag ? 2 : 0] * (crit ? 2 : 1);   // SHOOT=MAG(sp) · DASH/STOMP=STR(ho); ×2 on crit (LUCK .12+lk*.03). Player→enemy is RAW — enemies have NO DEF stat; DEF only reduces enemy→player (in hurt())
   f.hp -= dmg;   // pure damage. The physical hit-cooldown (f.fl) is set by the DASH + STOMP sites — NOT by shots, so DBL/TRI SHOT volleys all land.
   fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
   // crit signaled by 2× damage (number) + longer popup lifetime (2.6s vs 1.8s). Hitstop + fanfare RETIRED 2026-09-06 — kept hitstop only for the ONE event that earns freezing the world: rainbow collect.
@@ -637,7 +667,7 @@ const strike = (f, mag) => {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." Universal combat audio grammar. XP: kind-capped base + crit bonus + boss escalation.
-    if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + lk * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
+    if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit) {                                                // BOSS falls
       prune(foes, e => e.bit === f.bit);
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — drop the rainbow as a collectible; mark defeated (1 = stays dead while alive, not yet counted)
@@ -655,30 +685,30 @@ const strike = (f, mag) => {
 function shoot() {                                              // magic bolt (gold): 3 mana. TAP to fire — ONE bolt per press. NO rapid fire / hold-to-auto-fire (deliberately not wanted).
   if (!started || paused || deathT > 0 || !su[0] || mn < 3) return;   // silent fail — MP bar shows the answer
   mn -= 3; sfx(700, 1300, .12, 'triangle', .09); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar)
-  // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT = 2 stacked straight. TRI SHOT = triangle fan (center + one up + one down), same shape as the icon.
-  for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - (su[9] ? 0 : i * 8), vx: pl.face * 230, vy: su[9] ? (i - 1) * 80 : 0, t: .65 + .3 * su[1] });   // 230 = ~15% slower than old 270 (more readable); vy 80 keeps the fan angle; lifetime bumped so range holds
+  // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT = 2 stacked straight. TRI SHOT = 3 stacked straight (adds vertical height, NO fan), same shape as the icon.
+  for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 8, vx: pl.face * 230, vy: 0, t: .65 + .3 * su[1] });   // every bolt straight (vy 0); DBL/TRI stack vertically by i*8 to add height. 230 = ~15% slower than old 270 (readable); lifetime scales with FAR SHOT (su[1]).
 }
 function dash() {                                               // THE attack verb: burst + strike-through; 3 MP (uniform). Attacks NEVER regen mana (potions/level-up/boss only).
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
   if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
-  dashCd = .45; mn -= 3; pl.inv = .4; sfx(600, 200, .12, 'sawtooth', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost at unified PFX/PFY + 0.4s SILENT i-frame — dash burst IS the visual. Chain-safe (dashCd=.45 > .4). Blocks physical + projectiles via hurt()'s pl.inv guard.
+  dashCd = .45; mn -= 3; hf = .5; hfc = 8; sfx(600, 200, .12, 'sawtooth', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost + 0.5s BLUE flash i-frame (hfc=8 = PAL[8] mana-blue). Blocks physical + projectiles via hurt()'s hf guard. Dodge window > dashCd, so chaining grants brief invuln but drains MP.
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +3 HP base (+6 with SUPER HEAL)
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
   sfx(520, 1040, .25, 'triangle', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1); fly(PFX, PFY, '+' + hm, '#6cf279', 0, 0, 1);   // HEAL: MP cost + HP gain both at unified PFX/PFY (above hot-bar). Popups float upward so they stagger vertically.
-  hf = .8; hfc = 15;   // HEAL grants 0.8s i-frame + green PAL[15] flash — same unified invuln window as hurt/dash; green = heal, red = hurt, blue = dash
+  hf = IFR; hfc = 15; spray(pl.x + PW / 2, pl.y + PH / 2, 5, 2);   // HEAL: IFR-sec green PAL[15] flash + i-frame, plus 5 green heal-cross particles rising from the body. green=heal · red=hurt · blue=dash.
 }
 
 const hurt = (n) => {
   if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while ANY flash active (hf → red/green/blue) OR stomp/respawn window (pl.inv). Single guard blocks physical AND projectiles.
-  n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = .8; hfc = 4;   // hf = invuln flash timer; hfc=4 = red PAL[4]. Damage + heal share hf channel (red/green). Dash uses SILENT pl.inv (its motion IS the visual). hp clamped ≥0. Hurt hitstop RETIRED 2026-09-06 — only rainbow collect keeps hitstop now.
+  n = Math.max((n >> 2) || 1, n - st[3]);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
+  hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = IFR; hfc = 4;   // hf = invuln flash timer (IFR sec); hfc=4 = red PAL[4]. hurt/heal/dash all share the hf strobe channel (red/green/blue). hp clamped ≥0. Hurt hitstop RETIRED 2026-09-06 — only rainbow collect keeps hitstop now.
   fly(pl.x + PW / 2, pl.y - 8, '-' + n, '#ff5d6c');                 // damage popup above head — mirrors enemy damage numbers so player sees hit amount in-world
   sfx(140, 55, .25, 'sawtooth', .12);
-  if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 5, 1); return; }   // player death — same 5-skull burst as foe death (unified 2026-09-06)
+  if (hp <= 0) { deathT = 1.6; return; }   // player death — NO skulls (09-07): the respawn-to-paddock + fade-to-black already carry the moment; skull burst was redundant.
   pl.vy = -180;   // unified knockback recoil (spike + enemy + projectile share one response — lastSafe teleport retired 2026-09-06: -180 arc auto-clears every 1-tile pit, so no softlock possible without it)
 };
 
@@ -686,11 +716,12 @@ const hurt = (n) => {
 let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes ONLY on rainbow collect (0.3s). Crit + hurt hitstops retired 2026-09-06 — this branch now services 1 event.
-  if (paused) {                                    // character menu freezes sim; joystick steps the linear cursor (keyboard nav stays in the keydown handler)
+  if (paused) {                                    // character menu freezes sim; joystick does spatial (nearest-cell) nav (keyboard nav stays in the keydown handler)
     navCD -= dt;
-    const nd = keys.has('bL') || keys.has('bU') ? -1 : keys.has('bR') || keys.has('bD') ? 1 : 0;   // left/up = prev · right/down = next
-    if (!nd) navCD = 0;                             // stick released → next push moves instantly
-    else if (navCD <= 0) { setRow((aRow + nd + SN) % SN); navCD = .16; }   // held → repeat every .16s
+    let dx = keys.has('bL') ? -1 : keys.has('bR') ? 1 : 0, dy = keys.has('bU') ? -1 : keys.has('bD') ? 1 : 0;   // stick → direction bits
+    if (dx && dy) { if (Math.abs(joy.dx) >= Math.abs(joy.dy)) dy = 0; else dx = 0; }   // diagonal push → dominant axis only (predictable single-step)
+    if (!dx && !dy) navCD = 0;                      // stick released → next push moves instantly
+    else if (navCD <= 0) { navSel(dx, dy); navCD = .16; }   // held → nearest cell in that direction, repeat every .16s
     return;
   }
   if (dq || savePop || helpOn) return;             // dialogue / save-popup / help overlays freeze the sim — they swallow input, so the world must not act while the player can't (fairness)
@@ -825,7 +856,7 @@ const step = (dt) => {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
       if (f.rc <= 0) {
         f.rc = f.bit ? 1.6 : 2.1;
-        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = f.bit ? 115 : 90;   // psp = projectile speed (was 'sp' — shadowed MAG stat)
+        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = f.bit ? 105 : 80;   // psp = projectile speed (was 'sp' — shadowed MAG stat). Slightly slowed 09-07 (115/90→105/80) for readability/dodge.
         fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * psp, vy: dy / d * psp, t: 2.6, dm: f.dm });   // carry shooter dm → bolt scales exactly like melee
         sfx(f.bit ? 260 : 380, 180, .14, 'sawtooth', .09);
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire
@@ -1029,13 +1060,14 @@ const draw = () => {
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
     if (f.k == 5) ctx.scale(f.gr ? 1.12 : .86, f.gr ? .85 : 1.18);  // k5 walker-hop squash/stretch — pivot at feet
     ctx.translate(-fs / 2, -fs);
+    const pd = Math.sign(pl.x - f.x) * ((f.vx || 1) < 0 ? -1 : 1);   // pupil-track offset (flip-aware) — ONE source, shared by the DARKCORN eye + every enemy eye
     if (f.bit) {                                                // DARKCORN — unchanged (renders via drawU with colour swap)
       const bd = 13, hn = RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);
-      const bc = col; col = [bd, hn, hn, bd]; drawU(Math.sin(f.t) * 3); col = bc;
+      const bc = col; col = [bd, hn, hn, bd]; drawUo(Math.sin(f.t) * 3); col = bc;
+      ctx.fillStyle = '#fff'; ctx.fillRect(9.3, 1.5, 2.4, 2.4); ctx.fillStyle = '#000'; ctx.fillRect(9.9 + pd * .7, 2.1, 1.2, 1.2);   // enemy-style tracking eyeball (DARKCORN only): white + black pupil — near-black body (PAL[13]) doubles as outline, so 2 rects. Player/GC keep drawU's plain eye.
     } else {
       const bod = PAL[FOECOL[f.k]];
-      const pd = Math.sign(pl.x - f.x) * ((f.vx || 1) < 0 ? -1 : 1);   // pupil offset (accounts for local flip)
       const oR = (x, y, w, h) => { ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = bod; ctx.fillRect(x, y, w, h); };
       const eye = (cx, cy) => { ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(cx - 2, cy - 2, 4, 4); ctx.fillStyle = '#000'; ctx.fillRect(cx - 1 + pd, cy - 1, 2, 2); };   // standard eyeball: 6×6 black outline → 4×4 solid white → 2×2 black tracking pupil (was reversed with a white cross inside black — read as a slit not an eye)
       const flt = wob * 1.5;
@@ -1074,13 +1106,13 @@ const draw = () => {
         oR(s * 1, wob * .3, fs - s * 2, s * 1.7);              // hood peak (taller for eye clearance)
         eye(fs / 2, s * .8 + wob * .3);                        // eye peers from hood shadow — universal round eye
       }
-      if (f.rc < .5) skull(fs / 2, fs / 2, .7, 1);   // CHARGE TELL — static skull at foe center (same scale + alpha as the launched fbolt-skull). undefined<.5 is false so no explicit guard needed. Appearance alone signals "about to fire".
+      if (f.rc < .7) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // CHARGE TELL — static RED skull at foe center (matches the RED fbolt). undefined<.7 is false so no explicit guard needed. Appearance alone signals "about to fire". Wind-up .5→.7 (09-07) — longer tell = more dodge time.
     }
     ctx.restore();
     if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');
   }
   for (const s of shots) { ctx.lineWidth = .7; rArc(s.x, s.y, 3.5, .5); }   // magic bolt = rainbow arc projectile
-  for (const b of fbolts) skull(b.x, b.y, .7, 1);               // foe bolt = flying skull — mirrors player's rainbow bolt
+  for (const b of fbolts) skull(b.x, b.y, .7, 1, '#ff5d6c');   // foe RANGED bolt = flying RED skull (danger colour) — mirrors player's rainbow bolt
 
   // GREATCORN — the guide NPC at the paddock. Isolated palette via col swap to NPCCOL,
   // faces left toward spawn (scale -1), gentle idle bob. Drawn before the player so the hero renders on top.
@@ -1088,16 +1120,16 @@ const draw = () => {
       ctx.save();
     ctx.translate(NX, NGY); ctx.scale(-NSC, NSC); ctx.translate(-PW / 2, -PH);
     const bc = col; col = NPCCOL;
-    drawU(Math.sin(time * 2));
+    drawUo(Math.sin(time * 2));
     col = bc;
     ctx.restore();
   }
 
-  // unicorn — always visible. Player flash (hf) is the invuln signal: red=hurt · green=heal. Colour = hfc PAL index. Dash is silent (pl.inv, no colour). Any active hf OR pl.inv = immune to all damage (physical + projectile).
+  // unicorn — always visible. Player flash (hf) is the invuln signal: red=hurt · green=heal · blue=dash. Colour = hfc PAL index, strobed. pl.inv (stomp/respawn) is silent. Any active hf OR pl.inv = immune to all damage (physical + projectile).
   ctx.save();
   ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
-  const bkc = col; if (hf > 0) col = [hfc, hfc, hfc, hfc];   // invuln flash — whole unicorn tinted to PAL[hfc]: 4=red hurt · 15=green heal. Dash is silent (uses pl.inv), no colour.
-  drawU(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
+  const bkc = col; if (hf > 0 && (hf * 6 | 0) & 1) col = [hfc, hfc, hfc, hfc];   // invuln STROBE — ~6 Hz toggle = 3 clear on/off blinks per second (deliberately slow enough to READ as a flash, not flicker). Starts tint-ON at impact for hf=1.2 (hurt/heal) AND hf=.5 (dash). hfc PAL: 4=red hurt · 15=green heal · 8=blue dash. Invuln itself is continuous (hf>0) regardless of blink phase.
+  drawUo(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
   col = bkc;
   ctx.restore();
 
@@ -1106,13 +1138,14 @@ const draw = () => {
     ctx.globalAlpha = Math.min(1, d.life * 3);   // fade IN over ~0.33s (was 1.0s) — reaches full opacity BEFORE the 0.35s pickup grace expires, so drops are always solidly visible when grabbed
     const dy = Math.sin(d.life * 5) * 1.5;
     if (d.t === 9) { ctx.lineWidth = 1; rArc(d.x, d.y - 6 + dy, 8, 1); }   // RAINBOW — the exact nested 7-band arc from the HUD icon, bobbing on the ground
-    else if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#6cf279'); ctx.fillStyle = '#c9a26a'; ctx.fillRect(px + 4, py - 2, 4, 3); }   // POTION body + highlight + cork (HP=heal-green, MP=blue)
+    else if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#6cf279'); }   // POTION drop — pot() draws body+cork+outline (HP=heal-green, MP=blue)
     else drawPart(d.s, d.x - 6, d.y - 11 + dy, d.c, 1.5);   // GEAR — bare sprite (no box), potion-sized (1.5×), rests on ground like potions
   }
   ctx.lineWidth = 1;
-  for (const p of parts) {                                        // 2 particle kinds ONLY: p.sk skull (deaths) · else 7-band rainbow burst (jumps + rainbow collect). spray() is the sole spawner.
+  for (const p of parts) {                                        // 3 particle kinds: p.sk===1 white skull (FOE death only) · p.sk===2 green heal cross (heal cast + GREATCORN blessing) · else 7-band rainbow burst (jumps + rainbow collect). spray() is the sole spawner.
     const al = Math.min(1, p.t * 2.5);
-    if (p.sk) { skull(p.x, p.y, .7, al, '#ff5d6c'); continue; }  // death skull = red bone, dark outline — distinct from white foe-bolt skulls
+    if (p.sk === 1) { skull(p.x, p.y, .7, al); continue; }  // foe-DEATH skull = white bone (default #e9e3cd) — distinct from the RED ranged-attack skulls. (Player death no longer sprays skulls, so this is foe-death only.)
+    if (p.sk === 2) { ctx.globalAlpha = al; ctx.fillStyle = '#6cf279'; ctx.fillRect(p.x - 1, p.y - 3, 2, 6); ctx.fillRect(p.x - 3, p.y - 1, 6, 2); continue; }   // HEAL cross — mini green + (scaled-down heal glyph), rises + fades. Same per-particle sprite treatment as skulls/rainbows.
     ctx.globalAlpha = al;
     ctx.lineWidth = .5 * p.z; rArc(p.x, p.y, 2.75 * p.z, .375 * p.z);   // burst rainbow — r/step/width scale together so the 7 bands stay distinct; p.z sizes it (1 = puff, big = victory)
   }
@@ -1141,44 +1174,41 @@ const draw = () => {
     // and equipment labels / stat numbers render offset to the right of their boxes.
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     // Stat points available — "+N" centered just under the unicorn
-    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('+' + pending, 104, 149); }   // 13px = shared UI size; y=149 centers it between the unicorn feet and the stat bar
+    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('+' + pending, 130, 137); }   // 13px = shared UI size; y=137 centers it vertically in the empty gap between the unicorn legs (~y116) and the MAG stat top (y146). x=130 = shared cluster centerline (3rd inv box center)
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 13px pending hint above (if it fired)
-    [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
+    EQ.forEach(([s, ex, ey]) => {
       ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (.06, one step dimmer than inventory's .08 — unifying measured +4 B, 09-04)
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);   // unified passive border
       if (aRow === EB + s) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(ex - 1, ey - 1, 26, 26); }   // cursor = blue border (unified with stats/inv/skills)
       if (eq[s]) drawPart(s, ex + 6, ey + 4, eq[s].c, 2);     // gear icon @2× — fills the 24px cell (was 1×, floated tiny). same sprite as inventory/drops
-      ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
+      ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 35);   // label offset +35 (was +31): boxes moved up 6px (ey 64/112→58/106), labels net up ~2px, box↔word gap widened so the text no longer kisses the box bottom
       if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 6, ey + 22);       // primary stat → BOTTOM-LEFT, in its stat colour (SC): STR red · HP green · MAG blue · DEF violet · LCK orange
         if (eq[s].u != null) { ctx.fillStyle = SC[eq[s].u]; T2('+' + eq[s].v, ex + 18, ey + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
     });
     // STATS — one row above the inventory; cursor = blue column. Row nudged UP 12px + RIGHT 10px (2026-09-06) to give inv room to clear the joystick visual.
-    const SL = [['STR', ho], ['HP', he], ['MAG', sp], ['DEF', df], ['LCK', lk]];
-    SL.forEach(([l, v], i) => { const c = SC[i];
-      const sx = 52 + i * 26, sel = i === aRow;
-      if (sel) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23);
-        if (pending) { ctx.fillStyle = '#ffd75e'; T2('+1', sx + 9, 144); } }
+    const SL = ['STR', 'HP', 'MAG', 'DEF', 'LCK'];
+    SL.forEach((l, i) => { const c = SC[i];
+      const sx = 69 + i * 26, sel = i === aRow;
+      if (sel) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23); }
       ctx.fillStyle = c; T2(l, sx + 9, 154);
-      T2(v, sx + 9, 165);
+      ctx.fillStyle = sel && pending ? '#ffd75e' : c; T2(st[i], sx + 9, 165);   // selected stat's NUMBER goes gold while points remain → "confirm to raise THIS". The number ticking up on spend (+ existing sfx) IS the confirmation. Same #ffd75e as the +N under the unicorn — no timer (works while the menu freezes the sim).
     });
     // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip. Grid shifted UP 12px + RIGHT 12px (2026-09-06) so bottom row clears the joystick visual (x=22-50, y=222-250) with edge-touching, no overlap.
     for (let i = 0; i < BAG; i++) {
-      const ix = 50 + (i % 5) * 28, iy = 172 + ((i / 5) | 0) * 28, it = inv[i];
+      const ix = 62 + (i % 5) * 28, iy = 172 + ((i / 5) | 0) * 28, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.05)';
       ctx.fillRect(ix, iy, 24, 24);
-      ctx.strokeStyle = i === invSel ? '#8cf' : '#555';
-      ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, 24, 24);   // unified border — selected blue, passive grey
+      ctx.strokeStyle = i === aRow - 5 ? '#8cf' : '#555';
+      ctx.lineWidth = i === aRow - 5 ? 1 : .5; ctx.strokeRect(ix, iy, 24, 24);   // unified border — selected blue (i===aRow-5 ⟺ cursor on this bag slot), passive grey
       if (it) { drawPart(it.s, ix + 6, iy + 4, it.c, 2);       // inventory gear @2× — fills the 24px cell (matches equipment slots)
         ctx.fillStyle = SC[SLOT_STAT[it.s]]; T2('+' + it.b, ix + 6, iy + 22);           // primary stat → BOTTOM-LEFT, its stat colour
         if (it.u != null) { ctx.fillStyle = SC[it.u]; T2('+' + it.v, ix + 18, iy + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
     }
     // (Gear stats are now shown INLINE on every icon — bag + worn — so no selection tooltip is needed.)
-    // SKILL TREE — prerequisite layout (4 rows). Names always visible (locked = dim gray, picked = gold).
-    // Diagonal cosmetic paths draw first (behind nodes), showing positional progression:
-    // each T1 links to the T2 pair it sits between, each T2 links to adjacent T3(s).
+    // SKILL TREE — 10 icon nodes in a 3-2-3-2 grid, gated purely by LEVEL ROW (Row1 LV1 · Row2 LV3 · Row3 LV6 · Row4 LV9). No prerequisite/connection lines; locked = dim, owned = bright + gold-tinted.
     // font + textAlign inherited from top of char sheet (unchanged since L1149)
-    if (spts) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('+' + spts, 338, 42); ctx.font = 'bold 8px monospace'; }   // skill points available — 13px matches the stat "+N" (uniform size + font); reset to 8px for the tree nodes
+    if (spts) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('+' + spts, 338, 52); ctx.font = 'bold 8px monospace'; }   // skill points available (y 52 = above the new Row-1 top at y=58) — 13px matches the stat "+N" (uniform size + font); reset to 8px for the tree nodes
     const NS = 26;
     // No connection lines — level-gated tiers (canBuy = lvl>=[req][i]). Locked rows read as dim; unlocked rows are bright.
     // Nodes — all 10 are action skills, rendering the SAME icon as their action button (via iShot/iHeal/iJump/iDash, wrapped in scale to fit). Chevron / stacked-arc count on upgrade nodes matches the button's own scaling rule. (Modifier skills STASH/HP+5/MP+5/POT+5 removed 2026-09-05.)
@@ -1191,7 +1221,7 @@ const draw = () => {
       // ACTION SKILL — icon scaled to fit cell. All 10 nodes are action skills (modifier skills removed 2026-09-05; the old i>=8 text branch went with them).
       ctx.globalAlpha = su[i] ? 1 : .5;
       ctx.save(); ctx.translate(mx, my); ctx.scale(.65, .65); ctx.translate(-mx, -my);
-      if (i === 0 || i === 8 || i === 9) iShot(mx, my, i === 0 ? 1 : i - 6);   // SHOT / DBL SHOT (2 stacked) / TRI SHOT (triangle)
+      if (i === 0 || i === 8 || i === 9) iShot(mx, my, i === 0 ? 1 : i - 6);   // SHOT (1) / DBL SHOT (2 stacked) / TRI SHOT (3 stacked)
       else if (i === 1) {   // FAR SHOT — aiming reticle/scope: green ring + crosshair (heal-spray green), evokes long-range aim
         ctx.strokeStyle = '#6cf279'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(mx, my, 6, 0, 7);
@@ -1206,7 +1236,7 @@ const draw = () => {
     }
     // (rainbow indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // ACTION labels — honest verb for the selected gear: EQUIP (bag) / UNEQUIP (worn). LEFT box routes through spend(); DROP (right) is bag-only (worn gear can't be trashed — take it off first). Primary action sits on left, closer to joystick thumb. Control reference lives ONLY in the ? overlay.
-    const wi = aRow - EB, act = invSel >= 0 && inv[invSel] ? 'EQUIP' : wi >= 0 && eq[wi] ? 'UNEQUIP' : 0;
+    const wi = aRow - EB, act = inv[aRow - 5] ? 'EQUIP' : wi >= 0 && eq[wi] ? 'UNEQUIP' : 0;
     if (act) {
       ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(136,204,255,.14)';
       ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
@@ -1216,13 +1246,14 @@ const draw = () => {
     }
   }
 
-  // action buttons — hidden during pause / level-up (dedicated overlays own the input)
+  // action buttons — PERSISTENT: shown in gameplay AND the character menu (09-07).
   // Colored ring per action, dark disc, glyph in accent color. Modern mobile pattern.
-  // Shown in gameplay AND the character menu (menu: JUMP = confirm/select; close = tap-out/P).
+  // Menu: JUMP renders as ✓ (confirm/select); a tap on any other button just closes the menu (tap-out) — no guard, by design.
+  // Teaching pattern: locked skills render dim, so buying a skill visibly lights its button.
   if (started && !savePop && !helpOn) {
     ctx.textAlign = 'center';
-    for (const [x, y, c, s] of AB) {
-      if (paused && c !== 'bJ') continue;            // menu shows only JUMP (= confirm/select); joystick handles nav, back = P / tap info panel / tap-out
+    for (const [tx, ty, c, s] of AB) {
+      const x = tx + (tx < 424 ? 7 : -2), y = ty + (ty < 216 ? 7 : -2);   // VISUAL centre = touch (tx,ty) nudged toward the cluster: LEFT/TOP cols +7, RIGHT/BOTTOM -2 (so bottom row + right column sit 5px further out → slightly more space, still a symmetric square). Touch zones (AB) unchanged. Max offset 9.9px (TL) < 12px slop → whole button stays inside its tap zone. Rest of the loop draws at x,y = visual.
       const usable = s < 0 || (su[s] && mn >= 3);    // JUMP always free; every other action costs the uniform 3 MP
       // TWO states only (operator 09-05): usable = constant highlighted blue · locked-or-below-MP = dim. No press-pop, no interact-pop — a usable button never changes.
       const rc = usable ? '#8cf' : '#555';
@@ -1274,12 +1305,12 @@ const draw = () => {
     topHUD();
     const qslot = (x, t) => {
       const n = t ? mpPot : hpPot;
-      ctx.globalAlpha = n ? 1 : .3;                                                  // whole-slot state mirrors action buttons: usable = full, empty = dim
+      ctx.globalAlpha = n ? 1 : .3;                                                  // BOX state mirrors action buttons: usable = full, empty = dim (the potion glyph itself stays solid — drawn after this gate)
       ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, QSY, QSZ, QSZ);          // dark disc — same fill as the action buttons
       ctx.strokeStyle = n ? '#8cf' : '#555'; ctx.lineWidth = 2; ctx.strokeRect(x, QSY, QSZ, QSZ);   // BLUE overlay when usable (matches action buttons), grey when empty — reads as a button you can press
-      pot(x + 6, QSY + 6, t ? '#4a76ff' : '#6cf279'); ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 10, QSY + 4, 4, 3);   // potion glyph + cork (HP=heal-green, MP=blue)
-      ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);
       ctx.globalAlpha = 1;
+      pot(x + 6, QSY + 6, t ? '#4a76ff' : '#6cf279');                                 // potion glyph at full alpha → always solid + crisp (body/cork/outline in pot()), never see-through even when the box is dimmed
+      ctx.fillStyle = n > 4 ? '#8cf' : n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);   // count LAST = top layer (never hidden behind the potion). colour: MAX (5) = blue action-accent #8cf · stocked = white · empty = grey
     };
     qslot(QHX, 0); qslot(QMX, 1);
     if (time < luT) { ctx.globalAlpha = Math.min(1, (luT - time) * 3); rText('LEVEL UP', 48); ctx.globalAlpha = 1; }   // LEVEL UP banner — renders over menu (auto-pause opens char sheet on level)
@@ -1321,7 +1352,7 @@ const draw = () => {
     ctx.lineWidth = 3;
     rArc(VW / 2, 130, 78, 3);
     ctx.save(); ctx.translate(VW / 2, 108); ctx.scale(2.4, 2.4); ctx.translate(-6, -8);
-    const bkc = col; col = [0, 0, 2, 0]; drawU(0); col = bkc;
+    const bkc = col; col = [0, 0, 2, 0]; drawUo(0); col = bkc;
     ['#ff5d6c', '#ffd75e', '#6bc5ff'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });
     ctx.restore();
     rText('HOOVES OF HOPE', 178);

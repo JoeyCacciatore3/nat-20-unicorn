@@ -21,10 +21,10 @@ if (!treeNum && !treeArr) { console.error('❌ TPOS check: TREE literal not foun
 const treeLen = treeNum ? +treeNum[1] : (treeArr[1].match(/'[^']+'/g) || []).length;
 const TREE = { length: treeLen };   // sentinel shape so downstream .length checks still read
 
-// 4-row layout: Row1 y=48 (3), Row2 y=94 (2), Row3 y=140 (3), Row4 y=186 (2).
+// 4-row layout: Row1 y=58 (3), Row2 y=98 (2), Row3 y=138 (3), Row4 y=178 (2). Row1 aligns with equipment MANE/HORN box tops (ey=58). 40px spacing, ±56/±28 columns, centre x=304 (left column sits over MP potion box x=243-267).
 // TPOS is hand-tuned for the 3-2-3-2 tier layout — verify by direct comparison.
 // Three columns: LEFT=SHOT chain, MID=HEAL, RIGHT=MOBILITY. DBL SHOT(8)=row3-right, DBL JUMP(4)=row2-left, TRI SHOT(9)=row4-right, TRI JUMP(5)=row3-left (swap: mobility unlocks earlier).
-const TPOS = [[263,48],[294,186],[325,48],[325,140],[294,94],[263,140],[387,48],[356,94],[387,140],[356,186]];
+const TPOS = [[248,58],[276,178],[304,58],[304,138],[276,98],[248,138],[360,58],[332,98],[360,138],[332,178]];
 if (TPOS.length !== TREE.length) { console.error(`❌ TPOS length ${TPOS.length} ≠ TREE length ${TREE.length}`); process.exit(1); }
 const expected = JSON.stringify(TPOS);
 
