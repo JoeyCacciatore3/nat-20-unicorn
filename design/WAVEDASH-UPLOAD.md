@@ -1,8 +1,8 @@
-# Wavedash store-page update — STAGED, ready to paste (refreshed 2026-09-07 batch 11)
+# Wavedash store-page update — STAGED, ready to paste (refreshed 2026-09-07 batch 12)
 
-**Live deploy:** batch-11 build (**13,074 B**, 238 B free). Source == git `main` == Wavedash live — **ALIGNED** (Release Ritual atomic push). Current Wavedash build id is captured in the Definitive State knowledge entry (updated per push) — pull it from there or from the last `wavedash build push` output.
+**Live deploy:** batch-12 build (**13,076 B**, 236 B free). Source == git `main` == Wavedash live — **ALIGNED** (Release Ritual atomic push). Current Wavedash build id is captured in the Definitive State knowledge entry (updated per push) — pull it from there or from the last `wavedash build push` output.
 **Play URL:** rotates per deploy — grab the latest from `wavedash build push` output or Developer Portal.
-**All copy re-verified against `src/*.js` on 2026-09-07** (batch-11 audit — batch 9 shipped enemy hit-reaction + camera framing; batch 10 added map-wide enemy rebalance + PEAK/CANOPY palette differentiation; batch 11 unifies all suspended platforms to one-way = uniform thickness + universally droppable).
+**All copy re-verified against `src/*.js` on 2026-09-07** (batch-12 audit — batch 9 shipped enemy hit-reaction + camera framing; batch 10 added map-wide enemy rebalance + PEAK/CANOPY palette differentiation; batch 11 unified all suspended platforms to one-way; batch 12 wires LUCK into gear tier (design intent captured in code comment finally implemented) + tunes drop pickup grace 0.35→0.5s + radius 14→18 px).
 
 **Why this doc exists:** the store page (title, description, cover, screenshots, tags, trailer) is editable **only** in the web Developer Portal — session-auth gated. The CLI/API key has NO store-metadata endpoint. An agent cannot push these; they need your logged-in browser. Everything below is pre-written so your part is copy-paste + file-pick.
 

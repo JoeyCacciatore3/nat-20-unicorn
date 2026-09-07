@@ -72,12 +72,14 @@ Each of the 6 regular enemies has a unique capability-bit combo (cap bits: 1=ran
 Contact damage universal on all 6. Ranged enemies show a stationary skull sprite at their center for 0.5s before firing — the same skull that then launches as the projectile (no separate windup graphic).
 
 ## Item Drops
-A kill drops loot at chance `12% + LUCK×3%` (bosses guaranteed, 2 drops + a rainbow). Each drop is a flat **60% gear / 40% potion** split (potion = 50/50 HP/MP):
-- **HP POTION** (red bottle, +10 HP)
-- **MP POTION** (blue bottle, +10 MP)
-- **GEAR PART** (BODY/MANE/HORN/HOOVES) — primary stat bonus `1 + (lvl>>2)`; at LV4+ a ~50% chance of a second sub-stat (`1 + (lvl>>3)` on a different stat). No tiers — deeper gear is simply stronger.
+A kill drops loot at chance `12% + LUCK×3%` (bosses guaranteed, 2 drops + a rainbow). **Chests** drop 2 guaranteed items. Each drop is a flat **60% gear / 40% potion** split (potion = 50/50 HP/MP):
+- **HP POTION** (red bottle, +10 HP on drink — pickup fills the hot-bar counter, drink restores HP)
+- **MP POTION** (blue bottle, +10 MP on drink — same pattern)
+- **GEAR PART** (BODY/MANE/HORN/HOOVES) — primary stat bonus `1 + (lvl>>2) + (LUCK>>3)` (LUCK 8 grants +1 tier · LUCK 16 grants +2); at LV4+ a ~50% chance of a second sub-stat (`1 + (lvl>>3)` on a different stat). No fixed tiers — deeper gear is simply stronger.
 
-Drops fall to the ground and land on **any non-air tile** (solid, one-way platform, AND spike tops — drops sit on top of spikes like any other surface). They stay until you die — no despawn timer, no auto-magnet. **HP/MP potions fill the two-slot hot-bar** (bottom-center, stack to 5 each) — tap/click to drink. **Gear** goes to the inventory. Potions NEVER enter the inventory — if the hot-bar slot is full the drop waits on the ground. Same for gear if the bag is full. XP comes only from kills.
+**LUCK's three payoffs (all share ONE formula)**: (1) drop chance `.12 + LUCK*.03`, (2) crit chance same formula, (3) gear primary tier `+ (LUCK>>3)`. Investing in LUCK compounds across all three — more drops, more crits, better gear when it drops.
+
+Drops fall to the ground and land on **any non-air tile** (solid, one-way platform, AND spike tops — drops sit on top of spikes like any other surface). They stay until you die — no despawn timer, no auto-magnet. **0.5s grace period** — drops must be visible ≥0.5s before pickup fires (batch 12) so you always see loot appear. **Pickup radius 18 px** — generous body-of-player reach, no walk-adjust needed for drops at your edge. **HP/MP potions fill the two-slot hot-bar** (bottom-center, stack to 5 each) — tap/click to drink. **Gear** goes to the inventory (BAG cap 10). Potions NEVER enter the inventory — if the hot-bar slot is full the drop waits on the ground. Same for gear if the bag is full. XP comes only from kills.
 
 **RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 7 → THE DARKNESS LIFTS.
 
@@ -141,7 +143,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 13,074 / 13,312 B (98.2%) — 238 B free** (batch 11, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
+**Current: 13,076 / 13,312 B (98.2%) — 236 B free** (batch 12, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
 
 ## Save format
 Keys: `localStorage.n20_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.

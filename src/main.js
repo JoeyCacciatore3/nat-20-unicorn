@@ -647,12 +647,12 @@ const drawPart = (s, x, y, c, z = 1) => {
   for (let r = 0; r < m.length; r++) for (let k = 0; k < m[r].length; k++) { const v = m[r][k]; if (v === '.') continue; ctx.fillStyle = p[+v]; ctx.fillRect(x + (k - 1) * z, y + r * z, z + .03, z + .03); }
 };
 // ONE loot table, flat split — GEAR is the reward (60%), potion the minority (40%, HP/MP 50/50).
-// LUCK does NOT bias drop TYPE; it lifts DROP CHANCE (.12+lk*.03, at the kill site) + GEAR TIER (below). Bosses call this guaranteed.
+// LUCK does NOT bias drop TYPE. It lifts THREE things with ONE stat: (1) DROP CHANCE at kill site (.12 + lk*.03), (2) CRIT CHANCE (same formula, unified in strike()), (3) GEAR PRIMARY TIER (below: +(lk>>3) → +1 at LUCK 8, +2 at LUCK 16). Third payoff added 2026-09-07 (batch 12) to fulfil the design intent captured in this comment (previously stale — code didn't reference LUCK for gear tier). Bosses call spawnDrop guaranteed (n=2, no chance roll).
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, life: 0 };   // t assigned below in every branch (5=gear · 0/1=potion) — never observed as 0-init
-    // GEAR (60%): slot + color + level-scaled PRIMARY bonus (no tiers) + optional SUB-stat at LV4+ (a different stat, ~50%). tpos-check.mjs couples "Math.random() * 17" color range to PAL.length — ALL 17 colours (0-16). White (PAL[0]) is a valid gear tint: body/parts are equipment-driven, white is just the unequipped appearance (equipped-ness = eq[s], not col).
-    if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = Math.random() * 17 | 0; d.b = 1 + (lvl >> 2); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (lvl >> 3); } }
+    // GEAR (60%): slot + color + level+LUCK-scaled PRIMARY bonus + optional SUB-stat at LV4+ (a different stat, ~50%). tpos-check.mjs couples "Math.random() * 17" color range to PAL.length — ALL 17 colours (0-16). White (PAL[0]) is a valid gear tint: body/parts are equipment-driven, white is just the unequipped appearance (equipped-ness = eq[s], not col).
+    if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = Math.random() * 17 | 0; d.b = 1 + (lvl >> 2) + (st[4] >> 3); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (lvl >> 3); } }
     else d.t = Math.random() < .5 ? 0 : 1;      // POTION (40%): HP (0) or MP (1), 50/50
     drops.push(d);
   }
@@ -922,8 +922,8 @@ const step = (dt) => {
     d.life += dt;   // age (float/bob only) — NO despawn: drops leave the world only on player death, exactly like foes
     d.vy = Math.min(200, d.vy + 400 * dt); d.y += d.vy * dt; d.x += d.vx * dt; d.vx *= .97;
     if (d.vy > 0 && tile(d.x / T | 0, (d.y + 3) / T | 0)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ANY non-air tile — solid, platform, AND spike (drops physically settle on spikes like any surface; unlike player/enemy who use %3 to skip spikes because spikes damage them)
-    // GRACE PERIOD: drop must be visible for ≥0.35s before pickup — matches the fast fade-in (below in draw loop) so you always SEE the drop before it vanishes into inventory. Fixes the stomp-kill case where drop spawned inside pickup radius and disappeared before rendering.
-    if (d.life > .35 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 14) {   // touch it → pick up (stays on ground if nowhere to put it)
+    // GRACE PERIOD: drop must be visible for ≥0.5s before pickup — matches the fast fade-in (below in draw loop) so you always SEE the drop before it vanishes into inventory. Fixes the stomp-kill case where drop spawned inside pickup radius and disappeared before rendering. Was 0.35s (batch 11); bumped to 0.5s batch 12 (2026-09-07) so drops always register visually as "loot appeared" before magnet-in.
+    if (d.life > .5 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 18) {   // touch it → pick up (stays on ground if nowhere to put it). Radius 18 (was 14) = generous body-of-player reach; still requires deliberate approach (not vacuum). Batch 12 (2026-09-07) bump for better pickup feel — drops sitting at player's edge now register cleanly without walk-adjust.
       if (d.t === 9) {                                          // RAINBOW — progression pickup: always collected. Bank the boss (bs→2), pause, burst. Save-on-rainbow REMOVED 2026-09 — leveling + respawn are the ONLY auto-saves now (simpler mental model: "you save when you die or level up").
         bs[d.bi] = 2; d.dead = 1; hs = .3;                      // hitstop: world freezes briefly for the collect moment
         spray(pl.x + PW / 2, pl.y - 6, 12);                     // rainbow particle burst above the head (reuses the death-burst spray; no skull flag = 7-band rainbow)
