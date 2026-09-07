@@ -637,10 +637,10 @@ const iDash = (x, y, n) => { iCorn(x, y);
 // Icon canon (see uni-corn/research tiny-pixel-icon entry): 45° tip-up-right for the blade, wavy bottom = cape (not shield),
 // U-silhouette = horseshoe (beats front-facing boot pair), collar notch on armor. Gold px = class signal; outline+white+gold stay fixed under tint.
 const GEAR = [
-  ['.01..10.','03111120','03111120','03111120','00311200','.031120.','..0220..'],                        // 0 ARMOR (breastplate: collar notch + pauldrons)
-  ['...44...','..0110..','.011120.','.011120.','01111120','01111120','01121120','.2.22.2.'],              // 1 CAPE (drape + gold clasp + wavy hem)
-  ['....0....','...010...','..01310..','..01310..','..01310..','..01310..','.4444444.','...000...','....4....'],   // 2 HORN BLADE (upright symmetric sword: wide blade + gold crossguard + dark grip + gold pommel)
-  ['000...000','030...030','010...010','.10...01.','.10...01.','.11...11.','.01...10.','.0111110.','..00000..'],  // 3 HORSESHOE (wide-flared U posts, white cap tips, solid base loop)
+  ['.011110.','01311120','01111120','05444450','01111120','01111220','.011120.','..0220..'],              // 0 ARMOR (breastplate) batch 13: proper wide-shoulder / gold-belt class-signal / narrow-waist silhouette. Row 0 collar band, row 1 shoulders w/ top-left highlight, row 3 gold belt (gold-shade edges, gold core), rows 5-7 taper to hem. Adds the class-signal gold that this slot was missing.
+  ['...44...','..0110..','.011120.','.011120.','01311120','01111220','01121120','..0220..'],              // 1 CAPE batch 13: fixes orphan-pixel hem (canon violation — old row 7 '.2.22.2.' had floating shade dots) → clean '..0220..' droplet hem connected to row 6. Row 4 gets a highlight pixel for left-shoulder light source. Gold clasp preserved as class signal.
+  ['....0....','...010...','..01310..','..01310..','..01310..','..01310..','.4444444.','...020...','....4....'],   // 2 HORN BLADE batch 13: grip fix. Row 7 was '...000...' (all outline = read as second crossbar) → '...020...' (outline + shade + outline = wrapped leather grip). Blade + gold crossguard + gold pommel unchanged.
+  ['000...000','040...040','010...010','.10...01.','.10...01.','.11...11.','.01...10.','.0111110.','..00000..'],  // 3 HORSESHOE batch 13: gold nail-head class signal. Row 1 was '030...030' (white caps) → '040...040' (gold nail heads = matches mane clasp / horn guard / body belt gold-signal grammar). U-silhouette unchanged.
 ];
 const drawPart = (s, x, y, c, z = 1) => {
   const m = GEAR[s], p = ['#17131f', PAL[c], dim(PAL[c], .58), '#fff', '#e8b552', '#9c6f22'];   // 0 outline 1 base 2 shade 3 highlight 4 gold 5 gold-shade

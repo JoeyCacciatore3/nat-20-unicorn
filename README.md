@@ -25,7 +25,7 @@ A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CO
 - Everyone starts the same neutral white unicorn — **ONE save slot**. Empty save → the title shows **NEW GAME**, which asks ONE thing (your name — required), then begins. Occupied save → the title shows your `NAME · LVx`, tapping it opens a **CONTINUE / DELETE** popup.
 - Gear comes from the shared loot roll — LUCK raises the drop chance; bosses drop guaranteed. Vibrant colors are earned.
 - **10-slot inventory** for gear only (fixed max, no expansion). Tap a bag slot to select, tap again (or the EQUIP button / JUMP / Enter) to equip; DROP discards. Tap an equipped slot to UNEQUIP it back to the bag. Potions live exclusively in the bottom hot-bar (see below). EQUIP / DROP buttons both use the shared blue `#8cf` accent (destructive red is retired from the menu).
-- Gear renders as pixel-art item icons — BODY→armor, MANE→cape, HORN→sword, HOOVES→boots — tinted by the drop's roll color (the same color it paints onto that body part when equipped). Identical in drops, the inventory grid, and the equipped slots.
+- Gear renders as pixel-art item icons — BODY→breastplate (wide shoulders + gold belt), MANE→cape (gold clasp), HORN→sword (gold crossguard + pommel), HOOVES→horseshoe (gold nail heads) — tinted by the drop's roll color (the same color it paints onto that body part when equipped). Every slot carries a gold class-signal for instant read (batch 13 sprite polish). Identical in drops, the inventory grid, and the equipped slots.
 - **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
 
 ## Combat
@@ -143,7 +143,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 13,076 / 13,312 B (98.2%) — 236 B free** (batch 12, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
+**Current: 13,076 / 13,312 B (98.2%) — 236 B free** (batch 13, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
 
 ## Save format
 Keys: `localStorage.n20_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.
