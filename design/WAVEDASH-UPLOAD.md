@@ -1,7 +1,7 @@
 # Wavedash store-page update — STAGED, ready to paste (refreshed 2026-09-05)
 
-**Live deploy:** build `mn7ftbxsrdd4a9v13t0ncha4vx8dtk3t` (**13,230 B**, git `a9afc90`). Source and deploy are **ALIGNED**.
-**Play URL:** https://wavedash.com/playtest/nat-20-unicorn/5f83bf86-7903-401d-ae67-9aa57425958b
+**Live deploy:** build `mn7djngmqc5e4y33tx7z6na3x98dz0pq` (**13,070 B**, git `6087ed0`). Source and deploy are **ALIGNED**.
+**Play URL:** https://wavedash.com/playtest/nat-20-unicorn/3e341095-e88e-4487-b5de-5e8e543308fd
 **All copy re-verified against `src/*.js` on 2026-09-05** (prior version described a stale 6-boss / 12-node / 800×160 build — corrected throughout).
 
 **Why this doc exists:** the store page (title, description, cover, screenshots, tags, trailer) is editable **only** in the web Developer Portal — session-auth gated. The CLI/API key has NO store-metadata endpoint. An agent cannot push these; they need your logged-in browser. Everything below is pre-written so your part is copy-paste + file-pick.

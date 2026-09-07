@@ -2,7 +2,7 @@
 
 Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) on 2026-09-05.**
 
-**State snapshot (2026-09-05):** build **13,230 / 13,312 B (82 B free, 99.4%)**. Save **v43**. World **600×160**, one contiguous MEADOW map — **7 zones** (5 surface + 2 underground), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**. GitHub `main` @ `a9afc90` == Wavedash build `mn7ftbxsrdd4a9v13t0ncha4vx8dtk3t` — **aligned**. Play URL: https://wavedash.com/playtest/nat-20-unicorn/5f83bf86-7903-401d-ae67-9aa57425958b
+**State snapshot (2026-09-07 batch 7):** build **13,070 / 13,312 B (242 B free, 98.2%)**. Save **v44**. World **600×160**, one contiguous MEADOW map — **7 zones** (5 surface + 2 underground), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**. GitHub `main` @ `6087ed0` == Wavedash build `mn7djngmqc5e4y33tx7z6na3x98dz0pq` — **aligned**. Play URL: https://wavedash.com/playtest/nat-20-unicorn/3e341095-e88e-4487-b5de-5e8e543308fd
 
 > **Ground-truth note:** this doc replaces the 2026-09-03 version, which described a stale build (800×160 / 6 bosses / 12 skill nodes / elites). Those numbers were wrong. If any figure here disagrees with `src/data.js` + `src/world.js`, the source wins — re-grep before trusting.
 
@@ -19,7 +19,7 @@ Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) o
 - **Potion hot-bar** — 2 slots (HP red / MP blue), +10 fixed (+15 with POT+5). Inventory holds gear only (5 slots, 10 via STASH).
 - **Bounce mushrooms** — spring-launch traversal, stacks with DBL/TRI JUMP.
 - **Controls** — Keyboard: WASD / arrows move · Space jump · J dash-attack · L shot · H heal · P pause. Touch: floating joystick + action buttons. One build serves desktop + mobile.
-- **Save** — v43, strict version gate (no cross-version compat), 2 slots (`n20_s0/1`).
+- **Save** — v44, strict version gate (no cross-version compat), single slot (`n20_s0`). Stats stored as array `t:[STR,HP,MAG,DEF,LCK]`.
 - **Console errors** — 0 observed in Chromium across a full playthrough (title → name → intro → combat → menu), 2026-09-05. ⚠️ Firefox DevTools zero-console check is a SEPARATE hard requirement — still do it before js13k upload.
 
 ## Names (keep identical everywhere)
