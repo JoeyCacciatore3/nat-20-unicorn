@@ -113,19 +113,23 @@ Dash starts at half distance; LONG DASH doubles it.
 **One unified map (600×160 tiles = 9,600×2,560 px).** No portals, no zone transitions —
 walk from any boss to any other. **7 zones for 7 DARK CORNS:**
 
-| Zone | x-range | Boss | Placement |
-|---|---|---|---|
-| PEAK | 0-39 | BLUE | peak ledge |
-| CANOPY | 40-111 | YELLOW | canopy ledge |
-| MEADOW | 112-279 | RED | paddock east |
-| EAST RUN | 280-475 | ORANGE | far east walkway |
-| SUMMIT | 476-600 | GREEN | east-arc summit |
-| UNDER-DEPTHS | y>63 (shallow) | VIOLET | depths corridor |
-| UNDER-CAVERN | y>72 (deep) | INDIGO | final boss chamber |
+| Zone | x-range | Boss | Palette signature | Placement |
+|---|---|---|---|---|
+| PEAK | 0-39 | BLUE | snow-cap white top+accent · slate-green alpine lichen · storm sky | peak ledge |
+| CANOPY | 40-111 | YELLOW | warm loam dirt · grass-green top+foliage · wood-brown accent | canopy ledge |
+| MEADOW | 112-279 | RED | classic brown/green/blue-sky | paddock east |
+| EAST RUN | 280-475 | ORANGE | dry gold savanna · tan accent · cyan sky | far east walkway |
+| SUMMIT | 476-600 | GREEN | deep teal · cool gray · storm sky (shared w/ PEAK by design) | east-arc summit |
+| UNDER-DEPTHS | y>63 (shallow) | VIOLET | violet cavern (all 5 render surfaces violet-family) | depths corridor |
+| UNDER-CAVERN | y>72 (deep) | INDIGO | deep indigo cave (near-black sky) | final boss chamber |
 
 Movement-ability gating (double-jump for terraces/peak, dash for depths corridor, bounce mushrooms + jumps for the east arc) controls the natural order you reach each boss. Every boss and chest is verified reachable by a build-time audit tool.
 
+**Zone palette design (batch 10 refinement 2026-09-07):** every zone has 5 distinct render surfaces (dirt, top strip, foliage, accent, sky) and — apart from the deliberate PEAK/SUMMIT storm-sky pair — **no color is shared across zones**. PEAK and CANOPY (previously sharing 3 of 5 colors) are now fully differentiated: PEAK reads as alpine-white-and-slate, CANOPY reads as warm-loam-and-wood.
+
 **Color palette rules:** Sky `#6bc5ff` and grass `#5ac878` are RESERVED for background; enemies and gear use warm saturated colors that pop against the sky. Enemy palette regrouped for max contrast + universal 1px black outline for figure/ground pop. HP = green (`#6cf279`, matches heal cross/button/potion), MP = blue (`#4a76ff`), interactive accent = `#8cf`, damage = red (`#ff5d6c`), XP = purple (`#b06cf0`). Rainbow strobing is reserved for the level-up banner + rainbow shard drops — everywhere else color signals a specific meaning.
+
+**Enemy distribution (batch 10 rebalance):** 56 regular foes (was 57) across 7 zones. MEADOW east corridor thinned from 8 foes (2× map average, pre-DASH/pre-SHOT) to 5 to match map average density. Relocations added ranged pressure to DEPTHS descent and filled EAST RUN's 288→300 gap. Kind-swap round: CANOPY gained its first caster, EAST RUN and SUMMIT gained their first spike-floaters. Every zone now runs at least 4 of the 6 kinds.
 
 ## Build
 Requires **Node ≥ 20**.
@@ -135,7 +139,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 13,069 / 13,312 B (98.2%) — 243 B free** (batch 9, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
+**Current: 13,075 / 13,312 B (98.2%) — 237 B free** (batch 10, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
 
 ## Save format
 Keys: `localStorage.n20_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.

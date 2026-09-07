@@ -153,27 +153,27 @@ const MEADOW = {
   ],
   foes: [
     [148, 58, 1], [160, 58, 4],                                  // paddock-approach patrol (near practice pit)
-    [174, 58, 1], [186, 58, 1], [206, 54, 4], [216, 58, 2], [230, 58, 2], [245, 58, 2], [240, 58, 3], [248, 58, 5],
+    [174, 58, 1], [206, 54, 4], [216, 58, 2], [245, 58, 2], [248, 58, 5],   // MEADOW east corridor (batch 10 rebalance 2026-09-07): thinned from 8→5 to match map avg density (was 1/9.25 = 2× avg pre-DASH/pre-SHOT). Removed redundant [186,58,1] crawler (dup of [174] 12 tiles behind); relocated [230,58,2] blob → EAST RUN early gap; relocated [240,58,3] caster → DEPTHS descent (see foesX).
     [282, 56, 1], [288, 53, 4],                                  // transition zone — crawler on lower DJ platform, runner on higher
     [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
     [92, 52, 1], [78, 49, 2], [86, 53, 5], [62, 40, 1], [95, 37, 4],   // canopy zig-zag — extra crawler + runner
-    [75, 35, 2],
+    [75, 35, 3],   // CANOPY caster (batch 10 kind swap 2026-09-07: k2→k3) — CANOPY previously had NO caster; adding one gives the zig-zag climb a ranged-evade threat that broadens its threat vocabulary.
     [34, 19, 6],
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
     [24, 1, 1], [30, 1, 4],                                      // peak TRI-JUMP secret — crawler + runner guarding chest 8
     [490, 56, 2], [500, 53, 1],                                  // EAST GATE — blob on step, crawler on upper ledge
     [532, 55, 2], [545, 58, 2],                                  // EAST SHELF — blob guarding chest, blob by the gap
     [560, 44, 4], [578, 58, 2], [566, 30, 3],                    // EAST ASCENT — runner on climb, blob on ground, caster on GREEN summit
-    [350, 56, 4], [393, 50, 1], [444, 57, 2],                    // EAST RUN fill — runner on x345 walkway, crawler on stack rung, chase-blob at tower base (ORANGE escort)
+    [350, 56, 6], [393, 50, 1], [444, 57, 2],                    // EAST RUN fill — spike-floater on x345 walkway (batch 10 kind swap 2026-09-07: k4→k6 — EAST RUN had NO k6; showcase zone earns full kind variety), crawler on stack rung, chase-blob at tower base (ORANGE escort)
     [9, 56, 1], [22, 59, 2], [40, 52, 4], [32, 55, 5],           // WEST BASEMENT — crawler on low shelf, blob on floor, runner high, hopper mid
-    [585, 55, 5], [583, 49, 3],                                  // EAST END-CAP — hopper on low platform, caster guarding the upper corner ledge
+    [585, 55, 5], [583, 49, 6],                                  // EAST END-CAP — hopper on low platform, spike-floater guarding the upper corner ledge (batch 10 kind swap 2026-09-07: k3→k6 — SUMMIT previously had 2 casters; one was redundant. k6 spike-floater fits corner airspace better than a caster and gives SUMMIT full kind variety).
   ],
   // FILL FOES — gameplay-only spawns kept OUT of the ledge-grow loop so their
   // count doesn't shift the shared LCG (sky-ladder RNG must stay stable, or the
   // map audit breaks). main.js seedFoes concatenates these into the live foe list.
   foesX: [
-    [300, 58, 2], [340, 58, 4], [373, 58, 1], [408, 58, 3], [430, 58, 5],   // EAST RUN fill — blob/runner/crawler/caster/hopper across the empty 300-430 flat. x=373 (was 370) — shifted 3 tiles east off the bounce mushroom at [370, 59].
-    [130, 68, 2], [220, 68, 4],                                             // UNDER-DEPTHS fill — depths corridor + descent corridor
+    [292, 60, 2], [300, 58, 2], [340, 58, 4], [373, 58, 1], [408, 58, 3], [430, 58, 5],   // EAST RUN fill — blob/blob/runner/crawler/caster/hopper across the empty 288-430 flat. x=292 blob added batch 10 (2026-09-07 relocation of MEADOW [230,58,2] — thinned east-wall + filled 288→300 gap). x=373 (was 370) — shifted 3 tiles east off the bounce mushroom at [370, 59].
+    [130, 68, 2], [210, 68, 3], [220, 68, 4],                               // UNDER-DEPTHS fill — depths corridor + descent corridor. [210,68,3] caster added batch 10 (2026-09-07 relocation of MEADOW [240,58,3] — removes highest-threat unit from pre-skill zone, adds ranged pressure to descent).
     [66, 81, 4], [79, 81, 2], [72, 75, 6],                                  // UNDER-CAVERN fill — INDIGO chamber: walker-fast on far-west floor, tent-floater in east corner (clear of chest 9 @ x=76), spike-floater high mid-air (clear of boss @ y=80). Combat presence beyond just the boss.
     [305, 53, 5], [318, 47, 4],                                             // EAST RUN vertical climb fill — walker-hop on x=303 DJ platform, walker-fast on x=315 top ledge (populates the 30-tile empty climb between foe@288 and foeX@340)
   ],

@@ -56,8 +56,8 @@ export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9
 // 7 ZONES for 7 DARKCORNs: 5 surface boss territories by x + 2 underground bands split by depth
 // (VIOLET shallow depths y=64-71 · INDIGO deep cavern y>=72). Selector in main.js ZC does the split.
 export const ZB = [
-  [40,  '#4a3a26', '#8a9a9a', '#3a8a52', '#8a9a9a', '#4a9ad8'],   // PEAK (BLUE) — bare stone tops, storm sky (all reused literals)
-  [112, '#4a3a26', '#3a8a52', '#3a8a52', '#8a9a9a', '#5ab5ef'],   // CANOPY (YELLOW) — cool highland green
+  [40,  '#4a3a26', '#c0c8d0', '#5a7a6a', '#c0c8d0', '#4a9ad8'],   // PEAK (BLUE) — batch 10 palette differentiation (2026-09-07): top+accent snow-cap white (was cool gray shared w/ CANOPY), foliage slate-green alpine lichen (was grass-green shared w/ CANOPY). Sells "bare stone tops" + snow signature. Sky shared w/ SUMMIT is DELIBERATE (both high-altitude storm-sky zones).
+  [112, '#5a3a2a', '#3a8a52', '#3a8a52', '#7a5a3a', '#5ab5ef'],   // CANOPY (YELLOW) — batch 10 palette differentiation (2026-09-07): dirt warm loam (was cold brown shared w/ PEAK), accent wood-brown for fallen-limb rocks (was cool gray shared w/ PEAK). Now zero color overlap with PEAK.
   [280, '#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888', '#6bc5ff'],   // MEADOW (RED) — original identity
   [476, '#6a4a22', '#8a9a32', '#8a9a32', '#9a8a62', '#7ecfe8'],   // EAST RUN (ORANGE) — dry gold savanna
   [601, '#52341e', '#3a7a5e', '#3a7a5e', '#7a8a92', '#4a9ad8'],   // SUMMIT (GREEN) — deep teal, storm sky
