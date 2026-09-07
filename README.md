@@ -45,7 +45,12 @@ Damage splits by attack type: **physical (DASH/STOMP) = STR**, **magic (SHOOT) =
   - Dash = 0.4s silent invuln (the dash motion IS the tell — no flash needed)
   - Stomp = 0.2s silent invuln (technical anti-double-hit vs adjacent foes)
   - Respawn = 1.5s silent invuln (spawn safety padding)
-- Enemies get a 0.8s physical i-frame (`f.fl`) after a stomp/dash hit so you can't melt them by bouncing in place — vary attacks and reposition.
+- **Enemy hit reaction (unified on `f.fl`)** — every damage source (dash/stomp/shot) triggers three things off one timer:
+  - 🔴 Red strobe flash (~6 Hz, mirrors the player's hurt-strobe grammar)
+  - AI pause (`vx` zeroed, RANGED/CHASE/HOP frozen — foe jolts and can't retaliate during the window)
+  - I-frame (no re-hit until the timer expires)
+  - **Baseline 0.4s** from `strike()`; physical hits (dash/stomp) overwrite to **0.8s** as an anti-melt window so you can't bounce-attack in place. Shots don't extend, so DBL/TRI SHOT volleys all land (each bolt refreshes flash + pause + short-lived i-frame).
+- **Camera framing (batch 9)** — player sits slightly ABOVE center (screen y≈115). Fits every routine jump (single/double/triple) inside one viewport; ground visible below feet ≈ 141 px at rest (8.8 tiles). Mushroom bounces intentionally reach the top of frame — a bounce is a "look up" moment.
 - **Damage popups float above whoever took the hit** — red `-N` over the player when hurt, red `-N` over the enemy when you hit them (crit lingers longer + hitstop + fanfare).
 - **Every other player-side popup routes to ONE spot above the potion hot-bar** (`PFX, PFY`, 8px bold monospace) — XP gained, MP costs, HEAL amount, potion quaffs, gear pickups, potion pickups. Colors are semantic (red=damage · green=HP · blue=MP · purple=XP · #8cf blue=+BAG).
 - 7 **DARK CORN** bosses — all share the name; each is identified by its horn+mane color = the rainbow band it holds. All in one unified world (see World below).
@@ -130,7 +135,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 13,039 / 13,312 B (97.9%) — 273 B free**
+**Current: 13,069 / 13,312 B (98.2%) — 243 B free** (batch 9, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
 
 ## Save format
 Keys: `localStorage.n20_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.

@@ -1,8 +1,8 @@
-# Wavedash store-page update — STAGED, ready to paste (refreshed 2026-09-05)
+# Wavedash store-page update — STAGED, ready to paste (refreshed 2026-09-07 batch 9)
 
-**Live deploy:** build `mn7dj0tpkm5k1awpb6hdscd0698dzhs2` (**13,052 B**, git `1cb0011`). Source and deploy are **ALIGNED**.
+**Live deploy:** batch-9 build (**13,069 B**, 243 B free). Source == git `main` == Wavedash live — **ALIGNED** (Release Ritual atomic push).
 **Play URL:** https://wavedash.com/playtest/nat-20-unicorn/82404e2b-ba25-44e4-b1fc-343e97ede2d9
-**All copy re-verified against `src/*.js` on 2026-09-05** (prior version described a stale 6-boss / 12-node / 800×160 build — corrected throughout).
+**All copy re-verified against `src/*.js` on 2026-09-07** (batch-9 audit — batch 8 doc-drift fixed; batch 9 adds enemy hit-reaction + camera framing).
 
 **Why this doc exists:** the store page (title, description, cover, screenshots, tags, trailer) is editable **only** in the web Developer Portal — session-auth gated. The CLI/API key has NO store-metadata endpoint. An agent cannot push these; they need your logged-in browser. Everything below is pre-written so your part is copy-paste + file-pick.
 
@@ -26,11 +26,11 @@ The world lost its color. You're the last unicorn who can bring it back.
 
 The DARKCORN shattered the rainbow and drained the world to grey. Name your unicorn, grow strong, and hunt down all seven DARKCORN to reclaim the rainbow shards — a full pixel-art platformer-RPG in under 13 KB.
 
-- Level up 5 stats and spend points across a 14-node skill tree: double & triple jump, dash-attack, ranged shots, healing, and more.
+- Level up 5 stats and spend points across a 10-node level-gated skill tree: double & triple jump, dash-attack, ranged shots (up to triple), healing, and more.
 - Loot gear that drops as pixel icons and recolors your unicorn — horn, mane, body, and hooves each carry a stat.
-- Battle 6 enemy types across one big connected world; every DARKCORN is a mirror of you with a phase-2 twist.
+- Battle 6 enemy kinds across one big connected world; every DARKCORN runs the full 3-move kit and enrages 1.5× faster at half HP.
 - Explore 7 regions — meadows, high canopy, storm peaks, and underground caverns — opened up by the abilities you earn.
-- Crit with LUCK, heal in a pinch, rest at hearths, and hunt down 20 hidden chests.
+- Crit with LUCK, heal in a pinch, return to the GREATCORN for a full restore, and hunt down 20 hidden chests.
 
 Plays with keyboard or touch, desktop or mobile — one build, both.
 
@@ -62,7 +62,7 @@ Captured from the current build (`dist/index.html`, 960×540). Upload in this or
 | 1 | `design/screenshots/01_intro.png` | GREATCORN intro bubble + HUD + action buttons (gameplay lead) |
 | 2 | `design/screenshots/02_world.png` | Spike-pit traversal, bounce mushroom, platforms, enemies |
 | 3 | `design/screenshots/03_exploration.png` | Meadow — spikes, mushroom, enemy, open sky |
-| 4 | `design/screenshots/04_skill_tree.png` | Character menu: stats + equipment slots + 14-node skill tree (UI/feature shot) |
+| 4 | `design/screenshots/04_skill_tree.png` | Character menu: stats + equipment slots + 10-node skill tree (UI/feature shot). ⚠️ File is stale (shows the pre-09-05 14-node tree) — re-shoot before upload. |
 | 5 | `design/screenshots/05_title.png` | Title screen — rainbow UNICORN / HOOVES OF HOPE |
 
 > Old 5-zone captures are archived in `design/screenshots/_stale_aug31/` — do NOT upload those.
@@ -90,7 +90,7 @@ Correct thresholds for the CURRENT 7-boss / 7-shard / 20-chest build:
 | HALFWAY | 3–4 of 7 shards (or count-agnostic) | update — was "3 of 5" |
 | EXPLORER | reach all **7** zones (or "every corner") | update — was "5 zones" |
 | HOARDER | open all **20** chests | ✓ likely already correct (source has 20 chests) |
-| FIRST_LIGHT / NATURAL_20 / APOTHEOSIS (LV15) / FULLY_GEARED | unchanged | ✓ valid |
+| FIRST_LIGHT / NATURAL_20 / APOTHEOSIS (LV15, mid-late — cap is LV20) / FULLY_GEARED | unchanged | ✓ valid |
 
 ```
 wavedash achievement update EXPLORER  --description "..." --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv

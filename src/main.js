@@ -660,7 +660,7 @@ const spawnDrop = (x, y, n) => {
 
 const strike = (f, mag) => {
   const crit = Math.random() < .12 + st[4] * .03, dmg = st[mag ? 2 : 0] * (crit ? 2 : 1);   // SHOOT=MAG(sp) · DASH/STOMP=STR(ho); ×2 on crit (LUCK .12+lk*.03). Player→enemy is RAW — enemies have NO DEF stat; DEF only reduces enemy→player (in hurt())
-  f.hp -= dmg;   // pure damage. The physical hit-cooldown (f.fl) is set by the DASH + STOMP sites — NOT by shots, so DBL/TRI SHOT volleys all land.
+  f.hp -= dmg; f.fl = .4; f.vx = 0;   // UNIFIED HIT REACTION (2026-09-07): every damage source (dash/stomp/shot) gets 0.4s flash + AI pause + i-frame via ONE timer f.fl. vx=0 gives the visible "stop-and-jolt" beat. DASH + STOMP sites still overwrite f.fl to .8 AFTER strike() → physical anti-melt window preserved AND longer stagger on melee. Shot hits now gate on f.fl (line ~835) — this is a slight nerf to DBL/TRI SHOT stacking, accepted for consistency.
   fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
   // crit signaled by 2× damage (number) + longer popup lifetime (2.6s vs 1.8s). Hitstop + fanfare RETIRED 2026-09-06 — kept hitstop only for the ONE event that earns freezing the world: rainbow collect.
   if (f.hp <= 0) {
@@ -668,8 +668,7 @@ const strike = (f, mag) => {
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." Universal combat audio grammar. XP: kind-capped base + crit bonus + boss escalation.
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
-    if (f.bit) {                                                // BOSS falls
-      prune(foes, e => e.bit === f.bit);
+    if (f.bit) {                                                // BOSS falls — the boss itself is pruned by the frame-end `prune(foes, e => e.dead)` (line ~910); other foes are NEVER auto-cleared (Joey rule 2026-09-07: the player has to clear every enemy themselves — no boss-death sweep).
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — drop the rainbow as a collectible; mark defeated (1 = stays dead while alive, not yet counted)
         bs[f.bi] = 1;
         drops.push({ x: f.x, y: f.y - 4, vx: (Math.random() - .5) * 80, vy: -120, t: 9, bi: f.bi, life: 0 });   // RAINBOW pickup — reuses loot-drop physics; collect it to bank the boss (bs→2)
@@ -832,7 +831,7 @@ const step = (dt) => {
     if (solid(s.x, s.y)) { s.t = 0; }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = 5 * f.cz;
-      if (s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 1); break; }   // SHOOT → MAG damage (mag flag)
+      if (f.fl <= 0 && s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 1); break; }   // SHOOT → MAG damage (mag flag). f.fl gate added 2026-09-07 — mirrors dash/stomp; all damage sources now respect the unified enemy i-frame.
     }
   }
   prune(shots);
@@ -850,6 +849,11 @@ const step = (dt) => {
     const fs = 5 * f.cz;
     // UNIFIED ATTACK ORCHESTRATION — every foe runs the same verbs; cap bits (data.js FT)
     // decide who uses which. Immediate contact damage (below) is shared by all — no wind-up tell.
+    // HIT-STUN GUARD (2026-09-07) — while f.fl > 0 (invuln/flash window from strike), AI decisions
+    // are paused: ranged countdown freezes mid-tell, chase doesn't re-pick vx, hop doesn't fire.
+    // Gravity + horizontal momentum (below) still apply; contact damage still lands. Enemy jolts
+    // to stop (strike zeros vx), holds pose during flash, then resumes AI when f.fl expires.
+    if (f.fl <= 0) {
     // RANGED (cap 1) — gate the COUNTDOWN, not just the shot: bosses always in range,
     // regular foes need |dx| < 230. Prevents the charge-orb tell from ballooning off-screen.
     if (f.cap & 1 && (f.bit || Math.abs(pl.x - f.x) < 230)) {
@@ -880,6 +884,7 @@ const step = (dt) => {
         } else { f.vx *= -1; f.hop = .3; }
       }
     }
+    }   // end HIT-STUN GUARD (f.fl <= 0)
 
     f.vy = Math.min(400, (f.vy || 0) + 900 * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
@@ -950,7 +955,7 @@ const draw = () => {
   ctx.setTransform(SS, 0, 0, SS, SOX, SOY);
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
 
-  const tx = pl.x + PW / 2 + pl.face * 40 - VW / 2, ty = pl.y - VH / 2 - 60;   // vertical bias: player sits low on screen → grass near bottom, sky/play-area above, dirt strip below for clear level separation
+  const tx = pl.x + PW / 2 + pl.face * 40 - VW / 2, ty = pl.y - VH / 2 + 20;   // vertical framing (2026-09-07): player sits SLIGHTLY ABOVE center (screen y≈115) — proven by physics math to fit every routine jump inside one viewport. Triple jump apex = 128 px rise × .85 lag = 109 px on-screen shift, leaves 6 px above; ground below feet at rest = 141 px (8.8 tiles), roughly doubling prior visibility from the retired -60 sky-bias.
   cam.x += (tx - cam.x) * .08; cam.y += (ty - cam.y) * .1;
   cam.x = Math.max(0, Math.min(W * T - VW, cam.x));
   cam.y = Math.max(0, Math.min(H * T - VH, cam.y));
@@ -1063,10 +1068,10 @@ const draw = () => {
     if (f.bit) {                                                // DARKCORN — unchanged (renders via drawU with colour swap)
       const bd = 13, hn = RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);
-      const bc = col; col = [bd, hn, hn, bd]; drawUo(Math.sin(f.t) * 3); col = bc;
+      const bc = col; col = f.fl > 0 && (f.fl * 6 | 0) & 1 ? [4, 4, 4, 4] : [bd, hn, hn, bd]; drawUo(Math.sin(f.t) * 3); col = bc;   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red (mirrors player's hf/hfc strobe at line ~1130). Boss goes fully red on flash-on frames, back to dark-body+band-horn on flash-off.
       ctx.fillStyle = '#fff'; ctx.fillRect(9.3, 1.5, 2.4, 2.4); ctx.fillStyle = '#000'; ctx.fillRect(9.9 + pd * .7, 2.1, 1.2, 1.2);   // enemy-style tracking eyeball (DARKCORN only): white + black pupil — near-black body (PAL[13]) doubles as outline, so 2 rects. Player/GC keep drawU's plain eye.
     } else {
-      const bod = PAL[FOECOL[f.k]];
+      const bod = f.fl > 0 && (f.fl * 6 | 0) & 1 ? PAL[4] : PAL[FOECOL[f.k]];   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red. Every oR() call below inherits `bod`, so the whole silhouette (body + head + legs + tendrils + spikes) flips red in sync. RED charge-tell skull (line ~1108) is drawn on top — during flash-off frames it reads sharp against normal body; during flash-on frames it merges with red body but the skull's dark eye/nose/teeth pixels (#161210) stay readable, and the 6 Hz strobe means it re-emerges 6×/sec.
       const oR = (x, y, w, h) => { ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = bod; ctx.fillRect(x, y, w, h); };
       const eye = (cx, cy) => { ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(cx - 2, cy - 2, 4, 4); ctx.fillStyle = '#000'; ctx.fillRect(cx - 1 + pd, cy - 1, 2, 2); };   // standard eyeball: 6×6 black outline → 4×4 solid white → 2×2 black tracking pupil (was reversed with a white cross inside black — read as a slit not an eye)
       const flt = wob * 1.5;
