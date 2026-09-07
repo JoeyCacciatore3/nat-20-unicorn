@@ -731,7 +731,6 @@ const step = (dt) => {
   if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
   if (dashT > 0) {                                              // dash: flat burst, strike foes
     pl.vx = pl.face * 400; pl.vy = 0;
-    parts.push({ x: pl.x + PW / 2, y: pl.y + PH / 2, vx: 0, vy: 0, t: .3 });      // rainbow arc trail — same particle as jump burst
     for (const f of [...foes]) {
       const fz = 5 * f.cz;
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) { strike(f); f.fl = .8; }   // one hit per dash pass; then 0.8s enemy i-frame
@@ -910,8 +909,7 @@ const step = (dt) => {
       if (d.t === 9) {                                          // RAINBOW — progression pickup: always collected. Bank the boss (bs→2), pause, burst. Save-on-rainbow REMOVED 2026-09 — leveling + respawn are the ONLY auto-saves now (simpler mental model: "you save when you die or level up").
         bs[d.bi] = 2; d.dead = 1; hs = .3;                      // hitstop: world freezes briefly for the collect moment
         spray(pl.x + PW / 2, pl.y - 6, 12);                     // rainbow particle burst above the head (reuses the death-burst spray; no skull flag = 7-band rainbow)
-        sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);   // triumphant arpeggio
-        if (rainbows() === seeds.bosses.length) for (let i = 0; i < 60; i++) spray(pl.x + (Math.random() - .5) * VW, pl.y + (Math.random() - .5) * VH, 1, 0, 4);   // VICTORY — big rainbows (z=4) burst across screen
+        sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);   // triumphant arpeggio — same for ALL 7 rainbow collects (final boss uses the identical flow: bs→2 · hitstop · 12-burst · arpeggio). Victory state is derived from rainbows()===7, not staged here.
         continue;
       }
       // Potion → hot-bar counter (cap 5, drop stays on ground if full). Gear → bag (drop stays on ground if bag full).
@@ -1129,11 +1127,10 @@ const draw = () => {
     else drawPart(d.s, d.x - 6, d.y - 11 + dy, d.c, 1.5);   // GEAR — bare sprite (no box), potion-sized (1.5×), rests on ground like potions
   }
   ctx.lineWidth = 1;
-  for (const p of parts) {                                        // 3 particle kinds: p.sk skull (deaths) · p.c single-hue trail dot (dash smear / shot comet) · else full 7-band rainbow burst
+  for (const p of parts) {                                        // 2 particle kinds ONLY: p.sk skull (deaths) · else 7-band rainbow burst (jumps + rainbow collect). spray() is the sole spawner.
     const al = Math.min(1, p.t * 2.5);
     if (p.sk) { skull(p.x, p.y, .7, al, '#ff5d6c'); continue; }  // death skull = red bone, dark outline — distinct from white foe-bolt skulls
     ctx.globalAlpha = al;
-    if (p.c) { ctx.fillStyle = p.c; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); continue; }   // coherent hue trail — cheap dot, not a full rainbow
     ctx.lineWidth = .5 * p.z; rArc(p.x, p.y, 2.75 * p.z, .375 * p.z);   // burst rainbow — r/step/width scale together so the 7 bands stay distinct; p.z sizes it (1 = puff, big = victory)
   }
   ctx.globalAlpha = 1; ctx.lineWidth = 1;
@@ -1147,7 +1144,7 @@ const draw = () => {
   if (dq && started) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 4 : NGY - 26, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREATCORN; hidden on title
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
 
-  // ---------- HUD (gameplay-only overlays: victory banner, level-up banner, death vignette) ----------
+  // ---------- HUD (gameplay-only overlays: level-up banner, death vignette) ----------
   // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
   if (started && !paused) fade(1 - Math.abs(deathT - .8) / .8);
 
