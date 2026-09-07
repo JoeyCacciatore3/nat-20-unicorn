@@ -312,8 +312,8 @@ const unequip = (s) => {
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 const quaff = (t) => { const g = 10; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#6cf279', 0, 0, 1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#4a76ff', 0, 0, 1); } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
 
-// GUARD: gear-drop color range in spawnDrop (`4 + Math.random() * 13`) is coupled to
-// PAL.length (17) — indices 4..16. tpos-check.mjs enforces this pairing (swatches - 4 === range).
+// GUARD: gear-drop color range in spawnDrop (`Math.random() * 17`) is coupled to
+// PAL.length (17) — ALL indices 0..16 equippable (white/PAL[0] included; it's just the unequipped body appearance, not a reserved default — equipped-ness is tracked by eq[s], not col). tpos-check.mjs enforces this pairing (swatches - base === range).
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };
 // Stat bar: dark track + coloured fill to `frac` (clamped 0..1 so vitals > max render as full, never overflow).
@@ -342,7 +342,7 @@ const portraitPanel = () => {
   ctx.restore();
 };
 // TOP-LEFT PERSISTENT HUD — identical in gameplay AND in the character menu. Renders:
-//   • "LVn NAME" header — all white, matches HP/MP numbers below (was cyan+gold overpaint; unified 2026-09)
+//   • "LVn NAME" header — action-blue #8cf (matches the panel ring + every active-UI accent), same colour as the HP/MP numbers below (2026-09-07)
 //   • mini rainbow arc + '×N' rainbow count spaced to the right of the name
 //   • HP/MP/XP triple bars with number overlays
 // Single font set at top: 8px bold monospace throughout — same rhythm as the stat row.
@@ -352,12 +352,12 @@ const topHUD = () => {
   ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5; ctx.strokeRect(0, 0, 90, 44);
   ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
   const hdr = 'LV' + lvl + ' ' + pName;
-  ctx.fillStyle = '#fff'; T2(hdr, 8, 14);                             // unified white header — matches HP/MP numbers below
+  ctx.fillStyle = '#8cf'; T2(hdr, 8, 14);                             // action-blue LV+name (#8cf = panel ring + active-UI accent). ×N below inherits this fillStyle (rArc sets only strokeStyle).
   const rcx = 8 + ctx.measureText(hdr).width + 20;                    // rainbow icon = 20px right of name (extra breathing room)
   ctx.lineWidth = 1; rArc(rcx, 14, 8, 1);
   T2('×' + rainbows(), rcx + 10, 14);
   bars(8, 18);                                                        // HP/MP/XP triple, top-left (tight to header)
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center'; ctx.fillStyle = '#8cf';                   // HP/MP numbers in action-blue too (matches LV+name header)
   T2(hp + '/' + mHP(), 42, 26); T2((mn | 0) + '/' + mMN(), 42, 37);
 };
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
@@ -651,8 +651,8 @@ const drawPart = (s, x, y, c, z = 1) => {
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, life: 0 };   // t assigned below in every branch (5=gear · 0/1=potion) — never observed as 0-init
-    // GEAR (60%): slot + color + level-scaled PRIMARY bonus (no tiers) + optional SUB-stat at LV4+ (a different stat, ~50%). tpos-check.mjs couples "4 + Math.random() * 13" color range to PAL.length.
-    if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 13) | 0; d.b = 1 + (lvl >> 2); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (lvl >> 3); } }
+    // GEAR (60%): slot + color + level-scaled PRIMARY bonus (no tiers) + optional SUB-stat at LV4+ (a different stat, ~50%). tpos-check.mjs couples "Math.random() * 17" color range to PAL.length — ALL 17 colours (0-16). White (PAL[0]) is a valid gear tint: body/parts are equipment-driven, white is just the unequipped appearance (equipped-ness = eq[s], not col).
+    if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = Math.random() * 17 | 0; d.b = 1 + (lvl >> 2); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (lvl >> 3); } }
     else d.t = Math.random() < .5 ? 0 : 1;      // POTION (40%): HP (0) or MP (1), 50/50
     drops.push(d);
   }
@@ -684,7 +684,7 @@ const strike = (f, mag) => {
 // Strikes foes it passes through, hits GENERATE mana.
 function shoot() {                                              // magic bolt (gold): 3 mana. TAP to fire — ONE bolt per press. NO rapid fire / hold-to-auto-fire (deliberately not wanted).
   if (!started || paused || deathT > 0 || !su[0] || mn < 3) return;   // silent fail — MP bar shows the answer
-  mn -= 3; sfx(700, 1300, .12, 'triangle', .09); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar)
+  mn -= 3; fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar). SILENT (fire sfx removed 09-07) — both player + enemy ranged shots are now soundless; the rainbow bolt + -3 popup are the feedback.
   // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT = 2 stacked straight. TRI SHOT = 3 stacked straight (adds vertical height, NO fan), same shape as the icon.
   for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 8, vx: pl.face * 230, vy: 0, t: .65 + .3 * su[1] });   // every bolt straight (vy 0); DBL/TRI stack vertically by i*8 to add height. 230 = ~15% slower than old 270 (readable); lifetime scales with FAR SHOT (su[1]).
 }
@@ -858,8 +858,7 @@ const step = (dt) => {
         f.rc = f.bit ? 1.6 : 2.1;
         const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = f.bit ? 105 : 80;   // psp = projectile speed (was 'sp' — shadowed MAG stat). Slightly slowed 09-07 (115/90→105/80) for readability/dodge.
         fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * psp, vy: dy / d * psp, t: 2.6, dm: f.dm });   // carry shooter dm → bolt scales exactly like melee
-        sfx(f.bit ? 260 : 380, 180, .14, 'sawtooth', .09);
-        if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire
+        if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire. Enemy fire is SILENT (fire sfx removed 09-07) — the RED charge-tell skull + RED flying bolt carry the whole telegraph.
       }
     }
     // CHASE (cap 16) — home on the player; bi scales boss ground speed.

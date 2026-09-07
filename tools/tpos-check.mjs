@@ -46,17 +46,19 @@ if (actual !== expected) {
   process.exit(1);
 }
 
-// PAL length gate — gear color range at line "4 + Math.random() * 11" assumes
-// PAL.length === 15 (4 skin/neutral + 11 vivid). If PAL is trimmed/extended,
-// that literal 11 must move with it.
+// PAL length gate — gear color range in spawnDrop ("d.c = [N + ]Math.random() * R") must
+// cover PAL indices [N..](length-1): optional base N skips low swatch(es), R = swatches - N.
+// Currently base 0 — ALL colours equippable incl. white/PAL[0]. Anchored on `d.c =` and
+// base-optional, so it reads whatever form the source uses (with or without a base).
 const palMatch = src.match(/const PAL = \[([\s\S]*?)\n\];/);
 if (palMatch) {
   const swatches = (palMatch[1].match(/'#[^']+'/g) || []).length;
-  const gearRangeMatch = src.match(/4 \+ Math\.random\(\) \* (\d+)\)/);
-  const gearRange = gearRangeMatch ? +gearRangeMatch[1] : NaN;
-  if (swatches - 4 !== gearRange) {
-    console.error(`❌ PAL/gear-range drift: PAL has ${swatches} swatches, gear range is ${gearRange} (expected ${swatches - 4}).`);
-    console.error(`   fix: update the "4 + Math.random() * ${swatches - 4}" literal in spawnDrop.`);
+  const gearRangeMatch = src.match(/d\.c = \(?(?:(\d+) \+ )?Math\.random\(\) \* (\d+)/);
+  const gearBase = gearRangeMatch && gearRangeMatch[1] ? +gearRangeMatch[1] : 0;
+  const gearRange = gearRangeMatch ? +gearRangeMatch[2] : NaN;
+  if (swatches - gearBase !== gearRange) {
+    console.error(`❌ PAL/gear-range drift: PAL has ${swatches} swatches, gear range is ${gearBase} + random*${gearRange} (expected ${swatches - gearBase}).`);
+    console.error(`   fix: update the "Math.random() * ${swatches - gearBase}" literal in spawnDrop.`);
     process.exit(1);
   }
 }
