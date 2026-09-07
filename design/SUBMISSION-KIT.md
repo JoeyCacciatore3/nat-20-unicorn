@@ -1,15 +1,15 @@
 # Submission Kit — UNICORN, Hooves of Hope
 
-Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) on 2026-09-07 (batch 10).**
+Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) on 2026-09-07 (batch 11).**
 
-**State snapshot (2026-09-07 batch 10):** build **13,075 / 13,312 B (237 B free, 98.2%)**. Save **v44**. World **600×160**, one contiguous world — **7 zones** (5 surface + 2 underground, each with a unique 5-color palette — no cross-zone overlap except deliberate PEAK/SUMMIT storm-sky pair), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**, **56 regular foes** (batch 10 rebalance: MEADOW east corridor thinned to map-average density). GitHub `main` == code == Wavedash live — **aligned** (Release Ritual atomic push). Wavedash build id updated per push — see `dist/game.zip` size + latest wavedash push output for the current id. Play URL rotates per deploy — get the current one from `wavedash build push` output, or the Developer Portal.
+**State snapshot (2026-09-07 batch 11):** build **13,074 / 13,312 B (238 B free, 98.2%)**. Save **v44**. World **600×160**, one contiguous world — **7 zones** (5 surface + 2 underground, each with a unique 5-color palette — no cross-zone overlap except deliberate PEAK/SUMMIT storm-sky pair), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**, **56 regular foes**, **all suspended platforms are one-way (v=2)** — uniform thickness, DOWN-jump drops through anywhere. GitHub `main` == code == Wavedash live — **aligned** (Release Ritual atomic push). Wavedash build id updated per push — pin lives in the Definitive State knowledge entry. Play URL rotates per deploy — get the current one from `wavedash build push` output, or the Developer Portal.
 
 **Batch 9 changes (2026-09-07):**
 - Enemy hit reaction: unified `f.fl` timer drives red strobe flash + AI pause + i-frame together (matches player's `hf` grammar). Baseline 0.4s; physical hits (dash/stomp) overwrite to 0.8s. Shots gated on `f.fl` for consistency (DBL/TRI SHOT still stacks because each bolt refreshes).
 - Camera framing: vertical offset `-60` → `+20` (player sits slightly above center). Every routine jump — single/double/triple — now fits inside one viewport. Ground visibility at rest ≈ 8.8 tiles (was 3.8).
 - Dead-code prune (line 672 boss-minion prune) removed — a no-op predicate; deletion clarifies "player kills everything" contract.
 
-> **Ground-truth note:** last full audit 2026-09-07 (batch 10). If any figure here disagrees with `src/data.js` + `src/main.js` + `src/world.js`, the source wins — re-grep before trusting.
+> **Ground-truth note:** last full audit 2026-09-07 (batch 11). If any figure here disagrees with `src/data.js` + `src/main.js` + `src/world.js`, the source wins — re-grep before trusting.
 
 ## Verified game facts (from `src/data.js` + `src/main.js` + `src/world.js`, 2026-09-07)
 - **Title (player-facing):** the title screen renders `UNICORN` (one word, rainbow letters) over `HOOVES OF HOPE`; the cover art matches. → **`UNICORN, Hooves of Hope`**.
@@ -100,7 +100,7 @@ design/
 │   ├── 03_exploration.png  meadow with spikes, bounce mushroom, enemy
 │   ├── 04_skill_tree.png   character menu — stats + equipment + 10-node skill tree
 │                            ⚠️ STALE — current file shows the pre-09-05 14-node tree with STASH/HP+5/MP+5/POT+5
-│                              and white HUD text (batch 8 recolored to #8cf). RE-SHOOT against batch-10 build (adds enemy hit-flash + camera framing + differentiated PEAK/CANOPY palettes) before final submission.
+│                              and white HUD text (batch 8 recolored to #8cf). RE-SHOOT against batch-11 build (adds enemy hit-flash + camera framing + differentiated PEAK/CANOPY palettes + uniform one-way platform arenas) before final submission.
 │   ├── 05_title.png        title screen (rainbow UNICORN / HOOVES OF HOPE)
 │   └── _stale_aug31/       OLD 5-zone captures — do NOT upload
 └── achievements/         ✅ 8 PNGs (thresholds need CLI re-tune per table above)

@@ -131,6 +131,8 @@ Movement-ability gating (double-jump for terraces/peak, dash for depths corridor
 
 **Enemy distribution (batch 10 rebalance):** 56 regular foes (was 57) across 7 zones. MEADOW east corridor thinned from 8 foes (2× map average, pre-DASH/pre-SHOT) to 5 to match map average density. Relocations added ranged pressure to DEPTHS descent and filled EAST RUN's 288→300 gap. Kind-swap round: CANOPY gained its first caster, EAST RUN and SUMMIT gained their first spike-floaters. Every zone now runs at least 4 of the 6 kinds.
 
+**Platform unification (batch 11 refinement 2026-09-07):** every suspended landing in the world is now a **one-way platform** (v=2) — uniform ~9px chunky top strip, DOWN-jump drops through. The 4 boss/reward landings that were previously 1-2 tile solid masses (PEAK BLUE ledge, CANOPY YELLOW ledge, EAST RUN TRI-JUMP upper landing, GREEN summit landing) were converted, so no ledge in the game has non-droppable "thick" tiles anymore. Terrain masses (stepped-tower masonry, western terraces, ground band) stay v=1 because they're hillside, not platforms.
+
 ## Build
 Requires **Node ≥ 20**.
 ```
@@ -139,7 +141,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 13,075 / 13,312 B (98.2%) — 237 B free** (batch 10, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
+**Current: 13,074 / 13,312 B (98.2%) — 238 B free** (batch 11, 2026-09-07; see `SIZELOG.md` for the live-updated tail)
 
 ## Save format
 Keys: `localStorage.n20_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.

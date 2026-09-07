@@ -62,12 +62,12 @@ const MEADOW = {
     // Canopy zig-zag climb (x40-118) — DJ route up to YELLOW CORN ledge
     [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
     [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
-    [52, 26, 8, 2],
+    [52, 26, 8, 1, 2],   // CANOPY ledge (YELLOW arena) — batch 11 platform unification (2026-09-07): was 8×2 solid → now 8×1 one-way. Uniform ~9px chunky top strip like every other platform, DOWN-jump drops through, and ledge-grow loop widens the arena into open air.
     [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
     // Peak approach (x10-60) — DJ climb up to BLUE CORN on summit ledge
     [46, 24, 3, 1, 2],
     [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
-    [10, 12, 9, 2],
+    [10, 12, 9, 1, 2],   // PEAK ledge (BLUE arena) — batch 11 platform unification (2026-09-07): was 9×2 solid → now 9×1 one-way. Uniform thickness, droppable, ledge-grow widens the summit fight.
     // Peak TRI-JUMP secret — chest 8 above BLUE summit (rise 5 requires 3rd jump)
     [22, 8, 3, 1, 2], [26, 3, 5, 1, 2],   // DJ from summit y=12 to y=8, TRI from y=8 to y=3
     // ---- WEST BASEMENT (x5-47) — was barren floor below the BLUE peak: varied platform course + mushrooms + foes ----
@@ -95,7 +95,7 @@ const MEADOW = {
     [372, 52, 6, 1, 2],
     // Vertical stack (x385-430): DJ zig-zag climb → TRI-JUMP upper landing → step-down
     [385, 55, 5, 1, 2], [392, 51, 5, 1, 2], [385, 47, 5, 1, 2], [392, 43, 5, 1, 2],
-    [398, 38, 8, 1],
+    [398, 38, 8, 1, 2],   // EAST RUN TRI-JUMP upper landing — batch 11 platform unification (2026-09-07): v=1→v=2. Same 1-tile height, now droppable + uniform thickness.
     [412, 43, 4, 1, 2], [418, 47, 4, 1, 2], [424, 51, 4, 1, 2], [430, 55, 4, 1, 2],
     // East end (x440-475): stepped tower echoing western motif + final walkway
     [440, 59, 3, 1], [443, 58, 3, 2], [446, 57, 3, 3], [449, 56, 3, 4], [452, 55, 3, 5],
@@ -113,7 +113,7 @@ const MEADOW = {
     // ==== EAST ASCENT (x560-620) — DJ zig-zag climb (from E2's row53 step) to the GREEN summit + a ground bounce side chest ====
     [564, 49, 5, 1, 2], [560, 45, 5, 1, 2],        // zig up (DJ, rise 4)
     [566, 41, 5, 1, 2], [562, 37, 6, 1, 2],        // continue up — chest 6 on the 562 ledge
-    [568, 33, 8, 1],                               // solid summit landing (seeds E4 GREEN CORN)
+    [568, 33, 8, 1, 2],                            // GREEN summit landing (E4) — batch 11 platform unification (2026-09-07): v=1→v=2. Same 1-tile height, now droppable + uniform thickness. Ledge-grow widens the GREEN arena into open sky.
     [572, 52, 5, 1, 2],                            // ground bounce side ledge — chest 7 (bounce + DJ)
     // ---- EAST END-CAP (x579-595) — was barren NE corner past GREEN: stepped platforms + mushroom + foes ----
     [580, 56, 6, 1, 2], [588, 53, 5, 1, 2], [582, 50, 4, 1, 2],   // stepped shelves climbing into the corner
