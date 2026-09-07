@@ -34,10 +34,7 @@ const MEADOW = {
     [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
     [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
     [233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
-    [251, 60, 3, 2, 0], [251, 61, 3, 1, 3],                      // RED arena moat — last committed jump before the first boss (base-crossable 3-wide)
-    [258, 62, 14, 6, 0],                                         // RED LAIR — hidden chamber under the meadow (boss found, not stumbled into)
-    [258, 60, 2, 2, 0],                                          // lair mouth — 2-wide drop hole right after the moat (jumpable = skippable)
-    [258, 62, 3, 1, 2], [258, 64, 3, 1, 2], [258, 66, 3, 1, 2],  // return rungs under the mouth (cavern pattern: top rung at chamber top, hole overlap)
+    [251, 60, 3, 2, 0], [251, 61, 3, 1, 3],                      // RED arena moat — last committed jump before RED boss on the meadow flat past x=258 (lair removed 2026-09-06: RED now surface-visible in its own MEADOW palette)
     [175, 57, 4, 1, 2], [181, 55, 4, 1, 2], [188, 57, 5, 1, 2],
     [205, 56, 4, 1, 2], [212, 54, 4, 1, 2], [220, 57, 6, 1, 2],
     [240, 56, 4, 1, 2], [247, 54, 4, 1, 2],
@@ -122,9 +119,9 @@ const MEADOW = {
     [580, 56, 6, 1, 2], [588, 53, 5, 1, 2], [582, 50, 4, 1, 2],   // stepped shelves climbing into the corner
   ],
 
-  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 (was 200/365) — shifted out of spike pits at 196-200 and 360-367 where groundRow was snapping the mushroom inside the pit floor.
+  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59], [30, 55], [105, 55]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 shifted out of spike pits. x=30 PEAK basement + x=105 CANOPY lower-level added 2026-09-06 for zone-parity (1+ bounce per surface zone) — placed in flat combat areas so they don't trivialize the vertical climb identities of their zones.
   bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
-    [263, 66, 0],   // RED    — hidden lair under the meadow (drop hole @x258, behind the moat)
+    [260, 58, 0],   // RED    — MEADOW surface just past the arena moat (was hidden lair y=66; moved to surface 2026-09-06 so RED renders in MEADOW palette, one boss per zone)
     [461, 50, 1],   // ORANGE — perch above the east walkway (zig hops via x464 rung)
     [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier)
     [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier)
@@ -175,8 +172,10 @@ const MEADOW = {
   // count doesn't shift the shared LCG (sky-ladder RNG must stay stable, or the
   // map audit breaks). main.js seedFoes concatenates these into the live foe list.
   foesX: [
-    [300, 58, 2], [340, 58, 4], [370, 58, 1], [408, 58, 3], [430, 58, 5],   // EAST RUN fill — blob/runner/crawler/caster/hopper across the empty 300-430 flat
-    [130, 68, 2], [220, 68, 4],                                             // UNDERGROUND fill — depths corridor + descent corridor
+    [300, 58, 2], [340, 58, 4], [373, 58, 1], [408, 58, 3], [430, 58, 5],   // EAST RUN fill — blob/runner/crawler/caster/hopper across the empty 300-430 flat. x=373 (was 370) — shifted 3 tiles east off the bounce mushroom at [370, 59].
+    [130, 68, 2], [220, 68, 4],                                             // UNDER-DEPTHS fill — depths corridor + descent corridor
+    [66, 81, 4], [79, 81, 2], [72, 75, 6],                                  // UNDER-CAVERN fill — INDIGO chamber: walker-fast on far-west floor, tent-floater in east corner (clear of chest 9 @ x=76), spike-floater high mid-air (clear of boss @ y=80). Combat presence beyond just the boss.
+    [305, 53, 5], [318, 47, 4],                                             // EAST RUN vertical climb fill — walker-hop on x=303 DJ platform, walker-fast on x=315 top ledge (populates the 30-tile empty climb between foe@288 and foeX@340)
   ],
   DECO: [],   // SPIKE: hand-placed removed — all decoration now via scatter()
 };

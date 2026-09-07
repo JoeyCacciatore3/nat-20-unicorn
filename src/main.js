@@ -37,7 +37,8 @@ const fit = () => {
   ctx.imageSmoothingEnabled = false;
 };
 addEventListener('resize', fit);
-visualViewport && visualViewport.addEventListener('resize', fit);
+addEventListener('orientationchange', fit);   // iOS safety-net: resize doesn't always fire on rotation
+visualViewport && (visualViewport.addEventListener('resize', fit), visualViewport.addEventListener('scroll', fit));   // scroll = iOS URL bar mid-slide; keeps letterbox tight during the bar's toggle animation
 fit();
 let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer mapping)
 
@@ -120,7 +121,7 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
-const jumpHeld = () => J_KEYS.some(k => keys.has(k)) || keys.has('bJ'); // button jump gets full hold-height too
+
 
 // ---------- touch overlay (minimal: joystick + JUMP + earned skill buttons) ----------
 // JUMP is the universal interact/confirm (menu: select; gameplay: NPC/chest).
@@ -394,7 +395,7 @@ let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via level-gated rows (canBuy = lvl>=req per node)
-let hs = 0, shk = 0, hf = 0, hfc = 4;             // combat feel: hitstop freeze + screen shake (seconds) + hf = INVULN-flash timer + hfc = flash PAL index (4=red hurt · 15=green heal). Dash uses SILENT pl.inv (its movement is the visual). hf>0 OR pl.inv>0 = invulnerable to all damage.
+let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY rainbow collect, 0.3s) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-flash timer · hfc = flash PAL index (4=red hurt · 15=green heal). Dash uses SILENT pl.inv. hf>0 OR pl.inv>0 = invulnerable.
 // Boss state: 0=unvisited, 1=on screen OR defeated-uncollected, 2=rainbow collected (leash stash retired 2026-09)
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 
@@ -481,7 +482,7 @@ const SX = 126 * T, SY = NGY - PH;                // spawn point (paddock) — f
 const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
 const NSC = 10 / 7;                                // unicorn render scale, shared by player/GREATCORN/DARKCORN (boss fs=20 ÷ 14-tall bbox). Collision stays PW×PH.
 const pl = { x: SX, y: SY, vx: 0, vy: 0, gr: 0, face: 1, coyote: 0, air: 0, inv: 0, t: 0 };   // gr = on-ground flag
-let lastSafe = [SX, SY], deathT = 0;
+let deathT = 0;
 let nearNpc = 0;                                  // GREATCORN proximity flag (JUMP-to-interact re-talk quips)
 let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
 // DIALOGUE — dq = active script (INTRO or a 1-line re-talk quip) or 0=closed · di = current bubble · tqi = re-talk cycle index.
@@ -525,7 +526,7 @@ const fresh = () => {
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seedChests();
   foes = seedFoes();
-  lastSafe = [SX, SY]; pl.x = SX; pl.y = SY;
+  pl.x = SX; pl.y = SY;
   hp = mHP(); mn = mMN();                             // full at derived max (honest — no more 10/10 magic number coincident with the base-stat formula)
 };
 // Clean-gameplay-state reset — single source of truth for "what is zero at a fresh
@@ -631,11 +632,11 @@ const strike = (f, mag) => {
   const crit = Math.random() < .12 + lk * .03, dmg = (mag ? sp : ho) * (crit ? 2 : 1);   // SHOOT=MAG(sp) · DASH/STOMP=STR(ho); ×2 on crit (LUCK .12+lk*.03). Player→enemy is RAW — enemies have NO DEF stat; DEF only reduces enemy→player (in hurt())
   f.hp -= dmg;   // pure damage. The physical hit-cooldown (f.fl) is set by the DASH + STOMP sites — NOT by shots, so DBL/TRI SHOT volleys all land.
   fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
-  if (crit) { hs = .06; fanfare(); }               // no crit skulls — skulls mean DEATH only (operator 09-04)
+  // crit signaled by 2× damage (number) + longer popup lifetime (2.6s vs 1.8s). Hitstop + fanfare RETIRED 2026-09-06 — kept hitstop only for the ONE event that earns freezing the world: rainbow collect.
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    spray(f.x, f.y, 5, 1); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // XP: kind-capped base + crit bonus + boss escalation
+    spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." Universal combat audio grammar. XP: kind-capped base + crit bonus + boss escalation.
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + lk * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit) {                                                // BOSS falls
       prune(foes, e => e.bit === f.bit);
@@ -671,22 +672,20 @@ function heal() {                                               // instant tap-t
   hf = .8; hfc = 15;   // HEAL grants 0.8s i-frame + green PAL[15] flash — same unified invuln window as hurt/dash; green = heal, red = hurt, blue = dash
 }
 
-const hurt = (n, safe) => {
+const hurt = (n) => {
   if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while ANY flash active (hf → red/green/blue) OR stomp/respawn window (pl.inv). Single guard blocks physical AND projectiles.
   n = Math.max((n >> 2) || 1, n - df);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hs = .04; hf = .8; hfc = 4;   // hf = unified invuln timer; hfc=4 = red PAL[4]. Damage · heal · dash all share this channel — one flash = one meaning ("I'm invincible right now"). hp clamped ≥0 so HP bar never renders a negative-width frame on lethal hits.
+  hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = .8; hfc = 4;   // hf = invuln flash timer; hfc=4 = red PAL[4]. Damage + heal share hf channel (red/green). Dash uses SILENT pl.inv (its motion IS the visual). hp clamped ≥0. Hurt hitstop RETIRED 2026-09-06 — only rainbow collect keeps hitstop now.
   fly(pl.x + PW / 2, pl.y - 8, '-' + n, '#ff5d6c');                 // damage popup above head — mirrors enemy damage numbers so player sees hit amount in-world
   sfx(140, 55, .25, 'sawtooth', .12);
-
-  if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 7, 1); return; }   // player death — skulls burst from the fallen unicorn
-  if (safe) { pl.x = lastSafe[0]; pl.y = lastSafe[1]; pl.vx = pl.vy = 0; }
-  else pl.vy = -180;
+  if (hp <= 0) { deathT = 1.6; spray(pl.x + PW / 2, pl.y + PH / 2, 5, 1); return; }   // player death — same 5-skull burst as foe death (unified 2026-09-06)
+  pl.vy = -180;   // unified knockback recoil (spike + enemy + projectile share one response — lastSafe teleport retired 2026-09-06: -180 arc auto-clears every 1-tile pit, so no softlock possible without it)
 };
 
 // ---------- update ----------
 let last = performance.now(), time = 0;
 const step = (dt) => {
-  if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes for the crit punch
+  if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes ONLY on rainbow collect (0.3s). Crit + hurt hitstops retired 2026-09-06 — this branch now services 1 event.
   if (paused) {                                    // character menu freezes sim; joystick steps the linear cursor (keyboard nav stays in the keydown handler)
     navCD -= dt;
     const nd = keys.has('bL') || keys.has('bU') ? -1 : keys.has('bR') || keys.has('bD') ? 1 : 0;   // left/up = prev · right/down = next
@@ -718,10 +717,10 @@ const step = (dt) => {
   if (jbuf > 0) {
     let ok = 0;
     if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; ok = 1; }
-    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -(V0 - 20); pl.air++; ok = 1; }   // TRI JUMP
-    if (ok) { jbuf = 0; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 3); }
+    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -V0; pl.air++; ok = 1; }   // DBL/TRI JUMP — full ground-jump height, no timing/hold logic (2026-09-06 uniformity pass)
+    if (ok) { jbuf = 0; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 5); }   // jump rainbow burst — 5 particles, matches unified skull count. Rainbow trail is signature game aesthetic (unicorns = rainbows) — kept as core juice layer.
   }
-  if (pl.vy < 0 && !jumpHeld()) pl.vy *= .82;
+
   if (dashT > 0) {                                              // dash: flat burst, strike foes
     pl.vx = pl.face * 400; pl.vy = 0;
     for (const f of [...foes]) {
@@ -740,7 +739,7 @@ const step = (dt) => {
     if (pl.vx > 0 && solid(pl.x + PW, py + oy)) { pl.x = ((pl.x + PW) / T | 0) * T - PW - .01; pl.vx = 0; }
     if (pl.vx < 0 && solid(pl.x, py + oy)) { pl.x = ((pl.x / T | 0) + 1) * T + .01; pl.vx = 0; }
   }
-  const wasGround = pl.gr; pl.gr = 0;
+  pl.gr = 0;   // hard-land audio + wasGround snapshot retired 2026-09-06 — landing is silent unless it's a stomp (which has its own square-thud sfx)
   pl.y += pl.vy * dt;
   if (pl.vy >= 0) {
     const feet = pl.y + PH, ty = feet / T | 0, top = ty * T, fc = (pl.x + PW / 2) / T | 0;
@@ -749,7 +748,6 @@ const step = (dt) => {
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
         if (!bounceSet.has(ty * W + fc)) {                       // normal ground (bounce handled in independent post-pass below)
           pl.y = top - PH;   // rest feet on the tile top (top already computed above for the platform from-above guard)
-          if (!wasGround && pl.vy > 250) sfx(150, 70, .06, 'square', .07);   // hard-land thud (no squash)
           pl.vy = 0; pl.gr = 1; pl.air = 0;
         }
         break;
@@ -768,18 +766,10 @@ const step = (dt) => {
       pl.air = 0; jbuf = 0; sfx(220, 640, .16, 'sine', .13);
     }
   }
-  if (pl.gr) {
-    adash = 0;                                                  // air dash recharges on landing
-    // NO-SOFTLOCK: only record lastSafe when NO spike exists in the 3x3 tiles
-    // around the feet — a pit floor beside spikes can never become "safe"
-    let ok = 1;
-    const fc = (pl.x + PW / 2) / T | 0, fr = (pl.y + PH) / T | 0;
-    for (let j = fr - 1; j <= fr + 1; j++) for (let i = fc - 1; i <= fc + 1; i++) if (tile(i, j) === 3) ok = 0;
-    if (ok) lastSafe = [pl.x, pl.y];
-  }
+  if (pl.gr) adash = 0;                                         // air dash recharges on landing (lastSafe tracking retired 2026-09-06 — spike hurt() now uses standard -180 recoil, no teleport)
 
   for (const [ox, oy] of [[1, PH - 1], [PW - 1, PH - 1], [PW / 2, PH]])
-    if (spike(pl.x + ox, pl.y + oy)) { hurt(2, 1); break; }
+    if (spike(pl.x + ox, pl.y + oy)) { hurt(2); break; }
 
   // -- chest proximity — JUMP-to-open handled in keydown; here just flag the nearest --
   nearChest = -1;
@@ -815,11 +805,11 @@ const step = (dt) => {
     }
   }
   prune(shots);
-  // -- foe bolts (CASTER + boss phase 2): hit the player, die on solid --
+  // -- foe bolts (CASTER + bosses): hit the player, die on solid --
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
-    else if (pl.x + PW > b.x - 2 && pl.x < b.x + 2 && pl.y + PH > b.y - 2 && pl.y < b.y + 2) { hurt(b.dm, 0); b.t = 0; }   // bolt dmg = shooter's dm (same scaled value as melee — one system)
+    else if (pl.x + PW > b.x - 2 && pl.x < b.x + 2 && pl.y + PH > b.y - 2 && pl.y < b.y + 2) { hurt(b.dm); b.t = 0; }   // bolt dmg = shooter's dm (same scaled value as melee — one system)
   }
   prune(fbolts);
 
@@ -883,9 +873,9 @@ const step = (dt) => {
       if (f.fl <= 0) { strike(f); f.fl = .8; }   // STOMP damage only outside the 0.8s enemy i-frame — no in-place bounce-melt
       // STOMP LAUNCH — big vertical bounce + horizontal push AWAY from foe center. pl.air=0 keeps DJ for chained stomps.
       pl.vx = (f.x + fs / 2 < pl.x + PW / 2 ? 1 : -1) * 220;
-      pl.vy = jumpHeld() ? -360 : -280; pl.air = 0; sfx(150, 70, .06, 'square', .07);
+      pl.vy = -360; pl.air = 0; sfx(150, 70, .06, 'square', .07);   // STOMP BOUNCE — fixed height, no jump-held modulation (2026-09-06 uniformity pass); pl.air=0 keeps DJ available for chained stomps
       pl.inv = Math.max(pl.inv, .2);   // post-stomp silent i-frame — 0.2s (mid-tune between original 0.12s and 0.3s): enough to clear one adjacent foe from the stomp-launch vx without granting a full face-tank window
-    } else if (hit) hurt(f.dm, 0);   // touch = immediate damage; dash i-frame gate lives in hurt() now (hf-guard blocks physical + projectiles uniformly)
+    } else if (hit) hurt(f.dm);   // touch = immediate damage; dash i-frame gate lives in hurt() now (hf-guard blocks physical + projectiles uniformly)
   }
   prune(foes, e => e.dead);   // frame-end prune — foes refill only on death (soft reset), never mid-run
 
@@ -902,7 +892,7 @@ const step = (dt) => {
       if (d.t === 9) {                                          // RAINBOW — progression pickup: always collected. Bank the boss (bs→2), pause, burst. Save-on-rainbow REMOVED 2026-09 — leveling + respawn are the ONLY auto-saves now (simpler mental model: "you save when you die or level up").
         bs[d.bi] = 2; d.dead = 1; hs = .3;                      // hitstop: world freezes briefly for the collect moment
         spray(pl.x + PW / 2, pl.y - 6, 12);                     // rainbow particle burst above the head (reuses the death-burst spray; no skull flag = 7-band rainbow)
-        sfx(523, 523, .14, 'triangle', .15); sfx(659, 659, .14, 'triangle', .15, .12); sfx(784, 1568, .3, 'triangle', .15, .24);   // triumphant arpeggio — same for ALL 7 rainbow collects (final boss uses the identical flow: bs→2 · hitstop · 12-burst · arpeggio). Victory state is derived from rainbows()===7, not staged here.
+        fanfare();   // unified "positive milestone" cue — same fanfare as level-up + chest open. Rainbow collect distinguished by hitstop 0.3s + 12-particle burst (not audio). One sound family for all game milestones.
         continue;
       }
       // Potion → hot-bar counter (cap 5, drop stays on ground if full). Gear → bag (drop stays on ground if bag full).
@@ -1103,10 +1093,10 @@ const draw = () => {
     ctx.restore();
   }
 
-  // unicorn — always visible. Player flash (hf) is the ONE invuln signal: red=hurt · green=heal · blue=dash. Colour = hfc PAL index. Any active flash = immune to all damage (physical + projectile).
+  // unicorn — always visible. Player flash (hf) is the invuln signal: red=hurt · green=heal. Colour = hfc PAL index. Dash is silent (pl.inv, no colour). Any active hf OR pl.inv = immune to all damage (physical + projectile).
   ctx.save();
   ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
-  const bkc = col; if (hf > 0) col = [hfc, hfc, hfc, hfc];   // invuln flash — whole unicorn tinted to PAL[hfc]: 4=red hurt · 15=green heal · 8=blue dash.
+  const bkc = col; if (hf > 0) col = [hfc, hfc, hfc, hfc];   // invuln flash — whole unicorn tinted to PAL[hfc]: 4=red hurt · 15=green heal. Dash is silent (uses pl.inv), no colour.
   drawU(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
   col = bkc;
   ctx.restore();
@@ -1251,9 +1241,9 @@ const draw = () => {
       // Action-button glyphs — all four routed through the shared iShot / iHeal / iJump / iDash helpers (same code paths as skill-tree icons). JUMP has a paused-checkmark alternate for menu-confirm.
       if (c === 'bH') iHeal(x, y, su[3]);   // HUD HEAL button gains the SUPER HEAL aura once owned — matches the skill-node treatment (like JUMP/DASH chevrons)
       if (c === 'bJ') {
-        if (paused) {
+        if (paused || nearNpc || ~nearChest) {   // ✓ mode = "tap to confirm/interact" — menu confirm · NPC talk · chest open. Same glyph, one semantic: JUMP is universally the interact key.
           ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-          ctx.strokeStyle = '#8cf'; ctx.lineWidth = 4;   // menu-confirm ✓ — single stroke in the UI accent
+          ctx.strokeStyle = '#8cf'; ctx.lineWidth = 4;   // ✓ — single stroke in the UI accent
           ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke();
           ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
         } else iJump(x, y, 1 + su[4] + su[5]);
