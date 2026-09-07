@@ -2,7 +2,7 @@
 
 Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) on 2026-09-07 (batch 9).**
 
-**State snapshot (2026-09-07 batch 9):** build **13,069 / 13,312 B (243 B free, 98.2%)**. Save **v44**. World **600×160**, one contiguous world — **7 zones** (5 surface + 2 underground), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**. GitHub `main` == code == Wavedash live — **aligned** (Release Ritual atomic push). Play URL: https://wavedash.com/playtest/nat-20-unicorn/82404e2b-ba25-44e4-b1fc-343e97ede2d9
+**State snapshot (2026-09-07 batch 9):** build **13,069 / 13,312 B (243 B free, 98.2%)**. Save **v44**. World **600×160**, one contiguous world — **7 zones** (5 surface + 2 underground), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**. GitHub `main` == code == Wavedash live — **aligned** (Release Ritual atomic push). Wavedash build id: `mn7cyhr1jj92v39pq18yyek3r18dz950`. Play URL rotates per deploy — get the current one from `wavedash build push` output, or the Developer Portal.
 
 **Batch 9 changes (2026-09-07):**
 - Enemy hit reaction: unified `f.fl` timer drives red strobe flash + AI pause + i-frame together (matches player's `hf` grammar). Baseline 0.4s; physical hits (dash/stomp) overwrite to 0.8s. Shots gated on `f.fl` for consistency (DBL/TRI SHOT still stacks because each bolt refreshes).
