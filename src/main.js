@@ -103,8 +103,8 @@ addEventListener('keydown', (e) => {
   if (phase === 0) return titleKey(e);
   if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → skills)
     if (e.code === 'KeyP') paused = 0;                          // P closes
-    else if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') setRow((aRow + SN() - 1) % SN());
-    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') setRow((aRow + 1) % SN());
+    else if (e.code === 'ArrowLeft' || e.code === 'KeyA' || e.code === 'ArrowUp' || e.code === 'KeyW') setRow((aRow + SN - 1) % SN);
+    else if (e.code === 'ArrowRight' || e.code === 'KeyD' || e.code === 'ArrowDown' || e.code === 'KeyS') setRow((aRow + 1) % SN);
     else if (e.code === 'Enter' || e.code === 'Space') spend();
     return;
   }
@@ -201,10 +201,10 @@ addEventListener('pointerdown', (e) => {
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
       // ACTION / DROP buttons — overlap the grid (y=250-264 inside grid y=184-268), checked first.
       // LEFT box = EQUIP/UNEQUIP via spend() (dispatches by cursor region). Right box = DROP (bag only). Left placement puts primary action nearest the joystick thumb.
-      if (((invSel >= 0 && inv[invSel]) || (aRow >= EB() && eq[aRow - EB()])) && hit(50, 250, 50, 15)) { spend(); return; }
+      if (((invSel >= 0 && inv[invSel]) || (aRow >= EB && eq[aRow - EB])) && hit(50, 250, 50, 15)) { spend(); return; }
       if (invSel >= 0 && inv[invSel] && hit(110, 250, 50, 15)) { inv.splice(invSel, 1); return; }
       // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts. One action path, no redundant tap-again.
-      for (const [s, ex, ey] of [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]]) if (hit(ex, ey, 24, 24)) { const r = EB() + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
+      for (const [s, ex, ey] of [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]]) if (hit(ex, ey, 24, 24)) { const r = EB + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
       // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP). Coords match render at (50, 172) after 2026-09-06 shift up-right to clear joystick visual.
       if (hit(50, 172, 140, 84)) {
         const iC = ((vx - 50) / 28) | 0, iR = ((vy - 172) / 28) | 0, iI = iR * 5 + iC;
@@ -213,7 +213,7 @@ addEventListener('pointerdown', (e) => {
       }
       // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
       const ci = ((vx - 39) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette)
-      if (vy > 156 && vy < 182 && vx > 39 && vx < 169 && ci >= 0 && ci < STATS.length) { if (aRow === ci) spend(); else setRow(ci); return; }
+      if (vy > 156 && vy < 182 && vx > 39 && vx < 169 && ci >= 0 && ci < 5) { if (aRow === ci) spend(); else setRow(ci); return; }
       for (let i = 0; i < TREE; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + BAG + i; if (aRow === r) spend(); else setRow(r); return; } }
       paused = 0; return;                                        // tap anywhere else closes
     }
@@ -416,14 +416,8 @@ const gainXp = (n, x, y) => {
   }
   if (lvl >= CAP) xp = 0;
 };
-// STATS — [name, applyFn]. Colors live inline in the SL render array (below).
-const STATS = [
-  ['STR', () => ho++],
-  ['HP', () => { he++; hp += 2; }],
-  ['MAG', () => { sp++; mn += 2; }],
-  ['DEF', () => df++],
-  ['LUCK', () => lk++],
-];
+// STATS — pending-point mutators indexed 0-4 (STR/HP/MAG/DEF/LUCK). Labels/colors live in SL/SC (menu render), not here — kept lean.
+const STATS = [() => ho++, () => { he++; hp += 2; }, () => { sp++; mn += 2; }, () => df++, () => lk++];
 
 // spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
 let spts = 0; const su = Array(TREE).fill(0);
@@ -432,23 +426,22 @@ let spts = 0; const su = Array(TREE).fill(0);
 // Matches skill-pt earn rate (spts drip in LV2-11). By LV11 every node reachable. Zero cross-references, no lines to render.
 const canBuy = i => lvl >= [1,9,1,6,3,6,1,3,6,9][i];
 let aRow = 0;
-const EB = () => 5 + BAG + TREE;                  // equip-region base: worn slots (0-3) appended AFTER skills so stats/inv/skills keep their row numbers
-const SN = () => EB() + 4;                                    // unified cursor span: stats(0-4) → inv(5..) → skills(..EB-1) → worn(EB..EB+3)
+const EB = 5 + BAG + TREE;                        // equip-region base: worn slots (0-3) appended AFTER skills so stats/inv/skills keep their row numbers. Const (was helper) — BAG+TREE both const, value never changes.
+const SN = EB + 4;                                // unified cursor span: stats(0-4) → inv(5..) → skills(..EB-1) → worn(EB..EB+3)
 // setRow: assign cursor + auto-sync invSel so existing tooltip / USE-DROP button logic works unchanged.
-const setRow = (r) => { const iMax = BAG; aRow = r; invSel = r >= 5 && r < 5 + iMax ? r - 5 : -1; };
+const setRow = (r) => { aRow = r; invSel = r >= 5 && r < 5 + BAG ? r - 5 : -1; };
 const spend = () => {
-  const iMax = BAG;
   if (aRow < 5) {                                             // STAT — costs a pending point
     if (!pending) return;
-    STATS[aRow][1](); pending--;
-  } else if (aRow < 5 + iMax) {                               // INV — use/equip item at slot
+    STATS[aRow](); pending--;
+  } else if (aRow < 5 + BAG) {                                // INV — use/equip item at slot
     if (!inv[aRow - 5]) return;
     useItem(aRow - 5); return;                                // useItem plays its own sfx + splices; do NOT double-save
-  } else if (aRow < EB()) {                                    // SKILL node — costs a skill point (respects lock/owned)
-    const i = aRow - 5 - iMax;
+  } else if (aRow < EB) {                                    // SKILL node — costs a skill point (respects lock/owned)
+    const i = aRow - 5 - BAG;
     if (!spts || su[i] || !canBuy(i)) return;
     su[i] = 1; spts--;
-  } else { unequip(aRow - EB()); return; }                     // WORN slot — take gear off; unequip plays its own sfx + guards bag-full
+  } else { unequip(aRow - EB); return; }                     // WORN slot — take gear off; unequip plays its own sfx + guards bag-full
   sfx(660, 990, .15, 'triangle', .12);                         // no auto-save, no auto-close — player saves via ✕ when ready
 };
 
@@ -626,7 +619,7 @@ const drawPart = (s, x, y, c, z = 1) => {
 // LUCK does NOT bias drop TYPE; it lifts DROP CHANCE (.12+lk*.03, at the kill site) + GEAR TIER (below). Bosses call this guaranteed.
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
-    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, t: 0, life: 0 };
+    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, life: 0 };   // t assigned below in every branch (5=gear · 0/1=potion) — never observed as 0-init
     // GEAR (60%): slot + color + level-scaled PRIMARY bonus (no tiers) + optional SUB-stat at LV4+ (a different stat, ~50%). tpos-check.mjs couples "4 + Math.random() * 13" color range to PAL.length.
     if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = (4 + Math.random() * 13) | 0; d.b = 1 + (lvl >> 2); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (lvl >> 3); } }
     else d.t = Math.random() < .5 ? 0 : 1;      // POTION (40%): HP (0) or MP (1), 50/50
@@ -698,7 +691,7 @@ const step = (dt) => {
     navCD -= dt;
     const nd = keys.has('bL') || keys.has('bU') ? -1 : keys.has('bR') || keys.has('bD') ? 1 : 0;   // left/up = prev · right/down = next
     if (!nd) navCD = 0;                             // stick released → next push moves instantly
-    else if (navCD <= 0) { setRow((aRow + nd + SN()) % SN()); navCD = .16; }   // held → repeat every .16s
+    else if (navCD <= 0) { setRow((aRow + nd + SN) % SN); navCD = .16; }   // held → repeat every .16s
     return;
   }
   if (dq || savePop || helpOn) return;             // dialogue / save-popup / help overlays freeze the sim — they swallow input, so the world must not act while the player can't (fairness)
@@ -1091,7 +1084,7 @@ const draw = () => {
         oR(s * 1, wob * .3, fs - s * 2, s * 1.7);              // hood peak (taller for eye clearance)
         eye(fs / 2, s * .8 + wob * .3);                        // eye peers from hood shadow — universal round eye
       }
-      if (f.rc !== undefined && f.rc < .5) skull(fs / 2, fs / 2, .7, 1);   // CHARGE TELL — static skull at foe center (same scale + alpha as the launched fbolt-skull). Appearance alone signals "about to fire" — no size/alpha animation needed.
+      if (f.rc < .5) skull(fs / 2, fs / 2, .7, 1);   // CHARGE TELL — static skull at foe center (same scale + alpha as the launched fbolt-skull). undefined<.5 is false so no explicit guard needed. Appearance alone signals "about to fire".
     }
     ctx.restore();
     if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');
@@ -1164,7 +1157,7 @@ const draw = () => {
     [[1, 38, 64], [2, 146, 64], [0, 38, 112], [3, 146, 112]].forEach(([s, ex, ey]) => {
       ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (.06, one step dimmer than inventory's .08 — unifying measured +4 B, 09-04)
       ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);   // unified passive border
-      if (aRow === EB() + s) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(ex - 1, ey - 1, 26, 26); }   // cursor = blue border (unified with stats/inv/skills)
+      if (aRow === EB + s) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(ex - 1, ey - 1, 26, 26); }   // cursor = blue border (unified with stats/inv/skills)
       if (eq[s]) drawPart(s, ex + 6, ey + 4, eq[s].c, 2);     // gear icon @2× — fills the 24px cell (was 1×, floated tiny). same sprite as inventory/drops
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 31);
       if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 6, ey + 22);       // primary stat → BOTTOM-LEFT, in its stat colour (SC): STR red · HP green · MAG blue · DEF violet · LCK orange
@@ -1180,13 +1173,12 @@ const draw = () => {
       T2(v, sx + 9, 165);
     });
     // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip. Grid shifted UP 12px + RIGHT 12px (2026-09-06) so bottom row clears the joystick visual (x=22-50, y=222-250) with edge-touching, no overlap.
-    const iMax = BAG, iSz = 24, iGap = 28;
-    for (let i = 0; i < iMax; i++) {
-      const ix = 50 + (i % 5) * iGap, iy = 172 + ((i / 5) | 0) * iGap, it = inv[i];
+    for (let i = 0; i < BAG; i++) {
+      const ix = 50 + (i % 5) * 28, iy = 172 + ((i / 5) | 0) * 28, it = inv[i];
       ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.05)';
-      ctx.fillRect(ix, iy, iSz, iSz);
+      ctx.fillRect(ix, iy, 24, 24);
       ctx.strokeStyle = i === invSel ? '#8cf' : '#555';
-      ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, iSz, iSz);   // unified border — selected blue, passive grey
+      ctx.lineWidth = i === invSel ? 1 : .5; ctx.strokeRect(ix, iy, 24, 24);   // unified border — selected blue, passive grey
       if (it) { drawPart(it.s, ix + 6, iy + 4, it.c, 2);       // inventory gear @2× — fills the 24px cell (matches equipment slots)
         ctx.fillStyle = SC[SLOT_STAT[it.s]]; T2('+' + it.b, ix + 6, iy + 22);           // primary stat → BOTTOM-LEFT, its stat colour
         if (it.u != null) { ctx.fillStyle = SC[it.u]; T2('+' + it.v, ix + 18, iy + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
@@ -1204,7 +1196,7 @@ const draw = () => {
       const [cx, cy] = TPOS[i];
       ctx.fillStyle = su[i] ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);   // tint over the #1e1928 menu bg (portraitPanel already painted it — no opaque base needed)
       ctx.strokeStyle = su[i] ? '#8cf' : '#555'; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
-      if (aRow === 5 + iMax + i) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }
+      if (aRow === 5 + BAG + i) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }
       const mx = cx + 13, my = cy + 13;
       // ACTION SKILL — icon scaled to fit cell. All 10 nodes are action skills (modifier skills removed 2026-09-05; the old i>=8 text branch went with them).
       ctx.globalAlpha = su[i] ? 1 : .5;
@@ -1224,7 +1216,7 @@ const draw = () => {
     }
     // (rainbow indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // ACTION labels — honest verb for the selected gear: EQUIP (bag) / UNEQUIP (worn). LEFT box routes through spend(); DROP (right) is bag-only (worn gear can't be trashed — take it off first). Primary action sits on left, closer to joystick thumb. Control reference lives ONLY in the ? overlay.
-    const wi = aRow - EB(), act = invSel >= 0 && inv[invSel] ? 'EQUIP' : wi >= 0 && eq[wi] ? 'UNEQUIP' : 0;
+    const wi = aRow - EB, act = invSel >= 0 && inv[invSel] ? 'EQUIP' : wi >= 0 && eq[wi] ? 'UNEQUIP' : 0;
     if (act) {
       ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.fillStyle = 'rgba(136,204,255,.14)';
       ctx.fillRect(50, 250, 50, 14); ctx.strokeRect(50, 250, 50, 14);
