@@ -2,7 +2,7 @@
 
 Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) on 2026-09-05.**
 
-**State snapshot (2026-09-07 batch 7):** build **13,070 / 13,312 B (242 B free, 98.2%)**. Save **v44**. World **600×160**, one contiguous MEADOW map — **7 zones** (5 surface + 2 underground), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**. GitHub `main` @ `6087ed0` == Wavedash build `mn7djngmqc5e4y33tx7z6na3x98dz0pq` — **aligned**. Play URL: https://wavedash.com/playtest/nat-20-unicorn/3e341095-e88e-4487-b5de-5e8e543308fd
+**State snapshot (2026-09-07 batch 8):** build **13,052 / 13,312 B (260 B free, 98.0%)**. Save **v44**. World **600×160**, one contiguous MEADOW map — **7 zones** (5 surface + 2 underground), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**. GitHub `main` @ `1cb0011` == Wavedash build `mn7dj0tpkm5k1awpb6hdscd0698dzhs2` — **aligned**. Play URL: https://wavedash.com/playtest/nat-20-unicorn/82404e2b-ba25-44e4-b1fc-343e97ede2d9
 
 > **Ground-truth note:** this doc replaces the 2026-09-03 version, which described a stale build (800×160 / 6 bosses / 12 skill nodes / elites). Those numbers were wrong. If any figure here disagrees with `src/data.js` + `src/world.js`, the source wins — re-grep before trusting.
 
