@@ -685,7 +685,7 @@ function shoot() {                                              // magic bolt (g
   if (!started || paused || deathT > 0 || !su[0] || mn < 3) return;   // silent fail — MP bar shows the answer
   mn -= 3; fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar). SILENT (fire sfx removed 09-07) — both player + enemy ranged shots are now soundless; the rainbow bolt + -3 popup are the feedback.
   // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT = 2 stacked straight. TRI SHOT = 3 stacked straight (adds vertical height, NO fan), same shape as the icon.
-  for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 8, vx: pl.face * 230, vy: 0, t: .65 + .3 * su[1] });   // every bolt straight (vy 0); DBL/TRI stack vertically by i*8 to add height. 230 = ~15% slower than old 270 (readable); lifetime scales with FAR SHOT (su[1]).
+  for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 10, vx: pl.face * 195, vy: 0, t: .75 + .3 * su[1] });   // every bolt straight (vy 0); DBL/TRI stack vertically by i*10 (bigger r=5 arcs need clear gaps). 195 + lifetime .75 (09-08, was 230/.65): slower + bigger read, reach preserved (~146px). Lifetime scales with FAR SHOT (su[1]).
 }
 function dash() {                                               // THE attack verb: burst + strike-through; 3 MP (uniform). Attacks NEVER regen mana (potions/level-up/boss only).
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
@@ -831,7 +831,7 @@ const step = (dt) => {
     if (solid(s.x, s.y)) { s.t = 0; }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
       const fs = 5 * f.cz;
-      if (f.fl <= 0 && s.x > f.x && s.x < f.x + fs && s.y > f.y && s.y < f.y + fs) { s.t = 0; strike(f, 1); break; }   // SHOOT → MAG damage (mag flag). f.fl gate added 2026-09-07 — mirrors dash/stomp; all damage sources now respect the unified enemy i-frame.
+      if (f.fl <= 0 && s.x > f.x - 4 && s.x < f.x + fs + 4 && s.y > f.y - 4 && s.y < f.y + fs + 4) { s.t = 0; strike(f, 1); break; }   // SHOOT → MAG damage (mag flag). f.fl gate added 2026-09-07 — mirrors dash/stomp; all damage sources now respect the unified enemy i-frame.
     }
   }
   prune(shots);
@@ -839,7 +839,7 @@ const step = (dt) => {
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
-    else if (pl.x + PW > b.x - 2 && pl.x < b.x + 2 && pl.y + PH > b.y - 2 && pl.y < b.y + 2) { hurt(b.dm); b.t = 0; }   // bolt dmg = shooter's dm (same scaled value as melee — one system)
+    else if (pl.x + PW > b.x - 4 && pl.x < b.x + 4 && pl.y + PH > b.y - 4 && pl.y < b.y + 4) { hurt(b.dm); b.t = 0; }   // bolt dmg = shooter's dm (same scaled value as melee — one system)
   }
   prune(fbolts);
 
@@ -860,7 +860,7 @@ const step = (dt) => {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
       if (f.rc <= 0) {
         f.rc = f.bit ? 1.6 : 2.1;
-        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = f.bit ? 105 : 80;   // psp = projectile speed (was 'sp' — shadowed MAG stat). Slightly slowed 09-07 (115/90→105/80) for readability/dodge.
+        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = 75;   // psp = projectile speed, UNIFIED 75 for bosses + casters (09-08, was 105/80): one dodge rhythm everywhere, ternary removed.
         fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * psp, vy: dy / d * psp, t: 2.6, dm: f.dm });   // carry shooter dm → bolt scales exactly like melee
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire. Enemy fire is SILENT (fire sfx removed 09-07) — the RED charge-tell skull + RED flying bolt carry the whole telegraph.
       }
@@ -1115,8 +1115,8 @@ const draw = () => {
     ctx.restore();
     if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');
   }
-  for (const s of shots) { ctx.lineWidth = .7; rArc(s.x, s.y, 3.5, .5); }   // magic bolt = rainbow arc projectile
-  for (const b of fbolts) skull(b.x, b.y, .7, 1, '#ff5d6c');   // foe RANGED bolt = flying RED skull (danger colour) — mirrors player's rainbow bolt
+  for (const s of shots) { ctx.lineWidth = 1; rArc(s.x, s.y, 5, .7); }   // magic bolt = rainbow arc projectile — r=5 (10px caliber, matches skull), bolder 1px bands (09-08)
+  for (const b of fbolts) skull(b.x, b.y, 1.3, 1, '#ff5d6c');   // foe RANGED bolt = flying RED skull (danger colour), u=1.3 ≈ 9×10px caliber matching the r=5 rainbow (09-08). Tell skull stays .7 — grows on launch.
 
   // GREATCORN — the guide NPC at the paddock. Isolated palette via col swap to NPCCOL,
   // faces left toward spawn (scale -1), gentle idle bob. Drawn before the player so the hero renders on top.
