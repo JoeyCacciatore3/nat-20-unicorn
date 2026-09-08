@@ -1,5 +1,5 @@
 // world.js — UNICORN: unified single-map world.
-// All CORN bosses live in one contiguous MEADOW; no portals, no zone transitions.
+// One contiguous world (no portals / level-loads), x-banded into palette ZONES (see ZB in data.js). The 7 CORN bosses are SPREAD across those zones (09-08) — each renders in its zone's palette.
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes.
 //
 // ============================ MAP LAWS (Joe, locked) ============================
@@ -121,7 +121,7 @@ const MEADOW = {
   ],
 
   bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59], [30, 55], [105, 55]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 shifted out of spike pits. x=30 PEAK basement + x=105 CANOPY lower-level added 2026-09-06 for zone-parity (1+ bounce per surface zone) — placed in flat combat areas so they don't trivialize the vertical climb identities of their zones.
-  bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
+  bosses: [                              // 7 CORN bosses spread across zones (09-08); 3rd field bi picks the rainbow band + palette
     [182, 58, 0],   // RED    — MEADOW CENTER open flat (x173-195, w23). 2026-09-08 spread: was x260 far-edge → centered to fill meadow dead space, first boss east of spawn
     [372, 58, 1],   // ORANGE — EAST-RUN CENTER giant flat (x368-439, w72). 2026-09-08 spread: was x461 far-perch → centered onto the big empty savanna run
     [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier) — west mountain anchor

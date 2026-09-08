@@ -16,7 +16,7 @@
 export const PAL = [
   '#f5f1f4','#f7d9c0','#ffd75e','#ff9d3c','#ff5d6c','#ff99cc',
   '#e08ae0','#c47fe0','#4a76ff','#40e8b0','#5ac878',
-  '#d8d8e0','#ffffff','#2a1f14','#4a3828','#4ad46a','#6a5acd'
+  '#ffffff','#2a1f14','#4a3828','#4ad46a','#6a5acd'
 ];
 // Derive a darker shade of any hex color (each channel * f). Used for the mane sweep
 // AND rock shading (base = dim(accent)) so we store one accent, not two tones.
@@ -46,7 +46,7 @@ export const FT = [, [4, 3, 44, 2], [8, 4, 31, 19], [12, 5, 26.7, 19], [5, 3, 70
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).
-export const RBC = [4, 3, 2, 8, 7, 15, 16];
+export const RBC = [4, 3, 2, 8, 7, 14, 15];
 // 7-band rainbow (arc + title + effects).
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
 // Sky backdrop colour.
