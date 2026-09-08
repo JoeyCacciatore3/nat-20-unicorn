@@ -9,7 +9,7 @@
 //   - Unified character sheet: pause + level-up share layout
 //   - 10-slot inventory (fixed max); potions live in a separate hot-bar (5 HP / 5 MP)
 //     if their stat isn't full else stored for later — click to use, X to drop
-//   - HP/MP color-coded: red HP potion + blue MP potion (Diablo convention)
+//   - HP/MP color-coded: GREEN HP potion (heal-green #6cf279) + blue MP potion
 //   - Fixed world palette; sky (#6bc5ff) + grass (#5ac878) RESERVED for background
 //
 // Build: esbuild → terser → roadroller → inline → zip → ECT → 13,312-byte gate.
@@ -310,7 +310,8 @@ const unequip = (s) => {
   applyItem(it, -1); eq[s] = null; col[s] = 0; inv.push(it); sfx(880, 660, .12, 'triangle', .1);
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
-const quaff = (t) => { const g = 10; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#6cf279', 0, 0, 1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#4a76ff', 0, 0, 1); } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
+// quaff death-guard (09-08): potion taps during the 1.6s death fade were pure waste (respawn restores full vitals anyway). Paused-menu quaff stays — deliberate (hoisted hit-tests serve both states).
+const quaff = (t) => { if (deathT > 0) return; const g = 10; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#6cf279', 0, 0, 1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#4a76ff', 0, 0, 1); } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
 
 // GUARD: gear-drop color range in spawnDrop (`Math.random() * 17`) is coupled to
 // PAL.length (17) — ALL indices 0..16 equippable (white/PAL[0] included; it's just the unequipped body appearance, not a reserved default — equipped-ness is tracked by eq[s], not col). tpos-check.mjs enforces this pairing (swatches - base === range).
@@ -416,13 +417,13 @@ const mMN = () => 8 + st[2] * 2;                     // base 8 + MAG stat (st[2]
 // ATK (=st[0]) and LUCK% (.12+st[4]*.03) inlined at their use sites — low-use helpers are net-negative under roadroller.
 
 const need = () => lvl * lvl + 40;               // XP to next level. +40 floor keeps early levels from flooding (~5 kills/level vs ~2); quadratic ramps toward CAP. KEPT as helper (inlining measured net-negative).
-const gainXp = (n, x, y) => {
+const gainXp = n => {
   if (lvl >= CAP) return;
   xp += n; fly(PFX, PFY, '+' + n + ' XP', '#b06cf0', 0, 0, 1);   // routed to unified PFX/PFY (above potion hot-bar) — was below XP bar
   while (xp >= need() && lvl < CAP) {
-    xp -= need(); lvl++; pending += 2; if (lvl < TREE + 2) spts++;    // +2 stat pts per level (2026-09-06 rebalance — was +3; 40 total across 20 levels prevents extreme min-max where all-STR trivialized enemies). Skill pts capped at TREE nodes (one per node).
+    xp -= need(); lvl++; pending += 2; if (lvl < TREE + 2) spts++;    // +2 stat pts per level (2026-09-06 rebalance — was +3; 38 total across 19 level-ups prevents extreme min-max where all-STR trivialized enemies). Skill pts capped at TREE nodes (one per node).
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save. Two auto-save points: leveling here (milestone), respawn (setback). Manual save via ✕ + EXIT.
-    foes.forEach(f => { if (!f.bit) { f.mx = FT[f.k][0] + (lvl * lvl >> 1); f.hp = Math.min(f.hp, f.mx); f.dm = FT[f.k][1] + (lvl >> 2); } });   // RESCALE LIVE FOES on level-up (matches mkFoe quadratic formula). Bosses skipped (their formula bakes in at encounter-spawn).
+    foes.forEach(f => { if (!f.bit) { const u = f.hp >= f.mx; f.mx = FT[f.k][0] + (lvl * lvl >> 1); f.hp = u ? f.mx : Math.min(f.hp, f.mx); f.dm = FT[f.k][1] + (lvl >> 2); } });   // RESCALE LIVE FOES on level-up (matches mkFoe quadratic formula). u-flag FIX (09-08): undamaged foes follow the new max — without it they kept old HP forever (every foe showed a damaged HP bar after level-up and never actually scaled). Damaged foes keep their wounds. Bosses skipped (formula bakes at encounter-spawn).
     luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font)
     if (deathT <= 0) { paused = 1; setRow(0); }   // AUTO-PAUSE into character menu on level-up — force allocation each level; banner still renders over menu
   }
@@ -534,7 +535,7 @@ const openChest = (i) => {
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
-const RUN = 115, V0 = 250, IFR = 1.2;   // IFR = invuln/flash window (sec) for hurt + heal. Dash uses its own shorter .5s dodge window (below). Tune here.
+const RUN = 115, V0 = 250, IFR = 1.5;   // IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash (unified 09-08, was 1.2 hurt/heal + .5 dash). Strobe (hf) and invuln share the timer, so the flash always spans the whole window. Tune here.
 
 const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -585,7 +586,7 @@ const seedFoes = () => [...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(
 let foes = seedFoes();
 
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, big, pot, hud, t: big ? 2.6 : 1.8 });   // big texts (crit / heal) linger longer; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world). Bumped 1.4→1.8s (2.2→2.6s big) so numbers stay readable through fade.
+const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, pot, hud, t: big ? 2.6 : 1.8 });   // `big` (crit/heal) extends lifetime only — uniform 8px size is deliberate (09-06 byte dedupe), so it is consumed here and NOT stored; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world). Bumped 1.4→1.8s (2.2→2.6s big) so numbers stay readable through fade.
 // Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS).
 const spray = (x, y, n, sk = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 22 + Math.random() * 46; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 42, t: 1 + Math.random() * .5, sk, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump puff, big = victory burst). lifetime 1.0-1.5s UNCHANGED. Launch speed 22-68 (was 40-130) + pop -42 (was -65): TIGHTER burst — particles stay near origin (09-07) so a death reads as "died HERE", not a sprawl that looks like incoming spread.
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
@@ -661,12 +662,12 @@ const spawnDrop = (x, y, n) => {
 const strike = (f, mag) => {
   const crit = Math.random() < .12 + st[4] * .03, dmg = st[mag ? 2 : 0] * (crit ? 2 : 1);   // SHOOT=MAG(sp) · DASH/STOMP=STR(ho); ×2 on crit (LUCK .12+lk*.03). Player→enemy is RAW — enemies have NO DEF stat; DEF only reduces enemy→player (in hurt())
   f.hp -= dmg; f.fl = .4; f.vx = 0;   // UNIFIED HIT REACTION (2026-09-07): every damage source (dash/stomp/shot) gets 0.4s flash + AI pause + i-frame via ONE timer f.fl. vx=0 gives the visible "stop-and-jolt" beat. DASH + STOMP sites still overwrite f.fl to .8 AFTER strike() → physical anti-melt window preserved AND longer stagger on melee. Shot hits now gate on f.fl (line ~835) — this is a slight nerf to DBL/TRI SHOT stacking, accepted for consistency.
-  fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit signaled by bigger size + longer lifetime + fanfare + skull burst (no label word)
+  fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit = 2× number + longer lifetime ONLY (uniform 8px size — see line below)
   // crit signaled by 2× damage (number) + longer popup lifetime (2.6s vs 1.8s). Hitstop + fanfare RETIRED 2026-09-06 — kept hitstop only for the ONE event that earns freezing the world: rainbow collect.
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0), f.x, f.y - 22); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." Universal combat audio grammar. XP: kind-capped base + crit bonus + boss escalation.
+    spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." Universal combat audio grammar. XP: kind-capped base + crit bonus + boss escalation.
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit) {                                                // BOSS falls — the boss itself is pruned by the frame-end `prune(foes, e => e.dead)` (line ~910); other foes are NEVER auto-cleared (Joey rule 2026-09-07: the player has to clear every enemy themselves — no boss-death sweep).
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — drop the rainbow as a collectible; mark defeated (1 = stays dead while alive, not yet counted)
@@ -691,7 +692,7 @@ function dash() {                                               // THE attack ve
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
   if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
-  dashCd = .45; mn -= 3; hf = .5; hfc = 8; sfx(600, 200, .12, 'sawtooth', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost + 0.5s BLUE flash i-frame (hfc=8 = PAL[8] mana-blue). Blocks physical + projectiles via hurt()'s hf guard. Dodge window > dashCd, so chaining grants brief invuln but drains MP.
+  dashCd = .45; mn -= 3; hf = .5; hfc = 12; sfx(600, 200, .12, 'sawtooth', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=12 = PAL[12] #ffffff; color changed from blue 09-08, window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln). Blocks physical + projectiles via hurt()'s hf guard. Hurt/heal use the longer IFR (1.5s).
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +3 HP base (+6 with SUPER HEAL)
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
@@ -753,7 +754,7 @@ const step = (dt) => {
 
   if (dashT > 0) {                                              // dash: flat burst, strike foes
     pl.vx = pl.face * 400; pl.vy = 0;
-    for (const f of [...foes]) {
+    for (const f of foes) {
       const fz = 5 * f.cz;
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) { strike(f); f.fl = .8; }   // one hit per dash pass; then 0.8s enemy i-frame
     }
@@ -844,7 +845,7 @@ const step = (dt) => {
   prune(fbolts);
 
   // -- foes --
-  for (const f of [...foes]) {
+  for (const f of foes) {
     f.t += dt * (2 + Math.abs(f.vx) * .14); f.fl -= dt;      // UNIFIED RHYTHM: anim phase = idle base 2 + |velocity|*.14 (knobs). Fast foes scurry, stopped foes just breathe, chasing bosses auto-gallop faster — all from live vx, no per-type rates
     const fs = 5 * f.cz;
     // UNIFIED ATTACK ORCHESTRATION — every foe runs the same verbs; cap bits (data.js FT)
@@ -860,8 +861,8 @@ const step = (dt) => {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
       if (f.rc <= 0) {
         f.rc = f.bit ? 1.6 : 2.1;
-        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1, psp = 75;   // psp = projectile speed, UNIFIED 75 for bosses + casters (09-08, was 105/80): one dodge rhythm everywhere, ternary removed.
-        fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * psp, vy: dy / d * psp, t: 2.6, dm: f.dm });   // carry shooter dm → bolt scales exactly like melee
+        const dx = pl.x + PW / 2 - f.x - fs / 2, dy = pl.y + PH / 2 - f.y - fs / 2, d = Math.hypot(dx, dy) || 1;   // bolt speed inlined 75 below, UNIFIED for bosses + casters (09-08, was 105/80): one dodge rhythm everywhere.
+        fbolts.push({ x: f.x + fs / 2, y: f.y + fs / 2, vx: dx / d * 75, vy: dy / d * 75, t: 2.6, dm: f.dm });   // carry shooter dm → bolt scales exactly like melee
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire. Enemy fire is SILENT (fire sfx removed 09-07) — the RED charge-tell skull + RED flying bolt carry the whole telegraph.
       }
     }
@@ -870,7 +871,7 @@ const step = (dt) => {
     // AND solid/platform floor 3px ahead (reuses the edge-turn probe: %3 truthy = solid/plat,
     // falsy = air/spike). Stops chasers marching off ledges or into spike pits, and — because
     // it gates air-steer too — stops hopping chasers steering into a pit mid-jump.
-    if (f.cap & 16 && (f.bit || Math.abs(pl.x - f.x) < 230)) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (!solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * 28 * (f.spd || 1); }
+    if (f.cap & 16 && (f.bit || Math.abs(pl.x - f.x) < 230)) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (f.bit || !solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * 28 * f.spd; }   // BOSSES UNGATED (09-08 Joey): a hunting DARKCORN drives toward you ALWAYS — off ledges, into spike pits (foes are spike-immune), against walls. Regulars stay floor-gated.
     // HOP (cap 2) — one clock for boss and foe; chasers hop on rhythm, patrollers arm near the player
     if (f.cap & 2) {
       f.hop = (f.hop || 1) - dt;
@@ -880,7 +881,7 @@ const step = (dt) => {
         // Bosses hop unconditionally (arenas are flat + build-audited).
         const s = Math.sign(f.vx) || 1;
         if (f.bit || tile((f.x + fs / 2 + s * T) / T | 0, (f.y + fs + 6) / T | 0) % 3) {
-          f.vy = -280; f.gr = 0; f.hop = (f.cap & 16 ? 2.4 : 1 + Math.random()) / (f.spd || 1);   // vy -280 → jump apex ~44px = clears 2-tile pits (was -230, apex ~29px, couldn't escape spike pits)
+          f.vy = -280; f.gr = 0; f.vx ||= s * 28 * f.spd; f.hop = (f.cap & 16 ? 2.4 : 1 + Math.random()) / f.spd;   // vx||= ANTI-FREEZE (09-08): strike()'s jolt-stop and stop-to-fire zero vx; non-chasers (k1/k6) had NO path to move again. Regulars safe (landing-gate checks floor in dir s first). Boss guard dropped same day: ungated boss chase re-picks vx EVERY non-stunned frame, so any restore here is overwritten before movement — harmless. Hit-stun pause (f.fl) untouched.   // vy -280 → jump apex ~44px = clears 2-tile pits (was -230, apex ~29px, couldn't escape spike pits)
         } else { f.vx *= -1; f.hop = .3; }
       }
     }
@@ -900,7 +901,7 @@ const step = (dt) => {
     let bl = solid(ex, f.y + fs / 2);
     if (bl) f.x = f.vx > 0 ? (ex / T | 0) * T - fs : ((ex / T | 0) + 1) * T;
     else bl = tile((ex + Math.sign(f.vx) * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3 < 1;   // %3<1: air(0) AND spikes(3) = "no safe floor"
-    if (bl) { if (f.bit) f.vx = 0; else if (f.gr || !(f.cap & 2)) f.vx *= -1; }
+    if (bl && !f.bit && (f.gr || !(f.cap & 2))) f.vx *= -1;   // hold-ground boss branch REMOVED (09-08): bosses never turn back and never park at edges — chase re-picks vx every frame; wall-snap above still prevents embedding. If a boss lands somewhere it can't hop out of (>2-tile pit), it's stuck until player death reseeds — accepted design.
     // CONTACT — stomp from above, else immediate touch damage (no wind-up tell). hurt() self-gates
     // repeats via its 0.8s i-frame; dash (dashT>0) grants i-frames so you dash THROUGH foes safely.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
@@ -1137,9 +1138,9 @@ const draw = () => {
   col = bkc;
   ctx.restore();
 
-  // Item drops — pixel sprites, bob gently, fade near end of life
+  // Item drops — pixel sprites, bob gently, fade IN at spawn (drops never despawn — cleared only on player death)
   for (const d of drops) {
-    ctx.globalAlpha = Math.min(1, d.life * 3);   // fade IN over ~0.33s (was 1.0s) — reaches full opacity BEFORE the 0.35s pickup grace expires, so drops are always solidly visible when grabbed
+    ctx.globalAlpha = Math.min(1, d.life * 3);   // fade IN over ~0.33s (was 1.0s) — reaches full opacity BEFORE the 0.5s pickup grace expires, so drops are always solidly visible when grabbed
     const dy = Math.sin(d.life * 5) * 1.5;
     if (d.t === 9) { ctx.lineWidth = 1; rArc(d.x, d.y - 6 + dy, 8, 1); }   // RAINBOW — the exact nested 7-band arc from the HUD icon, bobbing on the ground
     else if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#6cf279'); }   // POTION drop — pot() draws body+cork+outline (HP=heal-green, MP=blue)
@@ -1218,12 +1219,13 @@ const draw = () => {
     // Nodes — all 10 are action skills, rendering the SAME icon as their action button (via iShot/iHeal/iJump/iDash, wrapped in scale to fit). Chevron / stacked-arc count on upgrade nodes matches the button's own scaling rule. (Modifier skills STASH/HP+5/MP+5/POT+5 removed 2026-09-05.)
     for (let i = 0; i < TREE; i++) {
       const [cx, cy] = TPOS[i];
+      const av = canBuy(i);   // 3-STATE NODES (09-08, convention-researched: locked=greyed · available=lit · purchased=filled): ghost 0.25 grey → white ring 0.9 → blue ring/tint 1.0. White=ready matches dash flash; blue=#8cf owned/active accent game-wide.
       ctx.fillStyle = su[i] ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);   // tint over the #1e1928 menu bg (portraitPanel already painted it — no opaque base needed)
-      ctx.strokeStyle = su[i] ? '#8cf' : '#555'; ctx.lineWidth = su[i] ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
+      ctx.strokeStyle = su[i] ? '#8cf' : av ? '#fff' : '#555'; ctx.lineWidth = su[i] || av ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
       if (aRow === 5 + BAG + i) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }
       const mx = cx + 13, my = cy + 13;
       // ACTION SKILL — icon scaled to fit cell. All 10 nodes are action skills (modifier skills removed 2026-09-05; the old i>=8 text branch went with them).
-      ctx.globalAlpha = su[i] ? 1 : .5;
+      // uniform icon alpha inherited (=1; border color IS the state signal — grey/white/blue). Alpha ops removed 09-08: save/restore preserves alpha, nothing in the loop changes it.
       ctx.save(); ctx.translate(mx, my); ctx.scale(.65, .65); ctx.translate(-mx, -my);
       if (i === 0 || i === 8 || i === 9) iShot(mx, my, i === 0 ? 1 : i - 6);   // SHOT (1) / DBL SHOT (2 stacked) / TRI SHOT (3 stacked)
       else if (i === 1) {   // FAR SHOT — aiming reticle/scope: green ring + crosshair (heal-spray green), evokes long-range aim
@@ -1236,7 +1238,7 @@ const draw = () => {
       else if (i === 2 || i === 3) iHeal(mx, my, i === 3);   // HEAL / SUPER HEAL — SUPER adds the 4-dot aura (upgrade tier)
       else if (i === 4 || i === 5) iJump(mx, my, i - 2);   // DBL / TRI JUMP (2 / 3 chevrons)
       else if (i === 6 || i === 7) iDash(mx, my, i - 5);   // DASH / LONG DASH (1 / 2 chevrons)
-      ctx.restore(); ctx.globalAlpha = 1;
+      ctx.restore();
     }
     // (rainbow indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // ACTION labels — honest verb for the selected gear: EQUIP (bag) / UNEQUIP (worn). LEFT box routes through spend(); DROP (right) is bag-only (worn gear can't be trashed — take it off first). Primary action sits on left, closer to joystick thumb. Control reference lives ONLY in the ? overlay.

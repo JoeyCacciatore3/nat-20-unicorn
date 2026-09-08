@@ -47,7 +47,7 @@ seeds.chests.forEach((c, i) => {
 
 // --- HAND-PLACED DECO ---
 // Snap in world.js: [x, groundRow(x, y+1) - 1, t]  → sits one row above first solid/platform ≥ y+1.
-const hand = seeds.DECO;
+const hand = seeds.DECO || [];   // hand-placed deco retired 2026-09-08 (seeds.DECO removed from shipped code) — tolerate absence, keep the check for any future revival
 hand.forEach((d, i) => {
   const [dx, dy] = d;
   const surf = groundRow(dx, dy + 1);

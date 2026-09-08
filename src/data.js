@@ -42,7 +42,7 @@ export const FOECOL = [, 5, 9, 7, 3, 2, 6];
 //   k3=19 chase+ranged+hop (full unicorn kit, mini-boss feel · 3 moves) · k4=16 pure chase (fast rush hunter · 1 move) ·
 //   k5=18 chase+hop (frog leaper · 2 moves) · k6=3 ranged+hop (bouncing spike-sniper · 2 moves).
 //   Every cap value unique. k1 & k4 stay simple, everyone else runs 2-3 attacks. Contact damage universal (unlisted).
-export const FT = [, [4, 3, 44, 2], [8, 4, 31, 17], [12, 5, 26.7, 19], [5, 3, 70, 16], [6, 4, 36, 18], [9, 4, 22, 3]];
+export const FT = [, [4, 3, 44, 2], [8, 4, 31, 19], [12, 5, 26.7, 19], [5, 3, 70, 18], [6, 4, 36, 18], [9, 4, 22, 3]];   // 2026-09-08: ALL kinds carry hop (bit 2) — k2 17→19, k4 16→18 (Joey: every enemy jumps). Hop is also the anti-freeze recovery path (vx ||= restore at hop launch).
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).

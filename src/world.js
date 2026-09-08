@@ -177,7 +177,6 @@ const MEADOW = {
     [66, 81, 4], [79, 81, 2], [72, 75, 6],                                  // UNDER-CAVERN fill — INDIGO chamber: walker-fast on far-west floor, tent-floater in east corner (clear of chest 9 @ x=76), spike-floater high mid-air (clear of boss @ y=80). Combat presence beyond just the boss.
     [305, 53, 5], [318, 47, 4],                                             // EAST RUN vertical climb fill — walker-hop on x=303 DJ platform, walker-fast on x=315 top ledge (populates the 30-tile empty climb between foe@288 and foeX@340)
   ],
-  DECO: [],   // SPIKE: hand-placed removed — all decoration now via scatter()
 };
 
 export const seeds = MEADOW;
@@ -190,7 +189,7 @@ export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = 
 // PROCEDURAL FOLIAGE v3 — LAYERED scatter, research-grounded (2026-09-04 canon: Wei SIGGRAPH'10
 // multi-class blue noise · Deussen SIGGRAPH'98 ecosystem shade rules · stratified quota cycles):
 //   TREES  — per-row cooldown = 1D Poisson-disk (min 7-col spacing); species banded x>>4 → 16-col groves.
-//   GROUND — jittered QUOTA CYCLE (Q): every 8 ground slots deliver 4 grass / 2 flower / 1 shroom / 1 rock.
+//   GROUND — jittered QUOTA CYCLE (Q): every 8 ground slots deliver 3 grass / 2 flower / 2 shroom / 1 rock (Q = [1,3,6,1,3,1,6,2]).
 //            Deterministic per-window rates — iid rolls have NO local clumping bound (all-grass runs);
 //            a quota cycle guarantees every type appears in every ~15-col stretch. Only GRASS extends
 //            into short runs (patch feel); flowers/rocks/shrooms are cycle-placed singles.
@@ -200,7 +199,7 @@ const Q = [1, 3, 6, 1, 3, 1, 6, 2];   // the quota cycle (type ids: 1 grass · 6
 let seed = 13, rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // shared LCG: ledge growth + foliage
 const scatter = () => {
   const d = [];
-  const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...(seeds.bounce || []), ...seeds.DECO];
+  const keep = [...seeds.chests, ...seeds.foes, ...seeds.bosses, ...(seeds.bounce || [])];
   const tc = {}, run = {}, qc = {}, sh = {};                     // per-row: tree cooldown, grass-run left, quota index, shade counter
   for (let x = 5; x < W - 5; x++) {
     if (keep.some(p => p && Math.abs(p[0] - x) < 2)) continue;   // keepout: skip cols near critical objects
