@@ -122,13 +122,13 @@ const MEADOW = {
 
   bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59], [30, 55], [105, 55]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 shifted out of spike pits. x=30 PEAK basement + x=105 CANOPY lower-level added 2026-09-06 for zone-parity (1+ bounce per surface zone) — placed in flat combat areas so they don't trivialize the vertical climb identities of their zones.
   bosses: [                              // All CORN bosses live in the unified MEADOW; bi picks the rainbow band
-    [260, 58, 0],   // RED    — MEADOW surface just past the arena moat (was hidden lair y=66; moved to surface 2026-09-06 so RED renders in MEADOW palette, one boss per zone)
-    [461, 50, 1],   // ORANGE — perch above the east walkway (zig hops via x464 rung)
-    [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier)
-    [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier)
-    [35, 68, 4],    // VIOLET — depths corridor west (DASH-tier)
-    [570, 32, 5],   // GREEN  — east summit (E3 ascent climax)
-    [70, 80, 6],    // INDIGO — underground cavern (DASH-tier, hop+shockwave phase-2)
+    [182, 58, 0],   // RED    — MEADOW CENTER open flat (x173-195, w23). 2026-09-08 spread: was x260 far-edge → centered to fill meadow dead space, first boss east of spawn
+    [372, 58, 1],   // ORANGE — EAST-RUN CENTER giant flat (x368-439, w72). 2026-09-08 spread: was x461 far-perch → centered onto the big empty savanna run
+    [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier) — west mountain anchor
+    [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier) — far-left-top bookend
+    [35, 68, 4],    // VIOLET — depths corridor west (the one underground boss; deep cavern terrain + chest 9 kept, just no boss there now)
+    [570, 32, 5],   // GREEN  — east summit (E3 ascent climax) — far-right-top bookend
+    [24, 58, 6],    // INDIGO — WHITE BASEMENT snowy flat (x16-51, w36). 2026-09-08 spread: was x70 deep cavern → lifted to fill the flagged white walk-level zone, ends underground redundancy w/ VIOLET
   ],
   chests: [
     [181, 68.3],    // 0 — descent corridor west (base tier discovery)

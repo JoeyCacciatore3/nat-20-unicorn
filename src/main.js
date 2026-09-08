@@ -311,7 +311,7 @@ const unequip = (s) => {
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 // quaff death-guard (09-08): potion taps during the 1.6s death fade were pure waste (respawn restores full vitals anyway). Paused-menu quaff stays — deliberate (hoisted hit-tests serve both states).
-const quaff = (t) => { if (deathT > 0) return; const g = 10; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#6cf279', 0, 0, 1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#4a76ff', 0, 0, 1); } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
+const quaff = (t) => { if (deathT > 0) return; const g = 10; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + g); sfx(520, 1040, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#6cf279', 0, 1); } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + g); sfx(440, 880, .1, 'triangle', .1); fly(PFX, PFY, '+' + g, '#4a76ff', 0, 1); } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
 
 // GUARD: gear-drop color range in spawnDrop (`Math.random() * 17`) is coupled to
 // PAL.length (17) — ALL indices 0..16 equippable (white/PAL[0] included; it's just the unequipped body appearance, not a reserved default — equipped-ness is tracked by eq[s], not col). tpos-check.mjs enforces this pairing (swatches - base === range).
@@ -419,7 +419,7 @@ const mMN = () => 8 + st[2] * 2;                     // base 8 + MAG stat (st[2]
 const need = () => lvl * lvl + 40;               // XP to next level. +40 floor keeps early levels from flooding (~5 kills/level vs ~2); quadratic ramps toward CAP. KEPT as helper (inlining measured net-negative).
 const gainXp = n => {
   if (lvl >= CAP) return;
-  xp += n; fly(PFX, PFY, '+' + n + ' XP', '#b06cf0', 0, 0, 1);   // routed to unified PFX/PFY (above potion hot-bar) — was below XP bar
+  xp += n; fly(PFX, PFY, '+' + n + ' XP', '#b06cf0', 0, 1);   // routed to unified PFX/PFY (above potion hot-bar) — was below XP bar
   while (xp >= need() && lvl < CAP) {
     xp -= need(); lvl++; pending += 2; if (lvl < TREE + 2) spts++;    // +2 stat pts per level (2026-09-06 rebalance — was +3; 38 total across 19 level-ups prevents extreme min-max where all-STR trivialized enemies). Skill pts capped at TREE nodes (one per node).
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save. Two auto-save points: leveling here (milestone), respawn (setback). Manual save via ✕ + EXIT.
@@ -586,7 +586,7 @@ const seedFoes = () => [...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(
 let foes = seedFoes();
 
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, big, pot, hud) => flies.push({ x, y, txt, c, pot, hud, t: big ? 2.6 : 1.8 });   // `big` (crit/heal) extends lifetime only — uniform 8px size is deliberate (09-06 byte dedupe), so it is consumed here and NOT stored; pot=1 → mini potion glyph; hud=1 → screen-space (anchored to HUD, not world). Bumped 1.4→1.8s (2.2→2.6s big) so numbers stay readable through fade.
+const fly = (x, y, txt, c, pot, hud) => flies.push({ x, y, txt, c, pot, hud, t: 3 });   // crit differentiator (`big` flag) REMOVED 09-08 — every popup is now IDENTICAL: uniform 8px font, 3s lifetime. Crit is signalled by the 2× damage NUMBER alone (Joey: seeing 20 where you expect 10 is enough). pot=1 → mini potion glyph; hud=1 → screen-space (HUD-anchored, not world).
 // Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS).
 const spray = (x, y, n, sk = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 22 + Math.random() * 46; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 42, t: 1 + Math.random() * .5, sk, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump puff, big = victory burst). lifetime 1.0-1.5s UNCHANGED. Launch speed 22-68 (was 40-130) + pop -42 (was -65): TIGHTER burst — particles stay near origin (09-07) so a death reads as "died HERE", not a sprawl that looks like incoming spread.
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
@@ -662,12 +662,12 @@ const spawnDrop = (x, y, n) => {
 const strike = (f, mag) => {
   const crit = Math.random() < .12 + st[4] * .03, dmg = st[mag ? 2 : 0] * (crit ? 2 : 1);   // SHOOT=MAG(sp) · DASH/STOMP=STR(ho); ×2 on crit (LUCK .12+lk*.03). Player→enemy is RAW — enemies have NO DEF stat; DEF only reduces enemy→player (in hurt())
   f.hp -= dmg; f.fl = .4; f.vx = 0;   // UNIFIED HIT REACTION (2026-09-07): every damage source (dash/stomp/shot) gets 0.4s flash + AI pause + i-frame via ONE timer f.fl. vx=0 gives the visible "stop-and-jolt" beat. DASH + STOMP sites still overwrite f.fl to .8 AFTER strike() → physical anti-melt window preserved AND longer stagger on melee. Shot hits now gate on f.fl (line ~835) — this is a slight nerf to DBL/TRI SHOT stacking, accepted for consistency.
-  fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c', crit);   // unified damage red; crit = 2× number + longer lifetime ONLY (uniform 8px size — see line below)
-  // crit signaled by 2× damage (number) + longer popup lifetime (2.6s vs 1.8s). Hitstop + fanfare RETIRED 2026-09-06 — kept hitstop only for the ONE event that earns freezing the world: rainbow collect.
+  fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c');   // unified damage red. Crit is signalled ONLY by the 2× number (no size/lifetime/sound differentiator — all removed; a 20 where you expect 10 IS the tell).
+  // crit = 2× number only. Size differentiator (13px) removed 09-08, longer-lifetime removed same day, hitstop + fanfare RETIRED 2026-09-06. The +4 crit XP bonus (below) is the only remaining crit-specific effect.
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (crit ? 4 : 0) + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." Universal combat audio grammar. XP: kind-capped base + crit bonus + boss escalation.
+    spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP: kind-capped base + boss escalation. (crit XP bonus REMOVED 09-08 — imperceptible: player can't correlate a random +4 to a crit kill; pure waste.)
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit) {                                                // BOSS falls — the boss itself is pruned by the frame-end `prune(foes, e => e.dead)` (line ~910); other foes are NEVER auto-cleared (Joey rule 2026-09-07: the player has to clear every enemy themselves — no boss-death sweep).
       if (bs[f.bi] !== 2) {                                     // FIRST KILL — drop the rainbow as a collectible; mark defeated (1 = stays dead while alive, not yet counted)
@@ -684,7 +684,7 @@ const strike = (f, mag) => {
 // Gated behind DASH skill; LONG DASH doubles its reach. Strikes foes it passes through; hits GENERATE mana.
 function shoot() {                                              // magic bolt (gold): 3 mana. TAP to fire — ONE bolt per press. NO rapid fire / hold-to-auto-fire (deliberately not wanted).
   if (!started || paused || deathT > 0 || !su[0] || mn < 3) return;   // silent fail — MP bar shows the answer
-  mn -= 3; fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar). SILENT (fire sfx removed 09-07) — both player + enemy ranged shots are now soundless; the rainbow bolt + -3 popup are the feedback.
+  mn -= 3; fly(PFX, PFY, '-3', '#4a76ff', 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar). SILENT (fire sfx removed 09-07) — both player + enemy ranged shots are now soundless; the rainbow bolt + -3 popup are the feedback.
   // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s). DBL SHOT = 2 stacked straight. TRI SHOT = 3 stacked straight (adds vertical height, NO fan), same shape as the icon.
   for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 10, vx: pl.face * 195, vy: 0, t: .75 + .3 * su[1] });   // every bolt straight (vy 0); DBL/TRI stack vertically by i*10 (bigger r=5 arcs need clear gaps). 195 + lifetime .75 (09-08, was 230/.65): slower + bigger read, reach preserved (~146px). Lifetime scales with FAR SHOT (su[1]).
 }
@@ -692,13 +692,13 @@ function dash() {                                               // THE attack ve
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
   if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
   dashT = su[7] ? .22 : .11;                                    // dash burst duration × 400px/s: base .11=44px, LONG DASH .22=88px (09-08 lengthened — pure attack, no longer a traversal gate)
-  dashCd = .45; mn -= 3; hf = .5; hfc = 12; sfx(600, 200, .12, 'sawtooth', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=12 = PAL[12] #ffffff; color changed from blue 09-08, window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln). Blocks physical + projectiles via hurt()'s hf guard. Hurt/heal use the longer IFR (1.5s).
+  dashCd = .45; mn -= 3; hf = .5; hfc = 12; sfx(600, 200, .12, 'sawtooth', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=12 = PAL[12] #ffffff; color changed from blue 09-08, window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln). Blocks physical + projectiles via hurt()'s hf guard. Hurt/heal use the longer IFR (1.5s).
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +3 HP base (+6 with SUPER HEAL)
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
-  sfx(520, 1040, .25, 'triangle', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1); fly(PFX, PFY, '+' + hm, '#6cf279', 0, 0, 1);   // HEAL: MP cost + HP gain both at unified PFX/PFY (above hot-bar). Popups float upward so they stagger vertically.
+  sfx(520, 1040, .25, 'triangle', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 1); fly(PFX, PFY, '+' + hm, '#6cf279', 0, 1);   // HEAL: MP cost + HP gain both at unified PFX/PFY (above hot-bar). Popups float upward so they stagger vertically.
   hf = IFR; hfc = 15; spray(pl.x + PW / 2, pl.y + PH / 2, 5, 2);   // HEAL: IFR-sec green PAL[15] flash + i-frame, plus 5 green heal-cross particles rising from the body. green=heal · red=hurt · blue=dash.
 }
 
@@ -706,7 +706,7 @@ const hurt = (n) => {
   if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while ANY flash active (hf → red/green/blue) OR stomp/respawn window (pl.inv). Single guard blocks physical AND projectiles.
   n = Math.max((n >> 2) || 1, n - st[3]);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
   hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = IFR; hfc = 4;   // hf = invuln flash timer (IFR sec); hfc=4 = red PAL[4]. hurt/heal/dash all share the hf strobe channel (red/green/blue). hp clamped ≥0. Hurt hitstop RETIRED 2026-09-06 — only rainbow collect keeps hitstop now.
-  fly(pl.x + PW / 2, pl.y - 8, '-' + n, '#ff5d6c');                 // damage popup above head — mirrors enemy damage numbers so player sees hit amount in-world
+  fly(PFX, PFY, '-' + n, '#ff5d6c', 0, 1);                 // damage-taken popup routed to the unified player-feedback spot (above potion hot-bar, hud=1) — ALL main-character popups now live in ONE location (09-08 Joey): XP · MP cost · heal · quaff · pickup · damage taken. Enemy damage stays world-space over the foe.
   sfx(140, 55, .25, 'sawtooth', .12);
   if (hp <= 0) { deathT = 1.6; return; }   // player death — NO skulls (09-07): the respawn-to-paddock + fade-to-black already carry the moment; skull burst was redundant.
   pl.vy = -180;   // unified knockback recoil (spike + enemy + projectile share one response — lastSafe teleport retired 2026-09-06: -180 arc auto-clears every 1-tile pit, so no softlock possible without it)
@@ -933,9 +933,9 @@ const step = (dt) => {
       }
       // Potion → hot-bar counter (cap 5, drop stays on ground if full). Gear → bag (drop stays on ground if bag full).
       // Potion "+1" flies are HUD-anchored above the matching hot-bar slot (HP left, MP right) — clear, separated, never fights with damage numbers at the kill site.
-      const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(PFX, PFY, '+1', '#6cf279', 0, 1, 1), 1))
-        : d.t === 1 ? (mpPot < 5 && (mpPot++, fly(PFX, PFY, '+1', '#4a76ff', 0, 1, 1), 1))
-        : inv.length < BAG && (inv.push({ s: d.s, c: d.c, b: d.b, u: d.u, v: d.v }), fly(PFX, PFY, '+BAG', '#8cf', 0, 0, 1), 1);   // ALL pickup popups routed to unified PFX/PFY (above potion hot-bar). +BAG uses #8cf — same blue as action-button rings + joystick + top cluster (universal "active/UI" accent). u/v = optional sub-stat.
+      const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(PFX, PFY, '+1', '#6cf279', 1, 1), 1))
+        : d.t === 1 ? (mpPot < 5 && (mpPot++, fly(PFX, PFY, '+1', '#4a76ff', 1, 1), 1))
+        : inv.length < BAG && (inv.push({ s: d.s, c: d.c, b: d.b, u: d.u, v: d.v }), fly(PFX, PFY, '+BAG', '#8cf', 0, 1), 1);   // ALL pickup popups routed to unified PFX/PFY (above potion hot-bar). +BAG uses #8cf — same blue as action-button rings + joystick + top cluster (universal "active/UI" accent). u/v = optional sub-stat.
       if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); }   // only vanish when actually collected
     }
   }
@@ -1137,7 +1137,7 @@ const draw = () => {
   drawUo(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
   col = bkc;
   ctx.restore();
-  if (hp < mHP()) bar(pl.x - 2, pl.y - 9, 14, 1, hp / mHP(), '#6cf279');   // PLAYER floating HP bar — mirrors foe/boss convention (bar() above head), damaged-only, world-space
+  if (hp < mHP()) bar(pl.x - 5, pl.y - 12, 20, 1, hp / mHP(), '#6cf279');   // PLAYER floating HP bar — SAME 20×1 size as foes (bar() convention), centred over the 10px body (pl.x-5), hovering higher at pl.y-12, damaged-only, world-space
 
   // Item drops — pixel sprites, bob gently, fade IN at spawn (drops never despawn — cleared only on player death)
   for (const d of drops) {
@@ -1157,7 +1157,7 @@ const draw = () => {
   }
   ctx.globalAlpha = 1; ctx.lineWidth = 1;
   for (const f of flies) {                                       // textAlign inherited 'center' from topHUD (last set each frame) — damage centres on origin; hud flies offset by cam to cancel world translate
-    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = 'bold 8px monospace';   // ALL popups one uniform size (8px = matches HUD topHUD text). String dedupes with every 'bold 8px monospace' site → byte savings. `big` only controls lifetime (crit lingers), not size.
+    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = 'bold 8px monospace';   // ALL popups uniform 8px (= HUD text) — no crit size differentiator; crit reads via its 2× number alone. String dedupes with every 'bold 8px monospace' site.
     ctx.fillStyle = f.c; const fx = f.hud ? (f.x + cam.x) | 0 : f.x | 0, fy = f.hud ? (f.y + cam.y) | 0 : f.y | 0;
     ctx.fillText(f.txt, fx, fy);
     if (f.pot) pot(fx + 6, fy - 9, f.c, .7);   // mini potion glyph just right of the centred "+1"
@@ -1184,9 +1184,9 @@ const draw = () => {
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 13px pending hint above (if it fired)
     EQ.forEach(([s, ex, ey]) => {
-      ctx.fillStyle = eq[s] ? 'rgba(255,255,255,.06)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // dark cell so the colored gear icon pops (.06, one step dimmer than inventory's .08 — unifying measured +4 B, 09-04)
-      ctx.strokeStyle = '#555'; ctx.lineWidth = .5; ctx.strokeRect(ex, ey, 24, 24);   // unified passive border
-      if (aRow === EB + s) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(ex - 1, ey - 1, 26, 26); }   // cursor = blue border (unified with stats/inv/skills)
+      ctx.fillStyle = eq[s] ? 'rgba(136,204,255,.14)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // equipped slot = blue ACTIONABLE fill (matches inventory + skill-tree schema, 09-08) · empty = inert dark #2a2a33 so an empty slot reads clearly vacant
+      const wOn = aRow === EB + s;
+      ctx.strokeStyle = wOn ? '#ffd75e' : '#555'; ctx.lineWidth = wOn ? 1 : .5; ctx.strokeRect(ex, ey, 24, 24);   // Fix B (09-08): GOLD cursor drawn on the SAME rect (single border, no double outline); grey passive otherwise. Gold = the one persistent selection colour menu-wide.
       if (eq[s]) drawPart(s, ex + 6, ey + 2, eq[s].c, 2);     // gear icon @2× — y+2 (was +4): nudged 2px UP so top margin tightens (4→2) and bottom margin opens (2→4), giving "+N" stat text at ey+22 double the breathing room.
       ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 35);   // label offset +35 (was +31): boxes moved up 6px (ey 64/112→58/106), labels net up ~2px, box↔word gap widened so the text no longer kisses the box bottom
       if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 6, ey + 22);       // primary stat → BOTTOM-LEFT, in its stat colour (SC): STR red · HP green · MAG blue · DEF violet · LCK orange
@@ -1196,17 +1196,17 @@ const draw = () => {
     const SL = ['STR', 'HP', 'MAG', 'DEF', 'LCK'];
     SL.forEach((l, i) => { const c = SC[i];
       const sx = 69 + i * 26, sel = i === aRow;
-      if (sel) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23); }
+      if (sel) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23); }   // GOLD cursor (Fix B) — one persistent selection colour across the whole menu
       ctx.fillStyle = c; T2(l, sx + 9, 154);
-      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (pending) T2('+', sx + 18, 165);   // number always in its SC stat colour; while points pending, a same-colour "+" sits right of the number on EVERY stat = "raisable, spend anywhere" (blue cursor box marks the actual target). Replaces the old gold-number cue.
+      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (sel && pending) T2('+', sx + 18, 165);   // number always in its SC stat colour; same-colour "+" right of the number on the SELECTED stat only when points pending = "confirm to raise THIS". Replaces the old gold-number cue.
     });
     // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip. Grid shifted UP 12px + RIGHT 12px (2026-09-06) so bottom row clears the joystick visual (x=22-50, y=222-250) with edge-touching, no overlap.
     for (let i = 0; i < BAG; i++) {
       const ix = 62 + (i % 5) * 28, iy = 172 + ((i / 5) | 0) * 28, it = inv[i];
-      ctx.fillStyle = it ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.05)';
+      ctx.fillStyle = it ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)';   // filled slot = blue ACTIONABLE fill (holds gear you can equip) · empty = faint. Matches skill-tree available/purchased fill (09-08 universal schema).
       ctx.fillRect(ix, iy, 24, 24);
-      ctx.strokeStyle = i === aRow - 5 ? '#8cf' : '#555';
-      ctx.lineWidth = i === aRow - 5 ? 1 : .5; ctx.strokeRect(ix, iy, 24, 24);   // unified border — selected blue (i===aRow-5 ⟺ cursor on this bag slot), passive grey
+      ctx.strokeStyle = i === aRow - 5 ? '#ffd75e' : '#555';
+      ctx.lineWidth = i === aRow - 5 ? 1 : .5; ctx.strokeRect(ix, iy, 24, 24);   // unified border — GOLD cursor when selected (Fix B, same rect), passive grey otherwise
       if (it) { drawPart(it.s, ix + 6, iy + 2, it.c, 2);       // inventory gear @2× — y+2 matches equipment slot nudge (top 2px / bottom 4px, opens breathing room for +N stat text).
         ctx.fillStyle = SC[SLOT_STAT[it.s]]; T2('+' + it.b, ix + 6, iy + 22);           // primary stat → BOTTOM-LEFT, its stat colour
         if (it.u != null) { ctx.fillStyle = SC[it.u]; T2('+' + it.v, ix + 18, iy + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
@@ -1221,9 +1221,9 @@ const draw = () => {
     for (let i = 0; i < TREE; i++) {
       const [cx, cy] = TPOS[i];
       const av = canBuy(i);   // 3-STATE NODES (09-08, convention-researched: locked=greyed · available=lit · purchased=filled): ghost 0.25 grey → white ring 0.9 → blue ring/tint 1.0. White=ready matches dash flash; blue=#8cf owned/active accent game-wide.
-      ctx.fillStyle = su[i] ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);   // tint over the #1e1928 menu bg (portraitPanel already painted it — no opaque base needed)
-      ctx.strokeStyle = su[i] ? '#8cf' : av ? '#fff' : '#555'; ctx.lineWidth = su[i] || av ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);
-      if (aRow === 5 + BAG + i) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(cx - 1, cy - 1, NS + 2, NS + 2); }
+      ctx.fillStyle = su[i] || av ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);   // blue ACTIONABLE tint for BOTH purchased (su) AND available (av, 09-08 Joey); faint white for locked only. Border still separates the two: av = white ring, su = blue ring.
+      const tOn = aRow === 5 + BAG + i;
+      ctx.strokeStyle = tOn ? '#ffd75e' : su[i] ? '#8cf' : av ? '#fff' : '#555'; ctx.lineWidth = tOn || su[i] || av ? 1 : .5; ctx.strokeRect(cx, cy, NS, NS);   // Fix B (09-08): single border — state colour (grey locked / white avail / blue purchased) OR GOLD cursor when selected. Gold overrides + draws on the SAME rect, so no double outline and the cursor never masquerades as a state.
       const mx = cx + 13, my = cy + 13;
       // ACTION SKILL — icon scaled to fit cell. All 10 nodes are action skills (modifier skills removed 2026-09-05; the old i>=8 text branch went with them).
       // uniform icon alpha inherited (=1; border color IS the state signal — grey/white/blue). Alpha ops removed 09-08: save/restore preserves alpha, nothing in the loop changes it.
@@ -1261,10 +1261,10 @@ const draw = () => {
     ctx.textAlign = 'center';
     for (const [tx, ty, c, s] of AB) {
       const x = tx + (tx < 424 ? 7 : -2), y = ty + (ty < 216 ? 7 : -2);   // VISUAL centre = touch (tx,ty) nudged toward the cluster: LEFT/TOP cols +7, RIGHT/BOTTOM -2 (so bottom row + right column sit 5px further out → slightly more space, still a symmetric square). Touch zones (AB) unchanged. Max offset 9.9px (TL) < 12px slop → whole button stays inside its tap zone. Rest of the loop draws at x,y = visual.
-      const usable = s < 0 || (su[s] && mn >= 3);    // JUMP always free; every other action costs the uniform 3 MP
-      // TWO states only (operator 09-05): usable = constant highlighted blue · locked-or-below-MP = dim. No press-pop, no interact-pop — a usable button never changes.
-      const rc = usable ? '#8cf' : '#555';
-      ctx.globalAlpha = usable ? 1 : .3;
+      const owned = s < 0 || su[s], usable = owned && (s < 0 || mn >= 3);    // JUMP (s<0) always usable; owned skills need the uniform 3 MP
+      // THREE states (09-08 Joey — supersedes the 09-05 two-state rule): usable = BLUE · owned-but-no-MP = WHITE (matches skill-tree "available") · not-owned = GREY/dim. Applies the universal menu schema to the HUD so "have it, need mana" no longer looks identical to "don't have it". Still no press-pop; a usable button doesn't animate.
+      const rc = usable ? '#8cf' : owned ? '#fff' : '#555';
+      ctx.globalAlpha = usable ? 1 : owned ? .6 : .3;
       // INTRO TUTORIAL — SUBTRACTIVE spotlight (research 09-04: NN/g "don't match the UI" + static
       // pop-out): during controls bubbles 6/7/8 the explained control renders full-alpha, all others
       // dim to .15. No ring, no gold — gold keeps its ONE button meaning (interact-now), and locked
@@ -1311,25 +1311,25 @@ const draw = () => {
   if (started) {
     topHUD();
     const qslot = (x, t) => {
-      const n = t ? mpPot : hpPot;
-      ctx.globalAlpha = n ? 1 : .3;                                                  // BOX state mirrors action buttons: usable = full, empty = dim (the potion glyph itself stays solid — drawn after this gate)
+      const n = t ? mpPot : hpPot, help = t ? mn < mMN() : hp < mHP(), usable = n > 0 && help;   // usable = HAVE a potion AND drinking would restore something (mirrors the quaff() gate exactly). Not usable at full vitals even when stocked.
+      ctx.globalAlpha = usable ? 1 : n ? .6 : .3;                                    // 3-STATE (09-08, matches action buttons): usable=full · have-but-vitals-full=.6 · empty=.3
       ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, QSY, QSZ, QSZ);          // dark disc — same fill as the action buttons
-      ctx.strokeStyle = n ? '#8cf' : '#555'; ctx.lineWidth = 2; ctx.strokeRect(x, QSY, QSZ, QSZ);   // BLUE overlay when usable (matches action buttons), grey when empty — reads as a button you can press
+      ctx.strokeStyle = usable ? '#8cf' : n ? '#fff' : '#555'; ctx.lineWidth = 2; ctx.strokeRect(x, QSY, QSZ, QSZ);   // BLUE = usable now · WHITE = have potions but vitals full (matches skill-tree "available" + action-button "owned/no-MP") · GREY = empty
       ctx.globalAlpha = 1;
       pot(x + 6, QSY + 6, t ? '#4a76ff' : '#6cf279');                                 // potion glyph at full alpha → always solid + crisp (body/cork/outline in pot()), never see-through even when the box is dimmed
-      ctx.fillStyle = n > 4 ? '#8cf' : n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);   // count LAST = top layer (never hidden behind the potion). colour: MAX (5) = blue action-accent #8cf · stocked = white · empty = grey
+      ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);   // count = white when stocked, grey when empty. Blue-at-MAX dropped 09-08 — blue is reserved for the usable STATE, not a quantity tier (the number itself shows how many).
     };
     qslot(QHX, 0); qslot(QMX, 1);
     if (time < luT) { ctx.globalAlpha = Math.min(1, (luT - time) * 3); rText('LEVEL UP', 48); ctx.globalAlpha = 1; }   // LEVEL UP banner — renders over menu (auto-pause opens char sheet on level)
   }
-  // Top-right icon row — unified 12×12 buttons using the character-menu box style
-  // (rgba(255,255,255,.05) fill + #555 0.5-stroke, matching inventory + skill nodes).
+  // Top-right icon row — unified 12×12 buttons: blue panel fill (rgba(136,204,255,.14)) + BLUE #8cf 1.5 ring,
+  // matching the skill nodes / inventory / action buttons. Blue = the universal actionable background; grey is reserved for NOT-usable states only. Glyphs are neutral #ccc (identity, not state).
   // One helper draws every wrapper; only the glyph inside changes.
   if (started) {
     // Top-right control cluster — square boxes with the shared blue ring (#8cf, same accent as action buttons + joystick).
     // Order: 🔊 Speaker (left) · ? Help (middle) · ✕ Back (corner, traditional close position). Always shown, incl. the character menu.
     const iy = 4, isz = 12, box = (x) => {
-      ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, iy, isz, isz);
+      ctx.fillStyle = 'rgba(136,204,255,.14)'; ctx.fillRect(x, iy, isz, isz);   // blue actionable panel fill (schema default 09-08) — grey is reserved for NOT-usable states only; these are always-active controls
       ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1.5; ctx.strokeRect(x, iy, isz, isz);
     }, xm = (x) => { ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 3, iy + 3); ctx.lineTo(x + 9, iy + 9); ctx.moveTo(x + 9, iy + 3); ctx.lineTo(x + 3, iy + 9); ctx.stroke(); };   // neutral ✕ — reserved for the back button ONLY (no duplicate Xs on the top bar)
     const sx = VW - 56, hx = VW - 38, xx = VW - 20;
