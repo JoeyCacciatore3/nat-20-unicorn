@@ -6,7 +6,8 @@
 // L1 TWO-TILE LAW    — hazard pits are <=2 tiles deep: always jumpable out.
 // L2 RUNG LAW        — every vertical shaft has one-way rungs every <=2 tiles.
 // L3 SPACING LAW     — pre-ability routes: rises <=2, gaps <=3. Double-jump
-//                      routes: rises <=3, gaps <=5. Dash gaps: <=8.
+//                      routes: rises <=3, gaps <=5. Triple-jump gaps: <=10.
+//                      (Dash is an ATTACK, never required for traversal — 2026-09-08.)
 // L4 CEILING LAW     — anything you must jump over needs >=2 tiles of clearance
 //                      above its top edge.
 // L5 GATE LAW        — an ability wall must be provably impassable without its
@@ -84,11 +85,11 @@ const MEADOW = {
     [63, 80, 3, 1, 2], [63, 78, 3, 1, 2], [63, 76, 3, 1, 2], [63, 74, 3, 1, 2], [63, 72, 3, 1, 2],  // return rungs
     // Paddock DJ hub perch
     [124, 54, 4, 1, 2],
-    // ---- East run (x280-476) — post-hub DJ/DASH/LONG DASH/TRI JUMP showcase ----
+    // ---- East run (x280-476) — post-hub DJ/TRI JUMP showcase (all gaps jump-crossable) ----
     // Early run (x280-325): base pit + DJ terrace climb (rise-3 rungs, walkway rest)
     [288, 60, 3, 2, 0], [288, 61, 3, 1, 3],
     [295, 57, 6, 1, 2], [303, 54, 4, 1, 2], [309, 51, 4, 1, 2], [315, 48, 8, 1, 2],
-    // Mid run (x330-380): DASH pit, long DJ walkway, LONG DASH pit, reward ledge
+    // Mid run (x330-380): DJ pit, long DJ walkway, TRI-JUMP pit (8t, trijump clears ~10t), reward ledge
     [330, 60, 5, 2, 0], [330, 61, 5, 1, 3],
     [345, 57, 10, 1, 2],
     [360, 60, 8, 2, 0], [360, 61, 8, 1, 3],

@@ -4,19 +4,19 @@
 //   - any standable cell reachable from spawn cannot return to the paddock spawn
 //   - a boss or chest is unreachable at every audited tier
 //
-// Movement model (conservative, in tiles):
+// Movement model (JUMP-ONLY, in tiles — dash is an ATTACK, never a traversal move 2026-09-08).
+// Reachability is GUARANTEED on jumps + physics alone (single/double/triple jump, mushrooms, enemy bounce).
+// Values are frame-accurate sim maxima of the real jump code (jumpsim): base 4.7 / DJ 7.4 / TRI 10.3 tiles.
 //   base:        jump rise <=2, drift <=5
-//   +doublejump: rise <=4, drift <=6
-//   +dash:       rise <=4, drift <=9
+//   +doublejump: rise <=4, drift <=7
+//   +trijump:    rise <=6, drift <=10
 // Spikes (3) are hazards, never paths.
 import { W, H, grid, seeds, BOUNCE } from '../src/world.js';
 
 const TIERS = [
   { name: 'base       ', up: 2, h: 5 },
-  { name: '+doublejump', up: 4, h: 6 },
-  { name: '+dash      ', up: 4, h: 9 },
-  { name: '+trijump   ', up: 6, h: 7 },      // TRI adds a 3rd jump → higher rise + slightly more air-drift
-  { name: '+longdash  ', up: 4, h: 13 },     // LONG DASH doubles dash distance → wider horizontal reach
+  { name: '+doublejump', up: 4, h: 7 },
+  { name: '+trijump   ', up: 6, h: 10 },     // TRI = 3rd jump → highest rise + widest air-drift (sim ~10.3t)
 ];
 
 // Spawn point (matches main.js SX/SY = 126*T, 57*T → falls to ground row 60).

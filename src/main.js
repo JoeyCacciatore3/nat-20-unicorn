@@ -580,7 +580,7 @@ const interact = () => { if (nearNpc) { talk([TALK[tqi++ % TALK.length]]); retur
 const mkFoe = (x, y, k) => {
   // Kind + level IS the difficulty (no elite subsystem). SIZE uniform cz 4. spd = fv/28 so chase resolves to FT speed.
   const [fh, fd, fv, fb] = FT[k], zh = fh + (lvl * lvl >> 1);
-  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + (lvl >> 2), fl: 0, t: Math.random() * 7, cz: 4, spd: fv / 28 };
+  return { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), hp: zh, mx: zh, dm: fd + (lvl >> 2), fl: 0, t: Math.random() * 7, spd: fv / 28 };
 };
 const seedFoes = () => [...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(x * T, y * T, k));   // reseed helper — single source for init/load/fresh/respawn (foesX = decorative fill, held out of world.js ledge-grow to keep sky-ladder RNG stable)
 let foes = seedFoes();
@@ -680,8 +680,8 @@ const strike = (f, mag) => {
 };
 
 // ---------- verbs ----------
-// DASH is the attack verb: gated behind DASH skill. Half distance base, LONG DASH doubles.
-// Strikes foes it passes through, hits GENERATE mana.
+// DASH is a PURE ATTACK verb (never a traversal move — map is jump-only reachable, 2026-09-08).
+// Gated behind DASH skill; LONG DASH doubles its reach. Strikes foes it passes through; hits GENERATE mana.
 function shoot() {                                              // magic bolt (gold): 3 mana. TAP to fire — ONE bolt per press. NO rapid fire / hold-to-auto-fire (deliberately not wanted).
   if (!started || paused || deathT > 0 || !su[0] || mn < 3) return;   // silent fail — MP bar shows the answer
   mn -= 3; fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar). SILENT (fire sfx removed 09-07) — both player + enemy ranged shots are now soundless; the rainbow bolt + -3 popup are the feedback.
@@ -691,7 +691,7 @@ function shoot() {                                              // magic bolt (g
 function dash() {                                               // THE attack verb: burst + strike-through; 3 MP (uniform). Attacks NEVER regen mana (potions/level-up/boss only).
   if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
   if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
-  dashT = su[7] ? .15 : .075;                                   // base = HALF distance; LONG DASH doubles it (gates the spike lake)
+  dashT = su[7] ? .22 : .11;                                    // dash burst duration × 400px/s: base .11=44px, LONG DASH .22=88px (09-08 lengthened — pure attack, no longer a traversal gate)
   dashCd = .45; mn -= 3; hf = .5; hfc = 12; sfx(600, 200, .12, 'sawtooth', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=12 = PAL[12] #ffffff; color changed from blue 09-08, window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln). Blocks physical + projectiles via hurt()'s hf guard. Hurt/heal use the longer IFR (1.5s).
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +3 HP base (+6 with SUPER HEAL)
@@ -755,7 +755,7 @@ const step = (dt) => {
   if (dashT > 0) {                                              // dash: flat burst, strike foes
     pl.vx = pl.face * 400; pl.vy = 0;
     for (const f of foes) {
-      const fz = 5 * f.cz;
+      const fz = 20;
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) { strike(f); f.fl = .8; }   // one hit per dash pass; then 0.8s enemy i-frame
     }
   } else {
@@ -818,7 +818,7 @@ const step = (dt) => {
       bs[bi] = 1;
       const bhp = (20 + bi * 4) + lvl * lvl;
       foes.push({
-        x: bx * T, y: by * T, vx: 0, vy: 0, k: 3, bi, bit, cz: 4, dm: (8 + bi) + (lvl >> 2),
+        x: bx * T, y: by * T, vx: 0, k: 3, bi, bit, dm: (8 + bi) + (lvl >> 2),
         fl: 0, t: 0, mx: bhp, cap: 19, hp: bhp,
         spd: 1 + bi * .1,   // spd constant per boss (no enrage/leash)
       });
@@ -831,7 +831,7 @@ const step = (dt) => {
     s.t -= dt; s.x += s.vx * dt; s.y += s.vy * dt;
     if (solid(s.x, s.y)) { s.t = 0; }
     if (s.t > 0) for (const f of foes) {                        // a spent bolt can't also hit a foe
-      const fs = 5 * f.cz;
+      const fs = 20;
       if (f.fl <= 0 && s.x > f.x - 4 && s.x < f.x + fs + 4 && s.y > f.y - 4 && s.y < f.y + fs + 4) { s.t = 0; strike(f, 1); break; }   // SHOOT → MAG damage (mag flag). f.fl gate added 2026-09-07 — mirrors dash/stomp; all damage sources now respect the unified enemy i-frame.
     }
   }
@@ -847,7 +847,7 @@ const step = (dt) => {
   // -- foes --
   for (const f of foes) {
     f.t += dt * (2 + Math.abs(f.vx) * .14); f.fl -= dt;      // UNIFIED RHYTHM: anim phase = idle base 2 + |velocity|*.14 (knobs). Fast foes scurry, stopped foes just breathe, chasing bosses auto-gallop faster — all from live vx, no per-type rates
-    const fs = 5 * f.cz;
+    const fs = 20;
     // UNIFIED ATTACK ORCHESTRATION — every foe runs the same verbs; cap bits (data.js FT)
     // decide who uses which. Immediate contact damage (below) is shared by all — no wind-up tell.
     // HIT-STUN GUARD (2026-09-07) — while f.fl > 0 (invuln/flash window from strike), AI decisions
@@ -873,7 +873,7 @@ const step = (dt) => {
     // it gates air-steer too — stops hopping chasers steering into a pit mid-jump.
     if (f.cap & 16 && (f.bit || Math.abs(pl.x - f.x) < 230)) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (f.bit || !solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * 28 * f.spd; }   // BOSSES UNGATED (09-08 Joey): a hunting DARKCORN drives toward you ALWAYS — off ledges, into spike pits (foes are spike-immune), against walls. Regulars stay floor-gated.
     // HOP (cap 2) — one clock for boss and foe; chasers hop on rhythm, patrollers arm near the player
-    if (f.cap & 2) {
+    {   // hop always-on: every FT kind + bosses carry bit 2 (verified 09-08) — guard `if (f.cap & 2)` was unconditionally true, removed
       f.hop = (f.hop || 1) - dt;
       if (f.hop <= 0 && f.gr && (f.cap & 16 || Math.abs(pl.x - f.x) < 200)) {
         // LANDING-GATE — a hop travels ~1 tile; if there's no solid/platform floor one tile ahead
@@ -901,7 +901,7 @@ const step = (dt) => {
     let bl = solid(ex, f.y + fs / 2);
     if (bl) f.x = f.vx > 0 ? (ex / T | 0) * T - fs : ((ex / T | 0) + 1) * T;
     else bl = tile((ex + Math.sign(f.vx) * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3 < 1;   // %3<1: air(0) AND spikes(3) = "no safe floor"
-    if (bl && !f.bit && (f.gr || !(f.cap & 2))) f.vx *= -1;   // hold-ground boss branch REMOVED (09-08): bosses never turn back and never park at edges — chase re-picks vx every frame; wall-snap above still prevents embedding. If a boss lands somewhere it can't hop out of (>2-tile pit), it's stuck until player death reseeds — accepted design.
+    if (bl && !f.bit && f.gr) f.vx *= -1;   // `!(f.cap & 2)` term dropped — always false now all kinds hop (was `f.gr || !(f.cap&2)`). hold-ground boss branch REMOVED (09-08): bosses never turn back and never park at edges — chase re-picks vx every frame; wall-snap above still prevents embedding. If a boss lands somewhere it can't hop out of (>2-tile pit), it's stuck until player death reseeds — accepted design.
     // CONTACT — stomp from above, else immediate touch damage (no wind-up tell). hurt() self-gates
     // repeats via its 0.8s i-frame; dash (dashT>0) grants i-frames so you dash THROUGH foes safely.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
@@ -1059,7 +1059,7 @@ const draw = () => {
     // "Watching Family" v3 (2026-09-06) — TWO body families (walkers + floaters), each enemy ONE distinguishing feature (Kirby rule).
     // Kept from v2: universal round white eye + tracking pupil (species signature) + 1px black outline (figure/ground pop on any background) + FOECOL as PAL indices.
     // Changed from v2: walkers get a separate HEAD block (eye rides the head, gap between body/head/legs = negative space, per Slynyrd rule). Floaters got their arm attachments removed (arms violated Kirby "one attachment" rule and cluttered silhouettes). k2 tendrils use v1 variable-height math for organic sway.
-    const s = f.cz, fs = 5 * s, wob = Math.sin(f.t * .75) * 1.5, step = Math.sin(f.t) * s * .35;
+    const s = 4, fs = 20, wob = Math.sin(f.t * .75) * 1.5, step = Math.sin(f.t) * s * .35;
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
@@ -1133,10 +1133,11 @@ const draw = () => {
   // unicorn — always visible. Player flash (hf) is the invuln signal: red=hurt · green=heal · blue=dash. Colour = hfc PAL index, strobed. pl.inv (stomp/respawn) is silent. Any active hf OR pl.inv = immune to all damage (physical + projectile).
   ctx.save();
   ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
-  const bkc = col; if (hf > 0 && (hf * 6 | 0) & 1) col = [hfc, hfc, hfc, hfc];   // invuln STROBE — ~6 Hz toggle = 3 clear on/off blinks per second (deliberately slow enough to READ as a flash, not flicker). Starts tint-ON at impact for hf=1.2 (hurt/heal) AND hf=.5 (dash). hfc PAL: 4=red hurt · 15=green heal · 8=blue dash. Invuln itself is continuous (hf>0) regardless of blink phase.
+  const bkc = col; if (hf > 0 && (hf * 6 | 0) & 1) col = [hfc, hfc, hfc, hfc]; else if (hp < mHP() * .2 && (time * 6 | 0) & 1) col = [4, 4, 4, 4];   // LOW-HP CUE (<20%): persistent red 6Hz strobe via global `time` — PURELY visual, NO invuln/hitstop (never touches hf/pl.inv). Yields to the hf invuln strobe when hurt.   // invuln STROBE — ~6 Hz toggle = 3 clear on/off blinks per second (deliberately slow enough to READ as a flash, not flicker). Starts tint-ON at impact for hf=1.2 (hurt/heal) AND hf=.5 (dash). hfc PAL: 4=red hurt · 15=green heal · 8=blue dash. Invuln itself is continuous (hf>0) regardless of blink phase.
   drawUo(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
   col = bkc;
   ctx.restore();
+  if (hp < mHP()) bar(pl.x - 2, pl.y - 9, 14, 1, hp / mHP(), '#6cf279');   // PLAYER floating HP bar — mirrors foe/boss convention (bar() above head), damaged-only, world-space
 
   // Item drops — pixel sprites, bob gently, fade IN at spawn (drops never despawn — cleared only on player death)
   for (const d of drops) {
@@ -1197,7 +1198,7 @@ const draw = () => {
       const sx = 69 + i * 26, sel = i === aRow;
       if (sel) { ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23); }
       ctx.fillStyle = c; T2(l, sx + 9, 154);
-      ctx.fillStyle = sel && pending ? '#ffd75e' : c; T2(st[i], sx + 9, 165);   // selected stat's NUMBER goes gold while points remain → "confirm to raise THIS". The number ticking up on spend (+ existing sfx) IS the confirmation. Same #ffd75e as the +N under the unicorn — no timer (works while the menu freezes the sim).
+      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (pending) T2('+', sx + 18, 165);   // number always in its SC stat colour; while points pending, a same-colour "+" sits right of the number on EVERY stat = "raisable, spend anywhere" (blue cursor box marks the actual target). Replaces the old gold-number cue.
     });
     // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip. Grid shifted UP 12px + RIGHT 12px (2026-09-06) so bottom row clears the joystick visual (x=22-50, y=222-250) with edge-touching, no overlap.
     for (let i = 0; i < BAG; i++) {

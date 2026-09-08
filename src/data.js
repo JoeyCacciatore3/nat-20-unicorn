@@ -61,8 +61,8 @@ export const ZB = [
   [280, '#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888', '#6bc5ff'],   // MEADOW (RED) — original identity
   [476, '#6a4a22', '#8a9a32', '#8a9a32', '#9a8a62', '#7ecfe8'],   // EAST RUN (ORANGE) — dry gold savanna
   [601, '#52341e', '#3a7a5e', '#3a7a5e', '#7a8a92', '#4a9ad8'],   // SUMMIT (GREEN) — deep teal, storm sky
-  [601, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // UNDER-DEPTHS (VIOLET zone, y=64-71) — violet cavern of the depths corridor
-  [601, '#1a1832', '#3a4a7a', '#6a5acd', '#4a4a72', '#080814'],   // UNDER-CAVERN (INDIGO zone, y>=72) — deep indigo cave (foliage reuses PAL[16] literal for LZ)
+  [0, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // UNDER-DEPTHS (VIOLET zone, y=64-71) — col0 (xEnd) NEVER read: underground selected by y-threshold, not the x-find. 601→0 (dead value).
+  [0, '#1a1832', '#3a4a7a', '#6a5acd', '#4a4a72', '#080814'],   // UNDER-CAVERN (INDIGO zone, y>=72) — col0 dead (see above). foliage reuses PAL[16] literal for LZ.
 ];
 // Ground palette [dirt, surface-top, foliage, accent]: dirt/top theme solid+platform tiles;
 // foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone
