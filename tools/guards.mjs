@@ -9,7 +9,7 @@
 // │   • tools/tpos-check.mjs   TREE edited ⇒ TPOS must be regenerated (no drift)      │
 // │   • tools/spike-audit.mjs  no chest / hand-placed DECO overlaps a spike (tile 3)  │
 // │ OUTPUT guards  — during build, validate the artifact (the functions below)       │
-// │   • checkMinified()   js13k rule #2 (no external URL) + localStorage n20_ prefix  │
+// │   • checkMinified()   js13k rule #2 (no external URL) + localStorage uni_ prefix  │
 // │   • checkPacked()     packed stream must not contain </script (breaks HTML parse) │
 // │ RELEASE guard  — manual / CI                                                      │
 // │   • tools/pin-guard.mjs    pinned roadroller flags still beat a fresh -O2 (zip)   │
@@ -22,8 +22,8 @@ const fail = (msg) => { console.error('❌ ' + msg); process.exit(1); };
 export const checkMinified = (min) => {
   // js13k rule #2 — no external resources may ship.
   if (/https?:\/\//.test(min)) fail('RULES VIOLATION: external URL in bundle (js13k rule #2 — no external resources).');
-  // localStorage writes must go through the n20_-prefixed helper (namespacing safety).
-  if (/localStorage\.(setItem|clear)/.test(min) && !/n20_/.test(min)) fail('RULES VIOLATION: localStorage use without the n20_ prefix.');
+  // localStorage writes must go through the uni_-prefixed helper (namespacing safety).
+  if (/localStorage\.(setItem|clear)/.test(min) && !/uni_/.test(min)) fail('RULES VIOLATION: localStorage use without the uni_ prefix.');
 };
 
 // Post-roadroller check: the packed stream is inlined into <script>…</script>, so a

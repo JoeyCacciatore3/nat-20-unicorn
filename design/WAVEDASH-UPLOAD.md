@@ -16,6 +16,7 @@ Store currently shows the old working name. Change to:
 UNICORN, Hooves of Hope
 ```
 > The URL slug `nat-20-unicorn` is permanent and fine to leave — only the display title changes.
+> **NOTE (2026-09-08):** The project was renamed to **`unicorn`** (GitHub repo, folder, package). Only this Wavedash slug keeps the original `nat-20-unicorn` (platform-locked). Display title everywhere = **HOOVES OF HOPE**.
 
 ---
 

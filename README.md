@@ -146,7 +146,7 @@ Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at
 **Current: 13,076 / 13,312 B (98.2%) — 236 B free** (batch 14, 2026-09-08; see `SIZELOG.md` for the live-updated tail)
 
 ## Save format
-Keys: `localStorage.n20_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.
+Keys: `localStorage.uni_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.
 
 Fields (14 total): `{v, h(p), x(p), l(vl), n(mn), g(bosses[7]), t(stats[STR,HP,MAG,DEF,LUCK]), d(pending), k(spts), y(su[10]), m(name), o(chestBits), q(eq[4]), i(inv[]), P(potions [hp,mp])}`.
 

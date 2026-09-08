@@ -58,15 +58,14 @@ const NI = document.body.appendChild(document.createElement('input'));
 NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // oninput uppercases; no need to latch the mobile shift key
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
-// ONE SAVE SLOT (n20_s0). sMeta reads name+level for the title label without loading.
-const sMeta = () => { try { const d = JSON.parse(localStorage['n20_s0'] || '0'); return d && d.v === 44 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+// ONE SAVE SLOT (uni_s0). sMeta reads name+level for the title label without loading.
+const sMeta = () => { try { const d = JSON.parse(localStorage['uni_s0'] || '0'); return d && d.v === 44 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase. Keyboard and touch both
 // route here; one source of truth so the begin/resume transitions can't drift.
 const beginGame = () => {
   if (!ent) return; NI.blur(); pName = ent;
-  // DEVICE-CONDITIONAL TUTORIAL — touch is latched before any begin path (slot tap). Swap INTRO 6/7 to touch prompts; the highlight ring names the control, the text names the action.
-  if (touch) { INTRO[6] = 'Push that to walk.'; INTRO[7] = 'That one jumps.|Jump near me to chat.|I permit it.'; }
+  // Device-swap REMOVED 2026-09-08 (Joey): INTRO no longer teaches move/jump keys, so keyboard vs touch prompts are unneeded — one identical script on browser + mobile. Controls now live in the ? help screen (pointed to by the corner-panel bubble).
   phase = 2; started = 1; talk(INTRO); save();
 };  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
 const resumeGame = () => { load(); phase = 2; started = 1; };
@@ -74,7 +73,7 @@ const pickSlot = () => {                                               // the si
   if (sMeta()) sPop = 1;                                               // occupied → CONTINUE / DELETE confirm (default = CONTINUE, safe)
   else { fresh(); ent = ''; tMode = 1; }                               // empty → name entry (required) → begin
 };
-const delSlot = () => { localStorage.removeItem('n20_s0'); sPop = 0; };   // wipe save; label reverts to NEW GAME on next render
+const delSlot = () => { localStorage.removeItem('uni_s0'); sPop = 0; };   // wipe save; label reverts to NEW GAME on next render
 const titleKey = (e) => {
   if (sPop) {                                                          // CONTINUE / DELETE confirm on an occupied slot
     if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') sPop = 3 - sPop;
@@ -322,7 +321,7 @@ const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1;
 const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * Math.min(1, frac), h); };
 // Full-screen dim overlay — death vignette.
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
-// Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band. Shared: HUD rainbow icon, ground rainbow pickup, title arc, particle burst. Caller sets lineWidth.
+// Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band. Shared: HUD rainbow icon, SHOT glyph, magic bolt, particle burst, boss-win flourish, title arch. (Ground rainbow pickup retired 2026-09-08.) Caller sets lineWidth.
 const rArc = (cx, cy, r, step) => { for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(cx, cy, r - i * step, Math.PI, 0); ctx.stroke(); } };
 // Per-character rainbow title text (bold 30px, black outline, even spacing) centered on VW/2 at baseline y. Shared: LEVEL UP banner + title 'HOOVES OF HOPE'. Caller owns globalAlpha.
 const rText = (s, y, f) => {
@@ -353,7 +352,8 @@ const topHUD = () => {
   // each in its bar colour) with THREE EQUAL bars (74×9), numbers centred inside (white). XP = xp/need(), 'MAX' at CAP.
   ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
   const hdr = 'LV' + lvl + ' ' + pName;
-  ctx.fillStyle = '#8cf'; T2(hdr, 5, 11);                             // action-blue LV+name (top row)
+  if (pending || spts) ctx.globalAlpha = .7 + .3 * Math.sin(time * 5);   // POINTS-PENDING PULSE (2026-09-08 Joey): unspent stat/skill points → breathe the LV+name header with the SAME sine as the menu +N badges, so the top-left HUD nags you back to spend — persists in GAMEPLAY, not just the menu. Static once all points are spent.
+  ctx.fillStyle = '#8cf'; T2(hdr, 5, 11); ctx.globalAlpha = 1;        // action-blue LV+name (top row)
   const rcx = 5 + ctx.measureText(hdr).width + 16;                    // rainbow icon right of name
   ctx.lineWidth = 1; rArc(rcx, 11, 7, 1); T2('×' + rainbows(), rcx + 9, 11);
   const cap = lvl >= CAP, row = (y, lbl, c, frac, num) => {           // one row = colour label (left) + equal bar + white centred number
@@ -392,8 +392,8 @@ const drawUo = (bob) => {
 // Single continuous path: rounded corners (arcTo) + a downward tail merged into the bottom edge,
 // so one fill+stroke yields a clean outlined bubble with no seam. txt optional ('' = open bubble,
 // the structure future dialogue lines drop into — for either the NPC or the player's head).
-const bubble = (hx, topY, txt) => {
-  const rows = txt.split('|'), w = 100, h = 8 + rows.length * 9, x = hx - w / 2, R = hx + w / 2, y = topY - h - 7, B = y + h, r = 4;   // grows one row per '|' segment
+const bubble = (hx, topY, txt, w = 100) => {   // w defaults to the full dialogue width; pass a small w for the talk-available indicator (same style, shrunk).
+  const rows = txt.split('|'), h = 8 + rows.length * 9, x = hx - w / 2, R = hx + w / 2, y = topY - h - 7, B = y + h, r = 4;   // grows one row per '|' segment
   ctx.fillStyle = '#fffdf5'; ctx.strokeStyle = '#3a2f4a'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -411,8 +411,8 @@ let mn = 10, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via level-gated rows (canBuy = lvl>=req per node)
-let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY rainbow collect, 0.3s) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-strobe timer · hfc = flash PAL index (4=red hurt · 14=green heal · 11=white dash). pl.inv now covers only stomp + respawn (silent). hf>0 OR pl.inv>0 = invulnerable.
-// Boss state: 0=unvisited, 1=on screen OR defeated-uncollected, 2=rainbow collected (leash stash retired 2026-09)
+let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY boss-kill victory freeze, 0.4s — also drives the title-style rainbow flourish in draw) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-strobe timer · hfc = flash PAL index (4=red hurt · 14=green heal · 11=white dash). pl.inv now covers only stomp + respawn (silent). hf>0 OR pl.inv>0 = invulnerable.
+// Boss state: 0=unvisited, 1=active on screen (alive), 2=killed+banked (leash stash + the old "defeated-uncollected" flavour of 1 both retired — kill banks directly 2026-09-08)
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 
 const rainbows = () => bs.filter(v => v === 2).length;   // banked-boss count. KEEP as helper — inlining the .filter body measured +12 B.
@@ -484,7 +484,7 @@ const spend = () => {
 
 // ---------- save (single-char keys — terser mangle-props law) ----------
 const save = () => {
-  localStorage['n20_s0'] = JSON.stringify({
+  localStorage['uni_s0'] = JSON.stringify({
     v: 44, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: st, d: pending, k: spts, y: su,
     m: pName, o: oc,
@@ -493,7 +493,7 @@ const save = () => {
 };
 const load = () => {
   try {
-    const d = JSON.parse(localStorage['n20_s0'] || '0');
+    const d = JSON.parse(localStorage['uni_s0'] || '0');
     if (!d || d.v !== 44) return;                               // strict v44 gate — no cross-version compat.
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
@@ -525,7 +525,7 @@ let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay;
 // Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
 let dq = 0, di = 0, tqi = 0;
 const talk = (s) => { dq = s; di = 0; };
-const adv = () => { if (++di >= dq.length) { dq = 0; hp = mHP(); mn = mMN(); hf = IFR; hfc = 14; spray(pl.x + PW / 2, pl.y + PH / 2, 5, 2); } };   // dialogue closed = done talking to the GREATCORN → he blesses you: full HP+MP restore + green flash + 5 heal-cross particles. Fires for intro close AND every re-talk quip (all dialogue is GC).
+const adv = () => { if (++di >= dq.length) { dq = 0; hp = mHP(); mn = mMN(); hf = IFR; hfc = 14; } };   // dialogue closed = done talking to the GREATCORN → he blesses you: full HP+MP restore + green flash. Fires for intro close AND every re-talk quip (all dialogue is GC). (Heal-cross particle burst removed 2026-09-08 Joey — green flash is the sole heal cue.)
 
 // bag selection is derived: the selected item is inv[aRow-5] (undefined for non-bag rows, since inv.length ≤ BAG is invariant). No stored invSel state (retired 2026-09-07 — spatial-nav made it pure derived state).
 // Chest reward: item shower only (no heal — heals come from potions / HEAL spell / level-up). LUCK adds drops.
@@ -590,7 +590,7 @@ const seedFoes = () => [...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(
 let foes = seedFoes();
 
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, pot, hud) => flies.push({ x, y, txt, c, pot, hud, t: 3 });   // crit differentiator (`big` flag) REMOVED 09-08 — every popup is now IDENTICAL: uniform 8px font, 3s lifetime. Crit is signalled by the 2× damage NUMBER alone (Joey: seeing 20 where you expect 10 is enough). pot=1 → mini potion glyph; hud=1 → screen-space (HUD-anchored, not world).
+const fly = (x, y, txt, c, pot, hud) => flies.push({ x, y: y - (hud ? flies.filter(f => f.hud).length : 0) * 9, txt, c, pot, hud, t: 3 });   // ANTI-STACK (2026-09-08 Joey): HUD popups all spawn at the ONE feedback spot (PFX/PFY); firing 2+ in a frame drew them perfectly on top of each other = blurred text. Now each new HUD popup offsets UP 9px per already-live HUD popup → readable vertical column (newest nearest anchor), floats up together, resets as old ones prune. World popups (hud falsy = enemy damage) untouched — already spread by foe position.   // crit differentiator (`big` flag) REMOVED 09-08 — every popup is now IDENTICAL: uniform 8px font, 3s lifetime. Crit is signalled by the 2× damage NUMBER alone (Joey: seeing 20 where you expect 10 is enough). pot=1 → mini potion glyph; hud=1 → screen-space (HUD-anchored, not world).
 // Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS).
 const spray = (x, y, n, sk = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 22 + Math.random() * 46; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 42, t: 1 + Math.random() * .5, sk, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump puff, big = victory burst). lifetime 1.0-1.5s UNCHANGED. Launch speed 22-68 (was 40-130) + pop -42 (was -65): TIGHTER burst — particles stay near origin (09-07) so a death reads as "died HERE", not a sprawl that looks like incoming spread.
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
@@ -603,7 +603,7 @@ const skull = (x, y, u, a = 1, bc = '#e9e3cd') => {
   for (let r = 0; r < 8; r++) for (let c = 0; c < 7; c++) { const ch = SK[r][c]; if (ch === '.') continue; ctx.fillStyle = ch === 'O' ? bc : '#161210'; ctx.fillRect(x + (c - 3.5) * u, y + (r - 4) * u, u + .4, u + .4); }
 };
 // ITEM DROPS — physical pickups from kills/chests.
-// Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear, 9 RAINBOW (boss progression pickup → bs[i]=2).
+// Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear. (Type 9 RAINBOW pickup retired 2026-09-08 — bosses bank on kill, no collectible.)
 // LUCK adds +1 drop per pip.
 
 // Pixel sprites (bitmask rows, MSB-left). Shared 1-bit decoder: spr(data, x, y, w, col)
@@ -656,7 +656,7 @@ const drawPart = (s, x, y, c, z = 1) => {
 // LUCK does NOT bias drop TYPE. It lifts TWO PERCEPTIBLE things with ONE stat: (1) DROP CHANCE at kill site (.12 + lk*.03 — visibly more loot over a run), (2) CRIT CHANCE (same formula, unified in strike() — visible as 2× damage numbers). The old 3rd payoff (GEAR PRIMARY TIER, +(lk>>3)) was REMOVED 2026-09-08: at +1/8 LUCK it was buried in the level+random noise of d.b — an invisible-cause modifier (same class as the removed crit-XP bonus), impossible to attribute even as the dev. Gear tier now = level only. Bosses call spawnDrop guaranteed (n=2, no chance roll).
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
-    const d = { x, y: y - 4, vx: (Math.random() - .5) * 80, vy: -90 - Math.random() * 50, life: 0 };   // t assigned below in every branch (5=gear · 0/1=potion) — never observed as 0-init
+    const d = { x, y: y - 4, vx: (i - (n - 1) / 2) * 80 + (Math.random() - .5) * 20, vy: -90 - Math.random() * 50, life: 0 };   // ANTI-STACK FAN (2026-09-08 Joey): was pure-random vx (Math.random()-.5)*80, so a 2-drop boss kill regularly settled both items on the SAME spot. Now deterministic index fan — drop i throws to (i-(n-1)/2)*80: n=2 → one left / one right (~2 tiles apart on landing after .97 friction), n=1 → 0 (lands at kill site). Small ±10 jitter keeps it organic.   // t assigned below in every branch (5=gear · 0/1=potion) — never observed as 0-init
     // GEAR (60%): slot + color + RANDOM primary (1..cap) + optional SUB-stat at LV4+ (a different stat, ~50%, SAME cap as primary). cap = 1 + (lvl>>2): +1 @LV1 → +6 @LV20. Both d.b (main) and d.v (sub) roll 1..cap → identical max, real per-drop variance (09-08 Joey: main+sub same ceiling, drops should be somewhat random). tpos-check.mjs couples "Math.random() * 16" color range to PAL.length — ALL 16 colours (0-15). White (PAL[0]) is a valid gear tint: body/parts are equipment-driven, white is just the unequipped appearance (equipped-ness = eq[s], not col).
     if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = Math.random() * 16 | 0; const cap = 1 + (lvl >> 2); d.b = 1 + (Math.random() * cap | 0); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (Math.random() * cap | 0); } }
     else d.t = Math.random() < .5 ? 0 : 1;      // POTION (40%): HP (0) or MP (1), 50/50
@@ -674,11 +674,8 @@ const strike = (f, mag) => {
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP: kind-capped base + boss escalation. (crit XP bonus REMOVED 09-08 — imperceptible: player can't correlate a random +4 to a crit kill; pure waste.)
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
-    if (f.bit) {                                                // BOSS falls — the boss itself is pruned by the frame-end `prune(foes, e => e.dead)` (line ~910); other foes are NEVER auto-cleared (Joey rule 2026-09-07: the player has to clear every enemy themselves — no boss-death sweep).
-      if (bs[f.bi] !== 2) {                                     // FIRST KILL — drop the rainbow as a collectible; mark defeated (1 = stays dead while alive, not yet counted)
-        bs[f.bi] = 1;
-        drops.push({ x: f.x, y: f.y - 4, vx: (Math.random() - .5) * 80, vy: -120, t: 9, bi: f.bi, life: 0 });   // RAINBOW pickup — reuses loot-drop physics; collect it to bank the boss (bs→2)
-      }
+    if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK (2026-09-08 Joey): rainbow collectible RETIRED. Killing the boss banks it directly (bs→2). Old flow was kill→bs=1→drop rainbow→walk over→bs=2; that removed the drop object, its ground-render, and the collect branch, collapsed bs=1 to a single meaning ("active on screen"), and — via the save() here — FIXED the old gap where collecting never persisted (progress could evaporate on browser-close). Boss is pruned frame-end by prune(foes, e=>e.dead); other foes never auto-clear.
+      bs[f.bi] = 2; hs = .4; spray(f.x, f.y, 18); fanfare(); save();   // VICTORY BEAT: 0.4s hitstop (hs is now set ONLY here → hs>0 = boss-win, which also drives the title-style rainbow flourish in draw) + heavy 18-particle rainbow burst + fanfare + AUTOSAVE. Moved here from the retired collect branch (was spray 12 / hs .3).
     }
     return 1;
   }
@@ -704,13 +701,13 @@ function heal() {                                               // instant tap-t
   const hm = 3 + su[3] * 3;
   mn -= 3; hp = Math.min(mHP(), hp + hm);
   sfx(520, 1040, .25, 'triangle', .12); fly(PFX, PFY, '-3', '#4a76ff', 0, 1); fly(PFX, PFY, '+' + hm, '#6cf279', 0, 1);   // HEAL: MP cost + HP gain both at unified PFX/PFY (above hot-bar). Popups float upward so they stagger vertically.
-  hf = IFR; hfc = 14; spray(pl.x + PW / 2, pl.y + PH / 2, 5, 2);   // HEAL: IFR-sec green PAL[14] flash + i-frame, plus 5 green heal-cross particles rising from the body. green=heal · red=hurt · white=dash.
+  hf = IFR; hfc = 14;   // HEAL: IFR-sec green PAL[14] flash + i-frame. green=heal · red=hurt · white=dash. (Heal-cross particle burst removed 2026-09-08 Joey — green flash is the sole heal cue.)
 }
 
 const hurt = (n) => {
   if (hf > 0 || pl.inv > 0 || deathT > 0) return;              // invulnerable while ANY flash active (hf → red/green/blue) OR stomp/respawn window (pl.inv). Single guard blocks physical AND projectiles.
   n = Math.max((n >> 2) || 1, n - st[3]);                         // DEFENSE — gradient floor: 25% of raw (min 1), preserves boss threat
-  hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = IFR; hfc = 4;   // hf = invuln flash timer (IFR sec); hfc=4 = red PAL[4]. hurt/heal/dash all share the hf strobe channel (red/green/blue). hp clamped ≥0. Hurt hitstop RETIRED 2026-09-06 — only rainbow collect keeps hitstop now.
+  hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = IFR; hfc = 4;   // hf = invuln flash timer (IFR sec); hfc=4 = red PAL[4]. hurt/heal/dash all share the hf strobe channel (red/green/blue). hp clamped ≥0. Hurt hitstop RETIRED 2026-09-06 — only the boss-kill victory keeps hitstop now (rainbow-collect hitstop retired 2026-09-08).
   fly(PFX, PFY, '-' + n, '#ff5d6c', 0, 1);                 // damage-taken popup routed to the unified player-feedback spot (above potion hot-bar, hud=1) — ALL main-character popups now live in ONE location (09-08 Joey): XP · MP cost · heal · quaff · pickup · damage taken. Enemy damage stays world-space over the foe.
   sfx(140, 55, .25, 'sawtooth', .12);
   if (hp <= 0) { deathT = 1.6; return; }   // player death — NO skulls (09-07): the respawn-to-paddock + fade-to-black already carry the moment; skull burst was redundant.
@@ -720,7 +717,7 @@ const hurt = (n) => {
 // ---------- update ----------
 let last = performance.now(), time = 0;
 const step = (dt) => {
-  if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes ONLY on rainbow collect (0.3s). Crit + hurt hitstops retired 2026-09-06 — this branch now services 1 event.
+  if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes ONLY on boss-kill victory (0.4s); hs>0 also drives the title-style rainbow flourish in draw. Crit + hurt + rainbow-collect hitstops all retired — this branch services 1 event.
   if (paused) {                                    // character menu freezes sim; joystick does spatial (nearest-cell) nav (keyboard nav stays in the keydown handler)
     navCD -= dt;
     let dx = keys.has('bL') ? -1 : keys.has('bR') ? 1 : 0, dy = keys.has('bU') ? -1 : keys.has('bD') ? 1 : 0;   // stick → direction bits
@@ -811,10 +808,10 @@ const step = (dt) => {
   nearChest = -1;
   for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
 
-  // -- bosses: each drops a rainbow (t:9) on first kill; collect it to bank the boss (bs→2) --
+  // -- bosses: first kill banks the rainbow directly (bs→2) + victory flourish; no collectible drop (retired 2026-09-08) --
   seeds.bosses.forEach(([bx, by, bi]) => {                      // bi (rainbow band) from seed — all DARKCORN bosses share the one world
     const bit = 1 << bi;
-    if (bs[bi]) return;                                           // 1 engaged OR 2 killed → skip (no leash stash — bs is only 0/1/2 now)
+    if (bs[bi]) return;                                           // 1 = already active on screen · 2 = killed+banked → either way skip re-spawn (no leash stash — bs is only 0/1/2)
     if (Math.hypot(pl.x - bx * T, pl.y - by * T) < 80 && Math.abs(pl.y - by * T) < 48) {  // vertical gate: walkway under ORANGE's perch is dy=66 — must not trigger from below
       // BOSS stats (2026-09-06 quadratic rework — bosses = TRUE endurance fights, 5-11 hits across all levels):
       // - Boss HP: (20+bi*4) + lvl*lvl (double-quadratic vs regulars — LV5 boss = 45 HP, LV20 boss bi=6 = 444 HP)
@@ -860,9 +857,13 @@ const step = (dt) => {
     // Gravity + horizontal momentum (below) still apply; contact damage still lands. Enemy jolts
     // to stop (strike zeros vx), holds pose during flash, then resumes AI when f.fl expires.
     if (f.fl <= 0) {
-    // RANGED (cap 1) — gate the COUNTDOWN, not just the shot: bosses always in range,
-    // regular foes need |dx| < 230. Prevents the charge-orb tell from ballooning off-screen.
-    if (f.cap & 1 && (f.bit || Math.abs(pl.x - f.x) < 230)) {
+    // AGGRO GATE (2026-09-08 Joey) — ONE proximity flag drives ranged/chase/hop. Was HORIZONTAL-ONLY
+    // (|dx|<230), so foes on lower cave shelves / platforms kept tracking you through the floor forever.
+    // Now needs BOTH |dx|<200 AND |dy|<80 (5 tiles): a foe more than ~5 tiles above/below you disengages.
+    // Bosses (f.bit) stay ungated — a hunting boss always knows where you are.
+    const near = f.bit || Math.abs(pl.x - f.x) < 200 && Math.abs(pl.y - f.y) < 80;
+    // RANGED (cap 1) — gate the COUNTDOWN, not just the shot: bosses always in range, regular foes need `near`.
+    if (f.cap & 1 && near) {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
       if (f.rc <= 0) {
         f.rc = f.bit ? 1.6 : 2.1;
@@ -876,11 +877,11 @@ const step = (dt) => {
     // AND solid/platform floor 3px ahead (reuses the edge-turn probe: %3 truthy = solid/plat,
     // falsy = air/spike). Stops chasers marching off ledges or into spike pits, and — because
     // it gates air-steer too — stops hopping chasers steering into a pit mid-jump.
-    if (f.cap & 16 && (f.bit || Math.abs(pl.x - f.x) < 230)) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (f.bit || !solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * 28 * f.spd; }   // BOSSES UNGATED (09-08 Joey): a hunting DARKCORN drives toward you ALWAYS — off ledges, into spike pits (foes are spike-immune), against walls. Regulars stay floor-gated.
+    if (f.cap & 16 && near) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (f.bit || !solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * 28 * f.spd; }   // BOSSES UNGATED (09-08 Joey): a hunting DARKCORN drives toward you ALWAYS — off ledges, into spike pits (foes are spike-immune), against walls. Regulars stay floor-gated.
     // HOP (cap 2) — one clock for boss and foe; chasers hop on rhythm, patrollers arm near the player
     {   // hop always-on: every FT kind + bosses carry bit 2 (verified 09-08) — guard `if (f.cap & 2)` was unconditionally true, removed
       f.hop = (f.hop || 1) - dt;
-      if (f.hop <= 0 && f.gr && (f.cap & 16 || Math.abs(pl.x - f.x) < 200)) {
+      if (f.hop <= 0 && f.gr && (f.cap & 16 || near)) {
         // LANDING-GATE — a hop travels ~1 tile; if there's no solid/platform floor one tile ahead
         // in the travel dir, turn back instead of launching (stops hoppers leaping into pits/spikes).
         // Bosses hop unconditionally (arenas are flat + build-audited).
@@ -930,12 +931,7 @@ const step = (dt) => {
     if (d.vy > 0 && tile(d.x / T | 0, (d.y + 3) / T | 0)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ANY non-air tile — solid, platform, AND spike (drops physically settle on spikes like any surface; unlike player/enemy who use %3 to skip spikes because spikes damage them)
     // GRACE PERIOD: drop must be visible for ≥0.5s before pickup — matches the fast fade-in (below in draw loop) so you always SEE the drop before it vanishes into inventory. Fixes the stomp-kill case where drop spawned inside pickup radius and disappeared before rendering. Was 0.35s (batch 11); bumped to 0.5s batch 12 (2026-09-07) so drops always register visually as "loot appeared" before magnet-in.
     if (d.life > .5 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 18) {   // touch it → pick up (stays on ground if nowhere to put it). Radius 18 (was 14) = generous body-of-player reach; still requires deliberate approach (not vacuum). Batch 12 (2026-09-07) bump for better pickup feel — drops sitting at player's edge now register cleanly without walk-adjust.
-      if (d.t === 9) {                                          // RAINBOW — progression pickup: always collected. Bank the boss (bs→2), pause, burst. Save-on-rainbow REMOVED 2026-09 — leveling + respawn are the ONLY auto-saves now (simpler mental model: "you save when you die or level up").
-        bs[d.bi] = 2; d.dead = 1; hs = .3;                      // hitstop: world freezes briefly for the collect moment
-        spray(pl.x + PW / 2, pl.y - 6, 12);                     // rainbow particle burst above the head (reuses the death-burst spray; no skull flag = 7-band rainbow)
-        fanfare();   // unified "positive milestone" cue — same fanfare as level-up + chest open. Rainbow collect distinguished by hitstop 0.3s + 12-particle burst (not audio). One sound family for all game milestones.
-        continue;
-      }
+      // (RAINBOW collectible retired 2026-09-08 — bosses bank on kill; drops here are only potion/gear now.)
       // Potion → hot-bar counter (cap 5, drop stays on ground if full). Gear → bag (drop stays on ground if bag full).
       // Potion "+1" flies are HUD-anchored above the matching hot-bar slot (HP left, MP right) — clear, separated, never fights with damage numbers at the kill site.
       const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(PFX, PFY, '+1', '#6cf279', 1, 1), 1))
@@ -1148,15 +1144,13 @@ const draw = () => {
   for (const d of drops) {
     ctx.globalAlpha = Math.min(1, d.life * 3);   // fade IN over ~0.33s (was 1.0s) — reaches full opacity BEFORE the 0.5s pickup grace expires, so drops are always solidly visible when grabbed
     const dy = Math.sin(d.life * 5) * 1.5;
-    if (d.t === 9) { ctx.lineWidth = 1; rArc(d.x, d.y - 6 + dy, 8, 1); }   // RAINBOW — the exact nested 7-band arc from the HUD icon, bobbing on the ground
-    else if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#6cf279'); }   // POTION drop — pot() draws body+cork+outline (HP=heal-green, MP=blue)
+    if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#6cf279'); }   // POTION drop — pot() draws body+cork+outline (HP=heal-green, MP=blue). (RAINBOW ground-render retired 2026-09-08 — no collectible rainbow anymore; drops are potion/gear only.)
     else drawPart(d.s, d.x - 6, d.y - 11 + dy, d.c, 1.5);   // GEAR — bare sprite (no box), potion-sized (1.5×), rests on ground like potions
   }
   ctx.lineWidth = 1;
-  for (const p of parts) {                                        // 3 particle kinds: p.sk===1 white skull (FOE death only) · p.sk===2 green heal cross (heal cast + GREATCORN blessing) · else 7-band rainbow burst (jumps + rainbow collect). spray() is the sole spawner.
+  for (const p of parts) {                                        // 2 particle kinds: p.sk===1 white skull (FOE death only) · else 7-band rainbow burst (jumps + boss-win). spray() is the sole spawner. (Heal-cross sk===2 removed 2026-09-08 — heal is green-flash-only.)
     const al = Math.min(1, p.t * 2.5);
     if (p.sk === 1) { skull(p.x, p.y, .7, al); continue; }  // foe-DEATH skull = white bone (default #e9e3cd) — distinct from the RED ranged-attack skulls. (Player death no longer sprays skulls, so this is foe-death only.)
-    if (p.sk === 2) { ctx.globalAlpha = al; ctx.fillStyle = '#6cf279'; ctx.fillRect(p.x - 1, p.y - 3, 2, 6); ctx.fillRect(p.x - 3, p.y - 1, 6, 2); continue; }   // HEAL cross — mini green + (scaled-down heal glyph), rises + fades. Same per-particle sprite treatment as skulls/rainbows.
     ctx.globalAlpha = al;
     ctx.lineWidth = .5 * p.z; rArc(p.x, p.y, 2.75 * p.z, .375 * p.z);   // burst rainbow — r/step/width scale together so the 7 bands stay distinct; p.z sizes it (1 = puff, big = victory)
   }
@@ -1169,7 +1163,9 @@ const draw = () => {
   }
   ctx.globalAlpha = 1;
   if (dq && started) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 4 : NGY - 26, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREATCORN; hidden on title
+  else if (nearNpc && started) bubble(NX, NGY - 26, '...', 18);   // TALK-AVAILABLE indicator (2026-09-08 Joey): in GREATCORN range + not mid-dialogue → a small chat bubble (SAME bubble() style, width 18) with a '...' speech glyph pops above his head, mirroring the ✓ interact prompt on the action button. Shares the NPC dialogue anchor (NGY-26) so the real bubble seamlessly replaces it on talk. '...' reuses intro text = free.
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
+  if (hs > 0) { ctx.globalAlpha = Math.min(1, hs * 4); ctx.lineWidth = 2; rArc(VW / 2, 150, 90, 3.5); ctx.globalAlpha = 1; }   // BOSS-WIN FLOURISH (2026-09-08 Joey): while the victory hitstop holds (hs>0, set ONLY on boss kill), draw the big title-style rainbow arch — the SAME rArc as the title screen (line ~1370), centred on screen — as the "you claimed this rainbow" moment. Screen-space (after the world translate undo). Alpha fades out with hs.
 
   // ---------- HUD (gameplay-only overlays: level-up banner, death vignette) ----------
   // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
@@ -1185,7 +1181,7 @@ const draw = () => {
     // and equipment labels / stat numbers render offset to the right of their boxes.
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     // Stat points available — "+N" centered just under the unicorn
-    if (pending) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('+' + pending, 130, 137); }   // 13px = shared UI size; y=137 centers it vertically in the empty gap between the unicorn legs (~y116) and the MAG stat top (y146). x=130 = shared cluster centerline (3rd inv box center)
+    if (pending) { ctx.globalAlpha = .7 + .3 * Math.sin(time * 5); ctx.fillStyle = '#8cf'; ctx.font = 'bold 13px monospace'; T2('+' + pending, 130, 137); ctx.globalAlpha = 1; }   // +N STAT POINTS (2026-09-08 Joey): blue #8cf = universal "actionable" (was gold #ffd75e, which clashed with the gold cursor) + a SINE-OPACITY PULSE via the global `time` (floor .4 → full) so it visibly breathes = "spend me". 13px = shared UI size; y=137 centers it in the gap between the unicorn legs (~y116) and MAG stat top (y146). x=130 = cluster centerline.
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 13px pending hint above (if it fired)
     EQ.forEach(([s, ex, ey]) => {
@@ -1219,7 +1215,7 @@ const draw = () => {
     // (Gear stats are now shown INLINE on every icon — bag + worn — so no selection tooltip is needed.)
     // SKILL TREE — 10 icon nodes in a 3-2-3-2 grid, gated purely by LEVEL ROW (Row1 LV1 · Row2 LV3 · Row3 LV6 · Row4 LV9). No prerequisite/connection lines; locked = dim, owned = bright + gold-tinted.
     // font + textAlign inherited from top of char sheet (unchanged since L1149)
-    if (spts) { ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 13px monospace'; T2('+' + spts, 317, 52); ctx.font = 'bold 8px monospace'; }   // skill points available — centered over the HEAL node (TPOS[2] x=304 + NS/2=13 → 317); y 52 = above Row-1 top y=58. 13px matches the stat "+N"; reset to 8px for the tree nodes
+    if (spts) { ctx.globalAlpha = .7 + .3 * Math.sin(time * 5); ctx.fillStyle = '#8cf'; ctx.font = 'bold 13px monospace'; T2('+' + spts, 317, 52); ctx.globalAlpha = 1; ctx.font = 'bold 8px monospace'; }   // +N SKILL POINTS: same blue #8cf + sine-opacity pulse as the stat badge (2026-09-08 Joey) — one consistent "actionable, spend me" cue. Centered over the HEAL node (TPOS[2] x=304 + NS/2=13 → 317); y 52 = above Row-1 top y=58. 13px matches the stat "+N"; reset to 8px for the tree nodes
     const NS = 26;
     // No connection lines — level-gated tiers (canBuy = lvl>=[req][i]). Locked rows read as dim; unlocked rows are bright.
     // Nodes — all 10 are action skills, rendering the SAME icon as their action button (via iShot/iHeal/iJump/iDash, wrapped in scale to fit). Chevron / stacked-arc count on upgrade nodes matches the button's own scaling rule. (Modifier skills STASH/HP+5/MP+5/POT+5 removed 2026-09-05.)
@@ -1270,12 +1266,7 @@ const draw = () => {
       // THREE states (09-08 Joey — supersedes the 09-05 two-state rule): usable = BLUE · owned-but-no-MP = WHITE (matches skill-tree "available") · not-owned = GREY/dim. Applies the universal menu schema to the HUD so "have it, need mana" no longer looks identical to "don't have it". Still no press-pop; a usable button doesn't animate.
       const rc = usable ? '#8cf' : owned ? '#fff' : '#555';
       ctx.globalAlpha = usable ? 1 : owned ? .6 : .3;
-      // INTRO TUTORIAL — SUBTRACTIVE spotlight (research 09-04: NN/g "don't match the UI" + static
-      // pop-out): during controls bubbles 6/7/8 the explained control renders full-alpha, all others
-      // dim to .15. No ring, no gold — gold keeps its ONE button meaning (interact-now), and locked
-      // buttons stay visibly dull-grey while spotlit (no "looks usable" lie). Scene is frozen, so a
-      // static contrast jump pops preattentively — no animation needed (Treisman pop-out).
-      if (dq === INTRO && di >= 6 && di <= 8) ctx.globalAlpha = (di === 7 ? c === 'bJ' : di === 8 && c !== 'bJ') ? .95 : .15;
+      // (INTRO subtractive spotlight REMOVED 2026-09-08 Joey — locked buttons are already dull-grey (alpha .3) by their own locked state, so "The dull buttons? Locked." dialogue describes exactly what's on screen. Walk/jump were never worth highlighting (always active). Dialogue carries the teaching; the natural dimming is the visual cue. −38 B, and bubble order is no longer index-locked.)
       ctx.save(); ctx.translate(x, y); ctx.scale(BVS, BVS); ctx.translate(-x, -y);   // scale the WHOLE visual (disc+glyph+linewidths) — glyph code stays untouched
       ctx.fillStyle = 'rgba(15,15,20,.75)';
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
@@ -1301,7 +1292,6 @@ const draw = () => {
   if (started && touch && !savePop && !helpOn) {   // gameplay AND character menu (menu uses it for cursor nav); hidden only under overlays
     const act = joy.id >= 0;
     ctx.globalAlpha = act ? 1 : .7;   // always usable → rests at .7 like the buttons; engaging pops to full
-    if (dq === INTRO && di >= 6 && di <= 8) ctx.globalAlpha = di === 6 ? .95 : .15;   // subtractive spotlight: full while bubble 6 explains the stick, dimmed while buttons are explained
     ctx.save(); ctx.translate(JHX, JHY); ctx.scale(JVS, JVS); ctx.translate(-JHX, -JHY);   // scale WHOLE visual (base+knob+throw); base pinned at fixed home
     ctx.fillStyle = 'rgba(15,15,20,.75)';
     ctx.beginPath(); ctx.arc(JHX, JHY, JR, 0, 7); ctx.fill();

@@ -24,7 +24,7 @@ Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) o
 - **Potion hot-bar** — 2 slots (HP red / MP blue), stack to 5 each, fixed **+10 heal** per drink. Inventory holds gear only, **10 slots fixed** (`BAG=10`, no STASH skill).
 - **Bounce mushrooms** — spring-launch traversal, stacks with DBL/TRI JUMP.
 - **Controls** — Keyboard: WASD / arrows move · Space jump · J dash-attack · L shot · H heal · P pause. Touch: floating joystick + action buttons. One build serves desktop + mobile.
-- **Save** — v44, strict version gate (no cross-version compat), **single slot** (`n20_s0`). Stats stored as array `t:[STR,HP,MAG,DEF,LCK]`. Auto-saves on level-up + respawn.
+- **Save** — v44, strict version gate (no cross-version compat), **single slot** (`uni_s0`). Stats stored as array `t:[STR,HP,MAG,DEF,LCK]`. Auto-saves on level-up + respawn.
 - **Console errors** — 0 observed in Chromium (last full playthrough 2026-09-05, batch-6). ⚠️ Firefox DevTools zero-console check is a SEPARATE hard requirement — re-run before js13k upload, especially since batches 7 and 8 changed sprite/HUD code paths.
 
 ## Names (keep identical everywhere)

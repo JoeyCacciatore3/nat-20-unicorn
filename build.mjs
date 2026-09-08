@@ -28,7 +28,7 @@ console.log('2/6 minify (terser)…');
 const RESERVED = '"KeyW","KeyA","KeyS","KeyD","KeyB","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"';
 run(`npx terser dist/bundle.js -c passes=3,unsafe=true,booleans_as_integers=true,drop_console=true,toplevel=true,pure_getters=true,unsafe_math=true,unsafe_comps=true,hoist_funs=true -m toplevel=true --mangle-props 'regex=/^.{2,}$/,reserved=[${RESERVED}]' --ecma 2020 --comments false -o dist/min.js`);
 
-// Rules compliance + storage safety (external-URL + n20_ prefix) — see tools/guards.mjs
+// Rules compliance + storage safety (external-URL + uni_ prefix) — see tools/guards.mjs
 checkMinified(readFileSync('dist/min.js', 'utf8'));
 
 console.log('3/6 pack (roadroller)…');
