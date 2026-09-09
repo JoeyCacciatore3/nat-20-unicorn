@@ -74,6 +74,8 @@ const MEADOW = {
     [22, 8, 3, 1, 2], [26, 3, 5, 1, 2],   // DJ from summit y=12 to y=8, TRI from y=8 to y=3
     // ---- WEST BASEMENT (x5-47) — was barren floor below the BLUE peak: varied platform course + mushrooms + foes ----
     [7, 57, 9, 1, 2], [19, 54, 4, 1, 2], [27, 56, 7, 1, 2], [38, 53, 5, 1, 2], [44, 56, 4, 1, 2],   // varying-length one-way shelves (float over the floor; drop-through, so always returnable)
+    [15, 50, 5, 1, 2], [23, 47, 4, 1, 2], [30, 44, 6, 1, 2],   // BOUNCE-SKY ROUTE (2026-09-09 Joey): 3-step aerial ladder filling the empty gap above the [17]/[30] bounce mushrooms. Heights tuned to MEASURED bounce apexes (feet): plain bounce → row49 (lands row50), bounce+DJ → row45.6 (lands row47), bounce+TJ → row43 (lands row44).
+    [24, 40, 4, 1, 2], [30, 36, 4, 1, 2], [24, 32, 4, 1, 2], [30, 28, 4, 1, 2], [34, 24, 4, 1, 2],   // BOUNCE-SKY ASCENT (2026-09-09 Joey): DJ zig-zag continuing the bounce route UP through the empty rows24-44 band to meet the peak-approach ladder [34,20] → BLUE CORN summit (boss + chest3 + TRI-secret chest8). 4-row steps (DJ range), x alternates 24/30 then 34 to dock the ladder. An ALTERNATE route to the summit; chests 3/8 stay DJ/TRI-gated at the top.
     [13, 60, 3, 2, 0], [13, 61, 3, 1, 3],   // shallow spike pit (2-deep, base-crossable) — hazard interest
     // Depths corridor (x10-139, deep west) — post-DASH route to VIOLET CORN
     [10, 64, 130, 6, 0],
@@ -126,7 +128,7 @@ const MEADOW = {
     [258, 58, 0],   // RED    — MEADOW EAST flat past the spike moat (x251 = "last committed jump" gate). 2026-09-08 REVERT: the earlier x260→182 "fill dead space" pass made RED a blind LV1 first boss 56 tiles off spawn; moved back east to 258 for a proper ~133-tile warm-up (fight the x180-248 foe line + cross the moat before the fight). Still in MEADOW palette.
     [372, 58, 1],   // ORANGE — EAST-RUN CENTER giant flat (x368-439, w72). 2026-09-08 spread: was x461 far-perch → centered onto the big empty savanna run
     [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier) — west mountain anchor
-    [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier) — far-left-top bookend
+    [20, 58, 3],    // BLUE   — WEST-BASE ground, right of the spike pit + bounce mushrooms (2026-09-09 Joey: moved DOWN from the summit ledge [18,11] to the flat combat pocket at x20). Still inside the PEAK palette band (x<40) so zone-parity holds (one BLUE boss in its matching palette). The summit now holds only chest 3 + TRI-secret chest 8, reached via the new bounce-sky ascent.
     [35, 68, 4],    // VIOLET — depths corridor west (the one underground boss; deep cavern terrain + chest 9 kept, just no boss there now)
     [570, 32, 5],   // GREEN  — east summit (E3 ascent climax) — far-right-top bookend
     [68, 80, 6],    // INDIGO — deep CAVERN chamber floor (x60-82, y81 floor; among chest 9 @ x76 + the cavern fill-foes @ y81). 2026-09-08 REVERT: the "lift to white basement" pass put INDIGO on the SURFACE inside the PEAK/blue band (→ 2 bosses in PEAK, cavern boss-free, palette mismatch). Restored to the cavern so all 7 palette zones hold exactly ONE boss in its matching palette (Joey 2026-09-08). Reachable via depths corridor + drop hole @ x62.

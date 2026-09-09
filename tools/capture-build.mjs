@@ -38,8 +38,9 @@ const HOOK = ';try{window.__G={'
   + 'menu:(v)=>{paused=v?1:0;},'          // open/close character menu deterministically
   + 'clearDlg:()=>{dq=0;},'               // force-dismiss any dialogue bubble
   + 'boss:(bi)=>{bs[bi]=0;},'             // reset a boss so it re-spawns on approach
-  + 'get deathT(){return deathT},'        // read the death timer (1.6→0) to sample the fade phases
-  + 'kill:()=>{deathT=1.6;},'             // trigger the death sequence deterministically (bypasses hurt())
+  + 'get deathT(){return deathT},'        // read the death timer (2→0) to sample the fade phases
+  + 'kill:()=>{deathT=2;},'               // trigger the death sequence deterministically (bypasses hurt()) — matches hurt()'s deathT=2.0
+  + 'get parts(){return parts},get dq(){return dq},get WIN(){return WIN},'  // inspect particle/dialogue state (win-celebration verification)
   // power(): level up, unlock the full verb kit, equip one gear per slot (real equip()),
   // leave 2 unspent points so the blue "+N" pulse shows in the menu shot. Authentic state.
   + 'power:()=>{lvl=12;st=[14,20,16,12,10];su.fill(0);[0,1,2,4,5,6,7,8].forEach(i=>su[i]=1);'
