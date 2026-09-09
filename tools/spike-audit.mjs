@@ -13,7 +13,7 @@
 // Run: node tools/spike-audit.mjs   (exits non-zero on any violation)
 import { seeds, DECO, grid, T, W, H, groundRow } from '../src/world.js';
 
-const AIR = 0, SOLID = 1, PLAT = 2, SPIKE = 3;
+const SPIKE = 3;   // grid tile values: 0=air · 1=solid · 2=platform · 3=spike
 const at = (x, y) => (x < 0 || x >= W || y < 0 || y >= H) ? -1 : grid[y * W + x];
 
 let violations = 0;
@@ -68,7 +68,7 @@ scatter.forEach((d, i) => {
 const snapped = hand.map(d => [d[0], groundRow(d[0], d[1] + 1) - 1, d[2], d]);
 for (let a = 0; a < snapped.length; a++) {
   for (let b = a + 1; b < snapped.length; b++) {
-    const [x1, y1, t1, s1] = snapped[a], [x2, y2, t2, s2] = snapped[b];
+    const [x1, y1, t1] = snapped[a], [x2, y2, t2, s2] = snapped[b];
     if (Math.abs(y1 - y2) > 1) continue;
     const dx = Math.abs(x1 - x2);
     if (dx === 0) report('DECO ', b, s2, `same-tile collision with DECO ${a} at (${x1},${y1})`);
