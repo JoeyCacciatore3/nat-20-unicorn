@@ -537,8 +537,9 @@ const openChest = (i) => {
 };
 let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
-const G_RISE = 750, G_FALL = 1500, FALLCAP = 400;
-const RUN = 115, V0 = 250, IFR = 1.5;   // IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash (unified 09-08, was 1.2 hurt/heal + .5 dash).
+const GV = 900, FALLCAP = 400;          // UNIFIED gravity accel — player + foes share ONE constant (world spikes/gaps were tuned to the enemy 900 model, so this is guaranteed-traversable).
+const RUN = 115, JV = 280, IFR = 1.5;   // JV = launch velocity shared by player jump AND enemy hop (identical arcs → learnable). IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash.
+const ASPD = 56, CSPD = 150, WU = .45, DA = .3, CCD = .9;   // FOE AI — ASPD = uniform pursuit speed (ALL foes home at this). CHARGE (tier-3): WU windup(tell) → DA dash @ CSPD → CCD cooldown.
 
 const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -584,11 +585,11 @@ const interact = () => { if (nearNpc) { talk(rainbows() === bs.length ? WIN : [T
 const scaleFoe = f => { f.mx = f.bit ? 20 + f.bi * 4 + lvl * lvl : FT[f.k][0] + (lvl * lvl >> 1); f.dm = (f.bit ? 8 + f.bi : FT[f.k][1]) + (lvl >> 2); };
 const mkFoe = (x, y, k) => {
   // Kind + level IS the difficulty (no elite subsystem).
-  const [, , fv, fb] = FT[k], f = { x, y, k, cap: fb, vx: fv * (.85 + Math.random() * .3) * (Math.random() < .5 ? 1 : -1), fl: 0, t: Math.random() * 7, spd: fv / 28 };
+  const [, , fb] = FT[k], f = { x, y, k, cap: fb, vx: ASPD * (Math.random() < .5 ? 1 : -1), fl: 0, t: Math.random() * 7 };   // patrol vx = ±ASPD (uniform) — no per-kind speed field anymore.
   scaleFoe(f); f.hp = f.mx; return f;
 };
 // DARKCORN boss foe: now SEEDED into the world (always present + visible) instead of proximity-spawned.
-const mkBoss = (bx, by, bi) => { const f = { x: bx * T, y: by * T, vx: 0, k: 3, bi, bit: 1 << bi, fl: 0, t: 0, cap: 19, spd: 2 }; scaleFoe(f); f.hp = f.mx; return f; };   // spd 2 → chase = 28*2 = 56 px/s, UNIFORM for all 7 bosses. spd also drives hop vx (28*spd=56) + hop cadence (2.4/spd=1.2s).
+const mkBoss = (bx, by, bi) => { const f = { x: bx * T, y: by * T, vx: 0, k: 3, bi, bit: 1 << bi, fl: 0, t: 0, cap: 19 }; scaleFoe(f); f.hp = f.mx; return f; };   // cap 19 = CHARGE+HOP+SHOOT (apex). Pursuit + attacks read uniform consts (ASPD/CSPD) — no per-boss spd.
 const seedFoes = () => [   // single source for init/load/fresh/respawn (foesX = decorative fill, held out of world.js ledge-grow to keep sky-ladder RNG stable)
   ...[...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(x * T, y * T, k)),
   ...seeds.bosses.filter(([, , bi]) => bs[bi] !== 2).map(([bx, by, bi]) => mkBoss(bx, by, bi)),   // ALWAYS-PRESENT bosses — skip only the killed ones (bs===2)
@@ -757,8 +758,8 @@ const step = (dt) => {
   pl.coyote = pl.gr ? .1 : pl.coyote - dt;
   if (jbuf > 0) {
     let ok = 0;
-    if (pl.coyote > 0) { pl.vy = -V0; pl.coyote = 0; pl.air = 0; ok = 1; }
-    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -V0; pl.air++; ok = 1; }   // DBL/TRI JUMP — full ground-jump height, no timing/hold logic
+    if (pl.coyote > 0) { pl.vy = -JV; pl.coyote = 0; pl.air = 0; ok = 1; }
+    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -JV; pl.air++; ok = 1; }   // DBL/TRI JUMP — full ground-jump height, no timing/hold logic
     if (ok) { jbuf = 0; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 5); }   // jump rainbow burst — 5 particles, matches unified skull count.
   }
 
@@ -769,8 +770,7 @@ const step = (dt) => {
       if (f.fl <= 0 && pl.x < f.x + fz && pl.x + PW > f.x && pl.y < f.y + fz && pl.y + PH > f.y) { strike(f); f.fl = .8; }   // one hit per dash pass; then 0.8s enemy i-frame
     }
   } else {
-    pl.vy += (pl.vy < 0 ? G_RISE : G_FALL) * (Math.abs(pl.vy) < 40 ? .5 : 1) * dt;
-    pl.vy = Math.min(pl.vy, FALLCAP);
+    pl.vy = Math.min(FALLCAP, pl.vy + GV * dt);   // UNIFIED with foes — one gravity model (was split rise/fall + apex float); same arc the world was built around
   }
 
   // -- move + collide -
@@ -856,29 +856,35 @@ const step = (dt) => {
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire.
       }
     }
-    // CHASE (cap 16) — home on the player; bi scales boss ground speed.
-    // Floor-gated: only drive toward the player when the step is SAFE — no wall ahead
-    // AND solid/platform floor 3px ahead (reuses the edge-turn probe: %3 truthy = solid/plat
-    // falsy = air/spike). Stops chasers marching off ledges or into spike pits, and — because
-    // it gates air-steer too — stops hopping chasers steering into a pit mid-jump.
-    if (f.cap & 16 && near) { const d = Math.sign(pl.x + PW / 2 - f.x - fs / 2), ax = f.x + (d > 0 ? fs : 0); if (f.bit || !solid(ax + d, f.y + fs / 2) && tile((ax + d * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) f.vx = d * 28 * f.spd; }   // BOSSES UNGATED: a hunting DARKCORN drives toward you ALWAYS — off ledges, into spike pits (foes are spike-immune), against walls.
-    // HOP (cap 2) — one clock for boss and foe; chasers hop on rhythm, patrollers arm near the player
-    {   // hop always-on: every FT kind + bosses carry bit 2 (verified 09-08) — guard `if (f.cap & 2)` was unconditionally true, removed
+    // ATTACK: CHARGE (bit 16) — telegraphed dash. ONE signed timer f.ct runs the whole cycle:
+    //   f.ct > DA   → WINDUP (freeze + red-skull tell)     ·   0 < f.ct <= DA → DASH (burst @ CSPD, dir locked in f.cdir)
+    //   f.ct <= 0   → cooldown; restart when f.ct <= -CCD & grounded.   `chg` blocks base pursuit while active.
+    // ATTACK: CHARGE (bit 16) — telegraphed dash via one signed timer f.ct: WINDUP(freeze+tell, f.ct>DA) → DASH(f.ct≤DA, dir locked in f.cdir) → cooldown → restart at f.ct≤-CCD. Feeds sp/dir to the unified mover below.
+    let chg = 0, sp = ASPD, dir;
+    if (f.cap & 16 && near) {
+      f.ct = (f.ct ?? -CCD) - dt;
+      if (f.ct <= -CCD && f.gr) { f.ct = WU + DA; f.cdir = Math.sign(pl.x + PW / 2 - f.x - fs / 2) || 1; }   // START — lock charge direction
+      if (f.ct > 0) { chg = 1; dir = f.cdir; sp = f.ct > DA ? 0 : CSPD; }   // windup → sp 0 (freeze) · dash → sp CSPD
+    }
+    // UNIFIED MOVEMENT — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate (non-boss skids at ledge/spike, boss commits). Non-charging pursuer keeps patrol vx when blocked (edge-turn handles it).
+    if (near) { dir ??= Math.sign(pl.x + PW / 2 - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0); f.vx = sp && (f.bit || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
+    // ATTACK: HOP (bit 2) — tier-1 leapers + bosses; leap toward the player on a fixed cadence.
+    if (f.cap & 2) {
       f.hop = (f.hop || 1) - dt;
-      if (f.hop <= 0 && f.gr && (f.cap & 16 || near)) {
+      if (f.hop <= 0 && f.gr && near) {
         // LANDING-GATE — a hop travels ~1 tile; if there's no solid/platform floor one tile ahead
         // in the travel dir, turn back instead of launching (stops hoppers leaping into pits/spikes).
         // Bosses hop unconditionally (arenas are flat + build-audited).
         const s = Math.sign(f.vx) || 1;
         if (f.bit || tile((f.x + fs / 2 + s * T) / T | 0, (f.y + fs + 6) / T | 0) % 3) {
-          f.vy = -280; f.gr = 0; f.vx ||= s * 28 * f.spd; f.hop = (f.cap & 16 ? 2.4 : 1 + Math.random()) / f.spd;   // vx||= ANTI-FREEZE: strike()'s jolt-stop and stop-to-fire zero vx; non-chasers (k1/k6) had NO path to move again.
+          f.vy = -JV; f.gr = 0; f.vx ||= s * ASPD; f.hop = 2.2;   // uniform launch (JV) + cadence (~1.58s ground rest between hops); vx||= anti-freeze after a strike-stop
         } else { f.vx *= -1; f.hop = .3; }
       }
     }
     }   // end HIT-STUN GUARD (f.fl <= 0)
 
     f.gr = 0;   // per-frame ground reset: keeps gr accurate so a foe that falls off a ledge can't hop mid-air (hop-gate) and edge-turn stays correct. Re-set to 1 the same frame on landing below.
-    f.vy = Math.min(400, (f.vy || 0) + 900 * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
+    f.vy = Math.min(FALLCAP, (f.vy || 0) + GV * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
     if (f.vy > 0 && tile((f.x + fs / 2) / T | 0, ty) % 3) {   // %3 standable (solid/platform) — same idiom as chase/hop/edge gates; rest feet on tile top
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
@@ -1105,7 +1111,7 @@ const draw = () => {
         oR(s * 1, wob * .3, fs - s * 2, s * 1.7);              // hood peak (taller for eye clearance)
         eye(fs / 2, s * .8 + wob * .3);                        // eye peers from hood shadow — universal round eye
       }
-      if (f.rc < .7) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // CHARGE TELL — static RED skull at foe center (matches the RED fbolt). undefined<.7 is false so no explicit guard needed.
+      if (f.rc < .7 || f.ct > DA) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // TELL — red skull at center: SHOOT imminent (f.rc<.7) OR CHARGE windup (f.ct>DA). undefined comparisons are false → non-attackers show none.
     }
     ctx.restore();
     bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');   // ENEMY floating HP bar — PERSISTENT: always shown (full or damaged), was gated on f.hp<f.mx. bar() draws the dark track + green fill so a full bar reads clearly.

@@ -33,16 +33,14 @@ export const SC = ['#ff5d6c', '#6cf279', '#4a76ff', '#c47fe0', '#ff9d3c'];   // 
 // background (PICO-8 fg/bg separation): foes use saturated warms + darker cools.
 // FOECOL as PAL indices (regrouped for max contrast vs every zone + byte savings vs hex strings). k1=pink · k2=teal · k3=violet · k4=orange · k5=gold · k6=light-purple.
 export const FOECOL = [, 5, 9, 7, 3, 2, 6];
-// FT[k] = [hp, dm, speed, capBits].
-// (size is UNIFORM — render uses cz 4 for all regular foes, 4 for bosses; no per-kind or random size.)
-// k1 walker-small · k2 floater-tent · k3 caster · k4 walker-fast · k5 walker-hop · k6 floater-spike.
-// Cap bits: 1=ranged 2=hop 16=chase (bosses use 19 = the full unicorn kit — same code path, all enemies dispatch through unified attack orchestration).
-// Cap assignment
-// k1=2 hop-only (leaping puddle · 1 move) · k2=17 chase+ranged (tentacle stalker-spitter · 2 moves) ·
-// k3=19 chase+ranged+hop (full unicorn kit, mini-boss feel · 3 moves) · k4=16 pure chase (fast rush hunter · 1 move) ·
-// k5=18 chase+hop (frog leaper · 2 moves) · k6=3 ranged+hop (bouncing spike-sniper · 2 moves).
-// Every cap value unique. k1 & k4 stay simple, everyone else runs 2-3 attacks.
-export const FT = [, [4, 3, 70, 2], [8, 4, 50, 19], [12, 5, 30, 19], [5, 3, 70, 18], [6, 4, 50, 18], [9, 4, 30, 3]];   // FT[k]=[hp,dm,speed,capBits].
+// FT[k] = [hp, dm, capBits].  Pursuit speed is UNIFORM now (ASPD in main.js) — the ATTACK bit is the only differentiator.
+// 3 TIERS × 2 variants. Attack bits: 1=SHOOT · 2=HOP · 16=CHARGE (bosses = 19 = all three = the apex kit).
+//   TIER 1 HOP    → k1 (4hp fragile) · k4 (5hp tankier)   — melee leapers
+//   TIER 2 SHOOT  → k2 (8hp) · k6 (9hp)                   — ranged bolts, hold + fire
+//   TIER 3 CHARGE → k3 (12hp heavy) · k5 (6hp glass)      — telegraphed dash (windup-tell → dash → cooldown)
+// (size UNIFORM — cz 4 for all foes + bosses.) Render sprite is still per-k (k1 walker-small · k2 floater-tent
+// · k3 caster · k4 walker-fast · k5 walker-hop · k6 floater-spike) — COSMETIC only now, decoupled from tier.
+export const FT = [, [4, 3, 2], [8, 4, 1], [12, 5, 16], [5, 3, 2], [6, 4, 16], [9, 4, 1]];   // FT[k]=[hp,dm,capBits] — tier map above.
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).
