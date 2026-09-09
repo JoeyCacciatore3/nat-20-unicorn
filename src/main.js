@@ -137,7 +137,7 @@ const AB = [
   [VW - 82, VH - 80, 'bS', 0],    // TL
   [VW - 30, VH - 80, 'bH', 2],    // TR
 ];
-const PFX = VW / 2, PFY = QSY - 6;                // PLAYER FEEDBACK SPOT — one source of truth for every player-side popup EXCEPT damage: XP · MP cost · HEAL amount · quaff · pickup. Anchored above the potion hot-bar (screen-space via hud=1 flag). Damage stays in world (above player OR above enemy).
+const PFX = VW / 2, PFY = QSY - 6;                // VESTIGIAL anchor constants — callers still pass these to fly() for hud=1 popups, but fly() now IGNORES them and anchors player popups above the player's head instead (2026-09-08 Joey). Kept as harmless call-site args; the real anchor is pl.x+PW/2, pl.y-15 computed in fly().
 const ptrs = new Map();
 const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
 // ---------- floating joystick (movement, touch only) ----------
@@ -590,7 +590,7 @@ const seedFoes = () => [...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(
 let foes = seedFoes();
 
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, pot, hud) => flies.push({ x, y: y - (hud ? flies.filter(f => f.hud).length : 0) * 9, txt, c, pot, hud, t: 3 });   // ANTI-STACK (2026-09-08 Joey): HUD popups all spawn at the ONE feedback spot (PFX/PFY); firing 2+ in a frame drew them perfectly on top of each other = blurred text. Now each new HUD popup offsets UP 9px per already-live HUD popup → readable vertical column (newest nearest anchor), floats up together, resets as old ones prune. World popups (hud falsy = enemy damage) untouched — already spread by foe position.   // crit differentiator (`big` flag) REMOVED 09-08 — every popup is now IDENTICAL: uniform 8px font, 3s lifetime. Crit is signalled by the 2× damage NUMBER alone (Joey: seeing 20 where you expect 10 is enough). pot=1 → mini potion glyph; hud=1 → screen-space (HUD-anchored, not world).
+const fly = (x, y, txt, c, pot, hud) => flies.push({ x: hud ? pl.x + PW / 2 : x, y: (hud ? pl.y - 15 : y) - (hud ? flies.filter(f => f.hud).length : 0) * 9, txt, c, pot, hud, t: 3 });   // ABOVE-PLAYER POPUPS (2026-09-08 Joey): every hud=1 popup (XP · MP cost · heal · quaff · pickups incl. +BAG · damage-taken) now anchors CENTRED above the player's head, just above the HP bar (pl.x+PW/2, pl.y-15) — world-space, replacing the old fixed HUD hot-bar spot (PFX/PFY passed by callers are ignored for hud=1). ANTI-STACK kept: each new one offsets UP 9px per live hud popup → readable column when several fire in one frame. Enemy damage (hud falsy) stays over the foe with NO anti-stack — rare rapid-hit overlap is acceptable (Joey).   // crit differentiator (`big` flag) REMOVED 09-08 — every popup is now IDENTICAL: uniform 8px font, 3s lifetime. Crit is signalled by the 2× damage NUMBER alone (Joey: seeing 20 where you expect 10 is enough). pot=1 → mini potion glyph; hud=1 → screen-space (HUD-anchored, not world).
 // Unified particle spray — n bits burst radially. Kinds: default=mini rainbow (JUMPS) · sk=1=skull sprite (DEATHS).
 const spray = (x, y, n, sk = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 22 + Math.random() * 46; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 42, t: 1 + Math.random() * .5, sk, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump puff, big = victory burst). lifetime 1.0-1.5s UNCHANGED. Launch speed 22-68 (was 40-130) + pop -42 (was -65): TIGHTER burst — particles stay near origin (09-07) so a death reads as "died HERE", not a sprawl that looks like incoming spread.
 // Array cull — reverse iterate + splice. Default predicate = expired timer (t<=0);
@@ -719,6 +719,7 @@ let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes ONLY on boss-kill victory (0.4s); hs>0 also drives the title-style rainbow flourish in draw. Crit + hurt + rainbow-collect hitstops all retired — this branch services 1 event.
   if (paused) {                                    // character menu freezes sim; joystick does spatial (nearest-cell) nav (keyboard nav stays in the keydown handler)
+    time += dt;                                    // keep the UI clock running while paused so the +N stat/skill "spend me" pulse breathes in the menu (world sim stays frozen). Without this, time froze here and the menu badges rendered at a static alpha — the "no pulse" bug (2026-09-08 Joey).
     navCD -= dt;
     let dx = keys.has('bL') ? -1 : keys.has('bR') ? 1 : 0, dy = keys.has('bU') ? -1 : keys.has('bD') ? 1 : 0;   // stick → direction bits
     if (dx && dy) { if (Math.abs(joy.dx) >= Math.abs(joy.dy)) dy = 0; else dx = 0; }   // diagonal push → dominant axis only (predictable single-step)
@@ -861,7 +862,7 @@ const step = (dt) => {
     // (|dx|<230), so foes on lower cave shelves / platforms kept tracking you through the floor forever.
     // Now needs BOTH |dx|<200 AND |dy|<80 (5 tiles): a foe more than ~5 tiles above/below you disengages.
     // Bosses (f.bit) stay ungated — a hunting boss always knows where you are.
-    const near = f.bit || Math.abs(pl.x - f.x) < 200 && Math.abs(pl.y - f.y) < 80;
+    const near = f.bit || Math.abs(pl.x - f.x) < 170 && Math.abs(pl.y - f.y) < 64;
     // RANGED (cap 1) — gate the COUNTDOWN, not just the shot: bosses always in range, regular foes need `near`.
     if (f.cap & 1 && near) {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
@@ -1115,7 +1116,7 @@ const draw = () => {
       if (f.rc < .7) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // CHARGE TELL — static RED skull at foe center (matches the RED fbolt). undefined<.7 is false so no explicit guard needed. Appearance alone signals "about to fire". Wind-up .5→.7 (09-07) — longer tell = more dodge time.
     }
     ctx.restore();
-    if (f.hp < f.mx) bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');
+    bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');   // ENEMY floating HP bar — PERSISTENT (2026-09-08 Joey): always shown (full or damaged), was gated on f.hp<f.mx. bar() draws the dark track + green fill so a full bar reads clearly. Bosses (foes) get it too.
   }
   for (const s of shots) { ctx.lineWidth = 1; rArc(s.x, s.y, 5, .7); }   // magic bolt = rainbow arc projectile — r=5 (10px caliber, matches skull), bolder 1px bands (09-08)
   for (const b of fbolts) skull(b.x, b.y, 1.3, 1, '#ff5d6c');   // foe RANGED bolt = flying RED skull (danger colour), u=1.3 ≈ 9×10px caliber matching the r=5 rainbow (09-08). Tell skull stays .7 — grows on launch.
@@ -1138,7 +1139,7 @@ const draw = () => {
   drawUo(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
   col = bkc;
   ctx.restore();
-  if (hp < mHP()) bar(pl.x - 5, pl.y - 12, 20, 1, hp / mHP(), '#6cf279');   // PLAYER floating HP bar — SAME 20×1 size as foes (bar() convention), centred over the 10px body (pl.x-5), hovering higher at pl.y-12, damaged-only, world-space
+  bar(pl.x - 5, pl.y - 12, 20, 1, hp / mHP(), '#6cf279');   // PLAYER floating HP bar — SAME 20×1 size as foes (bar() convention), centred over the 10px body (pl.x-5), hovering higher at pl.y-12, world-space. PERSISTENT 2026-09-08 (Joey): always shown (was damaged-only) to match the enemy bars.
 
   // Item drops — pixel sprites, bob gently, fade IN at spawn (drops never despawn — cleared only on player death)
   for (const d of drops) {
@@ -1157,7 +1158,7 @@ const draw = () => {
   ctx.globalAlpha = 1; ctx.lineWidth = 1;
   for (const f of flies) {                                       // textAlign inherited 'center' from topHUD (last set each frame) — damage centres on origin; hud flies offset by cam to cancel world translate
     ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = 'bold 8px monospace';   // ALL popups uniform 8px (= HUD text) — no crit size differentiator; crit reads via its 2× number alone. String dedupes with every 'bold 8px monospace' site.
-    ctx.fillStyle = f.c; const fx = f.hud ? (f.x + cam.x) | 0 : f.x | 0, fy = f.hud ? (f.y + cam.y) | 0 : f.y | 0;
+    ctx.fillStyle = f.c; const fx = f.x | 0, fy = f.y | 0;   // ALL popups world-space now (2026-09-08 Joey): player popups anchor above the player's head in-world (set in fly), enemy damage over the foe — the old hud=screen-space cam-cancel is gone.
     ctx.fillText(f.txt, fx, fy);
     if (f.pot) pot(fx + 6, fy - 9, f.c, .7);   // mini potion glyph just right of the centred "+1"
   }
@@ -1185,7 +1186,7 @@ const draw = () => {
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 13px pending hint above (if it fired)
     EQ.forEach(([s, ex, ey]) => {
-      ctx.fillStyle = eq[s] ? 'rgba(136,204,255,.14)' : '#2a2a33'; ctx.fillRect(ex, ey, 24, 24);   // equipped slot = blue ACTIONABLE fill (matches inventory + skill-tree schema, 09-08) · empty = inert dark #2a2a33 so an empty slot reads clearly vacant
+      ctx.fillStyle = 'rgba(136,204,255,.14)'; ctx.fillRect(ex, ey, 24, 24);   // ALL equipment slots = blue ACTIONABLE fill, empty OR filled (2026-09-08 Joey: every slot always reads usable — one consistent panel; was empty=inert dark #2a2a33)
       const wOn = aRow === EB + s;
       ctx.strokeStyle = wOn ? '#ffd75e' : '#555'; ctx.lineWidth = wOn ? 1 : .5; ctx.strokeRect(ex, ey, 24, 24);   // Fix B (09-08): GOLD cursor drawn on the SAME rect (single border, no double outline); grey passive otherwise. Gold = the one persistent selection colour menu-wide.
       if (eq[s]) drawPart(s, ex + 6, ey + 2, eq[s].c, 2);     // gear icon @2× — y+2 (was +4): nudged 2px UP so top margin tightens (4→2) and bottom margin opens (2→4), giving "+N" stat text at ey+22 double the breathing room.
@@ -1199,12 +1200,12 @@ const draw = () => {
       const sx = 69 + i * 26, sel = i === aRow;
       if (sel) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23); }   // GOLD cursor (Fix B) — one persistent selection colour across the whole menu
       ctx.fillStyle = c; T2(l, sx + 9, 154);
-      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (sel && pending) T2('+', sx + 18, 165);   // number always in its SC stat colour; same-colour "+" right of the number on the SELECTED stat only when points pending = "confirm to raise THIS". Replaces the old gold-number cue.
+      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (sel && pending) { ctx.font = 'bold 9px monospace'; T2('+', sx + 17, 165); ctx.font = 'bold 8px monospace'; }   // number always in its SC stat colour; same-colour "+" on the SELECTED stat when points pending = "confirm to raise THIS". 2026-09-08 (Joey): 10px (was 8→11 overlapped) centered at sx+18 — the larger glyph's left edge still hugs the number while the center sits inside the 25px cell (right ink ~sx+20.5 < box sx+22), no overlap.
     });
     // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots). Click to select, click again to equip. Grid shifted UP 12px + RIGHT 12px (2026-09-06) so bottom row clears the joystick visual (x=22-50, y=222-250) with edge-touching, no overlap.
     for (let i = 0; i < BAG; i++) {
       const ix = 62 + (i % 5) * 28, iy = 172 + ((i / 5) | 0) * 28, it = inv[i];
-      ctx.fillStyle = it ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)';   // filled slot = blue ACTIONABLE fill (holds gear you can equip) · empty = faint. Matches skill-tree available/purchased fill (09-08 universal schema).
+      ctx.fillStyle = 'rgba(136,204,255,.14)';   // ALL inventory slots = blue ACTIONABLE fill, empty OR filled (2026-09-08 Joey: consistent usable panel; was empty=faint white rgba(255,255,255,.05))
       ctx.fillRect(ix, iy, 24, 24);
       ctx.strokeStyle = i === aRow - 5 ? '#ffd75e' : '#555';
       ctx.lineWidth = i === aRow - 5 ? 1 : .5; ctx.strokeRect(ix, iy, 24, 24);   // unified border — GOLD cursor when selected (Fix B, same rect), passive grey otherwise
@@ -1306,13 +1307,11 @@ const draw = () => {
   if (started) {
     topHUD();
     const qslot = (x, t) => {
-      const n = t ? mpPot : hpPot, help = t ? mn < mMN() : hp < mHP(), usable = n > 0 && help;   // usable = HAVE a potion AND drinking would restore something (mirrors the quaff() gate exactly). Not usable at full vitals even when stocked.
-      ctx.globalAlpha = usable ? 1 : n ? .6 : .3;                                    // 3-STATE (09-08, matches action buttons): usable=full · have-but-vitals-full=.6 · empty=.3
-      ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, QSY, QSZ, QSZ);          // dark disc — same fill as the action buttons
-      ctx.strokeStyle = usable ? '#8cf' : n ? '#fff' : '#555'; ctx.lineWidth = 2; ctx.strokeRect(x, QSY, QSZ, QSZ);   // BLUE = usable now · WHITE = have potions but vitals full (matches skill-tree "available" + action-button "owned/no-MP") · GREY = empty
-      ctx.globalAlpha = 1;
-      pot(x + 6, QSY + 6, t ? '#4a76ff' : '#6cf279');                                 // potion glyph at full alpha → always solid + crisp (body/cork/outline in pot()), never see-through even when the box is dimmed
-      ctx.fillStyle = n ? '#fff' : '#888'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);   // count = white when stocked, grey when empty. Blue-at-MAX dropped 09-08 — blue is reserved for the usable STATE, not a quantity tier (the number itself shows how many).
+      const n = t ? mpPot : hpPot;
+      ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, QSY, QSZ, QSZ);           // dark panel — SAME background as the action buttons (2026-09-08 Joey) so the count reads with contrast over the bright world; blue outline + state-carrying number replace the old 3-state alpha/outline
+      ctx.strokeStyle = '#8cf'; ctx.lineWidth = 2; ctx.strokeRect(x, QSY, QSZ, QSZ);  // always-blue outline (no state colours)
+      pot(x + 6, QSY + 6, t ? '#4a76ff' : '#6cf279');                                 // potion glyph — solid/crisp regardless of the panel
+      ctx.fillStyle = n > 4 ? '#8cf' : '#fff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, QSY + QSZ - 2);   // COUNT is the only state (2026-09-08 Joey): BLUE at MAX (5), WHITE otherwise incl. empty 0 — no grey state
     };
     qslot(QHX, 0); qslot(QMX, 1);
     if (time < luT) { ctx.globalAlpha = Math.min(1, (luT - time) * 3); rText('LEVEL UP', 48); ctx.globalAlpha = 1; }   // LEVEL UP banner — renders over menu (auto-pause opens char sheet on level)
@@ -1347,9 +1346,8 @@ const draw = () => {
       ctx.fillStyle = '#8cf'; T2('CONTINUE', VW / 2 + 55, 258);
     }
   }
-  // TITLE SCREEN — world scene renders behind, scrim dims it, title art on top
+  // TITLE SCREEN — world scene renders behind, title art on top (scrim REMOVED 2026-09-08 Joey: the .34 black dim muted the vibrant meadow colors; the rainbow arch + rText title carry their own black outlines, so they stay legible on the bright scene without it)
   if (!phase) {
-    fade(.34);
     ctx.strokeStyle = '#17131f'; ctx.lineWidth = 23; ctx.beginPath(); ctx.arc(VW / 2, 130, 69, Math.PI, 0); ctx.stroke();   // black frame behind the rainbow (1px rim each side) — matches the sprite outline grammar
     ctx.lineWidth = 3;
     rArc(VW / 2, 130, 78, 3);

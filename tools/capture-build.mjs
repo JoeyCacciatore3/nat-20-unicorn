@@ -41,7 +41,7 @@ const HOOK = ';try{window.__G={'
   // power(): level up, unlock the full verb kit, equip one gear per slot (real equip()),
   // leave 2 unspent points so the blue "+N" pulse shows in the menu shot. Authentic state.
   + 'power:()=>{lvl=12;st=[14,20,16,12,10];su.fill(0);[0,1,2,4,5,6,7,8].forEach(i=>su[i]=1);'
-  + 'spts=2;pending=2;eq[0]=eq[1]=eq[2]=eq[3]=null;inv.length=0;'
+  + 'spts=2;pending=2;hpPot=5;mpPot=3;eq[0]=eq[1]=eq[2]=eq[3]=null;inv.length=0;'
   + '[{t:0,s:0,c:9,b:6},{t:0,s:1,c:13,b:6},{t:0,s:2,c:4,b:6},{t:0,s:3,c:11,b:5}].forEach(g=>equip(g));'
   + 'hp=mHP();mn=mMN();}'
   + '}}catch(e){console.warn("hook fail",e)}\n';

@@ -122,13 +122,13 @@ const MEADOW = {
 
   bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59], [30, 55], [105, 55]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 shifted out of spike pits. x=30 PEAK basement + x=105 CANOPY lower-level added 2026-09-06 for zone-parity (1+ bounce per surface zone) — placed in flat combat areas so they don't trivialize the vertical climb identities of their zones.
   bosses: [                              // 7 CORN bosses spread across zones (09-08); 3rd field bi picks the rainbow band + palette
-    [182, 58, 0],   // RED    — MEADOW CENTER open flat (x173-195, w23). 2026-09-08 spread: was x260 far-edge → centered to fill meadow dead space, first boss east of spawn
+    [258, 58, 0],   // RED    — MEADOW EAST flat past the spike moat (x251 = "last committed jump" gate). 2026-09-08 REVERT: the earlier x260→182 "fill dead space" pass made RED a blind LV1 first boss 56 tiles off spawn; moved back east to 258 for a proper ~133-tile warm-up (fight the x180-248 foe line + cross the moat before the fight). Still in MEADOW palette.
     [372, 58, 1],   // ORANGE — EAST-RUN CENTER giant flat (x368-439, w72). 2026-09-08 spread: was x461 far-perch → centered onto the big empty savanna run
     [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier) — west mountain anchor
     [18, 11, 3],    // BLUE   — peak ledge east edge (DJ-tier) — far-left-top bookend
     [35, 68, 4],    // VIOLET — depths corridor west (the one underground boss; deep cavern terrain + chest 9 kept, just no boss there now)
     [570, 32, 5],   // GREEN  — east summit (E3 ascent climax) — far-right-top bookend
-    [24, 58, 6],    // INDIGO — WHITE BASEMENT snowy flat (x16-51, w36). 2026-09-08 spread: was x70 deep cavern → lifted to fill the flagged white walk-level zone, ends underground redundancy w/ VIOLET
+    [68, 80, 6],    // INDIGO — deep CAVERN chamber floor (x60-82, y81 floor; among chest 9 @ x76 + the cavern fill-foes @ y81). 2026-09-08 REVERT: the "lift to white basement" pass put INDIGO on the SURFACE inside the PEAK/blue band (→ 2 bosses in PEAK, cavern boss-free, palette mismatch). Restored to the cavern so all 7 palette zones hold exactly ONE boss in its matching palette (Joey 2026-09-08). Reachable via depths corridor + drop hole @ x62.
   ],
   chests: [
     [181, 68.3],    // 0 — descent corridor west (base tier discovery)
