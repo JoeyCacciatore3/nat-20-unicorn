@@ -643,7 +643,7 @@ const iDash = (x, y, n) => { iCorn(x, y);
 // U-silhouette = horseshoe (beats front-facing boot pair), shell-plate armor. Gold px = class signal; outline+gold stay fixed under tint.
 // ALL 4 sprites redesigned 09-08 (Joey, grid-driven): flat single-tint fields framed in black outline, minimal/no shade — see per-row strings (source of truth).
 const GEAR = [
-  ['........','00000000','01111110','01111110','01000100','010.010.','000.000.','........'],              // 0 BODY armor (09-08 redesign): SHELL plate — black top border (row1) + solid tint body (rows2-3), then two tint legs (col1 & col5) with black-filled center + notches (rows4-6). Flat single tint, black outline only.
+  ['.........','.....0000','000000110','011111110','011111100','01000100.','010.010..','000.000..','.........'],   // 0 BODY armor (2026-09-09 redesign, 9×9): reads as a little horse/pony silhouette — raised head/neck block upper-right (r2-r4 c6/c7 tint under an r1 black cap), solid tint body (r3-r4), two tint legs (col1 & col5) with black-filled center + notches (r5-r7). Flat single tint, black outline only. Odd width → drawPart (w&1)*.5 centers it.
   ['........','..0000..','.001100.','.011110.','00111100','01111110','01011010','00000000'],              // 1 CAPE (09-08 redesign): SOLID flat tint — no shade/highlight. Row0 empty, row1 = 4-wide black collar cap, body widens 2→4→6 downward, row6 has jagged black bites, row7 = full-width black hem. Black borders frame one clean tint field = reads as a hooded cape.
   ['...000...','...010...','..01110..','..01110..','..01110..','.0011100.','.0444440.','.0004000.','...000...'],   // 2 HORN BLADE/sword (09-08 redesign): 9×9. Black-capped tip (row0), solid tint blade (rows1-5), 7-wide gold crossguard framed black (rows5-6), gold grip stud at center (row7), black pommel base (row8). Symmetric.
   ['0000.0000','0440.0440','0100.0010','010...010','010...010','010...010','010000010','011111110','000000000'],  // 3 HORSESHOE/hooves (09-08 redesign): 9×9 slender hollow U. 2-wide gold nail-caps (row1), single-column tint sides (cols1 & 7), open 3-wide interior channel (cols3-5, rows3-5), full black outline enclosing the whole silhouette + sole (row8).
@@ -672,7 +672,7 @@ const strike = (f, mag) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
-    spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(Math.min(f.k, 3) * 4 + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP: kind-capped base + boss escalation. (crit XP bonus REMOVED 09-08 — imperceptible: player can't correlate a random +4 to a crit kill; pure waste.)
+    spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(FT[f.k][0] + FT[f.k][1] + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP = DIFFICULTY-PROPORTIONAL (2026-09-09 Joey): base HP + base DM from FT[k] (k1=7/k2=12/k3=17/k4=8/k5=10/k6=13) — was `min(k,3)*4` which paid on the KIND INDEX (capped 3), so light fast k4 (5HP) earned the same 12 as tanky k3 (12HP). Now XP tracks toughness+threat. Boss (k:3) base 17 + escalation → 54+6·bi. World total ≈1095 XP → first-clear ~LV12–13 (skill tree done LV11 + buffer preserved). (crit XP bonus REMOVED 09-08.)
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK (2026-09-08 Joey): rainbow collectible RETIRED. Killing the boss banks it directly (bs→2). Old flow was kill→bs=1→drop rainbow→walk over→bs=2; that removed the drop object, its ground-render, and the collect branch, collapsed bs=1 to a single meaning ("active on screen"), and — via the save() here — FIXED the old gap where collecting never persisted (progress could evaporate on browser-close). Boss is pruned frame-end by prune(foes, e=>e.dead); other foes never auto-clear.
       bs[f.bi] = 2; hs = 1.5; spray(f.x, f.y, 18); fanfare(); save();   // VICTORY BEAT: 1.5s hitstop (2026-09-09 Joey — was 0.4s; longer celebration now that auto-pause no longer covers it. hs is set ONLY here → hs>0 = boss-win, which also drives the title-style rainbow flourish in draw) + heavy 18-particle rainbow burst + fanfare + AUTOSAVE.
@@ -894,6 +894,7 @@ const step = (dt) => {
     }
     }   // end HIT-STUN GUARD (f.fl <= 0)
 
+    f.gr = 0;   // per-frame ground reset (2026-09-09 Joey): mirrors the player (L776) so gr reflects TRUE airborne state — a foe/boss that FALLS off a ledge (not just hops) now stretches instead of staying stale-squashed. Landing below re-sets gr=1 the same frame; grounded foes re-land every frame so gr stays 1 (wall-turn/hop-gate intact).
     f.vy = Math.min(400, (f.vy || 0) + 900 * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
     if (f.vy > 0 && tile((f.x + fs / 2) / T | 0, ty) % 3) {   // %3 standable (solid/platform) — same idiom as chase/hop/edge gates; rest feet on tile top
@@ -951,6 +952,8 @@ const step = (dt) => {
 
 // ---------- render ----------
 const cam = { x: 0, y: 0 };
+// UNIVERSAL squash/stretch juice (2026-09-09 Joey): grounded = SQUASH (1.15 wide × 0.85 tall), airborne = STRETCH (0.85 wide × 1.18 tall). Called AFTER the feet-pivot translate+facing-flip and BEFORE the -fs/-PH translate, so it deforms upward from planted feet. Shared by every foe, every DARKCORN boss (applied before the boss branch), and the player — one knob, one look. Was k5-only at 1.12/.86.
+const sq = g => ctx.scale(g ? 1.15 : .85, g ? .85 : 1.18);
 const draw = () => {
   SS = Math.min(cv.width / VW, cv.height / VH);
   SOX = (cv.width - VW * SS) / 2; SOY = (cv.height - VH * SS) / 2;
@@ -1012,10 +1015,15 @@ const draw = () => {
   // JUMP-near-chest opens (JUMP is always usable; stand on a chest / by GREATCORN and press JUMP).
   for (const c of chests) {
     if (oc & (1 << c.i)) continue;                          // claimed → gone forever (persisted in oc)
+    ctx.fillStyle = '#000';                                 // BLACK SILHOUETTE OUTLINE (2026-09-09 Joey): 1px-larger dark rect behind the whole chest — same "bigger dark shape behind" method as foe oR / potion / unicorn, so the chest reads on any terrain and matches the world sprite theme. body+lid form a contiguous 12×10 block, so one 14×12 rect outlines the full silhouette.
+    ctx.fillRect(c.x - 7, c.y - 6, 14, 12);
     ctx.fillStyle = '#6b4a2b';                              // dark oak base
     ctx.fillRect(c.x - 6, c.y - 2, 12, 7);                  // body
     ctx.fillStyle = '#8a6a3a';                              // lighter oak lid
     ctx.fillRect(c.x - 6, c.y - 5, 12, 3);                  // lid down (closed)
+    ctx.fillStyle = '#000';                                 // INNER BLACK DETAIL (2026-09-09 Joey): thin seam at the lid/body colour-change + a 1px outline around the gold latch — matches the world sprite theme (dark lines defining shape) and makes the closed-lid read clearer.
+    ctx.fillRect(c.x - 6, c.y - 2, 12, 1);                  // seam: 1px black divider where the lighter lid meets the darker body
+    ctx.fillRect(c.x - 2, c.y - 2, 4, 5);                   // latch outline: black rect 1px larger than the gold, drawn behind it
     ctx.fillStyle = '#ffd75e';                              // gold latch/band
     ctx.fillRect(c.x - 1, c.y - 1, 2, 3);
   }
@@ -1065,7 +1073,7 @@ const draw = () => {
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
     ctx.scale((f.vx || 1) < 0 ? -1 : 1, 1);
-    if (f.k == 5) ctx.scale(f.gr ? 1.12 : .86, f.gr ? .85 : 1.18);  // k5 walker-hop squash/stretch — pivot at feet
+    sq(f.gr);  // universal squash/stretch (2026-09-09 Joey): was k5-only — now EVERY foe + DARKCORN boss (scale composes before the boss branch) gets the feet-pivot juice
     ctx.translate(-fs / 2, -fs);
     const pd = Math.sign(pl.x - f.x) * ((f.vx || 1) < 0 ? -1 : 1);   // pupil-track offset (flip-aware) — ONE source, shared by the DARKCORN eye + every enemy eye
     if (f.bit) {                                                // DARKCORN — unchanged (renders via drawU with colour swap)
@@ -1092,8 +1100,8 @@ const draw = () => {
         oR(-s * .8, s * 2.7, s * .8, s * .3); oR(-s * .5, s * 3.3, s * .7, s * .3);   // 2 swept speed lines (behind, into the run)
         eye(fs * .8, s * 2.9);
       } else if (f.k == 5) {                                    // k5 walker-hop — tall body + 2 CHUNKY legs (squash/stretch preserved) — fully symmetric around fs/2
-        oR(s * .7, fs - s * 1.3, s * 1.3, s * 1.3);            // chunky left leg (mirror of right)
-        oR(fs - s * 2, fs - s * 1.3, s * 1.3, s * 1.3);        // chunky right leg
+        oR(s * .7, fs - s * 1.3 + step, s * 1.3, s * 1.3);     // chunky left leg + step (2026-09-09 Joey: now pumps like k1/k4 — was static)
+        oR(fs - s * 2, fs - s * 1.3 - step, s * 1.3, s * 1.3); // chunky right leg - step (alternating phase)
         oR(s * .5, s * .4 + wob * .3, fs - s, s * 3.4);        // tall body
         eye(fs / 2, s * 1.6 + wob * .3);                       // eye centered
       } else if (f.k == 2) {                                    // k2 floater-tent — dome + 3 tendrils, all centered on fs/2 (middle tendril sits on midline)
@@ -1104,11 +1112,12 @@ const draw = () => {
         oR(s * .3, s * .5 + flt, fs - s * .6, s * 2);          // dome body — centered
         eye(fs / 2, s * 1.4 + flt);
       } else if (f.k == 6) {                                    // k6 floater-spike — dome + 4 upright spikes, symmetric around fs/2 (pair-mirrored)
-        for (let i = 0; i < 4; i++) oR(fs / 2 - s * 2 + i * s * 1.2, flt - s * .3, s * .4, s * .9);   // 4 spikes: pair-mirrored around midline (i=0,3 outer; i=1,2 inner)
+        for (let i = 0; i < 4; i++) oR(fs / 2 - s * 2 + i * s * 1.2, flt - s * .3 + (i & 1 ? step : -step), s * .4, s * .9);   // 4 spikes ("upside-down legs") — adjacent-opposite pump (2026-09-09 Joey: was static). i=0,3 outer; i=1,2 inner
         oR(s * .3, s * .8 + flt, fs - s * .6, s * 2.3);        // dome body — centered
         eye(fs / 2, s * 1.8 + flt);
       } else {                                                  // k3 caster — hood peak + robe body + universal eye — fully symmetric around fs/2
-        oR(s * .3, s * 2.8, fs - s * .6, s * 1.4);             // lower robe (wider = shoulder line)
+        oR(fs / 2 - s * 1.4, fs - s * .9 + step, s * .5, s * .9); oR(fs / 2 + s * .9, fs - s * .9 - step, s * .5, s * .9);   // 2 legs under the robe hem (2026-09-09 Joey: k3 was the only legless foe) — k1 leg dims, alternating pump
+        oR(s * .3, s * 2.8, fs - s * .6, s * 1.4);             // lower robe (wider = shoulder line) — drawn AFTER legs so the hem overlaps the leg tops
         oR(s * .5, s * 1.5, fs - s, s * 1.6);                  // upper robe
         oR(s * 1, wob * .3, fs - s * 2, s * 1.7);              // hood peak (taller for eye clearance)
         eye(fs / 2, s * .8 + wob * .3);                        // eye peers from hood shadow — universal round eye
@@ -1135,7 +1144,7 @@ const draw = () => {
 
   // unicorn — always visible. Player flash (hf) is the invuln signal: red=hurt · green=heal · blue=dash. Colour = hfc PAL index, strobed. pl.inv (stomp/respawn) is silent. Any active hf OR pl.inv = immune to all damage (physical + projectile).
   ctx.save();
-  ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
+  ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); sq(pl.gr); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged. sq(pl.gr) = universal squash/stretch juice (composes with NSC + face flip)
   ed = .7;                                                       // player pupil looks FORWARD (Option A) — constant in local space; pl.face flip aims it the way you move.
   const bkc = col; if (hf > 0 && (hf * 6 | 0) & 1) col = [hfc, hfc, hfc, hfc]; else if (hp < mHP() * .2 && (time * 6 | 0) & 1) col = [4, 4, 4, 4];   // LOW-HP CUE (<20%): persistent red 6Hz strobe via global `time` — PURELY visual, NO invuln/hitstop (never touches hf/pl.inv). Yields to the hf invuln strobe when hurt.   // invuln STROBE — ~6 Hz toggle = 3 clear on/off blinks per second (deliberately slow enough to READ as a flash, not flicker). Starts tint-ON at impact for hf=IFR 1.5 (hurt/heal) AND hf=.5 (dash). hfc PAL: 4=red hurt · 14=green heal · 11=white dash. Invuln itself is continuous (hf>0) regardless of blink phase.
   drawUo(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
