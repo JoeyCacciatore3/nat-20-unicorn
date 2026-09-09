@@ -1,4 +1,6 @@
-# Wavedash store-page update — STAGED, ready to paste (refreshed 2026-09-08 batch 14)
+# Wavedash store-page update — STAGED, ready to paste
+
+> ⚠️ **CURRENCY (2026-09-09):** SHIPPED = **batch 22** (13,088 B, build `mn77crn7f7tcpbq95yk62ksp798e3ssd`), **batch 23** staged. Playtest slug is now **`hoovesofhope`** (the old `nat-20-unicorn` slug is retired). The DESCRIPTION/TAGS copy below is still broadly accurate (7 bosses, RPG, one world) but the detailed facts date to batch 14 — re-verify against `src/*.js` + the Definitive State entry before pasting. SCREENSHOTS section is stale: fresh 1920×1080 stills are staged in `design/screenshots/_new/` (title, menu, combat_red); trailer not yet produced.
 
 **Live deploy:** batch-14 build (**13,076 B**, 236 B free). Source == git `main` == Wavedash live — **ALIGNED** (Release Ritual atomic push). Current Wavedash build id is captured in the Definitive State knowledge entry (updated per push) — pull it from there or from the last `wavedash build push` output.
 **Play URL:** rotates per deploy — grab the latest from `wavedash build push` output or Developer Portal.

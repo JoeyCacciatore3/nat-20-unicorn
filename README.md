@@ -143,7 +143,7 @@ npm run build    # map-audit → tpos-check → esbuild → terser → roadrolle
 ```
 Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
 
-**Current: 13,076 / 13,312 B (98.2%) — 236 B free** (batch 14, 2026-09-08; see `SIZELOG.md` for the live-updated tail)
+**Current: 13,138 / 13,312 B (98.7%) — 174 B free** (batch 23 staged, 2026-09-09; shipped = batch 22 @ 13,088 B. See `SIZELOG.md` for the live-updated tail and the Definitive State knowledge entry for the authoritative current snapshot.)
 
 ## Save format
 Keys: `localStorage.uni_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.

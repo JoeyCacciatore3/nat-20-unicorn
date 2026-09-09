@@ -1,6 +1,8 @@
 # Submission Kit — UNICORN, Hooves of Hope
 
-Copy is paste-ready. **All facts below re-verified against source (`src/*.js`) on 2026-09-08 (batch 14).**
+Copy is paste-ready.
+
+> ⚠️ **CURRENCY (2026-09-09):** SHIPPED state is **batch 22** (13,088 B), with **batch 23** staged (map audit + dialogue-bubble raise). The **detailed game facts below were last verified at batch 14** and are now ~8 batches stale — notably the **dialogue script** (fully overhauled in b21), **boss positions** (RED→meadow far-edge, INDIGO→cavern; one boss per zone in b22), **HUD/colour schema** (b16-22), and **save key `uni_s0`** (b21 rename). For the authoritative current state see the **Definitive State** knowledge entry. Re-verify every fact against `src/*.js` before final submission.
 
 **State snapshot (2026-09-08 batch 14):** build **13,076 / 13,312 B (236 B free, 98.2%)**. Batch 14 = character-menu polish: equipment + inventory sprites nudged 2 px UP inside their 24-px cells so the "+N" stat text at the bottom gets double the breathing room. Zero gameplay impact, byte-neutral, cosmetic only. Save **v44**. World **600×160**, one contiguous world — **7 zones** (5 surface + 2 underground, each with a unique 5-color palette — no cross-zone overlap except deliberate PEAK/SUMMIT storm-sky pair), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**, **56 regular foes**, **all suspended platforms are one-way (v=2)** — uniform thickness, DOWN-jump drops through anywhere. **LUCK now compounds across three payoffs** (drop chance + crit + gear tier). GitHub `main` == code == Wavedash live — **aligned** (Release Ritual atomic push). Wavedash build id updated per push — pin lives in the Definitive State knowledge entry. Play URL rotates per deploy — get the current one from `wavedash build push` output, or the Developer Portal.
 

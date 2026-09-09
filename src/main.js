@@ -280,7 +280,7 @@ setInterval(() => {
 let st = [1, 1, 1, 1, 1];       // 5 base stats indexed [0]STR [1]HP [2]MAG [3]DEF [4]LCK — one array (not 5 named vars) so equip/level/save all dispatch by index, no if-else. Each starts at 1 (no dead stats).
 // Unicorn part colors — one palette index per body part (0=BODY, 1=MANE, 2=HORN, 3=HOOVES).
 // Equipping slot s writes col[s], which drives drawU's fill colors.
-let col = [0, 0, 0, 0];
+let col = [0, 0, 0, 0], ed = .7;                  // ed = shared Watching-Family eye pupil x-offset (drawU). Default .7 = look-forward (player/portrait/icons); GREATCORN + DARKCORN override per-draw to track the player.
 // EQUIPMENT — 4 equipped slots + inventory bag. Items = {t:type, s:slot, c:color, b:bonus}.
 // Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF). Bonus 0=cosmetic.
 const eq = [null, null, null, null];
@@ -374,7 +374,7 @@ const drawU = (bob, h) => {   // h=1 → skip the horn (used by the outline pass
   ctx.fillRect(-2, 6, 2, 4); ctx.fillRect(-3, 9, 2, 2);                                              // TAIL — 2-segment: base + half-height sweep down-left
   if (!h) { ctx.fillStyle = PAL[col[2]]; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(14, -5); ctx.lineTo(12, 1); ctx.fill(); } // horn (skipped in the outline body pass)
   mane3(col[1]).forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(5 - i * 2, 1 + i * 2, 2, 4); });// mane 3-color
-  ctx.fillStyle = '#333'; ctx.fillRect(10, 2, 1.5, 1.5);                                            // eye
+  if (!h) { ctx.fillStyle = '#fff'; ctx.fillRect(9.3, 1.5, 2.4, 2.4); ctx.fillStyle = '#000'; ctx.fillRect(9.9 + ed, 2.1, 1.2, 1.2); }   // eye — shared Watching-Family white sclera + tracking pupil (ed = pupil offset). Gated !h → MAIN pass only (the 4 outline offsets would smear the white). DARKCORN + player + GREATCORN all inherit this via drawU.
   // Equipment does NOT modify the visible sprite beyond the per-slot color (col[]).
   // Equipment folds bonuses directly into base stats via equip() (Joey directive 2026-09-03).
 };
@@ -1071,8 +1071,8 @@ const draw = () => {
     if (f.bit) {                                                // DARKCORN — unchanged (renders via drawU with colour swap)
       const bd = 12, hn = RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);
+      ed = pd * .7;                                            // DARKCORN pupil tracks the player (drawU draws the eye now — line ~1075 duplicate removed 2026-09-09; the boss inherits the shared Watching-Family eye via drawU).
       const bc = col; col = f.fl > 0 && (f.fl * 6 | 0) & 1 ? [4, 4, 4, 4] : [bd, hn, hn, bd]; drawUo(Math.sin(f.t) * 3); col = bc;   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red (mirrors player's hf/hfc strobe at line ~1130). Boss goes fully red on flash-on frames, back to dark-body+band-horn on flash-off.
-      ctx.fillStyle = '#fff'; ctx.fillRect(9.3, 1.5, 2.4, 2.4); ctx.fillStyle = '#000'; ctx.fillRect(9.9 + pd * .7, 2.1, 1.2, 1.2);   // enemy-style tracking eyeball (DARKCORN only): white + black pupil — near-black body (PAL[12]) doubles as outline, so 2 rects. Player/GC keep drawU's plain eye.
     } else {
       const bod = f.fl > 0 && (f.fl * 6 | 0) & 1 ? PAL[4] : PAL[FOECOL[f.k]];   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red. Every oR() call below inherits `bod`, so the whole silhouette (body + head + legs + tendrils + spikes) flips red in sync. RED charge-tell skull (line ~1108) is drawn on top — during flash-off frames it reads sharp against normal body; during flash-on frames it merges with red body but the skull's dark eye/nose/teeth pixels (#161210) stay readable, and the 6 Hz strobe means it re-emerges 6×/sec.
       const oR = (x, y, w, h) => { ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = bod; ctx.fillRect(x, y, w, h); };
@@ -1127,6 +1127,7 @@ const draw = () => {
       ctx.save();
     ctx.translate(NX, NGY); ctx.scale(-NSC, NSC); ctx.translate(-PW / 2, -PH);
     const bc = col; col = NPCCOL;
+    ed = Math.sign(pl.x - NX) * -.7;                             // GREATCORN pupil tracks the player (flip-aware: he faces left via scale -NSC, so ×-1) — the watchful-guide look, mirroring how enemies eye you.
     drawUo(Math.sin(time * 2));
     col = bc;
     ctx.restore();
@@ -1135,6 +1136,7 @@ const draw = () => {
   // unicorn — always visible. Player flash (hf) is the invuln signal: red=hurt · green=heal · blue=dash. Colour = hfc PAL index, strobed. pl.inv (stomp/respawn) is silent. Any active hf OR pl.inv = immune to all damage (physical + projectile).
   ctx.save();
   ctx.translate(pl.x + PW / 2, pl.y + PH); ctx.scale(pl.face * NSC, NSC); ctx.translate(-PW / 2, -PH);   // draw at NSC to match GREATCORN + DARKCORN; feet stay planted (pivot = feet-center), collision box unchanged
+  ed = .7;                                                       // player pupil looks FORWARD (Option A) — constant in local space; pl.face flip aims it the way you move.
   const bkc = col; if (hf > 0 && (hf * 6 | 0) & 1) col = [hfc, hfc, hfc, hfc]; else if (hp < mHP() * .2 && (time * 6 | 0) & 1) col = [4, 4, 4, 4];   // LOW-HP CUE (<20%): persistent red 6Hz strobe via global `time` — PURELY visual, NO invuln/hitstop (never touches hf/pl.inv). Yields to the hf invuln strobe when hurt.   // invuln STROBE — ~6 Hz toggle = 3 clear on/off blinks per second (deliberately slow enough to READ as a flash, not flicker). Starts tint-ON at impact for hf=IFR 1.5 (hurt/heal) AND hf=.5 (dash). hfc PAL: 4=red hurt · 14=green heal · 11=white dash. Invuln itself is continuous (hf>0) regardless of blink phase.
   drawUo(pl.gr && Math.abs(pl.vx) > 20 ? Math.sin(pl.t * 16) * 3 : (pl.gr ? 0 : 2));
   col = bkc;
@@ -1163,8 +1165,8 @@ const draw = () => {
     if (f.pot) pot(fx + 6, fy - 9, f.c, .7);   // mini potion glyph just right of the centred "+1"
   }
   ctx.globalAlpha = 1;
-  if (dq && started) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 4 : NGY - 26, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREATCORN; hidden on title
-  else if (nearNpc && started) bubble(NX, NGY - 26, '...', 18);   // TALK-AVAILABLE indicator (2026-09-08 Joey): in GREATCORN range + not mid-dialogue → a small chat bubble (SAME bubble() style, width 18) with a '...' speech glyph pops above his head, mirroring the ✓ interact prompt on the action button. Shares the NPC dialogue anchor (NGY-26) so the real bubble seamlessly replaces it on talk. '...' reuses intro text = free.
+  if (dq && started) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 9 : NGY - 31, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREATCORN; hidden on title. Anchors raised ~5px (2026-09-08 Joey: pl.y-4→-9, NGY-26→-31) for more head clearance.
+  else if (nearNpc && started) bubble(NX, NGY - 31, '...', 18);   // TALK-AVAILABLE indicator (2026-09-08 Joey): in GREATCORN range + not mid-dialogue → a small chat bubble (SAME bubble() style, width 18) with a '...' speech glyph pops above his head, mirroring the ✓ interact prompt on the action button. Shares the NPC dialogue anchor (NGY-31, raised ~5px w/ the dialogue bubbles) so the real bubble seamlessly replaces it on talk. '...' reuses intro text = free.
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
   if (hs > 0) { ctx.globalAlpha = Math.min(1, hs * 4); ctx.lineWidth = 2; rArc(VW / 2, 150, 90, 3.5); ctx.globalAlpha = 1; }   // BOSS-WIN FLOURISH (2026-09-08 Joey): while the victory hitstop holds (hs>0, set ONLY on boss kill), draw the big title-style rainbow arch — the SAME rArc as the title screen (line ~1370), centred on screen — as the "you claimed this rainbow" moment. Screen-space (after the world translate undo). Alpha fades out with hs.
 

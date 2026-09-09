@@ -40,6 +40,7 @@ const MEADOW = {
     [205, 56, 4, 1, 2], [212, 54, 4, 1, 2], [220, 57, 6, 1, 2],
     [240, 56, 4, 1, 2], [247, 54, 4, 1, 2],
     [210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route
+    [226, 53, 4, 1, 2], [234, 51, 4, 1, 2], [242, 53, 4, 1, 2],   // MEADOW east DJ extension (2026-09-08 Joey audit): lift meadow platform density (was zone-lowest 95/100col) toward the ~130 avg — a 3-step route over the RED-approach flat
     [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4],
     [274, 58, 3, 1, 2],
     // Central→East transition (x=280-287) — DJ climb bridging the flat zone
@@ -120,7 +121,7 @@ const MEADOW = {
     [580, 56, 6, 1, 2], [588, 53, 5, 1, 2], [582, 50, 4, 1, 2],   // stepped shelves climbing into the corner
   ],
 
-  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59], [30, 55], [105, 55]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 shifted out of spike pits. x=30 PEAK basement + x=105 CANOPY lower-level added 2026-09-06 for zone-parity (1+ bounce per surface zone) — placed in flat combat areas so they don't trivialize the vertical climb identities of their zones.
+  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59], [30, 55], [105, 55], [17, 58]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 shifted out of spike pits. x=30 PEAK basement + x=105 CANOPY lower-level added 2026-09-06 for zone-parity (1+ bounce per surface zone) — placed in flat combat areas so they don't trivialize the vertical climb identities of their zones.
   bosses: [                              // 7 CORN bosses spread across zones (09-08); 3rd field bi picks the rainbow band + palette
     [258, 58, 0],   // RED    — MEADOW EAST flat past the spike moat (x251 = "last committed jump" gate). 2026-09-08 REVERT: the earlier x260→182 "fill dead space" pass made RED a blind LV1 first boss 56 tiles off spawn; moved back east to 258 for a proper ~133-tile warm-up (fight the x180-248 foe line + cross the moat before the fight). Still in MEADOW palette.
     [372, 58, 1],   // ORANGE — EAST-RUN CENTER giant flat (x368-439, w72). 2026-09-08 spread: was x461 far-perch → centered onto the big empty savanna run
@@ -245,6 +246,7 @@ for (let x = 135; x < W - 10; x += 7) {
     if (ok) box(px, y, w, 1, 2);
   }
 }
-export const DECO = scatter();
+const PEAKDECO = [[16, 11, 2], [23, 13, 2], [29, 16, 2], [35, 19, 2], [42, 22, 2], [11, 56, 2]];  // PEAK stone props (2026-09-08 Joey audit): PEAK deco was 3x below map avg (31 vs ~90/100col — read bare). Hand rocks on the summit-climb ledges + basement warm it WITHOUT touching the scatter LCG (prepended → downstream foliage unchanged by these).
+export const DECO = [...PEAKDECO, ...scatter()];
 // BOUNCE pads snapped to their solid landing row: [col, solidRow]. Player stands at solidRow-1.
 export const BOUNCE = seeds.bounce.map(([x, y]) => [x, groundRow(x, y + 1)]);
