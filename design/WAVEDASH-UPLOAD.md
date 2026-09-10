@@ -1,24 +1,19 @@
 # Wavedash store-page update — STAGED, ready to paste
 
-> ⚠️ **CURRENCY (2026-09-09):** SHIPPED = **batch 24** (13,124 B / 188 free, build `mn70h1pff6vb5p6sve5198t7bn8e3myh`, git `eba027c`). Playtest slug is **`hoovesofhope`** (the old `nat-20-unicorn` slug is retired). The DESCRIPTION/TAGS copy below is still broadly accurate (7 bosses, RPG, one world) but the detailed facts date to batch 14 — re-verify against `src/*.js` + the Definitive State entry before pasting. SCREENSHOTS section is stale: fresh 1920×1080 stills are staged in `design/screenshots/_new/` (title, menu, combat_red); trailer not yet produced.
-
-**Live deploy:** batch-24 build (**13,124 B**, 188 B free), Wavedash `mn70h1pff6vb5p6sve5198t7bn8e3myh`. Source == git `main` (`eba027c`) == Wavedash live — **ALIGNED** (Release Ritual atomic push). Current Wavedash build id is captured in the Definitive State knowledge entry (updated per push) — pull it from there or from the last `wavedash build push` output.
-**Play URL:** rotates per deploy — grab the latest from `wavedash build push` output or Developer Portal.
-**All copy re-verified against `src/*.js` on 2026-09-08** (batch-14 audit — batch 9 shipped enemy hit-reaction + camera framing; batch 10 added map-wide enemy rebalance + PEAK/CANOPY palette differentiation; batch 11 unified all suspended platforms to one-way; batch 12 wired LUCK into gear tier + tuned drop pickup grace 0.35→0.5s + radius 14→18 px; batch 13 polished all 4 gear sprites — BODY breastplate gains wide-shoulder/gold-belt silhouette, MANE cape fixes orphan-pixel hem, HORN grip reads as wrapped leather, HOOVES gain gold nail-heads — every slot now carries a gold class-signal for instant read; batch 14 is character-menu cosmetic-only — equipment + inventory sprites nudged 2 px up inside their 24-px cells for stat-text breathing room, byte-neutral).
+**Currency: batch 28 (2026-09-09).** Live deploy = git `cee3393` == Wavedash build `mn78pamdxftzswxqyh235wbayn8e39hn` (**13,255 B / 57 free**). Source == GitHub `main` == Wavedash — **ALIGNED** (Release Ritual atomic push). Play URL rotates per deploy — grab the latest from `wavedash build push` output or the Developer Portal. All copy below re-verified against `src/*.js` at batch 28.
 
 **Why this doc exists:** the store page (title, description, cover, screenshots, tags, trailer) is editable **only** in the web Developer Portal — session-auth gated. The CLI/API key has NO store-metadata endpoint. An agent cannot push these; they need your logged-in browser. Everything below is pre-written so your part is copy-paste + file-pick.
 
-Portal: **https://wavedash.com/dev-portal** → game **nat-20-unicorn** → Store page.
+Portal: **https://wavedash.com/dev-portal** → your game → Store page.
+> ✅ **Slug CONFIRMED = `hoovesofhope`**, portal title **"Hooves Of Hope"**. Verified 2026-09-10 via `wavedash project list` (game_id `j97697bsqqnzpcxbmpdhfs3hen8cp5yv` — the same id in `wavedash.toml`). The old `nat-20-unicorn` slug is fully retired; no ambiguity remains. Display **title** everywhere = **HOOVES OF HOPE**.
 
 ---
 
 ## 1. TITLE
-Store currently shows the old working name. Change to:
 ```
 UNICORN, Hooves of Hope
 ```
-> The URL slug `nat-20-unicorn` is permanent and fine to leave — only the display title changes.
-> **NOTE (2026-09-08):** The project was renamed to **`unicorn`** (GitHub repo, folder, package). Only this Wavedash slug keeps the original `nat-20-unicorn` (platform-locked). Display title everywhere = **HOOVES OF HOPE**.
+> Only the display title changes; the URL slug is fixed by the platform.
 
 ---
 
@@ -31,13 +26,13 @@ The DARKCORN shattered the rainbow and drained the world to grey. Name your unic
 
 - Level up 5 stats and spend points across a 10-node level-gated skill tree: double & triple jump, dash-attack, ranged shots (up to triple), healing, and more.
 - Loot gear that drops as pixel icons and recolors your unicorn — horn, mane, body, and hooves each carry a stat.
-- Battle 6 enemy kinds across one big connected world; every DARKCORN runs the full 3-move kit and enrages 1.5× faster at half HP.
+- Fight 6 enemy kinds across three attack tiers — melee leapers, ranged snipers, and telegraphed chargers — then face 7 DARKCORN bosses that run the full apex kit and hunt you down once woken.
 - Explore 7 regions — meadows, high canopy, storm peaks, and underground caverns — opened up by the abilities you earn.
 - Crit with LUCK, heal in a pinch, return to the GREATCORN for a full restore, and hunt down 20 hidden chests.
 
 Plays with keyboard or touch, desktop or mobile — one build, both.
 
-Controls — Keyboard: WASD/arrows move · Space jump · J dash · L shot · H heal · P pause. Touch: floating joystick + action buttons.
+Controls — Keyboard: WASD/arrows move · Space jump · J dash · L shot · H heal · P menu. Touch: floating joystick + action buttons.
 ```
 
 ---
@@ -52,48 +47,52 @@ platformer · rpg · action · pixel-art · metroidvania · adventure · fantasy
 
 ## 4. COVER ART
 ```
-design/cover_square.png   (720×720 — title-correct, content-rule compliant, keep as-is)
+design/cover_square.png   ✅ FRESH B28 — 1080×1080 (2026-09-10)
+design/cover/cover_512.png, cover_256.png   downscaled variants
 ```
+> Center-crop of the B28 title: full "HOOVES OF HOPE" logo + rainbow arch + both unicorns. If the portal wants 16:9 instead of 1:1, use `screenshots/01_title.png` (1920×1080). Old Aug-30 720² → `cover/cover_square_aug30_stale.png` (do NOT use).
 
 ---
 
-## 5. SCREENSHOTS (upload 3–5, gameplay first — REFRESHED 2026-09-05)
-Captured from the current build (`dist/index.html`, 960×540). Upload in this order:
+## 5. SCREENSHOTS (upload 3–5, gameplay first) — ✅ FRESH B28 SET READY
+`design/screenshots/0?_*.png` are the current B28 captures (2026-09-10, all **1920×1080 NATIVE**, from `dist/index.html`, lossless truecolor). **Button overlay VISIBLE by design** (click OR hotkeys). **Player unicorn is EQUIPPED with colorful gear** (blue body / pink mane / gold horn / teal hooves) to showcase the 4-slot equipment system + its stat boosts. Upload these; recommended order:
 
 | # | File | Shows |
 |---|---|---|
-| 1 | `design/screenshots/01_intro.png` | GREATCORN intro bubble + HUD + action buttons (gameplay lead) |
-| 2 | `design/screenshots/02_world.png` | Spike-pit traversal, bounce mushroom, platforms, enemies |
-| 3 | `design/screenshots/03_exploration.png` | Meadow — spikes, mushroom, enemy, open sky |
-| 4 | `design/screenshots/04_skill_tree.png` | Character menu: stats + equipment slots + 10-node skill tree (UI/feature shot). ⚠️ File is stale (shows the pre-09-05 14-node tree) — re-shoot before upload. |
-| 5 | `design/screenshots/05_title.png` | Title screen — rainbow UNICORN / HOOVES OF HOPE |
+| 1 | `01_title.png` | Title — rainbow "HOOVES OF HOPE" logo, both unicorns under the arch |
+| 2 | `04_menu.png` | Character menu — colored portrait + 4 FILLED gear slots (mane+3/horn+5/body+4/hooves+4), STR6/HP5/MAG4/DEF5, colored inventory, skill tree — the gear/RPG showcase |
+| 3 | `03_combat.png` | Combat — equipped colored unicorn at a trench, "+8 XP", pink foes, spike pits, chest + full control overlay |
+| 4 | `05_world.png` | Platforming vista — equipped colored unicorn mid-jump over spikes, distant enemies, chests + full control overlay |
+| 5 | `02_intro.png` | GREATCORN quest intro ("Reclaim every rainbow. One per DARKCORN. There are seven.") — equipped unicorn + full HUD + touch controls |
 
-> Old 5-zone captures are archived in `design/screenshots/_stale_aug31/` — do NOT upload those.
+> Superseded sets (do NOT upload): `_preequip/` (bare white unicorn), `_prev_overlay/`, `_stale_sep05/`, `_new/`, `_stale_aug31/`.
 
 ---
 
 ## 6. TRAILER (optional but recommended)
 ```
-design/trailer.mp4   (960×540, 15.6s — opens on gameplay hook, closes on title card)
+design/trailer.mp4   ✅ FRESH B28 — 1920×1080 @ 60fps h264 (High) + AAC + faststart, 25.6s, 6.7 MB (2026-09-10, EQUIPPED colored unicorn)
 ```
-Wavedash likes a short trailer that hooks in the first few seconds — this one opens mid-jump over a spike pit.
+> Encoded with the verified best-practice recipe for flat-color pixel art: `-tune animation -crf 15 -pix_fmt yuv420p`, silent AAC track (needed for Twitter/X autoplay), `+faststart` for web streaming. Features the EQUIPPED colored unicorn (matches the screenshots). Structure: crisp title card (2.5s) → 1.8× gameplay body (movement, combat, menu flash showing equipped slots) → end card ("HOOVES OF HOPE / Unicorns and Rainbows / js13kGames 2026"). No play URL baked in (publish not yet live). Old cuts → `trailer_bareunicorn_prev.mp4`, `trailer_720_prev.mp4`, `trailer_sep05_stale.mp4`.
+
+**GIF for the js13k description:** `design/gif/gameplay.gif` (640×360, 8s, 1.4 MB, equipped unicorn) — embed in the Markdown description; a gameplay GIF-in-description is a discoverability best-practice for js13k entries.
 
 ---
 
 ## 7. ACHIEVEMENTS — thresholds need CLI re-tune (Wavedash-side)
-The 8 records may still describe the old 5-zone build. Verify live state:
+Verify live state:
 ```
 wavedash achievement list --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
 ```
-Correct thresholds for the CURRENT 7-boss / 7-shard / 20-chest build:
+Correct thresholds for the CURRENT 7-boss / 7-shard / 20-chest / LV20-cap build:
 
 | ID | Correct threshold | Action |
 |---|---|---|
 | PRISMATIC | all **7** shards (win) | update — was 5 |
 | HALFWAY | 3–4 of 7 shards (or count-agnostic) | update — was "3 of 5" |
-| EXPLORER | reach all **7** zones (or "every corner") | update — was "5 zones" |
-| HOARDER | open all **20** chests | ✓ likely already correct (source has 20 chests) |
-| FIRST_LIGHT / NATURAL_20 / APOTHEOSIS (LV15, mid-late — cap is LV20) / FULLY_GEARED | unchanged | ✓ valid |
+| EXPLORER | reach all **7** zones | update — was "5 zones" |
+| HOARDER | open all **20** chests | ✓ valid |
+| FIRST_LIGHT / NATURAL_20 / APOTHEOSIS (LV15) / FULLY_GEARED | unchanged | ✓ valid |
 
 ```
 wavedash achievement update EXPLORER  --description "..." --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv
@@ -107,9 +106,9 @@ wavedash achievement update PRISMATIC --description "..." --game-id j97697bsqqnz
 1. **Title** → `UNICORN, Hooves of Hope`
 2. **Description** → paste Section 2
 3. **Tags** → Section 3
-4. **Cover art** → `design/cover_square.png`
-5. **Screenshots** → upload the 5 from Section 5, in order
-6. **Trailer** → `design/trailer.mp4` (optional)
+4. **Cover art** → `design/cover_square.png` (verify/refresh first)
+5. **Screenshots** → upload the re-shot B28 set (Section 5), gameplay first
+6. **Trailer** → re-cut `design/trailer.mp4` (optional)
 7. **Achievements** → re-tune 3 thresholds via CLI (Section 7)
 
 **Deadlines:** js13k submit ≤ Sep 13 13:00 CEST · Wavedash publish ≤ Sep 20 CEST.

@@ -1,43 +1,42 @@
 # Submission Kit — UNICORN, Hooves of Hope
 
-Copy is paste-ready.
+Copy is paste-ready. **All facts verified against `src/*.js` at batch 28.**
 
-> ⚠️ **CURRENCY (2026-09-09):** SHIPPED state is **batch 24** (13,124 B / 188 free, git `eba027c`, Wavedash `mn70h1pff6vb5p6sve5198t7bn8e3myh`, slug `hoovesofhope`). The **detailed game facts below were last verified at batch 14** and are now ~10 batches stale — notably the **dialogue script** (overhauled b21, quip shortened b24: "The corners hold all you need. Use them."), **boss positions** (RED→meadow far-edge, INDIGO→cavern; one boss per zone since b22), **HUD/colour schema** (b16-24: all slot boxes + rings + icons now 1px hairline, potion hot-bar split), **death sequence** (b24: fade-out → black hold → fade-in at paddock), and **save key `uni_s0`** (b21 rename). For the authoritative current state see the **Definitive State** knowledge entry. Re-verify every fact against `src/*.js` before final submission.
+**State snapshot (2026-09-09, batch 28 — SHIPPED):** build **13,255 / 13,312 B (57 B free, 99.6%)**, git `cee3393` == Wavedash build `mn78pamdxftzswxqyh235wbayn8e39hn`. GitHub `main` == code == Wavedash live — **ALIGNED** (Release Ritual atomic push). Save **v44**, single slot `uni_s0`. Play URL rotates per deploy — grab the current one from `wavedash build push` output or the Developer Portal. For the authoritative running state see the **Definitive State** knowledge entry; the Wavedash build id + play URL are pinned there.
 
-**State snapshot (2026-09-09 batch 24):** build **13,124 / 13,312 B (188 B free, 98.6%)**, git `eba027c` == Wavedash `mn70h1pff6vb5p6sve5198t7bn8e3myh`. Latest gameplay/UI: level-up no longer auto-opens the menu (banner + full-HUD pulse), boss victory hitstop 1.5s, death sequence fades out → black hold → fades in at the paddock, all slot boxes + rings + icons unified to a 1px hairline, potion hot-bar split to flank the action cluster. Save **v44**. World **600×160**, one contiguous world — **7 zones** (5 surface + 2 underground, each with a unique 5-color palette — no cross-zone overlap except deliberate PEAK/SUMMIT storm-sky pair), **7 DARKCORN bosses**, **7 rainbow shards** (one per DARKCORN), **20 chests**, **56 regular foes**, **all suspended platforms are one-way (v=2)** — uniform thickness, DOWN-jump drops through anywhere. **LUCK now compounds across three payoffs** (drop chance + crit + gear tier). GitHub `main` == code == Wavedash live — **aligned** (Release Ritual atomic push). Wavedash build id updated per push — pin lives in the Definitive State knowledge entry. Play URL rotates per deploy — get the current one from `wavedash build push` output, or the Developer Portal.
+> **Ground-truth rule:** if any figure here disagrees with `src/data.js` + `src/main.js` + `src/world.js`, the source wins — re-grep before trusting.
 
-**Batch 9 changes (2026-09-07):**
-- Enemy hit reaction: unified `f.fl` timer drives red strobe flash + AI pause + i-frame together (matches player's `hf` grammar). Baseline 0.4s; physical hits (dash/stomp) overwrite to 0.8s. Shots gated on `f.fl` for consistency (DBL/TRI SHOT still stacks because each bolt refreshes).
-- Camera framing: vertical offset `-60` → `+20` (player sits slightly above center). Every routine jump — single/double/triple — now fits inside one viewport. Ground visibility at rest ≈ 8.8 tiles (was 3.8).
-- Dead-code prune (line 672 boss-minion prune) removed — a no-op predicate; deletion clarifies "player kills everything" contract.
-
-> **Ground-truth note:** last full audit 2026-09-07 (batch 13); batch 14 (2026-09-08) is character-menu cosmetic-only, no source facts changed. If any figure here disagrees with `src/data.js` + `src/main.js` + `src/world.js`, the source wins — re-grep before trusting.
-
-## Verified game facts (from `src/data.js` + `src/main.js` + `src/world.js`, 2026-09-07)
+## Verified game facts (from source, batch 28)
 - **Title (player-facing):** the title screen renders `UNICORN` (one word, rainbow letters) over `HOOVES OF HOPE`; the cover art matches. → **`UNICORN, Hooves of Hope`**.
-- **7 DARKCORN bosses** — `RBC` has 7 entries. Bands: RED, ORANGE, YELLOW, BLUE, VIOLET, GREEN, INDIGO. All named "DARKCORN"; identity = horn + mane color. Every boss uses the **same 3-move kit** (chase + hop + ranged, cap=19). Difficulty comes purely from tier `bi`: HP `(20+bi*4)+lvl²`, dmg `(8+bi)+(lvl>>2)`, speed `1+bi*0.1`. At half HP a universal **1.5× speed enrage** kicks in (no per-boss twist tables). Defeated bosses turn friendly (talkable GREATCORN-purple NPCs, eyes go white).
-- **7 zones** (`ZB`, 7 rows) — surface: PEAK (BLUE), CANOPY (YELLOW), MEADOW (RED), EAST RUN (ORANGE), SUMMIT (GREEN); underground: DEPTHS (VIOLET), CAVERN (INDIGO).
+- **Physics (B28):** player and every enemy share ONE jump/gravity model (`GV=900`, launch `JV=280`) — arcs are identical and learnable; enemies no longer out-jump you. The player keeps a smaller, nimbler collision box.
+- **6 enemy kinds (`FT`) organized into 3 ATTACK TIERS × 2 kinds** — pursuit speed is UNIFORM for every foe (they all home at one speed); the **attack** is what separates them (cap bits: 1=shoot, 2=hop, 16=charge):
+  - **Tier 1 — HOP (melee leapers):** k1 (fragile), k4 (tankier) — leap toward you on a cadence.
+  - **Tier 2 — SHOOT (ranged):** k2, k6 — hold position and fire bolts.
+  - **Tier 3 — CHARGE (elite):** k3 (heavy), k5 (glass) — telegraphed dash: wind-up tell → fast lunge → recover.
+  - Sprites are still per-kind (cosmetic) but no longer signal the tier — the attack does.
+- **7 DARKCORN bosses** (`RBC`, 7 entries; bands RED, ORANGE, YELLOW, BLUE, VIOLET, GREEN, INDIGO). All named "DARKCORN"; identity = horn + mane color. Every boss runs the **full apex kit** (charge + hop + shoot, cap=19). Difficulty scales with tier `bi` and your level: HP `(20+bi*4)+lvl²`, dmg `(8+bi)+(lvl>>2)`. Bosses are always present (seeded), idle until you enter their 128px ring, then hunt relentlessly (ungated — they chase off ledges and through spike pits). Defeated = the band's rainbow shard banks; killed bosses don't respawn. *(No half-HP enrage — that mechanic was removed.)*
+- **7 zones** (`ZB`) — surface: PEAK (BLUE), CANOPY (YELLOW), MEADOW (RED), EAST RUN (ORANGE), SUMMIT (GREEN); underground: DEPTHS (VIOLET), CAVERN (INDIGO). One contiguous 600×160 world, each zone its own 5-color palette.
 - **7 rainbow shards** — one per DARKCORN. GREATCORN intro: "Reclaim every shard. One per DARKCORN. There are seven."
-- **6 enemy kinds** (`FT`) — capability-bit kit (bits: 1=ranged, 2=hop, 16=chase): k1 hop-only (pink), k2 chase+ranged (teal), k3 full 3-move kit (violet, mini-boss feel), k4 pure chase fast (orange), k5 chase+hop (gold frog leaper), k6 ranged+hop (purple sniper). **No elites** (elite system removed 2026-09-04).
-- **10 skill nodes** (`TREE`) — SHOT, FAR SHOT, HEAL, SUPER HEAL, DBL JUMP, TRI JUMP, DASH, LONG DASH, DBL SHOT, TRI SHOT. **Level-gated rows** (no prerequisite lines): `canBuy = lvl >= [1,9,1,6,3,6,1,3,6,9][i]` — Row 1 at LV1, Row 2 at LV3, Row 3 at LV6, Row 4 at LV9. All player-chosen; skill points cap at 10 (one per node).
-- **20 chests** (`seeds.chests`, idx 0–19), all reachability-audited by `tools/map-audit.mjs`.
-- **4 gear slots** — BODY (+HP), MANE (+MAG), HORN (+STR), HOOVES (+DEF). Gear drops as pixel icons and recolors the matching body part. Tint palette = all 17 `PAL` colors (batch 8).
-- **5 stats** (`SC` colors) — STR (red), HP (green), MAG (blue), DEF (violet), LUCK (orange). Cap **LV20** (`CAP=20`); +2 stat points per level (40 total).
-- **Potion hot-bar** — 2 slots (HP red / MP blue), stack to 5 each, fixed **+10 heal** per drink. Inventory holds gear only, **10 slots fixed** (`BAG=10`, no STASH skill).
-- **Bounce mushrooms** — spring-launch traversal, stacks with DBL/TRI JUMP.
-- **Controls** — Keyboard: WASD / arrows move · Space jump · J dash-attack · L shot · H heal · P pause. Touch: floating joystick + action buttons. One build serves desktop + mobile.
-- **Save** — v44, strict version gate (no cross-version compat), **single slot** (`uni_s0`). Stats stored as array `t:[STR,HP,MAG,DEF,LCK]`. Auto-saves on level-up + respawn.
-- **Console errors** — 0 observed in Chromium (last full playthrough 2026-09-05, batch-6). ⚠️ Firefox DevTools zero-console check is a SEPARATE hard requirement — re-run before js13k upload, especially since batches 7 and 8 changed sprite/HUD code paths.
+- **10 skill nodes** (`TREE`) — SHOT, FAR SHOT, HEAL, SUPER HEAL, DBL JUMP, TRI JUMP, DASH, LONG DASH, DBL SHOT, TRI SHOT. Level-gated rows, no prerequisite lines: `canBuy = lvl >= [1,9,1,6,3,6,1,3,6,9][i]`. One point per node; start with only JUMP.
+- **20 chests** (`seeds.chests`), all reachability-audited by `tools/map-audit.mjs`.
+- **54 regular foes** — hand-placed `foes` (42) + fill `foesX` (12), **exactly 9 of each of the 6 kinds** (verified 2026-09-10 by reading the `foes`+`foesX` seed arrays in `world.js` @ B28; the earlier "9/9/10" reading was a loose grep catching non-foe 3-element arrays). Safe marketing figure: "over 50 enemies across 6 kinds."
+- **4 gear slots** — BODY (+HP), MANE (+MAG), HORN (+STR), HOOVES (+DEF). Gear drops as pixel icons and recolors the matching body part. `BAG=10` (gear only).
+- **5 stats** (`SC`) — STR (red), HP (green), MAG (blue), DEF (violet), LUCK (orange). Cap **LV20** (`CAP=20`); +2 stat points per level. Start HP/MP = 15.
+- **Potion hot-bar** — 2 slots (HP / MP), stack to 5 each, **+10 heal** per drink (+1.5s i-frame flash). HP slot flanks HEAL, MP slot flanks DASH.
+- **Bounce mushrooms** — spring-launch traversal, stacks with DBL/TRI JUMP (west bounce-sky route feeds the BLUE summit).
+- **Controls** — Keyboard: WASD/arrows move · Space/W/↑ jump (= interact) · J dash-attack · L shot · H heal · P menu. Touch: floating joystick + action buttons. One build, desktop + mobile.
+- **Save** — v44, strict version gate (no cross-version compat), single slot `uni_s0`. Auto-saves on level-up + respawn; player always respawns at the paddock.
+- **Console errors** — 0 in Chromium (B28 smoke test). ⚠️ **Firefox DevTools zero-console check is a SEPARATE hard requirement** — re-run against the final `dist/game.zip` before each js13k upload.
 
 ## Names (keep identical everywhere)
 - **Title:** `UNICORN, Hooves of Hope`
 - js13k draft registration LOCKS the unique name — register early to claim it.
-- Wavedash: title must be primarily Latin script ✅; URL slug `nat-20-unicorn` is permanent.
+- **Slug (CONFIRMED):** **`hoovesofhope`** — title **"Hooves Of Hope"**. Verified 2026-09-10 via `wavedash project list`: game_id `j97697bsqqnzpcxbmpdhfs3hen8cp5yv` (the same id in `wavedash.toml`) → slug `hoovesofhope`. The old `nat-20-unicorn` slug is fully retired — no ambiguity remains.
 
 ---
 
 ## js13k submit form (js13kgames.com/submit — deadline Sep 13, 13:00 CEST)
-Flow: register draft → upload zip (automated in-browser test; console errors block; roadroller zips process slowly) → details → Presentation (cover/thumbnails) → team (prefilled from repo) → submit. Draft stays editable until deadline.
+Flow: register draft → upload zip (automated in-browser test; **console errors block**; roadroller zips process slowly) → details → Presentation (cover/thumbnails) → team (prefilled from repo) → submit. Draft stays editable until deadline.
 
 **Description (Markdown supported):**
 
@@ -51,14 +50,14 @@ and reclaim the rainbow shards they shattered.
 - 📈 **Full RPG** — 5 stats, a 10-node level-gated skill tree, and gear that drops as
   pixel item icons and recolors the matching part of your unicorn (mane / horn / body / hooves).
 - 👑 **7 DARKCORN bosses** — dark mirrors of yourself, each holding one rainbow band
-  (red → indigo). All share the full 3-move kit; at half HP they enrage 1.5× faster. Beat one and it turns friendly.
+  (red → indigo). All run the full apex kit — charge, hop, and ranged fire — and hunt you relentlessly once woken.
 - 🌍 **7 regions in one connected world** — sunlit meadows, high canopy, storm peaks, and
   underground caverns. Ability gates (double-jump, dash, bounce mushrooms) control your reach.
-- 🐴 **6 enemy kinds** built from a capability-bit kit (chase / hop / ranged) — every kind reads differently. Learn the colors, learn the moves.
+- 🐴 **6 enemy kinds in 3 attack tiers** — melee leapers, ranged snipers, and telegraphed chargers. Everyone pursues at the same speed; it's the attack that separates them, so you learn one moveset at a time.
 - 🗨️ **A GREATCORN guide** greets you with a chatty intro and re-talk quips, and fully heals you when you return.
 - 🎒 20 hidden chests · 2-slot potion hot-bar (HP + MP, stack to 5, +10 heal) · single save slot, auto-saves on level-up and respawn.
 
-**Controls:** WASD/arrows + Space jump · P pause · J dash-attack · L shot · H heal — or
+**Controls:** WASD/arrows + Space jump · P menu · J dash-attack · L shot · H heal — or
 touch: floating joystick + action buttons. One build, desktop and mobile.
 ```
 
@@ -69,12 +68,12 @@ touch: floating joystick + action buttons. One build, desktop and mobile.
 ## Wavedash store page
 See **`design/WAVEDASH-UPLOAD.md`** for the paste-ready portal checklist (title, description, tags, screenshot order, trailer). Store metadata is editable ONLY in the browser Developer Portal (session-auth gated) — the CLI/API key has no metadata endpoint.
 
-Portal: **https://wavedash.com/dev-portal** → game **nat-20-unicorn** → Store page.
+Portal: **https://wavedash.com/dev-portal** → **Hooves Of Hope** (slug `hoovesofhope`) → Store page.
 
 ---
 
 ## Achievements — 8 on record (needs live CLI verification)
-Verify current live state with `wavedash achievement list --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv`. Icons: `design/achievements/*.png` (256×256). Thresholds below reflect the CURRENT 7-boss / 7-shard / 20-chest build.
+Verify current live state with `wavedash achievement list --game-id j97697bsqqnzpcxbmpdhfs3hen8cp5yv`. Icons: `design/achievements/*.png` (256×256). Thresholds below reflect the CURRENT 7-boss / 7-shard / 20-chest / LV20-cap build.
 
 | Identifier | Title | Correct threshold (current build) | Note |
 |---|---|---|---|
@@ -84,29 +83,32 @@ Verify current live state with `wavedash achievement list --game-id j97697bsqqnz
 | NATURAL_20 | Natural 20 | land a crit | ✓ valid |
 | APOTHEOSIS | Apotheosis | reach level 15 | ✓ valid (mid-late; cap is LV20) |
 | FULLY_GEARED | Fully Geared | all 4 gear slots equipped | ✓ valid |
-| EXPLORER | Explorer | reach all **7** zones (or "every corner of the world") | re-tune — was "5 zones" |
-| HOARDER | Hoarder | open all **20** chests | ✓ **now correct** — source has 20 chests |
+| EXPLORER | Explorer | reach all **7** zones | re-tune — was "5 zones" |
+| HOARDER | Hoarder | open all **20** chests | ✓ valid |
 
 **Glue status:** wrapped build emits `Wavedash.init({})` (minimum contract). No `setAchievement()` calls yet — wiring is byte-free (lives in `dist/wavedash/index.html` outside the 13 KB zip). Decide before Sep 20.
 
 ---
 
-## Assets inventory (refreshed 2026-09-05)
+## Assets inventory
 ```
 design/
-├── cover_square.png      ✅ 720×720 — upload as cover art
-├── trailer.mp4           ⚠️ 960×540, 15.6s — captured 09-05; predates batches 7-9 (outlines, HUD recolor, enemy hit-flash, camera framing). Re-cut before final submission.
-├── screenshots/          ⚠️ ALL 5 are STALE (predate batches 7-9 — no outlines, old white HUD, no enemy hit-flash, old sky-heavy camera). Re-shoot before submission:
-│   ├── 01_intro.png        GREATCORN intro + HUD + action buttons
-│   ├── 02_world.png        spike-pit traversal, mushrooms, platforms, enemies
-│   ├── 03_exploration.png  meadow with spikes, bounce mushroom, enemy
-│   ├── 04_skill_tree.png   character menu — stats + equipment + 10-node skill tree
-│                            ⚠️ STALE — current file shows the pre-09-05 14-node tree with STASH/HP+5/MP+5/POT+5
-│                              and white HUD text (batch 8 recolored to #8cf). RE-SHOOT against batch-14 build (adds enemy hit-flash + camera framing + differentiated PEAK/CANOPY palettes + uniform one-way platform arenas + LUCK-tiered gear + tuned drop pickup + polished 4-slot gear sprites w/ gold class-signal + character-menu sprite nudge 2 px up for stat-text breathing room) before final submission.
-│   ├── 05_title.png        title screen (rainbow UNICORN / HOOVES OF HOPE)
-│   └── _stale_aug31/       OLD 5-zone captures — do NOT upload
+├── cover_square.png      ✅ FRESH B28 (2026-09-10) — 1080×1080, center-crop of the B28 title (full "HOOVES OF HOPE" logo + rainbow arch + both unicorns). Lossless. (Old Aug-30 720² archived → cover/cover_square_aug30_stale.png.)
+├── cover/                ✅ downscaled cover variants: cover_512.png (512²), cover_256.png (256²) — for gallery thumb / social. cover_square_aug30_stale.png = old, do NOT use.
+├── trailer.mp4           ✅ FRESH B28 (2026-09-10, EQUIPPED colored unicorn) — 1920×1080 @ 60fps h264 (High) + silent AAC + faststart, 25.6s, 6.7 MB. Recipe: -tune animation -crf 15 -pix_fmt yuv420p (verified best-practice for flat-color pixel art). Title card → 1.8× gameplay (movement/combat/menu-flash) → end card. (Bare-unicorn cut → trailer_bareunicorn_prev.mp4; 720p → trailer_720_prev.mp4; 09-05 → trailer_sep05_stale.mp4.)
+├── gif/gameplay.gif      ✅ FRESH B28 (2026-09-10, equipped unicorn) — 640×360, 8s, 20fps, 1.4 MB (palettegen 192c + bayer dither, gifsicle-optimized). For the js13k Markdown description embed (GIF-in-description is a discoverability best-practice).
+├── masters_4k/           ✅ 3840×2160 press masters (engine renders resolution-independently, so 4K is free-crisp). 01_title.png done; more on request.
+├── screenshots/          ✅ FRESH B28 (2026-09-10) — all 1920×1080 NATIVE (engine re-rasterizes crisply at any res; captured at delivery res, not upscaled), lossless truecolor (rainbows = 3800–5600 colors, so NO palette quant), zero console errors during capture. **On-screen button overlay VISIBLE by design** (click OR hotkeys). **Player unicorn is EQUIPPED with colorful gear** (blue BODY / pink MANE / gold HORN / teal HOOVES) to showcase the 4-slot color-driven equipment system — the shots show boosted stats (HP 23, MP 21, STR 6) from that gear. (Gear is a real in-game drop system; staged for capture via a temp seed that was reverted — shipped build unchanged, HEAD cee3393.):
+│   ├── 01_title.png        title screen — rainbow "HOOVES OF HOPE" logo, both unicorns under the arch (title = decorative logo, pre-game, no player equip)
+│   ├── 02_intro.png        GREATCORN quest intro ("Reclaim every rainbow. One per DARKCORN. There are seven.") — EQUIPPED colored unicorn + full HUD + touch controls
+│   ├── 03_combat.png       combat — EQUIPPED colored unicorn at a trench, "+8 XP" popup, pink foes, spike pits, chest + full control overlay
+│   ├── 04_menu.png         character menu — colored portrait + 4 FILLED gear slots (pink mane +3 / gold horn +5 / blue body +4 / teal hooves +4), STR6/HP5/MAG4/DEF5, 3 colored inventory items, full skill tree + controls — THE equipment-system showcase
+│   ├── 05_world.png        platforming vista — EQUIPPED colored unicorn mid-jump over spikes, distant enemies, chests + full control overlay
+│   ├── _preequip/          prior 09-10 bare-white-unicorn set — superseded, do NOT upload
+│   ├── _prev_overlay/ _stale_sep05/ _new/ _stale_aug31/   OLD sets — do NOT upload
 └── achievements/         ✅ 8 PNGs (thresholds need CLI re-tune per table above)
 ```
+**Screenshot set is current for B28, overlay-visible, gear-equipped.** Upload order for the store: 01_title → 04_menu → 03_combat → 05_world → 02_intro (lead with logo, then the gear/RPG depth, then action). Trailer + GIF also feature the equipped unicorn.
 
 ---
 
@@ -117,10 +119,11 @@ design/
 |---|---|---|---|
 | 1 | Register js13k draft, claim name `UNICORN, Hooves of Hope` | js13kgames.com/submit | NOW — locks name; tests roadroller zip. Deadline Sep 13 13:00 CEST |
 | 2 | Firefox DevTools zero-console-errors check on `dist/game.zip` | local | Before each js13k upload (disqualifying criterion) |
-| 3 | Wavedash store paste-in (title, desc, tags, cover, screenshots, trailer) | Portal (see `WAVEDASH-UPLOAD.md`) | Anytime — review has lag |
-| 4 | Re-tune EXPLORER / HALFWAY / PRISMATIC thresholds | `wavedash achievement update` | Before Sep 20 |
-| 5 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
-| 6 | Wavedash PUBLISH latest build | Portal dashboard | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
+| 3 | ✅ DONE (2026-09-10) — full B28 media at final quality, EQUIPPED colored unicorn (showcases gear system): 5× 1920×1080 overlay-visible screenshots (lossless), 1080p60 trailer (tune-animation/crf15/faststart/AAC, 25.6s), 1080² square cover + 512/256 variants, 640×360 gameplay GIF, 4K title master. All native-res, research-backed encodes. Gear staged via temp seed, reverted — shipped build unchanged (HEAD cee3393). | local | — |
+| 4 | Wavedash store paste-in (title, desc, tags, cover, screenshots, trailer) | Portal (see `WAVEDASH-UPLOAD.md`) | Anytime — review has lag |
+| 5 | Re-tune EXPLORER / HALFWAY / PRISMATIC thresholds | `wavedash achievement update` | Before Sep 20 |
+| 6 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
+| 7 | Wavedash PUBLISH latest build | Portal dashboard | ≤ Sep 20 CEST (deploy-only week — no fixes after) |
 
 ### ⏸ Deferred (operator decision)
 | # | Action | Why |
@@ -130,4 +133,4 @@ design/
 
 ---
 
-**RELEASE RITUAL (Joey directive 2026-09-02):** every code change ships as `commit → git push origin main → node build.mjs → wavedash build push -m "…"`. GitHub push + Wavedash deploy go as ONE unit so the live deploy never drifts from source. Docs-only commits (like this one) are exempt — no rebuild/re-push.
+**RELEASE RITUAL (Joey directive 2026-09-02):** every code change ships as `commit → git push origin main → node build.mjs → wavedash build push -m "…"`. GitHub push + Wavedash deploy go as ONE unit so the live deploy never drifts from source. Docs-only commits (like this one) are exempt — git-push only, no rebuild/re-push.
