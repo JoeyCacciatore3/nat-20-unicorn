@@ -19,7 +19,6 @@
 // Save: strict v44 JSON to localStorage.
 
 import { T, W, H, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
-const bounceSet = new Set(BOUNCE.map(([x, r]) => r * W + x));                         // solid-row landing cells → spring launch
 import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, TREE, TPOS, I_MP, INTRO, TALK, DEATH, WIN } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
@@ -66,7 +65,7 @@ const sMeta = () => { try { const d = JSON.parse(localStorage['uni_s0'] || '0');
 const beginGame = () => {
   if (!ent) return; NI.blur(); pName = ent;
   // Device-swap REMOVED (): INTRO no longer teaches move/jump keys, so keyboard vs touch prompts are unneeded — one identical script on browser + mobile.
-  phase = 2; started = 1; talk(INTRO); save();
+  phase = 2; started = 1; talk(INTRO);   // NO initial save — the first save fires seconds later inside the GREATCORN LV1→2 boost (gainXp→save on INTRO close). Quitting mid-intro leaves the slot empty (clean re-start), no half-state.
 };  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
 const resumeGame = () => { load(); phase = 2; started = 1; };
 const pickSlot = () => {                                               // the single slot is the only pre-play menu — no NEW GAME/CONTINUE layer
@@ -310,7 +309,7 @@ const unequip = (s) => {
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
 // quaff death-guard: potion taps during the 2s death fade were pure waste (respawn restores full vitals anyway).
-const quaff = (t) => { if (deathT > 0) return; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 10); sfx(520, 1040, .1, 'triangle', .1); fly(0, 0, '+10', '#6cf279', 0, 1); hf = IFR; hfc = 14; } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 10); sfx(440, 880, .1, 'triangle', .1); fly(0, 0, '+10', '#4a76ff', 0, 1); hf = IFR; hfc = 11; } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
+const quaff = (t) => { if (deathT > 0) return; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 20); sfx(520, 1040, .1, 'triangle', .1); fly(0, 0, '+20', '#6cf279', 0, 1); hf = IFR; hfc = 14; } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 20); sfx(440, 880, .1, 'triangle', .1); fly(0, 0, '+20', '#4a76ff', 0, 1); hf = IFR; hfc = 11; } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
 
 // GUARD: gear-drop color range in spawnDrop (`Math.random() * 16`) is coupled to
 // PAL.length (16) — ALL indices 0..15 equippable (white/PAL[0] included; it's just the unequipped body appearance, not a reserved default — equipped-ness is tracked by eq[s], not col). tpos-check.mjs enforces this pairing (swatches - base === range).
@@ -322,6 +321,7 @@ const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
 // Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band.
 const rArc = (cx, cy, r, step) => { for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(cx, cy, r - i * step, Math.PI, 0); ctx.stroke(); } };
+const arch = (cx, cy) => { ctx.strokeStyle = '#17131f'; ctx.lineWidth = 23; ctx.beginPath(); ctx.arc(cx, cy, 69, Math.PI, 0); ctx.stroke(); ctx.lineWidth = 3; rArc(cx, cy, 78, 3); ctx.fillStyle = '#17131f'; ctx.fillRect(159, cy, 24, 1); ctx.fillRect(297, cy, 24, 1); };   // framed rainbow arch (black frame + 7 bands + feet caps) — SHARED by title screen + boss-win flourish so they're pixel-identical
 // Per-character rainbow title text (bold 30px, black outline, even spacing) centered on VW/2 at baseline y.
 const rText = (s, y, f) => {
   ctx.font = 'bold ' + (f || 30) + 'px monospace'; ctx.textAlign = 'left'; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
@@ -403,11 +403,11 @@ const bubble = (hx, topY, txt, w = 100) => {   // w defaults to the full dialogu
   ctx.lineTo(x + r, B); ctx.arcTo(x, B, x, B - r, r);          // bottom edge + BL corner
   ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r);          // left edge + TL corner
   ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#3a2f4a'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#3a2f4a'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
   rows.forEach((s, i) => ctx.fillText(s, hx, y + 12 + i * 9));
 };
-let hp = 15, xp = 0, lvl = 1;
-let mn = 15, pending = 0;
+let hp = 20, xp = 0, lvl = 1;
+let mn = 20, pending = 0;
 let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via level-gated rows (canBuy = lvl>=req per node)
@@ -416,8 +416,8 @@ let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY bo
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 
 const rainbows = () => bs.filter(v => v === 2).length;   // banked-boss count.
-const mHP = () => 13 + st[1] * 2;                    // base 13 + HP stat (st[1]) → start 15 (st=1), CAP20 53
-const mMN = () => 13 + st[2] * 2;                    // base 13 + MAG stat (st[2]) → start 15 (st=1), CAP20 53
+const mHP = () => 18 + st[1] * 2;                    // base 18 + HP stat (st[1]) → start 20 (st=1), CAP20 58
+const mMN = () => 18 + st[2] * 2;                    // base 18 + MAG stat (st[2]) → start 20 (st=1), CAP20 58
 // ATK (=st[0]) and LUCK% (.12+st[4]*.03) inlined at their use sites — low-use helpers are net-negative under roadroller.
 
 const need = () => lvl * lvl + 40;               // XP to next level. +40 floor keeps early levels from flooding (~5 kills/level vs ~2); quadratic ramps toward CAP.
@@ -425,7 +425,7 @@ const gainXp = n => {
   if (lvl >= CAP) return;
   xp += n; fly(0, 0, '+' + n + ' XP', '#b06cf0', 0, 1);   // routed to the player-head popup spot (hud=1) — was below XP bar
   while (xp >= need() && lvl < CAP) {
-    xp -= need(); lvl++; pending += 2; if (lvl < TREE + 2) spts++;    // +2 stat pts per level.
+    xp -= need(); lvl++; pending += 2; if (lvl < TREE + 2) spts++;    // +2 stat pts per level. Skill pt drips lvl 2..11 = exactly 10 (TREE nodes); the LV1→2 intro boost is the first of those.
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save.
     foes.forEach(f => { const u = f.hp >= f.mx; scaleFoe(f); f.hp = u ? f.mx : Math.min(f.hp, f.mx); });   // RESCALE LIVE FOES + BOSSES on level-up via the shared scaleFoe(). u-flag: undamaged keep full (follow new max); damaged keep their wounds.
     luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font).
@@ -524,7 +524,7 @@ let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay;
 // Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
 let dq = 0, di = 0, tqi = 0;
 const talk = (s) => { dq = s; di = 0; };
-const adv = () => { if (++di >= dq.length) { if (dq === WIN) for (let i = 0; i < 24; i++) spray(cam.x + Math.random() * VW, cam.y + Math.random() * VH, 6); dq = 0; hp = mHP(); mn = mMN(); hf = IFR; hfc = 14; } };   // WIN close = screen-wide rainbow CELEBRATION: the exact jump/boss-kill spray() multiplied across the viewport (24 origins × 6 = 144 rainbow bits).
+const adv = () => { if (++di >= dq.length) { if (dq === WIN) for (let i = 0; i < 24; i++) spray(cam.x + Math.random() * VW, cam.y + Math.random() * VH, 6); if (dq === INTRO && lvl < 2) gainXp(need()); dq = 0; hp = mHP(); mn = mMN(); hf = IFR; hfc = 14; } };   // INTRO close = GREATCORN's "free level": a NORMAL LV1→2 via the SAME gainXp (+2 stat, +1 skill, banner+fanfare+restore) — no bonus; base stats already start at 2. lvl<2 guards single-fire. WIN close = screen-wide rainbow CELEBRATION (24×6=144 bits).
 
 // bag selection is derived: the selected item is inv[aRow-5] (undefined for non-bag rows, since inv.length ≤ BAG is invariant).
 // Chest reward: item shower only (no heal — heals come from potions / HEAL spell / level-up).
@@ -539,7 +539,7 @@ let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const GV = 900, FALLCAP = 400;          // UNIFIED gravity accel — player + foes share ONE constant (world spikes/gaps were tuned to the enemy 900 model, so this is guaranteed-traversable).
 const RUN = 115, JV = 280, IFR = 1.5;   // JV = launch velocity shared by player jump AND enemy hop (identical arcs → learnable). IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash.
-const ASPD = 56, CSPD = 150, WU = .45, DA = .3, CCD = .9;   // FOE AI — ASPD = uniform pursuit speed (ALL foes home at this). CHARGE (tier-3): WU windup(tell) → DA dash @ CSPD → CCD cooldown.
+const ASPD = 56, CSPD = 150, DA = .3;   // FOE AI — ASPD = uniform pursuit speed (ALL foes home at this). CHARGE (tier-3) mirrors the RANGED countdown: red-skull tell ~.5s, then a DA-long dash @ CSPD.
 
 const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -553,9 +553,9 @@ let oc = 0, nearChest = -1;                       // opened bitfield · which ch
 // FULL progression reset — NEW GAME zeroes every globals so it can't inherit prior saved state.
 const fresh = () => {
   resetTransient();                                     // clean-state guarantee (velocity, cooldowns, dialogue) — shared with load() + respawn
-  xp = 0; lvl = 1; bs.fill(0); hpPot = mpPot = 0;
+  xp = 0; lvl = 1; bs.fill(0); hpPot = mpPot = 0;   // normal LV1 start; the GREATCORN levels you 1→2 on INTRO close (gainXp in adv) = free banner/fanfare/restore + teaches the loop.
   eq.fill(null); inv.length = 0;
-  pending = 0; st = [1, 1, 1, 1, 1]; col = [0, 0, 0, 0];
+  pending = 0; st = [2, 2, 2, 2, 2]; col = [0, 0, 0, 0];   // base stats start at 2 (was 1) — a guaranteed floor on every stat (STR 2 → stomp 2 from the first hit); this IS the early-game head start, so no bonus at the level-up.
   oc = 0; pName = 'HORSE';
   spts = 0; su.fill(0);
   aRow = 0;   // reset menu cursor (bag selection is derived from aRow, nothing else to clear)
@@ -580,9 +580,9 @@ const interact = () => { if (nearNpc) { talk(rainbows() === bs.length ? WIN : [T
 
 // LEVEL SCALING
 // - Enemy HP: fh + (lvl*lvl >> 1) — QUADRATIC (matches XP curve shape).
-// - Enemy dm: fd + (lvl>>2) (linear, gentler — grows +1 dmg per 4 levels, player DEF keeps pace)
+// - Enemy dm: fd + (lvl>>1) (linear — grows +1 dmg per 2 levels so late foes actually bite; was >>2 which let DEF outrun the threat and hit the 25% floor immediately).
 // UNIFIED STAT SCALER: the ONE home for enemy/boss level-scaling — sets f.mx + f.dm from level.
-const scaleFoe = f => { f.mx = f.bit ? 20 + f.bi * 4 + lvl * lvl : FT[f.k][0] + (lvl * lvl >> 1); f.dm = (f.bit ? 8 + f.bi : FT[f.k][1]) + (lvl >> 2); };
+const scaleFoe = f => { f.mx = f.bit ? 20 + f.bi * 4 + lvl * lvl : FT[f.k][0] + (lvl * lvl >> 1); f.dm = (f.bit ? 8 + f.bi : FT[f.k][1]) + (lvl >> 1); };
 const mkFoe = (x, y, k) => {
   // Kind + level IS the difficulty (no elite subsystem).
   const [, , fb] = FT[k], f = { x, y, k, cap: fb, vx: ASPD * (Math.random() < .5 ? 1 : -1), fl: 0, t: Math.random() * 7 };   // patrol vx = ±ASPD (uniform) — no per-kind speed field anymore.
@@ -682,7 +682,7 @@ const strike = (f, mag) => {
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(FT[f.k][0] + FT[f.k][1] + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP = DIFFICULTY-PROPORTIONAL: base HP + base DM from FT[k] (k1=7/k2=12/k3=17/k4=8/k5=10/k6=13) — was `min(k,3)*4` which paid on the KIND INDEX (capped 3), so light fast k4 (5HP) earned the same 12 as tanky k3 (12HP).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK: rainbow collectible RETIRED.
-      bs[f.bi] = 2; hs = 1.5; spray(f.x, f.y, 18); fanfare(); save();   // VICTORY BEAT: 1.5s hitstop + heavy 18-particle rainbow burst + fanfare + AUTOSAVE.
+      bs[f.bi] = 2; hs = 1.5; fanfare(); save();   // VICTORY BEAT: 1.5s hitstop + rainbow arch flourish (draw) + fanfare + AUTOSAVE. (particle burst removed — the arch carries the moment.)
     }
     return 1;
   }
@@ -705,7 +705,7 @@ function dash() {                                               // THE attack ve
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +10 HP base (+20 with SUPER HEAL)
   if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
-  const hm = 10 + su[3] * 10;   // HEAL +10 HP base, SUPER HEAL (su[3]) → +20 HP
+  const hm = 20 + su[3] * 20;   // HEAL +20 HP base, SUPER HEAL (su[3]) → +40 HP
   mn -= 3; hp = Math.min(mHP(), hp + hm);
   sfx(520, 1040, .25, 'triangle', .12); fly(0, 0, '-3', '#4a76ff', 0, 1); fly(0, 0, '+' + hm, '#6cf279', 0, 1);   // HEAL: MP cost + HP gain both at the player-head popup spot (hud=1).
   hf = IFR; hfc = 14;   // HEAL: IFR-sec green PAL[14] flash + i-frame. green=heal · red=hurt · white=dash.
@@ -754,7 +754,7 @@ const step = (dt) => {
   pl.vx += (dir * RUN - pl.vx) * Math.min(1, dt * 12 * (pl.gr ? 1 : .65));
   if (dir) pl.face = dir;
 
-  // -- jump: buffer + coyote + variable + double -
+  // -- jump: buffer + coyote + double/triple (fixed height — no hold-to-vary since B28 uniform-gravity) -
   pl.coyote = pl.gr ? .1 : pl.coyote - dt;
   if (jbuf > 0) {
     let ok = 0;
@@ -782,24 +782,20 @@ const step = (dt) => {
   }
   pl.gr = 0;   // hard-land audio + wasGround snapshot retired — landing is silent unless it's a stomp (which has its own square-thud sfx)
   pl.y += pl.vy * dt;
+  // MUSHROOM BOUNCE — collider MATCHED to the 1.5× sprite (was a 1-tile ground cell): spring at the CAP TOP (~20px above the base, where the sprite top sits) across the full 24px cap width (center within ±12 of cap-center). Fast descent only (vy>80) so gentle contact/walking still rests. Fires here — before the tile-landing snap — so you launch where you SEE the cap, not after sinking to the ground tile.
+  if (pl.vy > 80) for (const [bx, br] of BOUNCE) { const cx = bx * T + 8, cy = br * T - 20; if (Math.abs(pl.x + PW / 2 - cx) < 12 && pl.y + PH >= cy && pl.y + PH < cy + 26) { pl.y = cy - PH; pl.vy = -510; pl.air = 0; jbuf = 0; sfx(220, 640, .16, 'sine', .13); break; } }
   if (pl.vy >= 0) {
-    const feet = pl.y + PH, ty = feet / T | 0, top = ty * T, fc = (pl.x + PW / 2) / T | 0;
+    const feet = pl.y + PH, ty = feet / T | 0, top = ty * T;
     for (const ox of [1, PW - 1]) {
       const tv = tile((pl.x + ox) / T | 0, ty);
       if (tv === 1 || (tv === 2 && py + PH <= top + 4 && dropT <= 0)) {
-        if (bounceSet.has(ty * W + fc) && pl.vy > 80) {          // SPRING: launch ONLY when LANDING from a jump/fall (descending fast, vy>80).
-          pl.y = top - PH - 15; pl.vy = -510; pl.air = 0; jbuf = 0; sfx(220, 640, .16, 'sine', .13);
-        } else {
-          pl.y = top - PH;   // rest feet on the tile top (top already computed above for the platform from-above guard) — includes standing on a spring after walking onto it
-          pl.vy = 0; pl.gr = 1; pl.air = 0;
-        }
+        pl.y = top - PH; pl.vy = 0; pl.gr = 1; pl.air = 0;   // rest feet on the tile top (mushroom pads are solid ground — standing/walking rests here; the fast-descent spring above already handled the bounce)
         break;
       }
     }
   } else {
     for (const ox of [1, PW - 1]) if (solid(pl.x + ox, pl.y)) { pl.y = ((pl.y / T | 0) + 1) * T + .01; pl.vy = 0; break; }
   }
-  // MUSHROOM BOUNCE is now integrated into the landing collision above: the spring fires there only when the player LANDS descending (vy>80), so walking through a ground-level pad no longer launches.
   if (pl.gr) adash = 0;                                         // air dash recharges on landing (lastSafe tracking retired — spike hurt() now uses standard -180 recoil, no teleport)
 
   for (const [ox, oy] of [[1, PH - 1], [PW - 1, PH - 1], [PW / 2, PH]])
@@ -856,15 +852,13 @@ const step = (dt) => {
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire.
       }
     }
-    // ATTACK: CHARGE (bit 16) — telegraphed dash. ONE signed timer f.ct runs the whole cycle:
-    //   f.ct > DA   → WINDUP (freeze + red-skull tell)     ·   0 < f.ct <= DA → DASH (burst @ CSPD, dir locked in f.cdir)
-    //   f.ct <= 0   → cooldown; restart when f.ct <= -CCD & grounded.   `chg` blocks base pursuit while active.
-    // ATTACK: CHARGE (bit 16) — telegraphed dash via one signed timer f.ct: WINDUP(freeze+tell, f.ct>DA) → DASH(f.ct≤DA, dir locked in f.cdir) → cooldown → restart at f.ct≤-CCD. Feeds sp/dir to the unified mover below.
+    // ATTACK: CHARGE (bit 16) — same countdown skeleton as RANGED: f.ct ticks down; in the final .5s the red-skull TELL shows and dash dir locks; at 0 it dashes @ CSPD for DA seconds, then re-arms (bosses sooner). `chg` feeds the unified mover below.
     let chg = 0, sp = ASPD, dir;
     if (f.cap & 16 && near) {
-      f.ct = (f.ct ?? -CCD) - dt;
-      if (f.ct <= -CCD && f.gr) { f.ct = WU + DA; f.cdir = Math.sign(pl.x + PW / 2 - f.x - fs / 2) || 1; }   // START — lock charge direction
-      if (f.ct > 0) { chg = 1; dir = f.cdir; sp = f.ct > DA ? 0 : CSPD; }   // windup → sp 0 (freeze) · dash → sp CSPD
+      f.ct = (f.ct ?? 1.5) - dt;
+      if (f.ct < .5) f.cdir ||= Math.sign(pl.x + PW / 2 - f.x - fs / 2) || 1;   // TELL window → lock dash direction
+      if (f.ct <= 0) { chg = 1; dir = f.cdir; sp = CSPD; }                       // DASH @ CSPD toward the locked dir
+      if (f.ct <= -DA) { f.ct = f.bit ? 1.6 : 2.1; f.cdir = 0; }                 // dash done → re-arm (boss 1.6s / foe 2.1s)
     }
     // UNIFIED MOVEMENT — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate (non-boss skids at ledge/spike, boss commits). Non-charging pursuer keeps patrol vx when blocked (edge-turn handles it).
     if (near) { dir ??= Math.sign(pl.x + PW / 2 - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0); f.vx = sp && (f.bit || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
@@ -1111,7 +1105,7 @@ const draw = () => {
         oR(s * 1, wob * .3, fs - s * 2, s * 1.7);              // hood peak (taller for eye clearance)
         eye(fs / 2, s * .8 + wob * .3);                        // eye peers from hood shadow — universal round eye
       }
-      if (f.rc < .7 || f.ct > DA) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // TELL — red skull at center: SHOOT imminent (f.rc<.7) OR CHARGE windup (f.ct>DA). undefined comparisons are false → non-attackers show none.
+      if (f.rc < .7 || f.ct < .5) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // TELL — red skull at center: SHOOT imminent (f.rc<.7) OR CHARGE telegraph+dash (f.ct<.5; timer re-arms to 2.1 right after, so it's only low during the attack). undefined comparisons false → non-attackers show none.
     }
     ctx.restore();
     bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');   // ENEMY floating HP bar — PERSISTENT: always shown (full or damaged), was gated on f.hp<f.mx. bar() draws the dark track + green fill so a full bar reads clearly.
@@ -1166,7 +1160,7 @@ const draw = () => {
   if (dq && started) { const s = dq[di], u = s[0] === '~'; bubble(u ? pl.x + PW / 2 : NX, u ? pl.y - 9 : NGY - 31, u ? s.slice(1) : s); }   // bubble stems from the speaker's head — '~' = player reply, else GREATCORN; hidden on title.
   else if (nearNpc && started) bubble(NX, NGY - 31, '...', 18);   // TALK-AVAILABLE indicator: in GREATCORN range + not mid-dialogue → a small chat bubble (SAME bubble() style, width 18) with a '...' speech glyph pops above his head, mirroring the ✓ interact prompt on the action button.
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
-  if (hs > 0) { ctx.globalAlpha = Math.min(1, hs * 4); ctx.lineWidth = 2; rArc(VW / 2, 150, 90, 3.5); ctx.globalAlpha = 1; }   // BOSS-WIN FLOURISH: while the victory hitstop holds (hs>0, set ONLY on boss kill), draw the big title-style rainbow arch — the SAME rArc as the title screen (line ~1370), centred on screen — as the "you claimed this rainbow" moment.
+  if (hs > 0) { ctx.globalAlpha = Math.min(1, hs * 4); arch(VW / 2, 130); ctx.globalAlpha = 1; }   // BOSS-WIN FLOURISH: reuses the EXACT title arch() at the SAME position (VW/2,130) — pixel-identical to the title rainbow.
 
   // ---------- HUD (gameplay-only overlays: level-up banner, death vignette) ---------
   // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
@@ -1200,7 +1194,7 @@ const draw = () => {
       const sx = 69 + i * 26, sel = i === aRow;
       if (sel) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23); }   // GOLD cursor (Fix B) — one persistent selection colour across the whole menu
       ctx.fillStyle = c; T2(l, sx + 9, 154);
-      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (sel && pending) { ctx.font = 'bold 9px monospace'; T2('+', sx + 17, 165); ctx.font = 'bold 8px monospace'; }   // number always in its SC stat colour; same-colour "+" on the SELECTED stat when points pending = "confirm to raise THIS".
+      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (sel && pending) T2('+', sx + 17, 165);   // number always in its SC stat colour; same-colour "+" on the SELECTED stat when points pending = "confirm to raise THIS". "+" drawn at ambient bold 8px (was a one-off bold 9px — removed to drop a unique font literal).
     });
     // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots).
     for (let i = 0; i < BAG; i++) {
@@ -1348,10 +1342,7 @@ const draw = () => {
   }
   // TITLE SCREEN — world scene renders behind, title art on top (scrim REMOVED the .34 black dim muted the vibrant meadow colors; the rainbow arch + rText title carry their own black outlines, so they stay legible on the bright scene without it)
   if (!phase) {
-    ctx.strokeStyle = '#17131f'; ctx.lineWidth = 23; ctx.beginPath(); ctx.arc(VW / 2, 130, 69, Math.PI, 0); ctx.stroke();   // black frame behind the rainbow (1px rim each side) — matches the sprite outline grammar
-    ctx.lineWidth = 3;
-    rArc(VW / 2, 130, 78, 3);
-    ctx.fillStyle = '#17131f'; ctx.fillRect(159, 130, 24, 1); ctx.fillRect(297, 130, 24, 1);   // cap the two arch feet — straight black line closes the outline across each band cross-section (no downward extend)
+    arch(VW / 2, 130);   // title rainbow arch — shared with the boss-win flourish
     rText('HOOVES OF HOPE', 178);
     ctx.textAlign = 'center';
     if (tMode === 1) {
@@ -1366,7 +1357,7 @@ const draw = () => {
       T2(sMeta() || 'NEW GAME', VW / 2, 208);
       if (sPop) {
         ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(0, 240, VW, 30);
-        ctx.fillStyle = sPop === 2 ? '#c33' : '#888';   T2('DELETE',   VW / 2 - 55, 258);
+        ctx.fillStyle = sPop === 2 ? '#e33' : '#888';   T2('DELETE',   VW / 2 - 55, 258);
         ctx.fillStyle = sPop === 1 ? '#8cf' : '#888'; T2('CONTINUE', VW / 2 + 55, 258);
       }
     }
