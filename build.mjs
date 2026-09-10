@@ -87,11 +87,24 @@ const WD_GLUE = `<script>
   const push=()=>{
     let d;try{d=JSON.parse(localStorage['uni_s0']||'0')}catch(e){return}
     if(!d||d.v!==44)return;
-    const sig=JSON.stringify([d.l,d.g,d.D,d.K,d.R]);
+    const sig=JSON.stringify([d.l,d.g,d.D,d.K,d.R,d.o,d.y,d.q]);
     if(sig===last)return;last=sig;
     const bosses=(d.g||[]).filter(v=>v===2).length;
     up(L,d.l|0);up(B,bosses);up(D,d.D|0);up(K,d.K|0);
     if(bosses>=7)up(W,Math.round(d.R||0));
+    if(Wavedash.setStat){
+      const pc=n=>{let c=0;n=n|0;while(n){c+=n&1;n>>>=1}return c};
+      const chests=pc(d.o),skills=(d.y||[]).reduce((a,b)=>a+(b?1:0),0),gear=(d.q||[]).filter(x=>x).length;
+      const fast=bosses>=7&&(d.R||0)>0&&d.R<600?1:0;
+      Wavedash.setStat('KILLS',d.K|0,true);
+      Wavedash.setStat('CHESTS',chests,true);
+      Wavedash.setStat('BOSSES',bosses,true);
+      Wavedash.setStat('LEVEL',d.l|0,true);
+      Wavedash.setStat('SKILLS',skills,true);
+      Wavedash.setStat('GEAR',gear,true);
+      Wavedash.setStat('FASTCLEAR',fast,true);
+      Wavedash.storeStats&&Wavedash.storeStats();
+    }
   };
   setInterval(push,5000);
   addEventListener('pagehide',push);
