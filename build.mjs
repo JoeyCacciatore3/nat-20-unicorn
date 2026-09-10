@@ -69,7 +69,35 @@ writeFileSync('dist/index.html', tpl.replace('/*JS*/', () => js));
 // Per docs.wavedash.com/sdk/setup: init() calls loadComplete() internally and is
 // required for every game to reveal the play area. No achievement polling — the
 // game does not yet track per-achievement state in a shape the SDK can consume.
-const WD_GLUE = `<script>window.Wavedash&&Wavedash.init({})</scr` + `ipt>`;
+const WD_GLUE = `<script>
+(async()=>{
+  if(!window.Wavedash)return;
+  await Wavedash.init({});
+  const S=Wavedash.LeaderboardSortOrder,T=Wavedash.LeaderboardDisplayType;
+  const mk=(n,o,t)=>Wavedash.getOrCreateLeaderboard(n,o,t).then(r=>r&&r.success?r.data.id:0).catch(()=>0);
+  const [L,B,D,K,W]=await Promise.all([
+    mk('Highest Level',S.DESC,T.NUMERIC),
+    mk('Bosses Defeated',S.DESC,T.NUMERIC),
+    mk('Total Damage',S.DESC,T.NUMERIC),
+    mk('Total Kills',S.DESC,T.NUMERIC),
+    mk('Fastest Clear',S.ASC,T.TIME_SECONDS)
+  ]);
+  let last='';
+  const up=(id,v)=>id&&Wavedash.uploadLeaderboardScore(id,v,true);
+  const push=()=>{
+    let d;try{d=JSON.parse(localStorage['uni_s0']||'0')}catch(e){return}
+    if(!d||d.v!==44)return;
+    const sig=JSON.stringify([d.l,d.g,d.D,d.K,d.R]);
+    if(sig===last)return;last=sig;
+    const bosses=(d.g||[]).filter(v=>v===2).length;
+    up(L,d.l|0);up(B,bosses);up(D,d.D|0);up(K,d.K|0);
+    if(bosses>=7)up(W,Math.round(d.R||0));
+  };
+  setInterval(push,5000);
+  addEventListener('pagehide',push);
+  addEventListener('visibilitychange',()=>{if(document.hidden)push()});
+})();
+</scr` + `ipt>`;
 mkdirSync('dist/wavedash', { recursive: true });
 writeFileSync('dist/wavedash/index.html', readFileSync('dist/index.html', 'utf8') + WD_GLUE);
 

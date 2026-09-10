@@ -392,8 +392,8 @@ const drawUo = (bob) => {
 // Single continuous path: rounded corners (arcTo) + a downward tail merged into the bottom edge
 // so one fill+stroke yields a clean outlined bubble with no seam. txt optional ('' = open bubble
 // the structure future dialogue lines drop into — for either the NPC or the player's head).
-const bubble = (hx, topY, txt, w = 100) => {   // w defaults to the full dialogue width; pass a small w for the talk-available indicator (same style, shrunk).
-  const rows = txt.split('|'), h = 8 + rows.length * 9, x = hx - w / 2, R = hx + w / 2, y = topY - h - 7, B = y + h, r = 4;   // grows one row per '|' segment
+const bubble = (hx, topY, txt, fw) => {   // fw = forced width (talk-available '...' indicator passes 18); dialogue omits it → auto-fit to longest row so no line ever overflows.
+  const rows = txt.split('|'), w = fw || Math.max(...rows.map(s => s.length)) * 5 + 12, h = 8 + rows.length * 9, x = hx - w / 2, R = hx + w / 2, y = topY - h - 7, B = y + h, r = 4;   // grows one row per '|' segment; width hugs the widest row (5px/char @ bold 8px monospace + pad)
   ctx.fillStyle = '#fffdf5'; ctx.strokeStyle = '#3a2f4a'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -408,7 +408,7 @@ const bubble = (hx, topY, txt, w = 100) => {   // w defaults to the full dialogu
 };
 let hp = 20, xp = 0, lvl = 1;
 let mn = 20, pending = 0;
-let hpPot = 0, mpPot = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
+let hpPot = 0, mpPot = 0, kc = 0, dd = 0, rt = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
 // Skills are player-chosen via level-gated rows (canBuy = lvl>=req per node)
 let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY boss-kill victory freeze, 1.5s — also drives the title-style rainbow flourish in draw) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-strobe timer · hfc = flash PAL index (4=red hurt · 14=green heal · 11=white dash). pl.inv now covers only stomp + respawn (silent). hf>0 OR pl.inv>0 = invulnerable.
@@ -416,8 +416,8 @@ let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY bo
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
 
 const rainbows = () => bs.filter(v => v === 2).length;   // banked-boss count.
-const mHP = () => 18 + st[1] * 2;                    // base 18 + HP stat (st[1]) → start 20 (st=1), CAP20 58
-const mMN = () => 18 + st[2] * 2;                    // base 18 + MAG stat (st[2]) → start 20 (st=1), CAP20 58
+const mHP = () => 16 + st[1] * 2;                    // base 16 + HP stat (st[1]) → start 20 (st=2), CAP20 56
+const mMN = () => 16 + st[2] * 2;                    // base 16 + MAG stat (st[2]) → start 20 (st=2), CAP20 56
 // ATK (=st[0]) and LUCK% (.12+st[4]*.03) inlined at their use sites — low-use helpers are net-negative under roadroller.
 
 const need = () => lvl * lvl + 40;               // XP to next level. +40 floor keeps early levels from flooding (~5 kills/level vs ~2); quadratic ramps toward CAP.
@@ -487,7 +487,7 @@ const save = () => {
     v: 44, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: st, d: pending, k: spts, y: su,
     m: pName, o: oc,
-    q: eq, i: inv, P: [hpPot, mpPot],   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
+    q: eq, i: inv, P: [hpPot, mpPot], K: kc, D: dd, R: rt,   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
   });
 };
 const load = () => {
@@ -506,6 +506,7 @@ const load = () => {
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
     hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
+    kc = d.K | 0; dd = d.D | 0; rt = d.R || 0;
     col = eq.map(e => e ? e.c : 0);                                // derived from equipment (single source of truth)
   } catch (e) { /* fresh oath */ }
 };
@@ -539,7 +540,7 @@ let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const GV = 900, FALLCAP = 400;          // UNIFIED gravity accel — player + foes share ONE constant (world spikes/gaps were tuned to the enemy 900 model, so this is guaranteed-traversable).
 const RUN = 115, JV = 280, IFR = 1.5;   // JV = launch velocity shared by player jump AND enemy hop (identical arcs → learnable). IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash.
-const ASPD = 56, CSPD = 150, DA = .3;   // FOE AI — ASPD = uniform pursuit speed (ALL foes home at this). CHARGE (tier-3) mirrors the RANGED countdown: red-skull tell ~.5s, then a DA-long dash @ CSPD.
+const ASPD = 56, CSPD = 150, DA = .5;   // FOE AI — ASPD = uniform pursuit speed (ALL foes home at this). CHARGE (tier-3): .5s dir-lock wind-up, then a DA-long (.5s) dash @ CSPD. NO skull tell (skull = SHOOT only) — the dir-lock pause + longer committed dash reads the wind-up.
 
 const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -557,7 +558,7 @@ const fresh = () => {
   eq.fill(null); inv.length = 0;
   pending = 0; st = [2, 2, 2, 2, 2]; col = [0, 0, 0, 0];   // base stats start at 2 (was 1) — a guaranteed floor on every stat (STR 2 → stomp 2 from the first hit); this IS the early-game head start, so no bonus at the level-up.
   oc = 0; pName = 'HORSE';
-  spts = 0; su.fill(0);
+  spts = 0; su.fill(0); kc = dd = rt = 0;
   aRow = 0;   // reset menu cursor (bag selection is derived from aRow, nothing else to clear)
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seedChests();
@@ -673,12 +674,12 @@ const spawnDrop = (x, y, n) => {
 
 const strike = (f, mag) => {
   const crit = Math.random() < .12 + st[4] * .03, dmg = st[mag ? 2 : 0] * (crit ? 2 : 1);   // SHOOT=MAG(sp) · DASH/STOMP=STR(ho); ×2 on crit (LUCK .12+lk*.03).
-  f.hp -= dmg; f.fl = .4; f.vx = 0;   // UNIFIED HIT REACTION: every damage source (dash/stomp/shot) gets 0.4s flash + AI pause + i-frame via ONE timer f.fl. vx=0 gives the visible "stop-and-jolt" beat.
+  f.hp -= dmg; dd += dmg; f.fl = .4; f.vx = 0;   // UNIFIED HIT REACTION: every damage source (dash/stomp/shot) gets 0.4s flash + AI pause + i-frame via ONE timer f.fl. vx=0 gives the visible "stop-and-jolt" beat.
   fly(f.x, f.y - 8, '-' + dmg, '#ff5d6c');   // unified damage red.
   // crit = 2× number only.
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
-    f.dead = 1;                                                 // frame-end prune below; avoids splice-race index shift
+    f.dead = 1; kc++;                                                 // frame-end prune below; avoids splice-race index shift
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(FT[f.k][0] + FT[f.k][1] + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP = DIFFICULTY-PROPORTIONAL: base HP + base DM from FT[k] (k1=7/k2=12/k3=17/k4=8/k5=10/k6=13) — was `min(k,3)*4` which paid on the KIND INDEX (capped 3), so light fast k4 (5HP) earned the same 12 as tanky k3 (12HP).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK: rainbow collectible RETIRED.
@@ -735,7 +736,7 @@ const step = (dt) => {
     return;
   }
   if (dq || savePop || helpOn) return;             // dialogue / save-popup / help overlays freeze the sim — they swallow input, so the world must not act while the player can't (fairness)
-  time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt; hf -= dt;
+  rt += dt; time += dt; jbuf -= dt; pl.inv -= dt; pl.t += dt; dashT -= dt; dashCd -= dt; dropT -= dt; shk -= dt; hf -= dt;
 
   if (deathT > 0) {
     const wt = deathT; deathT -= dt;
@@ -856,8 +857,8 @@ const step = (dt) => {
     let chg = 0, sp = ASPD, dir;
     if (f.cap & 16 && near) {
       f.ct = (f.ct ?? 1.5) - dt;
-      if (f.ct < .5) f.cdir ||= Math.sign(pl.x + PW / 2 - f.x - fs / 2) || 1;   // TELL window → lock dash direction
-      if (f.ct <= 0) { chg = 1; dir = f.cdir; sp = CSPD; }                       // DASH @ CSPD toward the locked dir
+      if (f.ct < .5) { f.cdir ||= Math.sign(pl.x + PW / 2 - f.x - fs / 2) || 1; chg = 1; sp = 0; }   // WIND-UP: lock dir + GATHER (vx→0 pause = the motion tell that replaced the skull)
+      if (f.ct <= 0) { dir = f.cdir; sp = CSPD; }                                // DASH @ CSPD toward the locked dir (overrides the wind-up pause)
       if (f.ct <= -DA) { f.ct = f.bit ? 1.6 : 2.1; f.cdir = 0; }                 // dash done → re-arm (boss 1.6s / foe 2.1s)
     }
     // UNIFIED MOVEMENT — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate (non-boss skids at ledge/spike, boss commits). Non-charging pursuer keeps patrol vx when blocked (edge-turn handles it).
@@ -871,7 +872,7 @@ const step = (dt) => {
         // Bosses hop unconditionally (arenas are flat + build-audited).
         const s = Math.sign(f.vx) || 1;
         if (f.bit || tile((f.x + fs / 2 + s * T) / T | 0, (f.y + fs + 6) / T | 0) % 3) {
-          f.vy = -JV; f.gr = 0; f.vx ||= s * ASPD; f.hop = 2.2;   // uniform launch (JV) + cadence (~1.58s ground rest between hops); vx||= anti-freeze after a strike-stop
+          f.vy = -JV; f.gr = 0; f.vx ||= s * ASPD; f.hop = 2.1;   // uniform launch (JV) + cadence (~1.5s ground rest, UNIFIED with the 2.1s attack re-arm beat); vx||= anti-freeze after a strike-stop
         } else { f.vx *= -1; f.hop = .3; }
       }
     }
@@ -1105,7 +1106,7 @@ const draw = () => {
         oR(s * 1, wob * .3, fs - s * 2, s * 1.7);              // hood peak (taller for eye clearance)
         eye(fs / 2, s * .8 + wob * .3);                        // eye peers from hood shadow — universal round eye
       }
-      if (f.rc < .7 || f.ct < .5) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // TELL — red skull at center: SHOOT imminent (f.rc<.7) OR CHARGE telegraph+dash (f.ct<.5; timer re-arms to 2.1 right after, so it's only low during the attack). undefined comparisons false → non-attackers show none.
+      if (f.rc < .7) skull(fs / 2, fs / 2, .7, 1, '#ff5d6c');   // TELL — red skull at center: SHOOT imminent only (f.rc<.7). CHARGE has NO skull (skull reads as projectile); its wind-up is the dir-lock pause + committed dash. undefined f.rc → false → non-shooters show none.
     }
     ctx.restore();
     bar(f.x, f.y - 3, fs, 1, f.hp / f.mx, '#6cf279');   // ENEMY floating HP bar — PERSISTENT: always shown (full or damaged), was gated on f.hp<f.mx. bar() draws the dark track + green fill so a full bar reads clearly.
@@ -1366,13 +1367,13 @@ const draw = () => {
   if (helpOn && started) {
     fade(.88);
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
-    ctx.fillStyle = '#fff'; T2('CONTROLS', VW / 2, 60);
+    ctx.fillStyle = '#8cf'; T2('CONTROLS', VW / 2, 60);
     [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H'],['MENU','P / tap your name']].forEach(([a, b], i) => {
       const y = 82 + i * 22;
-      ctx.fillStyle = '#888'; ctx.textAlign = 'right'; T2(a, VW / 2 - 10, y);
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; T2(b, VW / 2 + 10, y);
+      ctx.fillStyle = '#8cf'; ctx.textAlign = 'right'; T2(a, VW / 2 - 10, y);
+      ctx.fillStyle = '#8cf'; ctx.textAlign = 'left'; T2(b, VW / 2 + 10, y);
     });
-    ctx.textAlign = 'center'; ctx.fillStyle = '#888'; T2('tap to close', VW / 2, 230);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#8cf'; T2('tap to close', VW / 2, 230);
   }
   ctx.restore();
 };
