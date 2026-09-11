@@ -1,205 +1,156 @@
-// world.js — UNICORN: unified single-map world.
+// world.js — UNICORN: unified single-map world (COMPACT 3-BAND REBUILD, batch 35).
 // One contiguous world (no portals / level-loads), x-banded into palette ZONES (see ZB in data.js).
 // Tiles: 0 air, 1 solid, 2 one-way platform, 3 spikes.
 
-// ============================ MAP LAWS (Joe, locked) ============================
-// L1 TWO-TILE LAW — hazard pits are <=2 tiles deep: always jumpable out.
-// L2 RUNG LAW — every vertical shaft has one-way rungs every <=2 tiles.
-// L3 SPACING LAW — pre-ability routes: rises <=2, gaps <=3. Double-jump
-// routes: rises <=3, gaps <=5. Triple-jump gaps: <=10.
-// (Dash is an ATTACK, never required for traversal —.)
-// L4 CEILING LAW — anything you must jump over needs >=2 tiles of clearance
-// above its top edge.
-// L5 GATE LAW — an ability wall must be provably impassable without its
-// ability and provably passable with it (incl. ceiling).
-// L6 RETURN LAW — every standable cell reachable with moveset M must reach
-// the paddock using M.
-// build FAILS if any stuck spot exists.
-// L7 DEATH LAW — spikes always hurt + return to last safe ground (no void
-// tile() walls the world bottom); death respawns at paddock.
-// ================================================================================
-export const T = 16, W = 600, H = 160;
+// ============================ MAP MODEL (Joe, locked 2026-09-11) ============================
+// THREE STACKED BANDS, no wasted space, built around the measured jump envelope:
+//   SKY   rows 1-17  — drop-through platform climbs (always returnable by dropping).
+//   GROUND rows 18-23 — solid walkable band, UNIFORM GROUND_H=6 thick (= 6× a platform).
+//                       Surface-top = row SR(18), full width = the traversal highway.
+//   CAVES rows 24-40  — built-from-AIR: chambers/floors/rungs + drop-shafts through the band.
+//   Row 41 = floor seal (catches every fall → RETURN LAW).
+// JUMP ENVELOPE (JV=280,GV=900,bounce=-510): single 2.7t · double 5.4t · triple ~8t (safe 6t) ·
+//   mushroom 9t · mushroom+triple 14.5t = CEILING. Ladder steps kept <=5t (double-jump safe).
+// LAWS: L1 spikes always FLUSH ([x,SR,w,1,3], solid beneath, hop-over). L2 every shaft has
+//   return rungs every <=5t. L3 ceiling clearance >=2t over anything you jump. L4 RETURN LAW —
+//   every standable cell reaches the paddock (build FAILS on any stuck spot). L5 DEATH LAW —
+//   spikes hurt + return to safe ground; floor seal walls the bottom; death respawns at paddock.
+// ============================================================================================
+export const T = 16, W = 480, H = 42;
+export const GROUND_H = 6, SR = 18;                 // walkable ground band thickness + surface-top row
 export const grid = new Uint8Array(W * H);
 export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 : grid[ty * W + tx];
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- MEADOW (600×160 unified world, all CORN bosses) ---------
+// ---------- MEADOW (480×42 compact 3-band world, all CORN bosses) ---------
 const MEADOW = {
   MAP: [
-    // envelope — playable y=0-71 surface + optional pockets at y=72+ (underground extensions)
-    [0, 0, 3, H], [W - 3, 0, 3, H],        // W-relative borders: whole world scales off W/H
-    [3, 60, W - 6, 40],                    // ground + underground mass (rows 60-99, deep enough to seal void beneath surface + caverns)
-    // Meadow surface (x158-277) — pits, platforms, DJ high route, stepped tower
-    [155, 60, 3, 2, 0], [155, 61, 3, 1, 3],                      // early practice pit (base-crossable, teaches jumping post-paddock)
-    [170, 60, 3, 2, 0], [170, 61, 3, 1, 3],
-    [196, 60, 5, 2, 0], [196, 61, 5, 1, 3], [197, 59, 3, 1, 2],
-    [233, 60, 3, 2, 0], [233, 61, 3, 1, 3],
-    [251, 60, 3, 2, 0], [251, 61, 3, 1, 3],                      // RED arena moat — last committed jump before RED boss on the meadow flat past x=258 (lair removed: RED now surface-visible in its own MEADOW palette)
-    [175, 57, 4, 1, 2], [181, 55, 4, 1, 2], [188, 57, 5, 1, 2],
-    [205, 56, 4, 1, 2], [212, 54, 4, 1, 2], [220, 57, 6, 1, 2],
-    [240, 56, 4, 1, 2], [247, 54, 4, 1, 2],
-    [210, 51, 3, 1, 2], [218, 49, 3, 1, 2],   // DJ high route
-    [226, 53, 4, 1, 2], [234, 51, 4, 1, 2], [242, 53, 4, 1, 2],   // MEADOW east DJ extension: lift meadow platform density (was zone-lowest 95/100col) toward the ~130 avg — a 3-step route over the RED-approach flat
-    [262, 59, 3, 1], [265, 58, 3, 2], [268, 57, 3, 3], [271, 56, 3, 4],
-    [274, 58, 3, 1, 2],
-    // Central→East transition (x=280-287) — DJ climb bridging the flat zone
-    [280, 57, 4, 1, 2], [286, 54, 4, 1, 2],                      // DJ platforms (rise 1 + rise 3 = DJ range)
-    // Descent corridor (x150-256, subterranean pocket)
-    [150, 66, 107, 4, 0],
-    [175, 63, 18, 7, 0],
-    [215, 64, 20, 6, 0],
-    [162, 60, 3, 6, 0],
-    [162, 62, 3, 1, 2], [162, 64, 3, 1, 2], [162, 66, 3, 1, 2], [162, 68, 3, 1, 2],
-    [246, 60, 3, 6, 0],
-    [246, 62, 3, 1, 2], [246, 64, 3, 1, 2], [246, 66, 3, 1, 2], [246, 68, 3, 1, 2],
-    [222, 61, 8, 3, 0], [224, 63, 6, 1], [219, 66, 3, 1, 2],
-    [184, 70, 3, 1, 3], [228, 70, 3, 1, 3],   // ambushes sunk INTO the corridor floor — tips flush with walk level (operator 09-04)
-    // Western terraces (x40-118) — DJ climb to YELLOW CORN on canopy ledge
-    [114, 56, 2, 4],
-    [100, 57, 8, 3], [88, 54, 8, 6], [76, 51, 8, 9], [64, 48, 8, 12], [52, 45, 8, 15],
-    [60, 48, 4, 12], [72, 51, 4, 9], [84, 54, 4, 6],
-    [49, 57, 3, 1, 2], [49, 55, 3, 1, 2], [49, 53, 3, 1, 2], [49, 51, 3, 1, 2],
-    [49, 49, 3, 1, 2], [49, 47, 3, 1, 2], [49, 45, 3, 1, 2],
-    // Canopy zig-zag climb (x40-118) — DJ route up to YELLOW CORN ledge
-    [62, 42, 4, 1, 2], [68, 39, 4, 1, 2], [74, 36, 4, 1, 2], [80, 33, 4, 1, 2],
-    [74, 30, 4, 1, 2], [68, 27, 3, 1, 2], [63, 26, 3, 1, 2],
-    [52, 26, 8, 1, 2],   // CANOPY ledge (YELLOW arena) — batch 11 platform unification: was 8×2 solid → now 8×1 one-way.
-    [86, 36, 4, 1, 2], [94, 39, 4, 1, 2], [102, 42, 4, 1, 2],
-    // Peak approach (x10-60) — DJ climb up to BLUE CORN on summit ledge
-    [46, 24, 3, 1, 2],
-    [40, 23, 4, 1, 2], [34, 20, 3, 1, 2], [28, 17, 3, 1, 2], [22, 14, 3, 1, 2],
-    [10, 12, 9, 1, 2],   // PEAK ledge (BLUE arena) — batch 11 platform unification: was 9×2 solid → now 9×1 one-way.
-    // Peak TRI-JUMP secret — chest 8 above BLUE summit (rise 5 requires 3rd jump)
-    [22, 8, 3, 1, 2], [26, 3, 5, 1, 2],   // DJ from summit y=12 to y=8, TRI from y=8 to y=3
-    // ---- WEST BASEMENT (x5-47) — was barren floor below the BLUE peak: varied platform course + mushrooms + foes ---
-    [7, 57, 9, 1, 2], [19, 54, 4, 1, 2], [27, 56, 7, 1, 2], [38, 53, 5, 1, 2], [44, 56, 4, 1, 2],   // varying-length one-way shelves (float over the floor; drop-through, so always returnable)
-    [15, 50, 5, 1, 2], [23, 47, 4, 1, 2], [30, 44, 6, 1, 2],   // BOUNCE-SKY ROUTE: 3-step aerial ladder filling the empty gap above the [17]/[30] bounce mushrooms.
-    [24, 40, 4, 1, 2], [30, 36, 4, 1, 2], [24, 32, 4, 1, 2], [30, 28, 4, 1, 2], [34, 24, 4, 1, 2],   // BOUNCE-SKY ASCENT: DJ zig-zag continuing the bounce route UP through the empty rows24-44 band to meet the peak-approach ladder [34,20] → BLUE CORN summit (boss + chest3 + TRI-secret chest8). 4-row steps (DJ range), x alternates 24/30 then 34 to dock the ladder.
-    [13, 60, 3, 2, 0], [13, 61, 3, 1, 3],   // shallow spike pit (2-deep, base-crossable) — hazard interest
-    // Depths corridor (x10-139, deep west) — post-DASH route to VIOLET CORN
-    [10, 64, 130, 6, 0],
-    [108, 60, 3, 4, 0],
-    [108, 62, 3, 1, 2], [108, 64, 3, 1, 2], [108, 66, 3, 1, 2], [108, 68, 3, 1, 2],
-    [80, 70, 7, 1, 3],                        // cavern ambush likewise sunk flush
-    // Underground cavern — chest 9 pocket below depths corridor (walls/floor provided by deep ground band)
-    [62, 70, 3, 2, 0],                                                                              // entry drop hole (y=70-71) through corridor floor into cavern
-    [60, 72, 22, 10, 0],                                                                            // cavern chamber (y=72-81, w=22)
-    [63, 80, 3, 1, 2], [63, 78, 3, 1, 2], [63, 76, 3, 1, 2], [63, 74, 3, 1, 2], [63, 72, 3, 1, 2],  // return rungs
-    // Paddock DJ hub perch
-    [124, 54, 4, 1, 2],
-    // ---- East run (x280-476) — post-hub DJ/TRI JUMP showcase (all gaps jump-crossable) ---
-    // Early run (x280-325): base pit + DJ terrace climb (rise-3 rungs, walkway rest)
-    [288, 60, 3, 2, 0], [288, 61, 3, 1, 3],
-    [295, 57, 6, 1, 2], [303, 54, 4, 1, 2], [309, 51, 4, 1, 2], [315, 48, 8, 1, 2],
-    // Mid run (x330-380): DJ pit, long DJ walkway, TRI-JUMP pit (8t, trijump clears ~10t), reward ledge
-    [330, 60, 5, 2, 0], [330, 61, 5, 1, 3],
-    [345, 57, 10, 1, 2],
-    [360, 60, 8, 2, 0], [360, 61, 8, 1, 3],
-    [372, 52, 6, 1, 2],
-    // Vertical stack (x385-430): DJ zig-zag climb → TRI-JUMP upper landing → step-down
-    [385, 55, 5, 1, 2], [392, 51, 5, 1, 2], [385, 47, 5, 1, 2], [392, 43, 5, 1, 2],
-    [398, 38, 8, 1, 2],   // EAST RUN TRI-JUMP upper landing — batch 11 platform unification: v=1→v=2. Same 1-tile height, now droppable + uniform thickness.
-    [412, 43, 4, 1, 2], [418, 47, 4, 1, 2], [424, 51, 4, 1, 2], [430, 55, 4, 1, 2],
-    // East end (x440-475): stepped tower echoing western motif + final walkway
-    [440, 59, 3, 1], [443, 58, 3, 2], [446, 57, 3, 3], [449, 56, 3, 4], [452, 55, 3, 5],
-    [458, 55, 6, 1, 2],
-    [464, 53, 3, 1, 2], [460, 51, 4, 1, 2],        // ORANGE perch — two rise-2 zig hops above the walkway (single-jump legal, off the direct path)
-    // ==== EAST GATE (x466-512) — bounce ridge: spring to a high chest ledge; DJ step route continues east ====
-    [470, 60, 4, 2, 0], [470, 61, 4, 1, 3],        // spike pit just past ORANGE's walkway
-    [477, 52, 6, 1, 2],                            // HIGH CHEST LEDGE — reachable only by bounce + double-jump
-    [488, 57, 5, 1, 2], [496, 54, 6, 1, 2],        // onward DJ step route (eastward, seeds the next section)
-    // ==== EAST SHELF (x514-562) — gap-crossing traversal + a mid chest; climbs toward E3 ====
-    [518, 60, 4, 2, 0], [518, 61, 4, 1, 3],        // spike gap (DJ drift)
-    [528, 56, 6, 1, 2],                            // mid platform rest — chest 5 perches here
-    [540, 60, 5, 2, 0], [540, 61, 5, 1, 3],        // second spike gap (DJ drift)
-    [550, 57, 6, 1, 2], [558, 53, 5, 1, 2],        // step up — seeds the E3 vertical climb
-    // ==== EAST ASCENT (x560-620) — DJ zig-zag climb (from E2's row53 step) to the GREEN summit + a ground bounce side chest ====
-    [564, 49, 5, 1, 2], [560, 45, 5, 1, 2],        // zig up (DJ, rise 4)
-    [566, 41, 5, 1, 2], [562, 37, 6, 1, 2],        // continue up — chest 6 on the 562 ledge
-    [568, 33, 8, 1, 2],                            // GREEN summit landing (E4) — batch 11 platform unification: v=1→v=2. Same 1-tile height, now droppable + uniform thickness.
-    [572, 52, 5, 1, 2],                            // ground bounce side ledge — chest 7 (bounce + DJ)
-    // ---- EAST END-CAP (x579-595) — was barren NE corner past GREEN: stepped platforms + mushroom + foes ---
-    [580, 56, 6, 1, 2], [588, 53, 5, 1, 2], [582, 50, 4, 1, 2],   // stepped shelves climbing into the corner
+    // ===== SPINE (full width) — the 3-band skeleton =====
+    [0, 0, 3, H], [W - 3, 0, 3, H],        // borders (scale off W/H)
+    [3, 18, W - 6, 6],                      // GROUND BAND — solid rows 18-23 (GROUND_H), surface-top row 18, full width = highway
+    [3, 41, W - 6, 1],                      // FLOOR SEAL — row 41 (caves are air rows 24-40; this catches every fall)
+    // ---- SURFACE HAZARDS — flush spikes ([x,18,w,1,3]), solid beneath, hop-over (uniform) ----
+    [78, 18, 3, 1, 3], [120, 18, 3, 1, 3],                       // PADDOCK PALE — flank the safe zone (pocket x81-119, spawn x101 + GREATCORN x106). Wandering foes edge-turn at spikes → can't enter; player hops out (teaches the first jump). Death respawns clean.
+    [56, 18, 3, 1, 3], [144, 18, 3, 1, 3], [200, 18, 3, 1, 3],   // canopy · meadow · RED moat (last jump before b0)
+    [268, 18, 3, 1, 3], [292, 18, 3, 1, 3], [368, 18, 3, 1, 3],  // eastrun · ORANGE moat (before b1) · eastrun
+
+    // ===== WEST SKY — PEAK climb (x6-30): surface → c3 → TRI-secret c8 =====
+    [8, 15, 5, 1, 2], [14, 12, 5, 1, 2], [8, 9, 5, 1, 2], [14, 6, 5, 1, 2],   // zig-zag ladder (rises 3, DJ-safe)
+    [8, 4, 6, 1, 2],                       // PEAK ledge — chest 3
+    [18, 1, 6, 1, 2],                      // PEAK TRI-secret ledge — chest 8 (rise 3 from row4)
+    // ===== WEST SKY — CANOPY climb (x36-52): surface → c18 → YELLOW boss b2 + c2 =====
+    [38, 15, 6, 1, 2], [44, 11, 6, 1, 2],  // c18 terrace (rise 3, 4)
+    [40, 7, 8, 1, 2],                      // CANOPY crest — YELLOW boss b2 + chest 2 (rise 4)
+
+    // ===== MEADOW SKY (x96-224) =====
+    [98, 14, 6, 1, 2],                     // paddock perch — chest 17 (DJ from surface)
+    [172, 15, 6, 1, 2], [172, 12, 6, 1, 2],// meadow high route — chest 1
+    [196, 14, 6, 1, 2],                    // meadow DJ platform — chest 10
+    [214, 15, 6, 1, 2],                    // stepped tower top — chest 11
+
+    // ===== EASTRUN SKY (x224-381) =====
+    [252, 15, 6, 1, 2], [252, 12, 6, 1, 2],// east terrace climb — chest 14
+    [316, 15, 6, 1, 2], [316, 12, 6, 1, 2], [316, 9, 6, 1, 2], [316, 8, 6, 1, 2],   // vertical stack — chest 15 (top)
+    [358, 15, 6, 1, 2],                    // east stepped tower top — chest 16
+
+    // ===== SUMMIT SKY (x381-477): GREEN climax — b5 + chests 4,5,6,7,19 =====
+    [380, 15, 6, 1, 2], [380, 13, 6, 1, 2],// east gate ledge — chest 4
+    [420, 15, 6, 1, 2],                    // summit approach — chest 5
+    [438, 16, 6, 1, 2],                    // summit low ledge — chest 19
+    [444, 15, 6, 1, 2], [450, 12, 6, 1, 2],// GREEN summit ladder (rises 3, 3)
+    [446, 8, 14, 1, 2],                    // GREEN SUMMIT landing — INDIGO boss b5 + chest 6 (rise 4)
+    [456, 13, 6, 1, 2],                    // summit bounce side ledge — chest 7
+
+    // ===== WEST CAVE SYSTEM (x6-70): drop-shaft x30 → VIOLET chamber (r31) → deep INDIGO (r39) =====
+    [30, 18, 3, 6, 0],                     // entrance drop-shaft (carve through ground band)
+    [28, 20, 4, 1, 2], [28, 24, 4, 1, 2], [28, 28, 4, 1, 2],   // shaft return rungs (<=5t)
+    [6, 31, 62, 1, 1],                     // VIOLET chamber floor (r31) — b4 + chest 12
+    [50, 31, 3, 1, 0],                     // drop-hole to deep chamber
+    [44, 36, 4, 1, 2], [44, 32, 4, 1, 2],  // deep→upper return rungs
+    [40, 39, 28, 1, 1],                    // deep INDIGO chamber floor (r39) — b6 + chest 9
+
+    // ===== CENTRAL CAVE (x128-186): drop-shaft x146 → chamber (r31) + raised ledge c13 =====
+    [146, 18, 3, 6, 0],                    // entrance drop-shaft
+    [144, 20, 4, 1, 2], [144, 24, 4, 1, 2], [144, 28, 4, 1, 2],// shaft return rungs
+    [128, 31, 58, 1, 1],                   // chamber floor (r31) — chest 0
+    [176, 28, 8, 1, 2],                    // raised cave ledge — chest 13
+
+    // ===== EAST CAVE (x298-362): NEW — fills the dead east underground (build-from-air) =====
+    [330, 18, 3, 6, 0],                    // entrance drop-shaft
+    [328, 20, 4, 1, 2], [328, 24, 4, 1, 2], [328, 28, 4, 1, 2],// shaft return rungs
+    [298, 31, 64, 1, 1],                   // east chamber floor (r31) — cave foes
+    [312, 27, 6, 1, 2], [340, 27, 6, 1, 2],// interior ledges (compartments / variety)
   ],
 
-  bounce: [[158, 59], [480, 59], [575, 59], [243, 59], [389, 59], [75, 81], [536, 59], [394, 42], [205, 59], [318, 59], [370, 59], [420, 59], [30, 55], [105, 55], [17, 58]],   // BOUNCE MUSHROOMS — spring pads; launch keeps pl.air=0 so DJ/TRI stack at apex. x=205/370 shifted out of spike pits. x=30 PEAK basement + x=105 CANOPY lower-level added for zone-parity (1+ bounce per surface zone) — placed in flat combat areas so they don't trivialize the vertical climb identities of their zones.
-  bosses: [                              // 7 CORN bosses spread across zones; 3rd field bi picks the rainbow band + palette
-    [258, 58, 0],   // RED — MEADOW EAST flat past the spike moat (x251 = "last committed jump" gate).
-    [372, 58, 1],   // ORANGE — EAST-RUN CENTER giant flat (x368-439, w72). spread: was x461 far-perch → centered onto the big empty savanna run
-    [56, 25, 2],    // YELLOW — canopy ledge (DJ-tier) — west mountain anchor
-    [20, 58, 3],    // BLUE — WEST-BASE ground, right of the spike pit + bounce mushrooms.
-    [35, 68, 4],    // VIOLET — depths corridor west (the one underground boss; deep cavern terrain + chest 9 kept, just no boss there now)
-    [570, 32, 5],   // GREEN — east summit (E3 ascent climax) — far-right-top bookend
-    [68, 80, 6],    // INDIGO — deep CAVERN chamber floor (x60-82, y81 floor; among chest 9 @ x76 + the cavern fill-foes @ y81).
+  bounce: [[126, 17], [384, 17], [458, 17], [194, 17], [311, 17], [60, 38], [429, 17], [240, 17], [164, 17], [254, 17], [296, 17], [352, 17], [24, 17], [84, 17], [14, 17]],   // BOUNCE MUSHROOMS — spring pads (launch -510, keeps pl.air=0 so DJ/TRI stack at apex). >=1 per zone; [60,38] deep cave.
+  bosses: [                              // 7 CORN bosses; 3rd field bi picks the rainbow band + palette
+    [206, 16, 0],   // RED — MEADOW-east flat past the spike moat (x200)
+    [298, 16, 1],   // ORANGE — EASTRUN flat past the spike moat (x292)
+    [45, 6, 2],     // YELLOW — CANOPY crest ledge (sky) — west mountain anchor
+    [16, 16, 3],    // BLUE — WEST-BASE surface (paddock-west)
+    [28, 29, 4],    // VIOLET — WEST CAVE upper chamber (r31 floor)
+    [454, 6, 5],    // INDIGO — GREEN SUMMIT landing (sky climax) — far-right-top bookend
+    [54, 37, 6],    // (deep) — deep INDIGO cavern chamber (r39 floor)
   ],
   chests: [
-    [181, 68.3],    // 0 — descent corridor west (base tier discovery)
-    [219.5, 48.3],  // 1 — high route platform (DJ-gated reward)
-    [59, 25.3],     // 2 — canopy crest (near YELLOW CORN)
-    [12, 11.3],     // 3 — peak ledge (DJ summit reward)
-    [479.5, 51.3],  // 4 — EAST GATE bounce ledge (bounce + DJ gated)
-    [530.5, 55.3],  // 5 — EAST SHELF mid platform (between spike gaps, DJ)
-    [564, 36.3],    // 6 — EAST ASCENT climb summit reward (DJ zig-zag)
-    [574, 51.3],    // 7 — EAST ASCENT bounce side ledge (bounce + DJ)
-    [28, 2.3],      // 8 — peak TRI-JUMP secret (TRI gap from y=8 to y=3)
-    [76, 81.3],     // 9 — underground cavern (via depths corridor + drop)
-    [248, 53.3],    // 10 — meadow DJ platform (x247 ledge, upper hop reward)
-    [272, 55.3],    // 11 — stepped tower top (base-tier climb reward)
-    [20, 69.3],     // 12 — depths corridor west end — fight PAST VIOLET to claim
-    [226, 62.3],    // 13 — descent corridor mid ledge (x224 solid shelf)
-    [320, 47.3],    // 14 — east terrace climb top (DJ walkway x315)
-    [400, 37.3],    // 15 — stack upper landing (bounce pad on top rung + DJ)
-    [453, 54.3],    // 16 — east stepped tower top, ORANGE approach
-    [125, 53.3],    // 17 — paddock hub perch (dash-tier return reward near spawn)
-    [54, 44.3],     // 18 — western terrace summit (canopy climb base reward)
-    [552, 56.3],    // 19 — EAST SHELF step ledge past 2nd spike gap
+    [145, 31.3],    // 0  — central cave chamber floor
+    [176, 12.3],    // 1  — meadow high route (DJ)
+    [47, 7.3],      // 2  — canopy crest (near YELLOW)
+    [10, 4.3],      // 3  — peak ledge (climb summit)
+    [383, 13.3],    // 4  — east gate ledge
+    [424, 15.3],    // 5  — summit approach
+    [451, 8.3],     // 6  — GREEN summit landing (near INDIGO b5)
+    [459, 13.3],    // 7  — summit bounce side ledge
+    [22, 1.3],      // 8  — peak TRI-secret (rise from row4)
+    [61, 39.3],     // 9  — deep cavern floor
+    [198, 14.3],    // 10 — meadow DJ platform
+    [218, 15.3],    // 11 — stepped tower top
+    [16, 31.3],     // 12 — west cave upper chamber (past VIOLET)
+    [181, 28.3],    // 13 — central cave raised ledge
+    [256, 12.3],    // 14 — east terrace climb top
+    [320, 8.3],     // 15 — east vertical stack upper landing
+    [362, 15.3],    // 16 — east stepped tower top
+    [101, 14.3],    // 17 — paddock hub perch (near spawn)
+    [43, 11.3],     // 18 — canopy terrace
+    [442, 16.3],    // 19 — summit low ledge
   ],
   foes: [
-    [148, 58, 1], [160, 58, 4],                                  // paddock-approach patrol (near practice pit)
-    [174, 58, 1], [206, 54, 3], [216, 58, 2], [245, 58, 2], [248, 58, 5],   // MEADOW east corridor. ELEVATION RULE (2026-09-11): traversal difficulty + combat difficulty must not stack — aerial/platform routes stay LOW tier, tough kinds live on flat ground. x206 k4→k3 (charge lands on near-ground where there's room to dodge the dash).
-    [282, 56, 3], [288, 53, 3],   // transition zone (MEADOW→EAST). x288 k4→k3 (ELEVATION RULE: absorbs the charge demoted off the x393 platform)
-    [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
-    [92, 52, 1], [78, 49, 2], [86, 53, 5], [62, 40, 1], [95, 37, 4],   // canopy zig-zag — extra crawler + runner
-    [75, 35, 4],   // CANOPY zig-zag climb — k3-charge→k4-hop (ELEVATION RULE: a dashing enemy 25 tiles up mid-climb was the worst traversal+combat double-tax; the charge moved down to meadow flat x206).
-    [34, 19, 1],   // PEAK approach (41 tiles up) — k6-shoot→k1-hop (ELEVATION RULE); the shooter moved to west-base ground x9.
-    [125, 68, 3], [115, 68, 4], [98, 68, 6],
-    [24, 1, 1], [30, 1, 4],                                      // peak TRI-JUMP secret — crawler + runner guarding chest 8
-    [490, 56, 2], [500, 53, 3],   // EAST GATE
-    [532, 55, 2], [545, 58, 5],   // EAST SHELF
-    [560, 44, 1], [578, 58, 6], [566, 30, 4],   // EAST ASCENT (last = GREEN summit). ELEVATION RULE: aerial climb foes kept LOW tier — x560 k6→k1, x566 k3→k4 (the summit-climb charge/shooter moved to savanna flat x340/x373). x578 stays k6 (ground e2, fine).
-    [350, 56, 6], [393, 50, 4], [444, 57, 5],   // EAST RUN fill. x393 k3→k4 (ELEVATION RULE: charge was 10 tiles up on a platform; moved to transition flat x288).
-    [9, 56, 6], [22, 59, 2], [40, 52, 4], [32, 55, 5],   // WEST BASEMENT. x9 k1→k6 (ELEVATION RULE: ground foe absorbs the shooter demoted off the x34 peak approach).
-    [585, 55, 5], [583, 49, 6],   // EAST END-CAP
+    // SKY / CLIMB foes — ELEVATION RULE: gentle hop kinds only (k1/k4); traversal is the challenge.
+    [10, 15, 1], [14, 12, 4], [8, 9, 1], [14, 6, 4],            // peak climb
+    [38, 15, 1], [44, 11, 4],                                    // canopy climb
+    [172, 15, 1], [196, 14, 4],                                  // meadow sky
+    [252, 15, 1], [316, 12, 4],                                  // eastrun sky
+    [446, 15, 1], [452, 12, 4],                                  // summit climb
+    // SURFACE foes — flat ground carries the tough kinds (charge k3/k5, shoot k2/k6).
+    [452, 17, 3], [464, 17, 2], [136, 17, 5], [150, 17, 6],
+    [164, 17, 3], [178, 17, 2], [190, 17, 5], [218, 17, 6],
+    [230, 17, 3], [242, 17, 2], [262, 17, 5], [274, 17, 6],
+    [286, 17, 3], [308, 17, 2], [322, 17, 5], [336, 17, 6],
+    [350, 17, 3], [364, 17, 2], [376, 17, 5], [392, 17, 6],
+    [404, 17, 3], [416, 17, 2], [430, 17, 5], [442, 17, 6],
+    [26, 17, 3], [34, 17, 2], [70, 17, 5], [48, 17, 6],
+    [130, 17, 1], [214, 17, 4],                                  // x130 = paddock-approach (first foe east of the safe zone)
   ],
-  // FILL FOES — gameplay-only spawns kept OUT of the ledge-grow loop so their
-  // count doesn't shift the shared LCG (sky-ladder RNG must stay stable, or the
-  // map audit breaks). main.js seedFoes concatenates these into the live foe list.
+  // FILL FOES — cave + surface fill. Held out of world.js ledge-grow (keeps LCG stable for scatter).
+  // main.js seedFoes concatenates these into the live foe list. Total (foes+foesX) = 54 = 9 of each kind.
   foesX: [
-    [292, 60, 2], [340, 58, 3], [373, 58, 6], [408, 58, 3], [430, 58, 5],   // EAST RUN fill across the empty 288-430 flat (x373 shifted 3t east off the bounce mushroom at [370,59]). ELEVATION RULE: x340 k4→k3 + x373 k1→k6 — savanna flat absorbs the charge/shooter demoted off the GREEN-summit climb (x566/x560).
-    [130, 68, 1], [210, 68, 3], [220, 68, 6],                               // UNDER-DEPTHS fill — depths + descent corridor. [130] k2→k1 + [220] k4→k6 for the 9-each rebalance; [210,68,3] caster adds ranged pressure to the descent.
-    [79, 81, 2], [72, 75, 6],                                               // UNDER-CAVERN fill — INDIGO chamber: tent-floater east corner (clear of chest 9 @ x=76), spike-floater high mid-air (clear of boss @ y=80).
-    [305, 53, 5], [318, 47, 4],                                             // EAST RUN vertical climb fill — walker-hop on x=303 DJ platform, walker-fast on x=315 top ledge (populates the empty climb between foe@288 and foeX@340)
+    [12, 30, 6], [40, 30, 2], [66, 38, 5], [46, 38, 1],         // WEST cave — floorRow-1 (VIOLET r31 floor + deep r39): foes spawn ONE row above the floor so gravity seats them ON it (spawning AT the floor row falls through to the seal).
+    [135, 30, 3], [160, 30, 4],                                 // CENTRAL cave (r31 floor)
+    [305, 30, 6], [345, 30, 2], [320, 30, 5], [335, 30, 1],     // EAST cave (new, r31 floor)
+    [62, 17, 3], [400, 17, 4],                                  // surface fill (canopy west + eastrun) — cleared out of the paddock safe zone
   ],
 };
 
 export const seeds = MEADOW;
 
 // Ground-find: first solid/platform surface ROW at or below (tx, ty), skipping air/spikes.
-// One shared "seat on the surface" rule — used by hand-placed deco snapping AND
-// chest snapping (main.js), so a prop never floats when its seed y mismatches carved terrain.
+// One shared "seat on the surface" rule — used by chest snapping + bounce snapping (main.js).
 export const groundRow = (tx, ty) => { for (let y = ty; y < H; y++) { const v = grid[y * W + tx]; if (v === 1 || v === 2) return y; } return H; };
 
-// PROCEDURAL FOLIAGE v3 — LAYERED scatter, research-grounded (canon: Wei SIGGRAPH'10
-// multi-class blue noise · Deussen SIGGRAPH'98 ecosystem shade rules · stratified quota cycles)
-// TREES — per-row cooldown = 1D Poisson-disk (min 7-col spacing); species banded x>>4 → 16-col groves.
-// GROUND — jittered QUOTA CYCLE (Q): every 8 ground slots deliver 3 grass / 2 flower / 2 shroom / 1 rock (Q = [1,3,6,1,3,1,6,2]).
-// Deterministic per-window rates — iid rolls have NO local clumping bound (all-grass runs)
-// a quota cycle guarantees every type appears in every ~15-col stretch.
-// into short runs (patch feel); flowers/rocks/shrooms are cycle-placed singles.
-// CANOPY — Deussen shade affinity: for 3 ground slots after a tree, flower slots become MUSHROOMS
-// (shade-tolerant under canopy; sun-lovers claim open gaps) — one swap encodes both rules.
-const Q = [1, 3, 6, 1, 3, 1, 6, 2];   // the quota cycle (type ids: 1 grass · 6 flower · 3 shroom · 2 rock)
+// PROCEDURAL FOLIAGE v3 — LAYERED scatter (canon: Wei SIGGRAPH'10 multi-class blue noise ·
+// Deussen SIGGRAPH'98 ecosystem shade · stratified quota cycles). Decorates exposed floor tops.
+const Q = [1, 3, 6, 1, 3, 1, 6, 2];   // quota cycle (type ids: 1 grass · 6 flower · 3 shroom · 2 rock)
 let seed = 13, rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;   // shared LCG: ledge growth + foliage
 const scatter = () => {
   const d = [];
@@ -211,9 +162,9 @@ const scatter = () => {
       const v = grid[y * W + x];
       if ((v !== 1 && v !== 2) || grid[(y - 1) * W + x] !== 0) continue;    // exposed floor tops: solid ground AND one-way platform rungs
       if (run[y] > 0) { run[y]--; d.push([x, y - 1, 1]); }                                        // grass run continuation
-      else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, 0]); tc[y] = x + 7; sh[y] = 3; }   // tree anchor — SOLID only; round TREE (dt0), opens a 3-slot shade zone (pine removed)
+      else if (v === 1 && x >= (tc[y] || 0) && rnd() < .2) { d.push([x, y - 1, 0]); tc[y] = x + 7; sh[y] = 3; }   // tree anchor — SOLID only; round TREE (dt0), opens a 3-slot shade zone
       else if (rnd() < .64) {
-        let t = Q[(qc[y] = (qc[y] || 0) + 1) % 8];               // stratified: rotate the quota table (jittered by the .55 gate)
+        let t = Q[(qc[y] = (qc[y] || 0) + 1) % 8];               // stratified: rotate the quota table
         if (sh[y] > 0 && t === 6) t = 3;                         // CANOPY: flower slot under shade → mushroom
         if (t === 1) run[y] = rnd() * 2 | 0;                     // grass may extend 0-2 extra cols
         d.push([x, y - 1, t]);
@@ -224,31 +175,16 @@ const scatter = () => {
   return d;
 };
 
-// Module-init: paint MEADOW grid + merge hand-placed decor (snapped to surface) with scatter fill.
+// Module-init: paint MEADOW grid, grow combat ledges, scatter decor.
 for (const m of seeds.MAP) box(...m);
-// COMBAT LEDGES GROW — each foe/boss standing on a one-way ledge widens it a seeded-random ±1-4
-// tiles into open air (solid walls + spike pits preserved) → roomier DARKCORN fights, zero MAP data.
+// COMBAT LEDGES GROW — each foe/boss on a one-way (v=2) ledge widens it a seeded-random ±2-5
+// tiles into open air (solid walls + spike pits preserved) → roomier fights, zero MAP data.
 for (const [fx, fy] of [...seeds.foes, ...seeds.bosses]) {
   const r = groundRow(fx, fy), n = 2 + (rnd() * 4 | 0);
   if (grid[r * W + fx] === 2)                                          // only grow floating (v=2) ledges; solid arenas already roomy
     for (let c = fx - n; c <= fx + n; c++)
       if (grid[r * W + c] === 0 && grid[(r + 1) * W + c] !== 3) grid[r * W + c] = 2;   // air only; never over spikes
 }
-// SKY LADDERS — procedural aerial platforms: drop-through one-way ledges stacked in DJ range
-// (rise 4/tier) over the OPEN FLAT ZONES, filling empty sky with varying-length jump routes.
-// Deterministic (shared LCG), ZERO MAP data — one loop generates dozens of ledges.
-// near-ground surface (flat, open sky above); drop-through = always returnable (RETURN LAW safe)
-// single-row clear-check avoids overlapping crafted terrain; map-audit gates any chest/boss it blocks.
-for (let x = 135; x < W - 10; x += 7) {
-  let s = 62; for (let y = 46; y < 62; y++) if (grid[y * W + x] === 1) { s = y; break; }
-  if (s < 57 || s > 60 || rnd() < .4) continue;
-  for (let t = 1 + (rnd() * 4 | 0); t--;) {
-    const y = s - 4 - t * 4, w = [4, 6, 8, 12][rnd() * 4 | 0], px = x - (w >> 1);
-    let ok = y > 19; for (let c = px; c < px + w; c++) if (grid[y * W + c]) ok = 0;
-    if (ok) box(px, y, w, 1, 2);
-  }
-}
-const PEAKDECO = [[16, 11, 2], [23, 13, 2], [29, 16, 2], [35, 19, 2], [42, 22, 2], [11, 56, 2]];  // PEAK stone props: PEAK deco was 3x below map avg (31 vs ~90/100col — read bare).
-export const DECO = [...PEAKDECO, ...scatter()];
+export const DECO = scatter();
 // BOUNCE pads snapped to their solid landing row: [col, solidRow].
 export const BOUNCE = seeds.bounce.map(([x, y]) => [x, groundRow(x, y + 1)]);

@@ -13,14 +13,18 @@
 // Spikes (3) are hazards, never paths.
 import { W, H, grid, seeds, BOUNCE } from '../src/world.js';
 
+// Abilities are ALWAYS-ON (skill tree removed B33): the player has triple-jump from spawn, so the
+// ENFORCED Return-Law tiers are +doublejump and +trijump (the real moveset). base = single-jump is
+// INFO-ONLY now (reachability diagnostic) — its stuck cells don't fail the build (the compact rebuild
+// is authored on the DJ/TRI envelope, ladder steps <=5t, not the retired single-jump <=2t spacing).
 const TIERS = [
-  { name: 'base       ', up: 2, h: 5 },
+  { name: 'base       ', up: 2, h: 5, info: 1 },   // single-jump — DIAGNOSTIC ONLY (never the player's state)
   { name: '+doublejump', up: 4, h: 7 },
   { name: '+trijump   ', up: 6, h: 10 },     // TRI = 3rd jump → highest rise + widest air-drift (sim ~10.3t)
 ];
 
-// Spawn point (matches main.js SX/SY = 126*T, 57*T → falls to ground row 60).
-const SPAWN = [126, 59];
+// Spawn point (matches main.js SX = 101*T, feet at surface row SR=18 → stands on row 17).
+const SPAWN = [101, 17];
 const BOSS_NAMES = ['RED   ', 'ORANGE', 'YELLOW', 'BLUE  ', 'VIOLET', 'GREEN ', 'INDIGO'];
 
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
@@ -76,7 +80,7 @@ for (const tr of TIERS) {
   for (const k of F) for (const t of moves(k)) { if (!rev.has(t)) rev.set(t, []); rev.get(t).push(k); }
   const homeCells = [];
   for (let dc = -2; dc <= 2; dc++) for (let dr = -2; dr <= 2; dr++)
-    if (standSet.has(idx(126 + dc, 60 + dr))) homeCells.push(idx(126 + dc, 60 + dr));   // paddock spawn (tile 126,60)
+    if (standSet.has(idx(101 + dc, 17 + dr))) homeCells.push(idx(101 + dc, 17 + dr));   // paddock spawn (tile 101, surface row 18)
   const B = bfs(homeCells.filter(k => F.has(k)), (k) => rev.get(k) || []);
   const stuck = [...F].filter(k => !B.has(k));
 
@@ -97,8 +101,8 @@ for (const tr of TIERS) {
 
   console.log(`  ${tr.name}  standable: ${F.size.toString().padStart(4)}  stuck: ${stuck.length}`);
   if (stuck.length) {
-    fail = 1;
-    for (const k of stuck.slice(0, 6)) console.log(`     ❌ STUCK (${k % W}, ${(k - k % W) / W})`);
+    if (!tr.info) fail = 1;                        // base tier is informational (always-on abilities) — report but don't fail
+    for (const k of stuck.slice(0, 6)) console.log(`     ${tr.info ? 'ℹ' : '❌'} STUCK (${k % W}, ${(k - k % W) / W})`);
   }
 }
 

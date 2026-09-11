@@ -37,7 +37,13 @@ const HOOK = ';try{window.__G={'
   + 'snap:()=>{const tx=pl.x+PW/2+pl.face*40-VW/2,ty=pl.y-VH/2+20;cam.x=Math.max(0,Math.min(W*T-VW,tx));cam.y=Math.max(0,Math.min(H*T-VH,ty));},'
   // start(nm): jump straight into play with a name, no title keying. Clears the intro dialogue.
   + 'start:(nm)=>{fresh();ent=nm||"STAR";pName=nm||"STAR";phase=2;started=1;dq=0;},'
+  + 'startReal:(nm)=>{fresh();ent=nm||"STAR";beginGame();},'   // FAITHFUL new-game path — runs the real beginGame() → talk(INTRO); tests the true intro→levelup→lock flow
+  + 'get pending(){return pending},get di(){return di},'       // allocation-lock + dialogue-cursor inspection
   + 'menu:(v)=>{paused=v?1:0;},'          // open/close character menu deterministically
+  + 'tp:(tx,ty)=>{pl.x=tx*16;pl.y=ty*16;pl.vx=0;pl.vy=0;cam.x=tx*16-240;cam.y=ty*16-135;},'   // teleport (tile coords) — visual band inspection
+  + 'get foeRows(){return foes.map(f=>f.y/16|0)},'   // foe tile-rows — AI fall/void inspection
+  + 'get foeXY(){return foes.map(f=>[f.x/16|0,f.y/16|0])},'   // foe tile x,y — pocket-intrusion inspection
+  + 'get plPos(){return [pl.x/16|0,pl.y/16|0]},'     // player tile pos — respawn inspection
   + 'clearDlg:()=>{dq=0;},'               // force-dismiss any dialogue bubble
   + 'boss:(bi)=>{bs[bi]=0;},'             // reset a boss so it re-spawns on approach
   + 'get deathT(){return deathT},'        // read the death timer (VBEAT+1 → 0) to sample the death beat + home transition

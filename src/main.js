@@ -18,12 +18,12 @@
 
 // Save: strict v44 JSON to localStorage.
 
-import { T, W, H, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
+import { T, W, H, SR, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, I_MP, INTRO, TALK, DEATH, WIN } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
-const QSZ = 24, QHX = VW - 146, QHY = VH - 92, QMX = VW - 146, QMY = VH - 40;   // potion quick-slots = a clear LEFT COLUMN of the action grid: HP box centred on the SHOOT row, MP box on the DASH row (52px left of the shoot/dash column) → an obvious pair right beside the combat buttons, thumb-reachable. HP above MP (mirrors the HP-over-MP bars).
+const QSZ = 24, QHX = VW - 146, QHY = VH - 83, QMX = VW - 146, QMY = VH - 40;   // potion quick-slots = a clear LEFT COLUMN of the action grid: HP box on the SHOOT row, MP box on the DASH row (52px left of the shoot/dash column) → an obvious pair right beside the combat buttons, thumb-reachable. HP above MP (mirrors the HP-over-MP bars). QHY = VH-83 (not -92): the AB buttons render 7px BELOW their touch centre (line ~1246 visual-nudge), so both potion boxes sit a matched +2px under their button-row VISUAL centre (HP↔SHOOT 199/197, MP↔DASH 242/240).
 // DPR + visualViewport: draw at native device pixels (retina crispness), size to
 // the actual viewport (fixes iOS URL-bar overshoot). imageSmoothingEnabled=false
 // keeps the pixel art crisp when the letterbox scale is fractional.
@@ -514,8 +514,8 @@ const load = () => {
 
 // ---------- player ---------
 const PW = 10, PH = 14;
-const NX = 131 * T, NGY = 60 * T;                 // GREATCORN guide: center-x (tile 131 — moved right 09-08 so the title scene frames player+GC symmetrically under the rainbow arch, facing each other), feet baseline (tile 60 top)
-const SX = 126 * T, SY = NGY - PH;                // spawn point (paddock) — feet at NGY ground baseline so intro plays with unicorn standing (no drop-in)
+const NX = 106 * T, NGY = SR * T;                 // GREATCORN guide: center-x (tile 106 = spawn+5, frames player+GC symmetrically under the title arch), feet baseline = SR (compact rebuild surface row 18)
+const SX = 101 * T, SY = NGY - PH;                // spawn point (paddock, MEADOW zone) — feet at NGY surface baseline so intro plays with unicorn standing (no drop-in)
 const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
 const NSC = 10 / 7;                                // unicorn render scale, shared by player/GREATCORN/DARKCORN (boss fs=20 ÷ 14-tall bbox).
 const pl = { x: SX, y: SY, vx: 0, vy: 0, gr: 0, face: 1, coyote: 0, air: 0, inv: 0, t: 0 };   // gr = on-ground flag
@@ -965,7 +965,7 @@ const draw = () => {
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds.
-  const ZC = !phase ? ZB[2] : pl.y > 1136 ? ZB[6] : pl.y > 1008 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by depth: y>1136 (=72*16, cavern chamber top) = INDIGO ZB[6], y>1008 = VIOLET ZB[5]; surface = x-bands
+  const ZC = !phase ? ZB[2] : pl.y > 512 ? ZB[6] : pl.y > 384 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by depth: y>512 (=32*16, deep cavern) = INDIGO ZB[6], y>384 (=24*16, cave top) = VIOLET ZB[5]; surface = x-bands
   ctx.fillStyle = ZC[5]; ctx.fillRect(0, 0, VW, VH);                        // banded sky
   // CLOUDS — procedural puffs spanning the whole map (parallax .15), culled off-screen.
   // Primes in bitwise ops give deterministic pseudo-random spread. y ≥ 50 clears HUD.
@@ -1066,7 +1066,7 @@ const draw = () => {
   // ARTICULATED ENEMY SPRITES — legs step, antennae bob, robe folds.
   // boss silhouette scaled up. cz = boss cell multiplier (kind determines base size).
   for (const f of foes) {
-    // "Watching Family" v3 — TWO body families (walkers + floaters), each enemy ONE distinguishing feature (Kirby rule).
+    // "Watching Family" v3 — ONE body family (all walkers, grounded on terrain), each enemy ONE distinguishing feature (Kirby rule).
     // Kept from v2: universal round white eye + tracking pupil (species signature) + 1px black outline (figure/ground pop on any background) + FOECOL as PAL indices.
     // Changed from v2: walkers get a separate HEAD block (eye rides the head, gap between body/head/legs = negative space, per Slynyrd rule).
     const s = 4, fs = 20, wob = Math.sin(f.t * .75) * 1.5, step = Math.sin(f.t) * s * .35;
@@ -1084,7 +1084,6 @@ const draw = () => {
       const bod = f.fl > 0 && (f.fl * 6 | 0) & 1 ? PAL[4] : PAL[FOECOL[f.k]];   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red.
       const oR = (x, y, w, h) => { ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = bod; ctx.fillRect(x, y, w, h); };
       const eye = (cx, cy) => { ctx.fillStyle = '#000'; ctx.fillRect(cx - 3, cy - 3, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(cx - 2, cy - 2, 4, 4); ctx.fillStyle = '#000'; ctx.fillRect(cx - 1 + pd, cy - 1, 2, 2); };   // standard eyeball: 6×6 black outline → 4×4 solid white → 2×2 black tracking pupil (was reversed with a white cross inside black — read as a slit not an eye)
-      const flt = wob * 1.5;
       if (f.k == 1) {                                           // k1 walker-small — small body + separate head with eye + 4 stubby legs
         // 4 legs — mirror-paired around fs/2 (leg1↔leg4, leg2↔leg3).
         oR(s * .5, fs - s * .9 + step, s * .5, s * .9); oR(s * 1.6, fs - s * .9 - step * .7, s * .5, s * .9);
@@ -1103,17 +1102,17 @@ const draw = () => {
         oR(fs - s * 2, fs - s * 1.3 - step, s * 1.3, s * 1.3); // chunky right leg - step (alternating phase)
         oR(s * .5, s * .4 + wob * .3, fs - s, s * 3.4);        // tall body
         eye(fs / 2, s * 1.6 + wob * .3);                       // eye centered
-      } else if (f.k == 2) {                                    // k2 floater-tent — dome + 3 tendrils, all centered on fs/2 (middle tendril sits on midline)
+      } else if (f.k == 2) {                                    // k2 walker-tent — dome body + 3 DOWNWARD tendril legs, grounded like every walker; wiggling tendrils = its distinguishing feature
         for (let i = 0; i < 3; i++) {                          // tendrils span the width symmetrically; middle centered, outer pair equidistant
           const tx = fs / 2 - s * 1.75 + i * s * 1.5;           // i=0: fs/2 - s*1.75 · i=1: fs/2 - s*.25 (centered) · i=2: fs/2 + s*1.25
-          oR(tx, s * 2.4 + flt, s * .5, s * 2 + Math.sin(f.t * 2 + i * .8) * s * .5);
+          oR(tx, s * 2.4, s * .5, s * 2 + Math.sin(f.t * 2 + i * .8) * s * .5);
         }
-        oR(s * .3, s * .5 + flt, fs - s * .6, s * 2);          // dome body — centered
-        eye(fs / 2, s * 1.4 + flt);
-      } else if (f.k == 6) {                                    // k6 floater-spike — dome + 4 upright spikes, symmetric around fs/2 (pair-mirrored)
-        for (let i = 0; i < 4; i++) oR(fs / 2 - s * 2 + i * s * 1.2, flt - s * .3 + (i & 1 ? step : -step), s * .4, s * .9);   // 4 spikes ("upside-down legs") — adjacent-opposite pump. i=0,3 outer; i=1,2 inner
-        oR(s * .3, s * .8 + flt, fs - s * .6, s * 2.3);        // dome body — centered
-        eye(fs / 2, s * 1.8 + flt);
+        oR(s * .3, s * .5, fs - s * .6, s * 2);                // dome body — centered
+        eye(fs / 2, s * 1.4);
+      } else if (f.k == 6) {                                    // k6 walker-spike — dome body + 4 DOWNWARD spiky legs (flipped from the old upside-down floater; now grounded + steps like every walker)
+        for (let i = 0; i < 4; i++) oR(fs / 2 - s * 2 + i * s * 1.2, fs - s * .9 + (i & 1 ? step : -step), s * .4, s * .9);   // 4 spiky legs at the ground line — adjacent-opposite step pump (walker gait). i=0,3 outer; i=1,2 inner
+        oR(s * .3, s * .8, fs - s * .6, s * 2.3);              // dome body — centered
+        eye(fs / 2, s * 1.8);
       } else {                                                  // k3 caster — hood peak + robe body + universal eye — fully symmetric around fs/2
         oR(fs / 2 - s * 1.4, fs - s * .9 + step, s * .5, s * .9); oR(fs / 2 + s * .9, fs - s * .9 - step, s * .5, s * .9);   // 2 legs under the robe hem — k1 leg dims, alternating pump
         oR(s * .3, s * 2.8, fs - s * .6, s * 1.4);             // lower robe (wider = shoulder line) — drawn AFTER legs so the hem overlaps the leg tops

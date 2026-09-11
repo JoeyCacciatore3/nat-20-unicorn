@@ -35,8 +35,8 @@ export const FOECOL = [, 5, 9, 7, 3, 2, 6];
 //   TIER 1 HOP    → k1 (4hp fragile) · k4 (5hp tankier)   — melee leapers
 //   TIER 2 SHOOT  → k2 (8hp) · k6 (9hp)                   — ranged bolts, hold + fire
 //   TIER 3 CHARGE → k3 (12hp heavy) · k5 (6hp glass)      — telegraphed dash (windup-tell → dash → cooldown)
-// (size UNIFORM — cz 4 for all foes + bosses.) Render sprite is still per-k (k1 walker-small · k2 floater-tent
-// · k3 caster · k4 walker-fast · k5 walker-hop · k6 floater-spike) — COSMETIC only now, decoupled from tier.
+// (size UNIFORM — cz 4 for all foes + bosses.) Render sprite is still per-k (k1 walker-small · k2 walker-tent
+// · k3 caster · k4 walker-fast · k5 walker-hop · k6 walker-spike) — ALL grounded walkers, COSMETIC only, decoupled from tier.
 export const FT = [, [4, 3, 2], [8, 4, 1], [12, 5, 16], [5, 3, 2], [6, 4, 16], [9, 4, 1]];   // FT[k]=[hp,dm,capBits] — tier map above.
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
@@ -51,13 +51,13 @@ export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9
 // 7 ZONES for 7 DARKCORNs: 5 surface boss territories by x + 2 underground bands split by depth
 // (VIOLET shallow depths y=64-71 · INDIGO deep cavern y>=72).
 export const ZB = [
-  [40,  '#4a3a26', '#c0c8d0', '#5a7a6a', '#c0c8d0', '#4a9ad8'],   // PEAK (BLUE) — batch 10 palette differentiation: top+accent snow-cap white (was cool gray shared w/ CANOPY), foliage slate-green alpine lichen (was grass-green shared w/ CANOPY).
-  [112, '#5a3a2a', '#3a8a52', '#3a8a52', '#7a5a3a', '#5ab5ef'],   // CANOPY (YELLOW) — batch 10 palette differentiation: dirt warm loam (was cold brown shared w/ PEAK), accent wood-brown for fallen-limb rocks (was cool gray shared w/ PEAK).
-  [280, '#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888', '#6bc5ff'],   // MEADOW (RED) — original identity
-  [476, '#6a4a22', '#8a9a32', '#8a9a32', '#9a8a62', '#7ecfe8'],   // EAST RUN (ORANGE) — dry gold savanna
-  [601, '#52341e', '#3a7a5e', '#3a7a5e', '#7a8a92', '#4a9ad8'],   // SUMMIT (GREEN) — deep teal, storm sky
-  [0, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // UNDER-DEPTHS (VIOLET zone, y=64-71) — col0 (xEnd) NEVER read: underground selected by y-threshold, not the x-find. 601→0 (dead value).
-  [0, '#1a1832', '#3a4a7a', '#6a5acd', '#4a4a72', '#080814'],   // UNDER-CAVERN (INDIGO zone, y>=72) — col0 dead (see above). foliage reuses PAL[16] literal for LZ.
+  [32,  '#4a3a26', '#c0c8d0', '#5a7a6a', '#c0c8d0', '#4a9ad8'],   // PEAK (BLUE) — x-band scaled 600→480 (compact rebuild). snow-cap white top+accent, slate-green alpine foliage.
+  [90,  '#5a3a2a', '#3a8a52', '#3a8a52', '#7a5a3a', '#5ab5ef'],   // CANOPY (YELLOW) — warm loam dirt, wood-brown accent.
+  [224, '#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888', '#6bc5ff'],   // MEADOW (RED) — original identity (spawn zone)
+  [381, '#6a4a22', '#8a9a32', '#8a9a32', '#9a8a62', '#7ecfe8'],   // EAST RUN (ORANGE) — dry gold savanna
+  [480, '#52341e', '#3a7a5e', '#3a7a5e', '#7a8a92', '#4a9ad8'],   // SUMMIT (GREEN) — deep teal, storm sky
+  [0, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // UNDER-DEPTHS (VIOLET zone, rows 24-31 / y>384) — col0 (xEnd) NEVER read: underground selected by y-threshold, not the x-find. dead value.
+  [0, '#1a1832', '#3a4a7a', '#6a5acd', '#4a4a72', '#080814'],   // UNDER-CAVERN (INDIGO zone, rows ≥32 / y>512) — col0 dead (see above). foliage reuses PAL[16] literal for LZ.
 ];
 // Ground palette [dirt, surface-top, foliage, accent]: dirt/top theme solid+platform tiles
 // foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone

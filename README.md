@@ -2,162 +2,186 @@
 
 Entry for [js13kGames 2026](https://js13kgames.com/) — theme: **Unicorns and Rainbows**.
 
-A 2D pixel-art platformer-RPG. The DARKNESS stole the world's color; you are the last
-unicorn. Name your unicorn, explore one contiguous world, defeat the DARK CORNS, and
-reclaim the RAINBOW SHARDS that restore the world. STR-based combat with
-LUCK-driven crits and stat allocation.
+A 2D pixel-art platformer-RPG in **13 KB**. The DARKNESS stole the world's color; you are the
+last unicorn. Name your unicorn, explore one contiguous world, defeat the seven **DARK CORNS**,
+and reclaim the **RAINBOW SHARDS** that restore the world. STR/MAG combat with LUCK-driven crits,
+gear that recolors your unicorn, and permanent stat allocation.
 
-A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CORN silhouette) — stands watch at the starting hearth. On a new game he opens an auto-playing intro: a back-and-forth of head-stemmed speech bubbles (bubble stems from whichever head is talking — his or the player's), advanced one bubble per tap. It sets up the goal (reclaim the shattered rainbow's shards, one per DARK CORN), nudges the controls, and points at the fire. Walk back and JUMP near him afterward for cycled re-talk quips.
+A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CORN silhouette) —
+stands watch at the starting paddock. On a new game he opens an auto-playing 7-bubble intro
+(head-stemmed speech bubbles, advanced one per tap) that sets the goal, nudges the controls, and
+points you outward. Walk back and JUMP near him afterward for cycled re-talk quips. Finishing the
+intro grants a free first level-up.
 
 **Categories:** Desktop · Mobile · Wavedash
 
+## World — one compact, fully-utilized map
+
+**One unified 480×42-tile map (7,680×672 px)**, no portals or zone loads — walk from any boss to
+any other. It is authored as **three clearly-stacked bands** built around the exact jump envelope
+(so every gap/climb is reachable by construction):
+
+| Band | Rows | Role |
+|---|---|---|
+| **SKY** | 1–17 | above-ground platform routes (drop-through), climbs, the boss summits |
+| **GROUND** | 18–23 | a **uniform 6-tile walkable band** (`GROUND_H=6`, surface-top row `SR=18`), full-width highway |
+| **CAVES** | 24–40 | a built-from-air underground network — chambers, corridors, return rungs, entered via drop-shafts |
+
+The old sprawling 600×160 world (mostly empty air/slab) was fully re-authored into this tighter
+form — same feature set, ~82% smaller grid, and it **saved bytes** (denser, clustered coordinates
+compress better under Roadroller).
+
+**7 zones for 7 DARK CORNS** (x-bands scale into the 480-wide world; each has a distinct palette):
+PEAK/BLUE · CANOPY/YELLOW · MEADOW/RED (spawn) · EAST RUN/ORANGE · SUMMIT/GREEN, plus two
+underground zones selected by depth — UNDER-DEPTHS/VIOLET and UNDER-CAVERN/INDIGO. The paddock
+around spawn is a low-threat safe zone.
+
+Every boss, chest, and cell is verified reachable by a build-time traversal audit (Return Law: you
+can always path home) at the player's real ability tier (double- and triple-jump).
+
 ## Progression
-- **Every level:** +2 stat points (STR/HP/MAG/DEF/LUCK) + 1 skill point (skill pts cap at LV11 = 10 total, one per tree node)
-- **Skill tree:** **level-gated rows** (no prerequisite lines) — Row 1 at LV1, Row 2 at LV3, Row 3 at LV6, Row 4 at LV9. 10 single-rank action skills, all player-chosen.
-- **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn AND gives a stat bonus (its slot's stat, scaling with level; higher-level gear can carry a second sub-stat)
-- **Level 20 cap** — all stat gains come from level-up points (40 total across the game)
-- **XP curve:** quadratic (`L*L + 40`) — steady pace (~5 kills/level early), later levels earned
-- **Level-up auto-pauses into the character menu** with the cursor on STR — you allocate points before returning to play. Each level fully restores HP + MP; the LEVEL UP rainbow banner renders over the menu for 1.8s. The character menu doubles as your always-open character sheet (open via ✕ · 🔊 · ? cluster's back button or P key). With no points to spend it's read-only.
-- **Two auto-save moments:** level-up + respawn after death. Rainbow collect no longer auto-saves. Manual save via ✕ back button + EXIT GAME.
+- **Every level:** +2 stat points (STR / HP / MAG / DEF / LUCK). **Level 20 cap** — all gains come
+  from level-up points.
+- **Allocation lock:** a level-up auto-pauses into the character menu with the cursor on STR, and
+  **you cannot leave the menu (or move the cursor off the stat column) until every pending point is
+  spent** — the game enforces allocation. This holds on fresh level-ups *and* on reload, so unspent
+  points can never persist "for later."
+- **No skill tree** — all abilities are always-on (triple jump / long dash / double shot / basic
+  heal). Kind + level is the only difficulty axis.
+- **Equipment:** enemies drop colored body-part gear that recolors the matching part of your unicorn
+  AND gives a stat bonus (its slot's stat, scaling with level; higher-level gear can carry a second
+  sub-stat).
+- **XP curve:** quadratic (`L*L + 40`) — steady early pace, later levels earned.
+- Each level fully restores HP + MP; a LEVEL UP rainbow banner shows for 1.8s.
+- **Two auto-save moments:** level-up + respawn after death. Manual save via the ✕ back button /
+  `Esc` → SAVE + EXIT popup.
 
 ## Equipment
-4 gear slots matching body parts: BODY(+HP), MANE(+MAG), HORN(+STR), HOOVES(+DEF).
-- Everyone starts the same neutral white unicorn — **ONE save slot**. Empty save → the title shows **NEW GAME**, which asks ONE thing (your name — required), then begins. Occupied save → the title shows your `NAME · LVx`, tapping it opens a **CONTINUE / DELETE** popup.
-- Gear comes from the shared loot roll — LUCK raises the drop chance; bosses drop guaranteed. Vibrant colors are earned.
-- **10-slot inventory** for gear only (fixed max, no expansion). Tap a bag slot to select, tap again (or the EQUIP button / JUMP / Enter) to equip; DROP discards. Tap an equipped slot to UNEQUIP it back to the bag. Potions live exclusively in the bottom hot-bar (see below). EQUIP / DROP buttons both use the shared blue `#8cf` accent (destructive red is retired from the menu).
-- Gear renders as pixel-art item icons — BODY→breastplate (wide shoulders + gold belt), MANE→cape (gold clasp), HORN→sword (gold crossguard + pommel), HOOVES→horseshoe (gold nail heads) — tinted by the drop's roll color (the same color it paints onto that body part when equipped). Every slot carries a gold class-signal for instant read (batch 13 sprite polish). Identical in drops, the inventory grid, and the equipped slots.
-- **Potion hot-bar:** two slots (HP red · MP blue) at bottom-center hold up to 5 each — tap/click to drink. Persistent — visible and tappable even in the character menu. Potions ONLY live here (no inventory spillover); if both slots are full a dropped potion stays on the ground until a slot frees.
+4 gear slots matching body parts: **BODY**(+HP), **MANE**(+MAG), **HORN**(+STR), **HOOVES**(+DEF).
+- Everyone starts the same neutral white unicorn — **ONE save slot**. Empty save → the title shows
+  **NEW GAME** (asks only your name, required); occupied save → `NAME · LVx`, tapping opens a
+  **CONTINUE / DELETE** popup.
+- Gear comes from the shared loot roll — LUCK raises drop chance; bosses drop guaranteed.
+- **10-slot inventory** (gear only). Tap a bag slot to select, tap again (or EQUIP / JUMP / Enter)
+  to equip; **DROP** discards permanently — behind a **CONFIRM / BACK** gate so a mis-tap can't
+  destroy gear. Tap an equipped slot to UNEQUIP back to the bag.
+- Gear renders as tinted pixel-art icons (BODY→breastplate, MANE→cape, HORN→sword, HOOVES→horseshoe)
+  colored by the drop's roll — the same color it paints onto that body part when equipped.
+- **Potion hot-bar:** two slots (HP · MP) hold up to 5 each — tap/click or press `I`/`O` to drink.
+  Persistent, visible even in the character menu. Potions live ONLY here (no inventory spillover).
 
 ## Combat
-Damage splits by attack type: **physical (DASH/STOMP) = STR**, **magic (SHOOT) = MAG** — both `× (crit ? 2 : 1)`, gear folded in. (MAG also sets max MP, so it's a real caster stat.)
-- Crit chance: **12% + LUCK × 3%** — the same percentage also drives the loot-drop roll (one LUCK number, two effects)
-- Defense: `max(incoming/4, incoming - DEF)` — bosses always deal ≥25%
-- 6 enemy kinds built from one capability-bit system (no elites). All enemies are 20×20 (`cz=4`, matches player and boss size).
-- **Quadratic enemy scaling** — matches the XP curve shape so high-level fights become endurance battles instead of one-shots:
-  - Regular HP = `fh + (lvl*lvl >> 1)` (LV1: 4-12 HP · LV20: 204-212 HP)
-  - Regular dmg = `fd + (lvl>>2)` (grows +1 every 4 levels)
-  - Boss HP = `(20 + bi*4) + lvl*lvl` (double-quadratic — 5-11 hit fights across all levels)
-  - Boss dmg = `(8 + bi) + (lvl>>2)`, speed = `1 + bi*0.1`
-- Ranged bolts carry the shooter's damage — a caster's bolt is as dangerous as its melee (it's dodgeable).
-- **Universal 0.8s invuln channel with color-coded flashes:**
-  - 🔴 Red flash = 0.8s after taking damage
-  - 🟢 Green flash = 0.8s after HEAL cast
-  - Dash = 0.4s silent invuln (the dash motion IS the tell — no flash needed)
-  - Stomp = 0.2s silent invuln (technical anti-double-hit vs adjacent foes)
-  - Respawn = 1.5s silent invuln (spawn safety padding)
-- **Enemy hit reaction (unified on `f.fl`)** — every damage source (dash/stomp/shot) triggers three things off one timer:
-  - 🔴 Red strobe flash (~6 Hz, mirrors the player's hurt-strobe grammar)
-  - AI pause (`vx` zeroed, RANGED/CHASE/HOP frozen — foe jolts and can't retaliate during the window)
-  - I-frame (no re-hit until the timer expires)
-  - **Baseline 0.4s** from `strike()`; physical hits (dash/stomp) overwrite to **0.8s** as an anti-melt window so you can't bounce-attack in place. Shots don't extend, so DBL/TRI SHOT volleys all land (each bolt refreshes flash + pause + short-lived i-frame).
-- **Camera framing (batch 9)** — player sits slightly ABOVE center (screen y≈115). Fits every routine jump (single/double/triple) inside one viewport; ground visible below feet ≈ 141 px at rest (8.8 tiles). Mushroom bounces intentionally reach the top of frame — a bounce is a "look up" moment.
-- **Damage popups float above whoever took the hit** — red `-N` over the player when hurt, red `-N` over the enemy when you hit them (crit lingers longer + hitstop + fanfare).
-- **Every other player-side popup routes to ONE spot above the potion hot-bar** (`PFX, PFY`, 8px bold monospace) — XP gained, MP costs, HEAL amount, potion quaffs, gear pickups, potion pickups. Colors are semantic (red=damage · green=HP · blue=MP · purple=XP · #8cf blue=+BAG).
-- 7 **DARK CORN** bosses — all share the name; each is identified by its horn+mane color = the rainbow band it holds. All in one unified world (see World below).
-- All bosses use the **full 3-move unicorn kit** (cap=19 = ranged + hop + chase). Bosses are the only enemies that use the exact player-parity attack combo.
-- Defeated DARK CORNs turn friendly — they linger at their arena as GREAT-CORN-purple NPCs (keeping their band horn+mane; eyes go white).
+Damage splits by attack type: **physical (DASH/STOMP) = STR**, **magic (SHOOT) = MAG** — both
+`× (crit ? 2 : 1)`, gear folded in. (MAG also sets max MP.)
+- **Crit chance: 12% + LUCK × 3%** — the same number drives the loot-drop roll (one LUCK stat, three
+  payoffs: drop chance, crit chance, gear tier).
+- Defense: `max(incoming/4, incoming − DEF)` — bosses always deal ≥25%.
+- **Quadratic scaling** (matches the XP curve) — high-level fights become endurance battles:
+  regular HP `fh + (lvl*lvl >> 1)`, regular dmg `fd + (lvl>>2)`; boss HP `(20 + bi*4) + lvl*lvl`,
+  boss dmg `(8 + bi) + (lvl>>2)`.
+- **Color-coded invuln (IFR = 1.5s knob):** 🔴 red flash after damage · 🟢 green after HEAL · dash =
+  silent invuln (the motion is the tell) · respawn = spawn-safety padding.
+- **Enemy hit reaction** (one `f.fl` timer): red ~6 Hz strobe + AI pause + i-frame.
+- **Death beat:** on death the world freezes for `VBEAT` (1.5s, the *same* pause as a boss-kill
+  victory beat) while skull particles burst from the fallen unicorn, then it transitions home to the
+  paddock and the DEATH dialogue.
+- 7 **DARK CORN** bosses share the name; each is identified by its horn+mane color = the rainbow band
+  it holds. All use the full 3-move kit (cap = 19 = SHOOT + HOP + CHARGE) and are relentless (no
+  stand-off). Defeated DARK CORNs turn friendly and linger at their arena as GREAT-CORN-purple NPCs.
 
-## Enemy Attack Matrix
-Each of the 6 regular enemies has a unique capability-bit combo (cap bits: 1=ranged, 2=hop, 16=chase). Bosses use cap=19 (all three).
+## Enemies — six kinds, all grounded walkers
+All six regular kinds share **one movement family** (grounded walker physics, same gravity as the
+player) and differ only by **sprite + one attack verb + HP/damage**. Attack bits: **1 = SHOOT ·
+2 = HOP · 16 = CHARGE** (`FT[k] = [hp, dmg, capBits]`, uniform size `cz=4`):
 
-| k | Body | Cap | Ranged | Hop | Chase | Feel |
-|---|---|---|---|---|---|---|
-| 1 | small quadruped (pink) | 2 | | ✓ | | leaping puddle |
-| 2 | dome + tendrils (teal) | 17 | ✓ | | ✓ | drifting stalker-spitter |
-| 3 | hooded caster (violet) | 19 | ✓ | ✓ | ✓ | mini-boss (full kit) |
-| 4 | racing sled (orange) | 16 | | | ✓ | ground rush (fast) |
-| 5 | tall hopper (gold) | 18 | | ✓ | ✓ | frog leaper |
-| 6 | spiked floater (purple) | 3 | ✓ | ✓ | | bouncing sniper |
+| k | Sprite | Tier / attack | Color |
+|---|---|---|---|
+| 1 | walker-small (separate head, 4 legs) | HOP (4 HP, fragile) | pink |
+| 4 | walker-fast (racing lean, speed lines) | HOP (5 HP, tankier) | orange |
+| 2 | walker-tent (dome + 3 wiggling tendril-legs) | SHOOT (8 HP) | teal |
+| 6 | walker-spike (dome + 4 downward spiky legs) | SHOOT (9 HP) | light-purple |
+| 3 | caster (hooded robe) | CHARGE (12 HP, heavy) | violet |
+| 5 | walker-hop (tall body, chunky legs) | CHARGE (6 HP, glass) | gold |
 
-Contact damage universal on all 6. Ranged enemies show a stationary skull sprite at their center for 0.5s before firing — the same skull that then launches as the projectile (no separate windup graphic).
+- **Two behavior modes** (per-placement, not per-kind): **HUNTER** (default — engages when near) and
+  **PATROL** (optional 4th seed element `[x,y,k,1]` → a Goomba-style walker that ignores you,
+  contact-damage only). Currently all placements are hunters; the patrol flag + map-editor toggle are
+  wired for future use.
+- **Stand-off de-pile:** SHOOT/CHARGE hunters stop ~`SO`=100 px out and ring you instead of all
+  homing to the same point (only HOP kinds close to contact) — clusters read as a formation, not a
+  dogpile.
+- **Elevation rule:** aerial platform routes are kept low-tier (the jumping is already the challenge);
+  tough CHARGE/SHOOT kinds live on flat ground where traversal is free.
+- SHOOT kinds show a stationary skull at their center for ~0.5s before firing — the same skull then
+  launches as the projectile. CHARGE kinds telegraph with a dir-lock wind-up + committed dash (no
+  skull). Contact damage is universal.
 
-## Item Drops
-A kill drops loot at chance `12% + LUCK×3%` (bosses guaranteed, 2 drops + a rainbow). **Chests** drop 2 guaranteed items. Each drop is a flat **60% gear / 40% potion** split (potion = 50/50 HP/MP):
-- **HP POTION** (red bottle, +10 HP on drink — pickup fills the hot-bar counter, drink restores HP)
-- **MP POTION** (blue bottle, +10 MP on drink — same pattern)
-- **GEAR PART** (BODY/MANE/HORN/HOOVES) — primary stat bonus `1 + (lvl>>2) + (LUCK>>3)` (LUCK 8 grants +1 tier · LUCK 16 grants +2); at LV4+ a ~50% chance of a second sub-stat (`1 + (lvl>>3)` on a different stat). No fixed tiers — deeper gear is simply stronger.
+Roster is a clean **9 of each kind = 54 regular foes**, elevation-rule placed.
 
-**LUCK's three payoffs (all share ONE formula)**: (1) drop chance `.12 + LUCK*.03`, (2) crit chance same formula, (3) gear primary tier `+ (LUCK>>3)`. Investing in LUCK compounds across all three — more drops, more crits, better gear when it drops.
+## Item drops
+A kill drops loot at `12% + LUCK×3%` (bosses guaranteed; **chests** give 2 guaranteed items). Each
+drop is **60% gear / 40% potion** (potion = 50/50 HP/MP):
+- **HP / MP POTION** — fills the hot-bar counter (stack to 5); drink restores HP/MP.
+- **GEAR PART** — primary bonus `1 + (lvl>>2) + (LUCK>>3)`; at LV4+ a ~50% chance of a second sub-stat.
+  No fixed tiers — deeper gear is simply stronger.
 
-Drops fall to the ground and land on **any non-air tile** (solid, one-way platform, AND spike tops — drops sit on top of spikes like any other surface). They stay until you die — no despawn timer, no auto-magnet. **0.5s grace period** — drops must be visible ≥0.5s before pickup fires (batch 12) so you always see loot appear. **Pickup radius 18 px** — generous body-of-player reach, no walk-adjust needed for drops at your edge. **HP/MP potions fill the two-slot hot-bar** (bottom-center, stack to 5 each) — tap/click to drink. **Gear** goes to the inventory (BAG cap 10). Potions NEVER enter the inventory — if the hot-bar slot is full the drop waits on the ground. Same for gear if the bag is full. XP comes only from kills.
-
-**RAINBOW SHARDS** are progression tokens (not items): each DARK CORN surrenders one on defeat, auto-collected. Boss defeat also restores full HP + MP. Collect all 7 → THE DARKNESS LIFTS.
-
-## Skill Tree
-10 single-rank action skills in a 3-2-3-2 grid, unlocked by **row-level gates** (no prerequisite lines — pure "reach LV X to buy this row"):
-
-- **Row 1 (LV1):** SHOT · HEAL · DASH
-- **Row 2 (LV3):** DBL JUMP · LONG DASH
-- **Row 3 (LV6):** TRI JUMP · SUPER HEAL · DBL SHOT
-- **Row 4 (LV9):** FAR SHOT · TRI SHOT
-
-By LV11 every node is buyable AND you have exactly 10 skill points earned → every node reachable. Locked rows read dim; unlocked rows are bright. Owned nodes are blue-highlighted (matching the shared `#8cf` interactive accent). No connection lines — the grid speaks for itself.
+Drops land on any non-air tile and stay until you die (no despawn). Pickup radius 18 px, 0.5s grace so
+you always see loot appear. **RAINBOW SHARDS** are progression tokens (not items) — each DARK CORN
+surrenders one on defeat (auto-collected, restores full HP + MP). Collect all 7 → THE DARKNESS LIFTS.
 
 ## Controls
-| | Keyboard | Touch |
+One scheme, keyboard + touch fully at parity:
+
+| Action | Keyboard | Touch |
 |---|---|---|
 | Move | A/D or ←→ | Floating joystick (left 40%) |
-| Jump (hold = higher) | Space / W / ↑ | JUMP button |
-| Dash (skill-gated) | J | DASH button |
-| Shoot (skill-gated) | L | SHOT button |
-| Heal (skill-gated) | H | HEAL button |
-| Interact (hearth / chest) | Space (near) | JUMP (near) |
-| Menu / allocate / character sheet | P | Auto-opens on level-up · ✕ back button toggles |
-| Save + exit option | — | ✕ (back button) → SAVE + EXIT popup |
-| Mute toggle | M | 🔊 speaker icon (muted state: dim cone + red slash) |
+| Drop through platform | S / ↓ | joystick down |
+| Jump (fixed height, triple) | Space / W / ↑ | JUMP button |
+| Dash (attack) | J | DASH button |
+| Shoot | L | SHOOT button |
+| Heal (costs MP) | H | HEAL button |
+| HP potion | **I** | HP box (left of SHOOT) |
+| MP potion | **O** | MP box (left of DASH) |
+| Interact (talk / chest) | Space/JUMP near | tap near |
+| Menu / allocate / sheet | P | auto-opens on level-up · tap your name |
+| Back / Save + exit | **Esc** | ✕ back button |
+| Mute toggle | M | 🔊 speaker icon |
 | Controls help | — | ? icon |
 
-Every touchable control shares one visual language: dark rgba(15,15,20,.75) fill + `#8cf` blue outline — joystick, action buttons, top-right cluster (🔊 · ? · ✕), and the top-left character panel all match.
-
-Dash starts at half distance; LONG DASH doubles it.
-
-## World
-**One unified map (600×160 tiles = 9,600×2,560 px).** No portals, no zone transitions —
-walk from any boss to any other. **7 zones for 7 DARK CORNS:**
-
-| Zone | x-range | Boss | Palette signature | Placement |
-|---|---|---|---|---|
-| PEAK | 0-39 | BLUE | snow-cap white top+accent · slate-green alpine lichen · storm sky | peak ledge |
-| CANOPY | 40-111 | YELLOW | warm loam dirt · grass-green top+foliage · wood-brown accent | canopy ledge |
-| MEADOW | 112-279 | RED | classic brown/green/blue-sky | paddock east |
-| EAST RUN | 280-475 | ORANGE | dry gold savanna · tan accent · cyan sky | far east walkway |
-| SUMMIT | 476-600 | GREEN | deep teal · cool gray · storm sky (shared w/ PEAK by design) | east-arc summit |
-| UNDER-DEPTHS | y>63 (shallow) | VIOLET | violet cavern (all 5 render surfaces violet-family) | depths corridor |
-| UNDER-CAVERN | y>72 (deep) | INDIGO | deep indigo cave (near-black sky) | final boss chamber |
-
-Movement-ability gating (double-jump for terraces/peak, dash for depths corridor, bounce mushrooms + jumps for the east arc) controls the natural order you reach each boss. Every boss and chest is verified reachable by a build-time audit tool.
-
-**Zone palette design (batch 10 refinement 2026-09-07):** every zone has 5 distinct render surfaces (dirt, top strip, foliage, accent, sky) and — apart from the deliberate PEAK/SUMMIT storm-sky pair — **no color is shared across zones**. PEAK and CANOPY (previously sharing 3 of 5 colors) are now fully differentiated: PEAK reads as alpine-white-and-slate, CANOPY reads as warm-loam-and-wood.
-
-**Color palette rules:** Sky `#6bc5ff` and grass `#5ac878` are RESERVED for background; enemies and gear use warm saturated colors that pop against the sky. Enemy palette regrouped for max contrast + universal 1px black outline for figure/ground pop. HP = green (`#6cf279`, matches heal cross/button/potion), MP = blue (`#4a76ff`), interactive accent = `#8cf`, damage = red (`#ff5d6c`), XP = purple (`#b06cf0`). Rainbow strobing is reserved for the level-up banner + rainbow shard drops — everywhere else color signals a specific meaning.
-
-**Enemy distribution (batch 10 rebalance):** 56 regular foes (was 57) across 7 zones. MEADOW east corridor thinned from 8 foes (2× map average, pre-DASH/pre-SHOT) to 5 to match map average density. Relocations added ranged pressure to DEPTHS descent and filled EAST RUN's 288→300 gap. Kind-swap round: CANOPY gained its first caster, EAST RUN and SUMMIT gained their first spike-floaters. Every zone now runs at least 4 of the 6 kinds.
-
-**Platform unification (batch 11 refinement 2026-09-07):** every suspended landing in the world is now a **one-way platform** (v=2) — uniform ~9px chunky top strip, DOWN-jump drops through. The 4 boss/reward landings that were previously 1-2 tile solid masses (PEAK BLUE ledge, CANOPY YELLOW ledge, EAST RUN TRI-JUMP upper landing, GREEN summit landing) were converted, so no ledge in the game has non-droppable "thick" tiles anymore. Terrain masses (stepped-tower masonry, western terraces, ground band) stay v=1 because they're hillside, not platforms.
+`Esc` is the universal "back out one level": in play it opens the SAVE/EXIT popup; in the menu it
+closes it (blocked while points are pending); in any confirm popup it cancels. All binary popups
+(SAVE/EXIT, DROP-confirm, save-slot) are keyboard-navigable (←→ toggle, Enter confirm, Esc back).
+Every touch control shares one visual language: dark fill + `#8cf` blue outline.
 
 ## Build
 Requires **Node ≥ 20**.
 ```
 npm install
-npm run build    # map-audit → tpos-check → esbuild → terser → roadroller → zip → ECT
+npm run build    # esbuild → terser → roadroller → inline → zip → ECT
 ```
-Build gates: map traversal audit (no stuck spots, all bosses/chests reachable at expected tier), placement audit (spike/decor overlap safety), TPOS drift check (skill-tree layout matches TREE), 13,312 byte limit, no external URLs, no unprefixed localStorage.
+Six build gates: **map-audit** (traversal — no stuck cells, all bosses/chests reachable at
+double/triple-jump tier, Return Law), **spike-audit** (chest + procedural-scatter spike safety),
+**pal-check** (PAL length ⇔ gear-color range), minified-check + packed-check (artifact integrity),
+and the **13,312-byte** budget (also: no external URLs, no unprefixed localStorage).
 
-**Current: 13,138 / 13,312 B (98.7%) — 174 B free** (batch 23 staged, 2026-09-09; shipped = batch 22 @ 13,088 B. See `SIZELOG.md` for the live-updated tail and the Definitive State knowledge entry for the authoritative current snapshot.)
+**Current: 12,454 / 13,312 B (93.6%) — 858 B free.** See `SIZELOG.md` for the live-updated tail and
+the "Definitive state" knowledge entry for the authoritative snapshot.
 
 ## Save format
-Keys: `localStorage.uni_s0` (one slot). Version: **v44** — strict version gate, auto-discards older saves.
+One slot: `localStorage.uni_s0`. Version **v44** (strict gate — older saves auto-discard).
 
-Fields (14 total): `{v, h(p), x(p), l(vl), n(mn), g(bosses[7]), t(stats[STR,HP,MAG,DEF,LUCK]), d(pending), k(spts), y(su[10]), m(name), o(chestBits), q(eq[4]), i(inv[]), P(potions [hp,mp])}`.
-
-Not saved: `col` (derived from `eq` at load — one source of truth), `mute` (runtime-only), dialogue state (transient), foes/chests (reseeded), physics/timers.
+Fields: `{ v, h(hp), x(xp), l(lvl), n(mn), g(bosses[7] → 2|0), t(stats[STR,HP,MAG,DEF,LUCK]),
+d(pending), m(name), o(chestBits), q(eq[4]), i(inv[]), P([hpPot,mpPot]), K(kills), D(deaths),
+R(runtime) }`. Not saved: `col` (derived from `eq` at load), `mute` (runtime-only), dialogue state,
+foes/chests (reseeded).
 
 ## Structure
-- `src/main.js` — the game (~1,400 lines)
-- `src/world.js` — unified MEADOW tile map + entity seeds + procedural scatter (~190 lines)
-- `src/data.js` — static lookup tables (palette, foes, gear, skill tree, GREAT CORN dialogue)
-- `build.mjs` — full pipeline + compliance gates
-- `tools/map-audit.mjs` — traversal prover (bosses/chests reachable at expected ability tier)
-- `tools/spike-audit.mjs` — placement safety (no chest/decor through spikes, no adjacent-tree crowding)
-- `tools/tpos-check.mjs` — skill-tree layout drift guard + PAL/gear-range check
-- `dist/wavedash/` — Wavedash platform variant
+- `src/main.js` — the game (~1,380 lines)
+- `src/world.js` — the 3-band tile map + entity seeds + procedural scatter (~190 lines)
+- `src/data.js` — static tables (palette/zones, foe tiers, gear, GREAT CORN dialogue)
+- `build.mjs` — full pipeline + compliance gates (also emits the Wavedash variant)
+- `tools/map-audit.mjs` — traversal prover (bosses/chests reachable, Return Law)
+- `tools/spike-audit.mjs` — placement safety (chest + scatter spike overlap)
+- `tools/pal-check.mjs` — PAL length ⇔ gear color-range guard
+- `tools/map-editor.html` — local map-authoring tool (untracked, not shipped)
+- `dist/wavedash/` — Wavedash platform variant (leaderboards + stats via a byte-free wrapper)

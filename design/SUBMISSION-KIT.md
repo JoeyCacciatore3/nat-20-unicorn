@@ -1,8 +1,10 @@
 # Submission Kit — UNICORN, Hooves of Hope
 
-Copy is paste-ready. **All facts verified against `src/*.js` at batch 28.**
+Copy is paste-ready. **All facts verified against `src/*.js` at batch 35 (compact world rebuild).**
 
-**State snapshot (2026-09-09, batch 28 — SHIPPED):** build **13,255 / 13,312 B (57 B free, 99.6%)**, git `cee3393` == Wavedash build `mn78pamdxftzswxqyh235wbayn8e39hn`. GitHub `main` == code == Wavedash live — **ALIGNED** (Release Ritual atomic push). Save **v44**, single slot `uni_s0`. Play URL rotates per deploy — grab the current one from `wavedash build push` output or the Developer Portal. For the authoritative running state see the **Definitive State** knowledge entry; the Wavedash build id + play URL are pinned there.
+**State snapshot (2026-09-11, batch 35 candidate — map-rebuild branch):** build **12,454 / 13,312 B (858 B free, 93.6%)**, save **v44**, single slot `uni_s0`. Big change since B28: the world was fully re-authored into a compact **480×42-tile, 3-band** map (SKY / uniform GROUND band / CAVES) — same feature set, ~82% smaller grid, byte-positive. All six enemies are now **grounded walkers** (the floaters were flipped upright). The skill tree is **gone** (abilities always-on). For the authoritative running state see the **Definitive State** knowledge entry.
+
+> ⚠️ **MEDIA IS STALE — RE-SHOOT REQUIRED before upload.** Every screenshot / trailer / GIF / cover below is B28-era: it shows the **removed skill tree**, the **old 600×160 world**, the old menu, and the old floater enemies. Do NOT upload the current media set. Use `tools/capture-build.mjs` to re-capture against the B35 build.
 
 > **Ground-truth rule:** if any figure here disagrees with `src/data.js` + `src/main.js` + `src/world.js`, the source wins — re-grep before trusting.
 
@@ -13,18 +15,18 @@ Copy is paste-ready. **All facts verified against `src/*.js` at batch 28.**
   - **Tier 1 — HOP (melee leapers):** k1 (fragile), k4 (tankier) — leap toward you on a cadence.
   - **Tier 2 — SHOOT (ranged):** k2, k6 — hold position and fire bolts.
   - **Tier 3 — CHARGE (elite):** k3 (heavy), k5 (glass) — telegraphed dash: wind-up tell → fast lunge → recover.
-  - Sprites are still per-kind (cosmetic) but no longer signal the tier — the attack does.
+  - Sprites are still per-kind (cosmetic) but no longer signal the tier — the attack does. **All six are now grounded walkers** (the old teal "tent" + purple "spike" floaters were flipped upright to sit on terrain like the rest; downward legs/tendrils). A per-placement PATROL flag (`[x,y,k,1]`) can make any foe a Goomba-style walker, and SHOOT/CHARGE hunters stand off (`SO`=100px, ring you) instead of dogpiling.
 - **7 DARKCORN bosses** (`RBC`, 7 entries; bands RED, ORANGE, YELLOW, BLUE, VIOLET, GREEN, INDIGO). All named "DARKCORN"; identity = horn + mane color. Every boss runs the **full apex kit** (charge + hop + shoot, cap=19). Difficulty scales with tier `bi` and your level: HP `(20+bi*4)+lvl²`, dmg `(8+bi)+(lvl>>2)`. Bosses are always present (seeded), idle until you enter their 128px ring, then hunt relentlessly (ungated — they chase off ledges and through spike pits). Defeated = the band's rainbow shard banks; killed bosses don't respawn. *(No half-HP enrage — that mechanic was removed.)*
-- **7 zones** (`ZB`) — surface: PEAK (BLUE), CANOPY (YELLOW), MEADOW (RED), EAST RUN (ORANGE), SUMMIT (GREEN); underground: DEPTHS (VIOLET), CAVERN (INDIGO). One contiguous 600×160 world, each zone its own 5-color palette.
+- **7 zones** (`ZB`) — surface: PEAK (BLUE), CANOPY (YELLOW), MEADOW (RED), EAST RUN (ORANGE), SUMMIT (GREEN); underground: DEPTHS (VIOLET), CAVERN (INDIGO). One contiguous **480×42** world (compact 3-band rebuild: SKY rows 1–17 · uniform 6-tile GROUND band rows 18–23 · CAVES rows 24–40), each zone its own 5-color palette.
 - **7 rainbow shards** — one per DARKCORN. GREATCORN intro: "Reclaim every shard. One per DARKCORN. There are seven."
-- **10 skill nodes** (`TREE`) — SHOT, FAR SHOT, HEAL, SUPER HEAL, DBL JUMP, TRI JUMP, DASH, LONG DASH, DBL SHOT, TRI SHOT. Level-gated rows, no prerequisite lines: `canBuy = lvl >= [1,9,1,6,3,6,1,3,6,9][i]`. One point per node; start with only JUMP.
+- **No skill tree** — all abilities are always-on (triple jump / long dash / double shot / basic heal). Kind + level is the only difficulty axis. On level-up the game **locks you into the stat menu until you spend the +2 points** (allocation lock, also on reload — points can never persist unspent).
 - **20 chests** (`seeds.chests`), all reachability-audited by `tools/map-audit.mjs`.
 - **54 regular foes** — hand-placed `foes` (42) + fill `foesX` (12), **exactly 9 of each of the 6 kinds** (verified 2026-09-10 by reading the `foes`+`foesX` seed arrays in `world.js` @ B28; the earlier "9/9/10" reading was a loose grep catching non-foe 3-element arrays). Safe marketing figure: "over 50 enemies across 6 kinds."
 - **4 gear slots** — BODY (+HP), MANE (+MAG), HORN (+STR), HOOVES (+DEF). Gear drops as pixel icons and recolors the matching body part. `BAG=10` (gear only).
-- **5 stats** (`SC`) — STR (red), HP (green), MAG (blue), DEF (violet), LUCK (orange). Cap **LV20** (`CAP=20`); +2 stat points per level. Start HP/MP = 15.
-- **Potion hot-bar** — 2 slots (HP / MP), stack to 5 each, **+10 heal** per drink (+1.5s i-frame flash). HP slot flanks HEAL, MP slot flanks DASH.
+- **5 stats** (`SC`) — STR (red), HP (green), MAG (blue), DEF (violet), LUCK (orange). Cap **LV20** (`CAP=20`); +2 stat points per level. Start HP/MP = **20** (base 16 + stat 2×2); all stats start at 2.
+- **Potion hot-bar** — 2 slots (HP / MP), stack to 5 each, **+20** per drink (+1.5s i-frame flash). Both boxes sit as a left column of the action grid — HP box on the SHOOT row, MP box on the DASH row. Hotkeys **I** (HP) · **O** (MP).
 - **Bounce mushrooms** — spring-launch traversal, stacks with DBL/TRI JUMP (west bounce-sky route feeds the BLUE summit).
-- **Controls** — Keyboard: WASD/arrows move · Space/W/↑ jump (= interact) · J dash-attack · L shot · H heal · P menu. Touch: floating joystick + action buttons. One build, desktop + mobile.
+- **Controls** — Keyboard: WASD/arrows move · Space/W/↑ jump (= interact, fixed-height triple jump) · S/↓ drop-through · J dash-attack · L shot · H heal · **I** HP-potion · **O** MP-potion · P menu · M mute · **Esc** back / save-exit. Touch: floating joystick + action buttons (full parity). One build, desktop + mobile.
 - **Save** — v44, strict version gate (no cross-version compat), single slot `uni_s0`. Auto-saves on level-up + respawn; player always respawns at the paddock.
 - **Console errors** — 0 in Chromium (B28 smoke test). ⚠️ **Firefox DevTools zero-console check is a SEPARATE hard requirement** — re-run against the final `dist/game.zip` before each js13k upload.
 
@@ -46,19 +48,22 @@ Flow: register draft → upload zip (automated in-browser test; **console errors
 Name your unicorn and cross one large connected world to defeat all seven DARKCORN
 and reclaim the rainbow shards they shattered.
 
-- ⚔️ **STR-based combat** — damage scales with your stats and gear; LUCK boosts crit chance.
-- 📈 **Full RPG** — 5 stats, a 10-node level-gated skill tree, and gear that drops as
-  pixel item icons and recolors the matching part of your unicorn (mane / horn / body / hooves).
+- ⚔️ **STR / MAG combat** — physical damage scales with STR, magic with MAG; LUCK drives crit chance
+  AND loot drops (one stat, three payoffs).
+- 📈 **RPG progression** — 5 stats, a hard LV20 cap, and gear that drops as pixel item icons and
+  recolors the matching part of your unicorn (mane / horn / body / hooves). Every level you allocate
+  +2 points — the game locks you in until you spend them.
 - 👑 **7 DARKCORN bosses** — dark mirrors of yourself, each holding one rainbow band
   (red → indigo). All run the full apex kit — charge, hop, and ranged fire — and hunt you relentlessly once woken.
-- 🌍 **7 regions in one connected world** — sunlit meadows, high canopy, storm peaks, and
-  underground caverns. Ability gates (double-jump, dash, bounce mushrooms) control your reach.
-- 🐴 **6 enemy kinds in 3 attack tiers** — melee leapers, ranged snipers, and telegraphed chargers. Everyone pursues at the same speed; it's the attack that separates them, so you learn one moveset at a time.
+- 🌍 **7 regions in one connected world** — a compact three-band map (sky platforms, a walkable
+  highway, and an underground cave network). Sunlit meadows, high canopy, storm peaks, deep caverns.
+- 🐴 **6 enemy kinds in 3 attack styles** — melee leapers, ranged snipers, and telegraphed chargers.
+  Everyone shares one movement, so it's the attack that separates them — you learn one moveset at a time.
 - 🗨️ **A GREATCORN guide** greets you with a chatty intro and re-talk quips, and fully heals you when you return.
-- 🎒 20 hidden chests · 2-slot potion hot-bar (HP + MP, stack to 5, +10 heal) · single save slot, auto-saves on level-up and respawn.
+- 🎒 20 hidden chests · 2-slot potion hot-bar (HP + MP, stack to 5, +20) · single save slot, auto-saves on level-up and respawn.
 
-**Controls:** WASD/arrows + Space jump · P menu · J dash-attack · L shot · H heal — or
-touch: floating joystick + action buttons. One build, desktop and mobile.
+**Controls:** WASD/arrows + Space jump · J dash-attack · L shot · H heal · I/O potions · P menu ·
+Esc back — or touch: floating joystick + action buttons. One build, desktop and mobile.
 ```
 
 **Categories:** Desktop · Mobile · Wavedash
@@ -108,7 +113,7 @@ design/
 │   ├── _prev_overlay/ _stale_sep05/ _new/ _stale_aug31/   OLD sets — do NOT upload
 └── achievements/         ✅ 8 PNGs (thresholds need CLI re-tune per table above)
 ```
-**Screenshot set is current for B28, overlay-visible, gear-equipped.** Upload order for the store: 01_title → 04_menu → 03_combat → 05_world → 02_intro (lead with logo, then the gear/RPG depth, then action). Trailer + GIF also feature the equipped unicorn.
+⚠️ **The entire media set above is STALE (B28)** — it shows the removed skill tree, the old 600×160 world, the old menu, and the floater enemies. It must be **re-captured against the B35 build** before any upload. The recipes/encode settings and the upload order (01_title → 04_menu → 03_combat → 05_world → 02_intro — lead with logo, then RPG depth, then action) remain the right guidance for the re-shoot.
 
 ---
 
@@ -119,7 +124,7 @@ design/
 |---|---|---|---|
 | 1 | Register js13k draft, claim name `UNICORN, Hooves of Hope` | js13kgames.com/submit | NOW — locks name; tests roadroller zip. Deadline Sep 13 13:00 CEST |
 | 2 | Firefox DevTools zero-console-errors check on `dist/game.zip` | local | Before each js13k upload (disqualifying criterion) |
-| 3 | ✅ DONE (2026-09-10) — full B28 media at final quality, EQUIPPED colored unicorn (showcases gear system): 5× 1920×1080 overlay-visible screenshots (lossless), 1080p60 trailer (tune-animation/crf15/faststart/AAC, 25.6s), 1080² square cover + 512/256 variants, 640×360 gameplay GIF, 4K title master. All native-res, research-backed encodes. Gear staged via temp seed, reverted — shipped build unchanged (HEAD cee3393). | local | — |
+| 3 | 🔴 **RE-SHOOT ALL MEDIA against B35** — the B28 set is stale (removed skill tree, old 600×160 world, old menu, floater enemies). Re-capture 5 screenshots + trailer + GIF + cover via `tools/capture-build.mjs`; reuse the encode recipes + upload order from the Assets section. | local | Before Sep 13 upload |
 | 4 | Wavedash store paste-in (title, desc, tags, cover, screenshots, trailer) | Portal (see `WAVEDASH-UPLOAD.md`) | Anytime — review has lag |
 | 5 | Re-tune EXPLORER / HALFWAY / PRISMATIC thresholds | `wavedash achievement update` | Before Sep 20 |
 | 6 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |
