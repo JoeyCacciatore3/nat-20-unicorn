@@ -68,13 +68,13 @@ export const ZB = [
 export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base.
 
 // GREATCORN dialogue. '~' prefix = player unicorn speaks (bubble over its head), else GREATCORN. '|' = row break within one bubble.
-// COUPLING: DEATH reuses INTRO[7] ("Wounded?…") — keep INTRO defined above with index 7 = the Wounded line (recheck if reordered). No bubble-index spotlight/device-swap anymore (both removed).
+// COUPLING: DEATH reuses INTRO[4] ("They hit hard.|Hurt? A potion,…") — keep INTRO defined above with index 4 = the hurt/heal line (recheck if reordered). No bubble-index spotlight/device-swap anymore (both removed).
 export const INTRO = ["Oh! You're awake!", "~...who are you?", "The Greatcorn.|Obviously.", "The Darkcorn stole|my seven rainbows.|Win them back.", "They hit hard.|Hurt? A potion,|or talk to me.", "~Wish me luck.", "Luck's for ponies.|Here's a head start.|You'll need it."];
 // INTRO cleanups (): dropped "I nearly sat on you" (bubble 0 tail) · removed the MOVE bubble ("Arrow keys walk/WASD") and the JUMP bubble ("SPACE jumps/Jump near me to chat/I permit it") entirely — the ✓ interact glyph on the JUMP button + the "..." talk-available bubble over GREATCORN now carry that, no text needed · new CORNER-PANEL bubble points at the top cluster (? = help/controls screen, sound toggle) which ALSO holds the full control reference, so device-specific control text is gone · dropped "health and magic both" tail from the heal-hub line · device-swap removed in main.js → identical dialogue on browser + mobile.
 // Re-talk quips — cycled one per approach (JUMP near the GREATCORN after the intro).
 // TALK — re-talk pool (jump near GREATCORN).
 export const TALK = ["Rainbows won't fetch|themselves, pony.", "You've got this.|Probably.", "Stop bouncing at me.|I'm not a mushroom.", "This mane grooms|itself. Out of|respect."];
-// DEATH — reuses the dialogue system for a respawn beat: fires at the paddock once the death fade completes (deathT crosses 0).
+// DEATH — reuses the dialogue system for a respawn beat: fires at the paddock once the death beat + home transition completes (deathT crosses 0).
 export const DEATH = ["~Ugh...", INTRO[4]];   // REUSE INTRO[4] = "They hit hard.|Hurt? A potion,|or talk to me." — the defeat + heal reminder lands exactly when relevant (you just died). Reference, NOT a duplicated literal (roadroller has no copy mechanism → a copy costs full price). COUPLING: INTRO must stay defined above + index 4 = the hurt/heal line; recheck if INTRO is reordered.
 // WIN — talk to GREATCORN with all 7 rainbows banked (rainbows()===bs.length).
 export const WIN = ["All seven! History|will remember|MY name."];

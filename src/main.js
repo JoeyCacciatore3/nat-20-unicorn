@@ -23,7 +23,7 @@ import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, I_MP
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
-const QSZ = 24, QHX = VW - 42, QHY = 132, QMX = VW - 140, QMY = VH - 42;   // potion quick-slots SPLIT to flank the action cluster.
+const QSZ = 24, QHX = VW - 146, QHY = VH - 92, QMX = VW - 146, QMY = VH - 40;   // potion quick-slots = a clear LEFT COLUMN of the action grid: HP box centred on the SHOOT row, MP box on the DASH row (52px left of the shoot/dash column) → an obvious pair right beside the combat buttons, thumb-reachable. HP above MP (mirrors the HP-over-MP bars).
 // DPR + visualViewport: draw at native device pixels (retina crispness), size to
 // the actual viewport (fixes iOS URL-bar overshoot). imageSmoothingEnabled=false
 // keeps the pixel art crisp when the letterbox scale is fractional.
@@ -41,7 +41,7 @@ visualViewport && (visualViewport.addEventListener('resize', fit), visualViewpor
 fit();
 let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer mapping)
 
-// ---------- input: one scheme — WASD+arrows move, Space/W/Up jump, J dash, L shoot, H heal, S/Down crouch-drop, P menu ---------
+// ---------- input: one scheme — WASD+arrows move, Space/W/Up jump, J dash, L shoot, H heal, I HP-potion, O MP-potion, S/Down crouch-drop, P menu, M mute, Esc save/exit (back) ---------
 const J_KEYS = ['Space', 'KeyW', 'ArrowUp'];        // JUMP — Space canonical, W (WASD up), ArrowUp (arcade tradition)
 
 const keys = new Set();
@@ -67,7 +67,7 @@ const beginGame = () => {
   // Device-swap REMOVED (): INTRO no longer teaches move/jump keys, so keyboard vs touch prompts are unneeded — one identical script on browser + mobile.
   phase = 2; started = 1; talk(INTRO);   // NO initial save — the first save fires seconds later inside the GREATCORN LV1→2 boost (gainXp→save on INTRO close). Quitting mid-intro leaves the slot empty (clean re-start), no half-state.
 };  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
-const resumeGame = () => { load(); phase = 2; started = 1; };
+const resumeGame = () => { load(); phase = 2; started = 1; if (pending) { paused = 1; setRow(0); } };   // CONTINUE with banked points → open STRAIGHT into the locked allocation menu. Invariant: pending>0 ⟺ locked menu open, on fresh level-up AND on reload — points can never persist "for later".
 const pickSlot = () => {                                               // the single slot is the only pre-play menu — no NEW GAME/CONTINUE layer
   if (sMeta()) sPop = 1;                                               // occupied → CONTINUE / DELETE confirm (default = CONTINUE, safe)
   else { fresh(); ent = ''; tMode = 1; }                               // empty → name entry (required) → begin
@@ -96,12 +96,14 @@ addEventListener('keydown', (e) => {
   }
   if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
   boot();                                                    // resume audio on any key (autoplay policy)
-  if (savePop) { if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyP') savePop = 0; return; }
+  if (e.code === 'KeyM') { mute ^= 2; return; }              // M = global sound ON/OFF (mirrors the 🔊 button); works title/menu/gameplay (name entry handled above)
+  if (savePop) { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') savePop = 3 - savePop; else if (e.code === 'Enter' || e.code === 'Space') { if (savePop === 2) { save(); paused = helpOn = savePop = started = phase = tMode = sPop = 0; } else savePop = 0; } else if (e.code === 'Backspace' || e.code === 'Escape' || e.code === 'KeyP') savePop = 0; return; }   // SAVE/EXIT popup (2-choice, mirrors sPop/dPop): ←→ toggle · Enter confirms (CONTINUE=resume / EXIT GAME=save+title) · Esc/Backspace/P = back to game
+  if (dPop) { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') dPop = 3 - dPop; else if (e.code === 'Enter' || e.code === 'Space') { if (dPop === 2) { inv.splice(aRow - 5, 1); sfx(420, 240, .1, 'sine', .1); } dPop = 0; } else if (e.code === 'Backspace' || e.code === 'Escape' || e.code === 'KeyP') dPop = 0; return; }   // DROP confirm: ←→ toggle (BACK is the safe default), Enter destroys the gear ONLY when DROP is highlighted, Esc/Backspace/P cancels
   if (helpOn) { helpOn = 0; return; }
   if (dq) { adv(); return; }                                 // dialogue: any key advances one bubble (closes past the last)
   if (phase === 0) return titleKey(e);
   if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → gear)
-    if (e.code === 'KeyP') paused = 0;                          // P closes
+    if ((e.code === 'KeyP' || e.code === 'Escape') && !pending) paused = 0;   // P or Esc closes (back out one level) — BLOCKED while stat points are pending (allocation lock)
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') navSel(-1, 0);
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') navSel(1, 0);
     else if (e.code === 'ArrowUp' || e.code === 'KeyW') navSel(0, -1);
@@ -109,6 +111,7 @@ addEventListener('keydown', (e) => {
     else if (e.code === 'Enter' || e.code === 'Space') spend();
     return;
   }
+  if (e.code === 'Escape') { save(); savePop = 1; return; }   // Esc (in play) = save + open the SAVE/EXIT popup (keyboard mirror of the ✕ button; CONTINUE selected by default). Logical back/exit path.
   // JUMP is the universal INTERACT (NPC talk / chest open)
   if (J_KEYS.includes(e.code) && interact()) return;
   keys.add(e.code);
@@ -116,6 +119,8 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyJ') dash();                          // J = dash — the attack verb (contact damage during dash)
   if (e.code === 'KeyL') shoot();                         // L = shoot — one bolt per TAP (no rapid fire)
   if (e.code === 'KeyH') heal();
+  if (e.code === 'KeyI') quaff(0);                       // I = HP potion — one row above dash(J)/shoot(L), within finger reach but off the home-row rest keys (no accidental quaff). quaff() self-guards deathT + empty/full.
+  if (e.code === 'KeyO') quaff(1);                       // O = MP potion — pairs with I, above shoot(L).
   if (e.code === 'KeyP' && deathT <= 0) { paused = 1; setRow(0); }   // P opens the menu (close handled in the paused block above)
 
 });
@@ -180,6 +185,12 @@ addEventListener('pointerdown', (e) => {
     if (hit(VW / 2 - 90, 244, 70, 20)) { save(); paused = 0; helpOn = 0; savePop = 0; started = 0; phase = 0; tMode = 0; sPop = 0; return; }
     return;
   }
+  // DROP-gear confirm gate — destructive DROP (left) / safe BACK (right), mirrors the DELETE/CONTINUE slot popup
+  if (dPop) {
+    if (hit(VW / 2 - 90, 244, 70, 20)) { inv.splice(aRow - 5, 1); sfx(420, 240, .1, 'sine', .1); dPop = 0; return; }   // DROP (left) — permanent delete of the selected bag item
+    if (hit(VW / 2 + 20, 244, 70, 20)) { dPop = 0; return; }                                                          // BACK (right) — keep the item, back to the menu
+    return;                                                                                                           // any other tap while open = swallow (modal)
+  }
   // Help/Settings overlay — dismiss on any tap
   if (helpOn) { helpOn = 0; return; }
   if (dq) { adv(); return; }                                     // dialogue: any tap advances one bubble (before HUD icons, so a tap can't leak through)
@@ -188,10 +199,10 @@ addEventListener('pointerdown', (e) => {
   // block so the SAME two hit-tests serve both states (was: duplicated inside + outside paused).
   if (started) {
     // Character menu = tap the top-left info panel (name/HP/MP/XP).
-    if (hit(0, 0, 100, 52)) { paused ^= 1; if (paused) setRow(0); return; }
+    if (hit(0, 0, 100, 52)) { if (paused && pending) return; paused ^= 1; if (paused) setRow(0); return; }   // menu toggle — close BLOCKED while points pending (allocation lock)
     if (hit(VW - 60, 0, 18, 20)) { helpOn = 1; return; }   // ? HELP — leftmost (swapped 09-08; cluster order ? · 🔊 · ✕)
     if (hit(VW - 42, 0, 20, 20)) { mute ^= 2; return; }   // 🔊 Speaker — middle (swapped 09-08; runtime audio toggle, NOT saved)
-    if (hit(VW - 22, 0, 22, 20)) { if (paused) paused = 0; else { save(); savePop = 1; } return; }   // ✕ BACK — corner (traditional close position) — menu: close · gameplay: save + exit popup
+    if (hit(VW - 22, 0, 22, 20)) { if (paused) { if (!pending) paused = 0; } else { save(); savePop = 1; } return; }   // ✕ BACK — corner — menu: close (BLOCKED while points pending, allocation lock) · gameplay: save + exit popup
     // POTIONS (bottom-center): tap HP box → quaff(0), MP box → quaff(1).
     if (hit(QHX - 3, QHY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
     if (hit(QMX - 3, QMY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
@@ -200,22 +211,26 @@ addEventListener('pointerdown', (e) => {
       // GAMEPAD MENU CONTROLS (checked first, take priority over cell-taps): joystick = cursor nav, JUMP = confirm/select.
       if (e.pointerType === 'touch' && Math.hypot(vx - JHX, vy - JHY) < JR + 8) { grabJoy(vx, vy, e.pointerId); return; }
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
-      // ACTION / DROP buttons — overlap the grid (y=250-264 inside grid y=184-268), checked first.
-      // LEFT box = EQUIP/UNEQUIP via spend() (dispatches by cursor region).
-      if ((inv[aRow - 5] || (aRow >= EB && eq[aRow - EB])) && hit(50, 250, 50, 15)) { spend(); return; }
-      if (inv[aRow - 5] && hit(110, 250, 50, 15)) { const it = inv.splice(aRow - 5, 1)[0]; drops.push({ x: pl.x + PW / 2, y: pl.y, vx: (Math.random() - .5) * 80, vy: -90, life: 0, t: 5, s: it.s, c: it.c, b: it.b, u: it.u, v: it.v }); sfx(420, 240, .1, 'sine', .1); return; }   // DROP → toss the gear onto the map as a REAL pickup (persists like enemy/chest drops, cleared only on death), not deleted
-      // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts.
-      for (const [s, ex, ey] of EQ) if (hit(ex, ey, 24, 24)) { const r = EB + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
-      // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP).
-      if (hit(62, 172, 140, 84)) {
-        const iC = ((vx - 62) / 28) | 0, iR = ((vy - 172) / 28) | 0, iI = iR * 5 + iC;
-        if (iI < BAG && inv[iI]) { const r = 5 + iI; if (aRow === r) spend(); else setRow(r); return; }
-        return;                                                  // tap on empty inv area — no-op, keeps menu open
+      // ACTION / DROP buttons + gear/bag taps — ALL gated by the allocation lock: inert while
+      // stat points are pending (spend before you can touch inventory/equipment). Overlap the
+      // grid (y=250-264 inside grid y=184-268), checked first.
+      if (!pending) {
+        // LEFT box = EQUIP/UNEQUIP via spend() (dispatches by cursor region).
+        if ((inv[aRow - 5] || (aRow >= EB && eq[aRow - EB])) && hit(50, 250, 50, 15)) { spend(); return; }
+        if (inv[aRow - 5] && hit(110, 250, 50, 15)) { dPop = 1; return; }   // DROP → open the confirm gate (BACK selected by default); the permanent delete fires only on CONFIRM (dropping gear destroys it forever, so it's gated like DELETE SAVE)
+        // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts.
+        for (const [s, ex, ey] of EQ) if (hit(ex, ey, 24, 24)) { const r = EB + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
+        // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP).
+        if (hit(62, 172, 140, 84)) {
+          const iC = ((vx - 62) / 28) | 0, iR = ((vy - 172) / 28) | 0, iI = iR * 5 + iC;
+          if (iI < BAG && inv[iI]) { const r = 5 + iI; if (aRow === r) spend(); else setRow(r); return; }
+          return;                                                // tap on empty inv area — no-op, keeps menu open
+        }
       }
       // Stat tap — moves cursor there, tap selected again to spend (unified for touch)
       const ri = ((vy - 57) / 26) | 0;                                       // ri = stat-row index in the right-hand column
       if (vx > 238 && vx < 296 && vy > 57 && vy < 187 && ri >= 0 && ri < 5) { if (aRow === ri) spend(); else setRow(ri); return; }
-      paused = 0; return;                                        // tap anywhere else closes
+      if (!pending) paused = 0; return;                          // tap elsewhere closes — BLOCKED while points pending (allocation lock)
     }
   }
   // JOYSTICK: any touch in the left 40% grabs the fixed stick (base pinned at home; drag is relative to the grab point)
@@ -307,7 +322,7 @@ const unequip = (s) => {
   applyItem(it, -1); eq[s] = null; col[s] = 0; inv.push(it); sfx(880, 660, .12, 'triangle', .1);
 };
 // QUICK-QUAFF — bottom quick-slot tap drinks from the HP(t0)/MP(t1) counter.
-// quaff death-guard: potion taps during the 2s death fade were pure waste (respawn restores full vitals anyway).
+// quaff death-guard: potion taps during the death beat (deathT>0) are pure waste — respawn restores full vitals anyway.
 const quaff = (t) => { if (deathT > 0) return; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 20); sfx(520, 1040, .1, 'triangle', .1); fly(0, 0, '+20', '#6cf279', 0, 1); hf = IFR; hfc = 14; } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 20); sfx(440, 880, .1, 'triangle', .1); fly(0, 0, '+20', '#4a76ff', 0, 1); hf = IFR; hfc = 11; } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
 
 // GUARD: gear-drop color range in spawnDrop (`Math.random() * 16`) is coupled to
@@ -316,7 +331,7 @@ const quaff = (t) => { if (deathT > 0) return; if (t === 0) { if (hpPot > 0 && h
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };   // lineJoin round: default 'miter' shot long spikes off sharp glyph vertices (M/P/X) — the "protruding black ink".
 // Stat bar: dark track + coloured fill to `frac` (clamped 0..1 so vitals > max render as full, never overflow).
 const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * Math.min(1, frac), h); };
-// Full-screen dim overlay — death vignette.
+// Full-screen dim overlay — backs the title / save popup / help panels (NOT death: the death beat uses skull particles, no fade).
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
 // Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band.
 const rArc = (cx, cy, r, step) => { for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(cx, cy, r - i * step, Math.PI, 0); ctx.stroke(); } };
@@ -425,7 +440,7 @@ const gainXp = n => {
     xp -= need(); lvl++; pending += 2;    // +2 stat pts per level (skill points removed — abilities always-on). LV1→2 intro boost is a normal level-up.
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save.
     foes.forEach(f => { const u = f.hp >= f.mx; scaleFoe(f); f.hp = u ? f.mx : Math.min(f.hp, f.mx); });   // RESCALE LIVE FOES + BOSSES on level-up via the shared scaleFoe(). u-flag: undamaged keep full (follow new max); damaged keep their wounds.
-    luT = time + 1.8; paused = 1;                 // LEVEL UP banner + AUTO-OPEN the char menu EVERY level-up (the menu itself is the "you have points" prompt — replaces the removed HUD pulse). Frequent early (fast levels = teaching), rare late (quadratic need). Safe: only sets a flag; step() gates on paused, foe-death prune is frame-end.
+    luT = time + 1.8; paused = 1; setRow(0);      // LEVEL UP banner + AUTO-OPEN the char menu on the STR stat (row 0). The ALLOCATION LOCK (pending>0) then confines the cursor to stats AND blocks closing until both points are spent — the game enforces spending. Frequent early (fast levels = teaching), rare late (quadratic need). Safe: only sets flags; step() gates on paused, foe-death prune is frame-end.
   }
   if (lvl >= CAP) xp = 0;
 };
@@ -447,7 +462,8 @@ const cxy = (r) =>
 // navSel: move cursor to the nearest cell in direction (dx,dy).
 const navSel = (dx, dy) => {
   const [x0, y0] = cxy(aRow); let b = -1, bc = 1e9;
-  for (let r = 0; r < SN; r++) {
+  const lim = pending ? 5 : SN;                    // ALLOCATION LOCK: while stat points are pending, the cursor is confined to the 5 stat rows (0-4) — no navigating to inventory/gear until every point is spent.
+  for (let r = 0; r < lim; r++) {
     if (r === aRow) continue;
     const [x, y] = cxy(r), ax = x - x0, ay = y - y0, p = ax * dx + ay * dy;
     if (p <= 0) continue;
@@ -487,7 +503,7 @@ const load = () => {
     foes = seedFoes();
     st = d.t;
     pl.x = SX; pl.y = SY;                                       // always respawn at paddock (no checkpoint system since 029aef5)
-    pending = d.d;                                                 // unspent stat points survive reload — info panel glows, no auto-open
+    pending = d.d;                                                 // persisted so a mid-lock crash never silently loses points; resumeGame re-opens the locked menu when pending>0 (invariant: pending>0 ⟺ locked menu)
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
     hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
@@ -503,9 +519,9 @@ const SX = 126 * T, SY = NGY - PH;                // spawn point (paddock) — f
 const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
 const NSC = 10 / 7;                                // unicorn render scale, shared by player/GREATCORN/DARKCORN (boss fs=20 ÷ 14-tall bbox).
 const pl = { x: SX, y: SY, vx: 0, vy: 0, gr: 0, face: 1, coyote: 0, air: 0, inv: 0, t: 0 };   // gr = on-ground flag
-let deathT = 0;
+let deathT = 0, dBurst = 0;   // deathT = death-beat/transition timer · dBurst = throttle for the ongoing skull bursts during the death beat
 let nearNpc = 0;                                  // GREATCORN proximity flag (JUMP-to-interact re-talk quips)
-let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); level-up banner deadline; menu joystick-nav cooldown
+let paused = 0, helpOn = 0, savePop = 0, dPop = 0, luT = 0, navCD = 0;   // pause overlay; help overlay; save popup (EXIT GAME); dPop = DROP-gear confirm gate (0 closed · 1 BACK selected · 2 DROP selected); level-up banner deadline; menu joystick-nav cooldown
 // DIALOGUE — dq = active script (INTRO or a 1-line re-talk quip) or 0=closed · di = current bubble · tqi = re-talk cycle index.
 // Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
 let dq = 0, di = 0, tqi = 0;
@@ -524,8 +540,8 @@ const openChest = (i) => {
 let dashT = 0, dashCd = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const GV = 900, FALLCAP = 400;          // UNIFIED gravity accel — player + foes share ONE constant (world spikes/gaps were tuned to the enemy 900 model, so this is guaranteed-traversable).
-const RUN = 115, JV = 280, IFR = 1.5;   // JV = launch velocity shared by player jump AND enemy hop (identical arcs → learnable). IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash.
-const ASPD = 56, CSPD = 150, DA = .5;   // FOE AI — ASPD = uniform pursuit speed (ALL foes home at this). CHARGE (tier-3): .5s dir-lock wind-up, then a DA-long (.5s) dash @ CSPD. NO skull tell (skull = SHOOT only) — the dir-lock pause + longer committed dash reads the wind-up.
+const RUN = 115, JV = 280, IFR = 1.5, VBEAT = 1.5;   // JV = launch velocity shared by player jump AND enemy hop (identical arcs → learnable). IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash. VBEAT = the "deliberate moment" pause, shared by the boss-kill victory beat AND the player-death beat so both read identically (operator: death pause == dark-core pause).
+const ASPD = 56, CSPD = 150, DA = .5, SO = 100;   // FOE AI — ASPD = uniform pursuit speed (ALL hunters home at this). CHARGE (tier-3): .5s dir-lock wind-up, then a DA-long (.5s) dash @ CSPD. NO skull tell (skull = SHOOT only) — the dir-lock pause + longer committed dash reads the wind-up. SO = ranged/charge STAND-OFF (px): SHOOT/CHARGE hunters stop closing ~6 tiles out instead of homing to melee — this de-piles clusters (they ring you; only HOP kinds close fully).
 
 const solid = (x, y) => tile(x / T | 0, y / T | 0) === 1;
 const spike = (x, y) => tile(x / T | 0, y / T | 0) === 3;
@@ -569,15 +585,16 @@ const interact = () => { if (nearNpc) { talk(rainbows() === bs.length ? WIN : [T
 // - Enemy dm: fd + (lvl>>1) (linear — grows +1 dmg per 2 levels so late foes actually bite; was >>2 which let DEF outrun the threat and hit the 25% floor immediately).
 // UNIFIED STAT SCALER: the ONE home for enemy/boss level-scaling — sets f.mx + f.dm from level.
 const scaleFoe = f => { f.mx = f.bit ? 20 + f.bi * 4 + lvl * lvl : FT[f.k][0] + (lvl * lvl >> 1); f.dm = (f.bit ? 8 + f.bi : FT[f.k][1]) + (lvl >> 1); };
-const mkFoe = (x, y, k) => {
-  // Kind + level IS the difficulty (no elite subsystem).
-  const [, , fb] = FT[k], f = { x, y, k, cap: fb, vx: ASPD * (Math.random() < .5 ? 1 : -1), fl: 0, t: Math.random() * 7 };   // patrol vx = ±ASPD (uniform) — no per-kind speed field anymore.
+const mkFoe = (x, y, k, p) => {
+  // Kind + level IS the difficulty (no elite subsystem). p = PER-PLACEMENT PATROL flag
+  // (world.js seed 4th element): p=1 → Goomba (ignores player, walks + turns, contact only).
+  const [, , fb] = FT[k], f = { x, y, k, cap: fb, pat: p, vx: ASPD * (Math.random() < .5 ? 1 : -1), fl: 0, t: Math.random() * 7 };   // patrol vx = ±ASPD (uniform) — no per-kind speed field anymore.
   scaleFoe(f); f.hp = f.mx; return f;
 };
 // DARKCORN boss foe: now SEEDED into the world (always present + visible) instead of proximity-spawned.
 const mkBoss = (bx, by, bi) => { const f = { x: bx * T, y: by * T, vx: 0, k: 3, bi, bit: 1 << bi, fl: 0, t: 0, cap: 19 }; scaleFoe(f); f.hp = f.mx; return f; };   // cap 19 = CHARGE+HOP+SHOOT (apex). Pursuit + attacks read uniform consts (ASPD/CSPD) — no per-boss spd.
 const seedFoes = () => [   // single source for init/load/fresh/respawn (foesX = decorative fill, held out of world.js ledge-grow to keep sky-ladder RNG stable)
-  ...[...seeds.foes, ...seeds.foesX].map(([x, y, k]) => mkFoe(x * T, y * T, k)),
+  ...[...seeds.foes, ...seeds.foesX].map(([x, y, k, p]) => mkFoe(x * T, y * T, k, p)),   // 4th seed element p=1 → patroller
   ...seeds.bosses.filter(([, , bi]) => bs[bi] !== 2).map(([bx, by, bi]) => mkBoss(bx, by, bi)),   // ALWAYS-PRESENT bosses — skip only the killed ones (bs===2)
 ];
 let foes = seedFoes();
@@ -672,7 +689,7 @@ const strike = (f, mag) => {
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(FT[f.k][0] + FT[f.k][1] + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP = DIFFICULTY-PROPORTIONAL: base HP + base DM from FT[k] (k1=7/k2=12/k3=17/k4=8/k5=10/k6=13) — was `min(k,3)*4` which paid on the KIND INDEX (capped 3), so light fast k4 (5HP) earned the same 12 as tanky k3 (12HP).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK: rainbow collectible RETIRED.
-      bs[f.bi] = 2; hs = 1.5; fanfare();   // VICTORY BEAT: 1.5s hitstop + rainbow arch flourish (draw) + fanfare. (particle burst removed — the arch carries the moment.)
+      bs[f.bi] = 2; hs = VBEAT; fanfare();   // VICTORY BEAT: VBEAT hitstop + rainbow arch flourish (draw) + fanfare. (particle burst removed — the arch carries the moment.) Menu/banner render is gated on hs<=0 so a same-hit level-up can't cover the finale.
     }
     save(); return 1;   // AUTOSAVE on EVERY kill — persists kc(kills)/dd(damage)/bs(boss bank) so the byte-free Wavedash wrapper (reads localStorage) sees current KILLS/BOSSES immediately for stats+leaderboards, not stale-until-next-level-up. One call covers boss + regular kills.
   }
@@ -705,7 +722,7 @@ const hurt = (n) => {
   hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = IFR; hfc = 4;   // hf = invuln flash timer (IFR sec); hfc=4 = red PAL[4]. hurt/heal/dash all share the hf strobe channel (red/green/blue). hp clamped ≥0. Hurt hitstop RETIRED — only the boss-kill victory keeps hitstop now (rainbow-collect hitstop retired).
   fly(0, 0, '-' + n, '#ff5d6c', 0, 1);                 // damage-taken popup routed to the unified player-feedback spot (above potion hot-bar, hud=1) — ALL main-character popups now live in ONE location: XP · MP cost · heal · quaff · pickup · damage taken.
   sfx(140, 55, .25, 'sawtooth', .12);
-  if (hp <= 0) { deathT = 1.1; return; }   // player death → near-instant HARD SNAP: deathT crosses 1.0 in ~0.1s → teleport fires in the update death-block (kept there — top-of-frame, no mid-loop reseed hazard since hurt() runs inside the foe/bolt loops) → ~1s beat at paddock → DEATH dialogue. NO fade — the cut IS the death beat.
+  if (hp <= 0) { deathT = VBEAT + 1; dBurst = .22; spray(pl.x + PW / 2, pl.y + PH / 2, 14, 1); return; }   // PLAYER DEATH BEAT: deathT = VBEAT (frozen pause at the death spot, skulls bursting) + 1 (the existing teleport-home→settle→DEATH-dialogue transition, unchanged). Teleport fires as deathT crosses 1.0; dialogue as it crosses 0. NO fade — skulls carry the moment. 14-skull burst now, ongoing bursts in the death block.
   pl.vy = -180;   // unified knockback recoil (spike + enemy + projectile share one response — lastSafe teleport retired: -180 arc auto-clears every 1-tile pit, so no softlock possible without it)
 };
 
@@ -719,7 +736,7 @@ const step = (dt) => {
     let dx = keys.has('bL') ? -1 : keys.has('bR') ? 1 : 0, dy = keys.has('bU') ? -1 : keys.has('bD') ? 1 : 0;   // stick → direction bits
     if (dx && dy) { if (Math.abs(joy.dx) >= Math.abs(joy.dy)) dy = 0; else dx = 0; }   // diagonal push → dominant axis only (predictable single-step)
     if (!dx && !dy) navCD = 0;                      // stick released → next push moves instantly
-    else if (navCD <= 0) { navSel(dx, dy); navCD = .16; }   // held → nearest cell in that direction, repeat every .16s
+    else if (navCD <= 0 && !dPop) { navSel(dx, dy); navCD = .16; }   // held → nearest cell in that direction, repeat every .16s (frozen while the DROP confirm is open so a held stick can't move the cursor behind the modal and delete the wrong item)
     return;
   }
   if (dq || savePop || helpOn) return;             // dialogue / save-popup / help overlays freeze the sim — they swallow input, so the world must not act while the player can't (fairness)
@@ -727,8 +744,11 @@ const step = (dt) => {
 
   if (deathT > 0) {
     const wt = deathT; deathT -= dt;
+    for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }   // DEATH BEAT: keep particles ALIVE while the world is frozen (this block returns before the normal parts tick) — only the skulls move, so death reads clearly.
+    prune(parts);
+    if (deathT > 1) { dBurst -= dt; if (dBurst <= 0) { spray(pl.x + PW / 2, pl.y + PH / 2, 4, 1); dBurst = .22; } }   // ongoing skull bursts from the fallen player, ONLY during the pre-teleport beat (deathT>1). resetTransient() clears them at teleport, so nothing lingers at the paddock.
     if (wt > 1 && deathT <= 1) { resetTransient(); deathT = 1; hp = mHP(); mn = mMN(); pl.x = SX; pl.y = SY; cam.x = SX - VW / 2; cam.y = SY - VH / 2; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; save(); }
-    if (wt > 0 && deathT <= 0) talk(DEATH);   // DEATH DIALOGUE: fires ONCE when the fade fully completes (deathT crosses 0) — player standing at paddock, screen clear.
+    if (wt > 0 && deathT <= 0) talk(DEATH);   // DEATH DIALOGUE: fires ONCE when the transition completes (deathT crosses 0) — player standing at paddock, screen clear.
     return;
   }
   if (!started) return;
@@ -817,18 +837,26 @@ const step = (dt) => {
     f.t += dt * (2 + Math.abs(f.vx) * .14); f.fl -= dt;      // UNIFIED RHYTHM: anim phase = idle base 2 + |velocity|*.14 (knobs).
     const fs = 20;
     if (f.bit && !bs[f.bi] && Math.hypot(pl.x - f.x, pl.y - f.y) < 128) { bs[f.bi] = 1; sfx(784, 1568, .3, 'triangle', .15); }   // AGGRO LATCH: a seeded-IDLE boss (bs=0) flips to bs=1 (aggro → HUNT-FOREVER, never disengages) the first time you enter its 128px (8-tile) ring, + encounter sting.
-    // UNIFIED ATTACK ORCHESTRATION — every foe runs the same verbs; cap bits (data.js FT)
-    // decide who uses which.
-    // HIT-STUN GUARD — while f.fl > 0 (invuln/flash window from strike), AI decisions
-    // are paused: ranged countdown freezes mid-tell, chase doesn't re-pick vx, hop doesn't fire.
-    // Gravity + horizontal momentum (below) still apply; contact damage still lands.
-    // to stop (strike zeros vx), holds pose during flash, then resumes AI when f.fl expires.
+    // ============================ FOE AI — TWO FAMILIES ============================
+    // PATROLLER  (f.pat, per-placement): ignores the player entirely — walks, turns at
+    //   walls/edges, contact-damage only (Goomba). Implemented as "never near" (see `near`
+    //   below): it skips every attack + the pursuit re-aim and falls straight through to the
+    //   shared gravity + patrol-walk + edge-turn code. No skull, no charge, no hop.
+    // HUNTER    (default): engages while `near`. ONE pursuit mover, then attack-by-cap-bit:
+    //     cap&1  SHOOT  → holds at STAND-OFF (SO) and fires on cadence (rings you, no pile).
+    //     cap&16 CHARGE → winds up in place (dir-lock pause = the tell), dashes THROUGH @CSPD.
+    //     cap&2  HOP    → leaps in to contact — the melee bruiser; the ONLY verb that closes.
+    //   STAND-OFF (SHOOT/CHARGE only) is the de-pile: ranged kinds stop ~SO px out instead of
+    //   all homing to the same point, so a cluster becomes a formation, not a dogpile.
+    //   Bosses (f.bit) ignore stand-off + patrol — relentless, all three verbs, hunt forever.
+    // HIT-STUN GUARD — while f.fl > 0 (strike flash/i-frame) ALL AI pauses: countdowns freeze
+    //   mid-tell, no re-aim, no hop. Gravity + momentum + contact damage (below) still apply.
+    // ==============================================================================
     if (f.fl <= 0 && (!f.bit || bs[f.bi] === 1)) {   // AI runs for regular foes always; for bosses ONLY once AGGRO'd (bs===1).
-    // AGGRO GATE — ONE proximity flag drives ranged/chase/hop.
-    // (|dx|<230), so foes on lower cave shelves / platforms kept tracking you through the floor forever.
-    // Now needs BOTH |dx|<200 AND |dy|<80 (5 tiles): a foe more than ~5 tiles above/below you disengages.
-    // Bosses (f.bit) stay ungated — a hunting boss always knows where you are.
-    const near = f.bit || Math.abs(pl.x - f.x) < 170 && Math.abs(pl.y - f.y) < 64;
+    // NEAR — the single aggro flag driving SHOOT/CHARGE/HOP + pursuit. Patrollers are NEVER
+    // near (they never engage). Hunters need BOTH |dx|<170 AND |dy|<64 (4 tiles) — a foe more
+    // than ~4 tiles above/below you disengages (stops through-floor tracking). Bosses always near.
+    const near = !f.pat && (f.bit || Math.abs(pl.x - f.x) < 170 && Math.abs(pl.y - f.y) < 64);
     // RANGED (cap 1) — gate the COUNTDOWN, not just the shot: bosses always in range, regular foes need `near`.
     if (f.cap & 1 && near) {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
@@ -847,8 +875,9 @@ const step = (dt) => {
       if (f.ct <= 0) { dir = f.cdir; sp = CSPD; }                                // DASH @ CSPD toward the locked dir (overrides the wind-up pause)
       if (f.ct <= -DA) { f.ct = f.bit ? 1.6 : 2.1; f.cdir = 0; }                 // dash done → re-arm (boss 1.6s / foe 2.1s)
     }
-    // UNIFIED MOVEMENT — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate. GROUNDED boss re-aims every frame (relentless); AIRBORNE boss (f.bit && f.gr = false) falls to the floor-ahead gate like regular foes → over a pit that gate fails → KEEPS launch vx = commits the hop arc (escapes pits instead of re-tracking to a dead vertical bounce).
-    if (near) { dir ??= Math.sign(pl.x + PW / 2 - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0); f.vx = sp && (f.bit && f.gr || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
+    // PURSUIT MOVER — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate. GROUNDED boss re-aims every frame (relentless); AIRBORNE boss (f.bit && f.gr = false) falls to the floor-ahead gate like regular foes → over a pit that gate fails → KEEPS launch vx = commits the hop arc (escapes pits instead of re-tracking to a dead vertical bounce).
+    // STAND-OFF (`so`): a non-boss SHOOT/CHARGE hunter (cap&17) in NORMAL pursuit (sp===ASPD, not winding-up/dashing) HOLDS once within SO px — stops advancing, so ranged kinds ring the player instead of piling into melee. Bosses + HOP kinds ignore it and close.
+    if (near) { dir ??= Math.sign(pl.x + PW / 2 - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0), so = !f.bit && f.cap & 17 && !chg && sp === ASPD && Math.abs(pl.x - f.x) < SO; f.vx = so ? 0 : sp && (f.bit && f.gr || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
     // ATTACK: HOP (bit 2) — tier-1 leapers + bosses; leap toward the player on a fixed cadence.
     if (f.cap & 2) {
       f.hop = (f.hop || 1) - dt;
@@ -1147,12 +1176,12 @@ const draw = () => {
   ctx.translate((cam.x - so) | 0, (cam.y - so) | 0);            // undo world translate (incl. shake)
   if (hs > 0) { ctx.globalAlpha = Math.min(1, hs * 4); arch(VW / 2, 130); ctx.globalAlpha = 1; }   // BOSS-WIN FLOURISH: reuses the EXACT title arch() at the SAME position (VW/2,130) — pixel-identical to the title rainbow.
 
-  // ---------- HUD (gameplay-only overlays: level-up banner, death vignette) ---------
+  // ---------- HUD (gameplay-only overlays: level-up banner) ---------
   // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
 
   // CHARACTER SHEET overlay — cursor navigates freely across stats / inventory / gear.
   // Space/Enter on cursor position dispatches: spend stat pt, use item, or equip/unequip gear.
-  if (paused && started) {
+  if (paused && started && hs <= 0) {                          // hs<=0 gate: while a boss-kill VICTORY BEAT is playing (hs>0), suppress the menu so a same-hit level-up can't cover the rainbow arch finale. Menu opens the instant the beat ends.
     portraitPanel();                                          // opaque menu bg + centered unicorn art
     // Establish text baseline for the entire menu block: center-aligned, 8px monospace.
     // Every subsequent label / value / hint in this block expects these defaults; without
@@ -1265,7 +1294,7 @@ const draw = () => {
       ctx.fillStyle = n > 4 ? '#8cf' : '#fff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, y + QSZ - 2);   // COUNT is the only state: BLUE at MAX (5), WHITE otherwise incl. empty 0 — no grey
     };
     qslot(QHX, QHY, 0); qslot(QMX, QMY, 1);   // HP (green) ON TOP OF heal · MP (blue) beside dash — split to flank the cluster (per-potion x/y now)
-    if (time < luT) { ctx.globalAlpha = Math.min(1, (luT - time) * 3); rText('LEVEL UP', 48); ctx.globalAlpha = 1; }   // LEVEL UP banner — renders over menu (auto-pause opens char sheet on level)
+    if (time < luT && hs <= 0) { ctx.globalAlpha = Math.min(1, (luT - time) * 3); rText('LEVEL UP', 48); ctx.globalAlpha = 1; }   // LEVEL UP banner — renders over menu (auto-pause opens char sheet on level). hs<=0 gate: deferred until the victory beat ends so it can't sit over the rainbow arch on a boss-kill level-up.
   }
   // Top-right icon row — unified 12×12 buttons: SOLID DARK disc fill (rgba(15,15,20,.75)) + BLUE #8cf ring
   // IDENTICAL to the action buttons + joystick (they all live over the game world, so they share the opaque dark backing — NOT the .14 blue tint, which only reads on the dark menu bg).
@@ -1287,14 +1316,18 @@ const draw = () => {
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {
       fade(.8);
-      // Rainbow "SAVED!" per-character
-      ctx.font = 'bold 24px monospace'; ctx.textAlign = 'center';
-      const sv = 'GAME SAVED', sw = ctx.measureText(sv).width, sx0 = (VW - sw) / 2;
-      for (let i = 0; i < sv.length; i++) { ctx.fillStyle = RC[i % 7]; ctx.fillText(sv[i], sx0 + ctx.measureText(sv.slice(0, i)).width + ctx.measureText(sv[i]).width / 2, 110); }
-      // CONTINUE + EXIT GAME
-      ctx.font = 'bold 13px monospace';
-      ctx.fillStyle = '#888';   T2('EXIT GAME', VW / 2 - 55, 258);   // neutral (game already saved — not a caution action; red reserved for destructive DROP/DELETE)
-      ctx.fillStyle = '#8cf'; T2('CONTINUE', VW / 2 + 55, 258);
+      rText('GAME SAVED', 110);   // UNIFIED big-text: routed through the ONE rainbow helper at its default 30px — same as LEVEL UP + the title (was a hand-rolled 24px duplicate loop). rText also adds the shared black outline.
+      ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';   // buttons — reset textAlign to center (rText leaves it 'left')
+      ctx.fillStyle = savePop === 2 ? '#8cf' : '#888';   T2('EXIT GAME', VW / 2 - 55, 258);   // SELECTED = blue #8cf, else dim grey — game already saved so EXIT is safe (no red; red reserved for destructive DROP/DELETE)
+      ctx.fillStyle = savePop === 1 ? '#8cf' : '#888';   T2('CONTINUE', VW / 2 + 55, 258);     // CONTINUE is the safe DEFAULT (popup opens at savePop=1)
+    }
+    // DROP-gear confirm gate — dim the menu, ask, DROP (destructive, left) / BACK (safe, right)
+    if (dPop) {
+      fade(.8);
+      ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff'; T2('DROP GEAR?', VW / 2, 120);
+      ctx.fillStyle = dPop === 2 ? '#e33' : '#888'; T2('DROP', VW / 2 - 55, 258);
+      ctx.fillStyle = dPop === 1 ? '#8cf' : '#888'; T2('BACK', VW / 2 + 55, 258);
     }
   }
   // TITLE SCREEN — world scene renders behind, title art on top (scrim REMOVED the .34 black dim muted the vibrant meadow colors; the rainbow arch + rText title carry their own black outlines, so they stay legible on the bright scene without it)
@@ -1324,8 +1357,8 @@ const draw = () => {
     fade(.88);
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#8cf'; T2('CONTROLS', VW / 2, 60);
-    [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H'],['MENU','P / tap your name']].forEach(([a, b], i) => {
-      const y = 82 + i * 22;
+    [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H'],['POTION','I HP  O MP'],['SOUND','M'],['MENU','P / tap name']].forEach(([a, b], i) => {
+      const y = 74 + i * 18;
       ctx.fillStyle = '#8cf'; ctx.textAlign = 'right'; T2(a, VW / 2 - 10, y);
       ctx.fillStyle = '#8cf'; ctx.textAlign = 'left'; T2(b, VW / 2 + 10, y);
     });

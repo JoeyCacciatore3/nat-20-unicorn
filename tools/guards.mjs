@@ -6,7 +6,7 @@
 // ┌── FULL GUARD MAP (what runs, and where) ──────────────────────────────────────┐
 // │ SOURCE guards  — pre-build, validate src/ (subprocesses at the top of build.mjs) │
 // │   • tools/map-audit.mjs   Return Law: every reachable tile can path to spawn     │
-// │   • tools/tpos-check.mjs   TREE edited ⇒ TPOS must be regenerated (no drift)      │
+// │   • tools/pal-check.mjs    PAL length ⇔ spawnDrop gear-color range (no drift)     │
 // │   • tools/spike-audit.mjs  no chest / hand-placed DECO overlaps a spike (tile 3)  │
 // │ OUTPUT guards  — during build, validate the artifact (the functions below)       │
 // │   • checkMinified()   js13k rule #2 (no external URL) + localStorage uni_ prefix  │

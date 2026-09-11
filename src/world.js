@@ -157,26 +157,26 @@ const MEADOW = {
   ],
   foes: [
     [148, 58, 1], [160, 58, 4],                                  // paddock-approach patrol (near practice pit)
-    [174, 58, 1], [206, 54, 4], [216, 58, 2], [245, 58, 2], [248, 58, 5],   // MEADOW east corridor (batch 10 rebalance): thinned from 8→5 to match map avg density (was 1/9.25 = 2× avg pre-DASH/pre-SHOT).
-    [282, 56, 3], [288, 53, 4],   // transition zone (MEADOW→EAST)
+    [174, 58, 1], [206, 54, 3], [216, 58, 2], [245, 58, 2], [248, 58, 5],   // MEADOW east corridor. ELEVATION RULE (2026-09-11): traversal difficulty + combat difficulty must not stack — aerial/platform routes stay LOW tier, tough kinds live on flat ground. x206 k4→k3 (charge lands on near-ground where there's room to dodge the dash).
+    [282, 56, 3], [288, 53, 3],   // transition zone (MEADOW→EAST). x288 k4→k3 (ELEVATION RULE: absorbs the charge demoted off the x393 platform)
     [180, 66, 1], [200, 68, 2], [225, 66, 6], [248, 68, 3], [190, 68, 5],
     [92, 52, 1], [78, 49, 2], [86, 53, 5], [62, 40, 1], [95, 37, 4],   // canopy zig-zag — extra crawler + runner
-    [75, 35, 3],   // CANOPY caster (batch 10 kind swap: k2→k3) — CANOPY previously had NO caster; adding one gives the zig-zag climb a ranged-evade threat that broadens its threat vocabulary.
-    [34, 19, 6],
+    [75, 35, 4],   // CANOPY zig-zag climb — k3-charge→k4-hop (ELEVATION RULE: a dashing enemy 25 tiles up mid-climb was the worst traversal+combat double-tax; the charge moved down to meadow flat x206).
+    [34, 19, 1],   // PEAK approach (41 tiles up) — k6-shoot→k1-hop (ELEVATION RULE); the shooter moved to west-base ground x9.
     [125, 68, 3], [115, 68, 4], [98, 68, 6],
     [24, 1, 1], [30, 1, 4],                                      // peak TRI-JUMP secret — crawler + runner guarding chest 8
     [490, 56, 2], [500, 53, 3],   // EAST GATE
     [532, 55, 2], [545, 58, 5],   // EAST SHELF
-    [560, 44, 6], [578, 58, 6], [566, 30, 3],   // EAST ASCENT (last = GREEN summit)
-    [350, 56, 6], [393, 50, 3], [444, 57, 5],   // EAST RUN fill
-    [9, 56, 1], [22, 59, 2], [40, 52, 4], [32, 55, 5],   // WEST BASEMENT
+    [560, 44, 1], [578, 58, 6], [566, 30, 4],   // EAST ASCENT (last = GREEN summit). ELEVATION RULE: aerial climb foes kept LOW tier — x560 k6→k1, x566 k3→k4 (the summit-climb charge/shooter moved to savanna flat x340/x373). x578 stays k6 (ground e2, fine).
+    [350, 56, 6], [393, 50, 4], [444, 57, 5],   // EAST RUN fill. x393 k3→k4 (ELEVATION RULE: charge was 10 tiles up on a platform; moved to transition flat x288).
+    [9, 56, 6], [22, 59, 2], [40, 52, 4], [32, 55, 5],   // WEST BASEMENT. x9 k1→k6 (ELEVATION RULE: ground foe absorbs the shooter demoted off the x34 peak approach).
     [585, 55, 5], [583, 49, 6],   // EAST END-CAP
   ],
   // FILL FOES — gameplay-only spawns kept OUT of the ledge-grow loop so their
   // count doesn't shift the shared LCG (sky-ladder RNG must stay stable, or the
   // map audit breaks). main.js seedFoes concatenates these into the live foe list.
   foesX: [
-    [292, 60, 2], [340, 58, 4], [373, 58, 1], [408, 58, 3], [430, 58, 5],   // EAST RUN fill across the empty 288-430 flat. x=373 shifted 3 tiles east off the bounce mushroom at [370,59].
+    [292, 60, 2], [340, 58, 3], [373, 58, 6], [408, 58, 3], [430, 58, 5],   // EAST RUN fill across the empty 288-430 flat (x373 shifted 3t east off the bounce mushroom at [370,59]). ELEVATION RULE: x340 k4→k3 + x373 k1→k6 — savanna flat absorbs the charge/shooter demoted off the GREEN-summit climb (x566/x560).
     [130, 68, 1], [210, 68, 3], [220, 68, 6],                               // UNDER-DEPTHS fill — depths + descent corridor. [130] k2→k1 + [220] k4→k6 for the 9-each rebalance; [210,68,3] caster adds ranged pressure to the descent.
     [79, 81, 2], [72, 75, 6],                                               // UNDER-CAVERN fill — INDIGO chamber: tent-floater east corner (clear of chest 9 @ x=76), spike-floater high mid-air (clear of boss @ y=80).
     [305, 53, 5], [318, 47, 4],                                             // EAST RUN vertical climb fill — walker-hop on x=303 DJ platform, walker-fast on x=315 top ledge (populates the empty climb between foe@288 and foeX@340)
