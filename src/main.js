@@ -351,8 +351,7 @@ const topHUD = () => {
   // each in its bar colour) with THREE EQUAL bars (74×9), numbers centred inside (white). XP = xp/need(), 'MAX' at CAP.
   ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
   const hdr = 'LV' + lvl + ' ' + pName;
-  if (pending || spts) ctx.globalAlpha = .7 + .3 * Math.sin(time * 5);   // POINTS-PENDING PULSE: unspent stat/skill points → breathe the ENTIRE top-left HUD as ONE opacity — header + rainbow + all three HP/MP/XP bars & numbers — with the SAME sine as the menu +N badges, so the whole character-info corner nags you back to spend.
-  ctx.fillStyle = '#8cf'; T2(hdr, 5, 11);        // action-blue LV+name (top row)
+  ctx.fillStyle = '#8cf'; T2(hdr, 5, 11);        // action-blue LV+name (top row). HUD points-pending PULSE removed — the every-level menu auto-open (gainXp) is now the "spend your points" prompt.
   const rcx = 5 + ctx.measureText(hdr).width + 16;                    // rainbow icon right of name
   ctx.lineWidth = 1; rArc(rcx, 11, 7, 1); T2('×' + rainbows(), rcx + 9, 11);
   const cap = lvl >= CAP, row = (y, lbl, c, frac, num) => {           // one row = colour label (left) + equal bar + white centred number
@@ -363,7 +362,6 @@ const topHUD = () => {
   row(15, 'HP', '#6cf279', hp / mHP(), hp + '/' + mHP());
   row(27, 'MP', '#4a76ff', mn / mMN(), (mn | 0) + '/' + mMN());
   row(39, 'XP', '#b06cf0', cap ? 1 : xp / need(), cap ? 'MAX' : xp + '/' + need());
-  ctx.globalAlpha = 1;   // reset the points-pending pulse that wrapped this whole block (no-op when nothing pending)
 };
 // draw the player unicorn geometry — used by in-game player render + pause portrait.
 // scale sets pixel scale.
@@ -428,7 +426,7 @@ const gainXp = n => {
     xp -= need(); lvl++; pending += 2; if (lvl < TREE + 2) spts++;    // +2 stat pts per level. Skill pt drips lvl 2..11 = exactly 10 (TREE nodes); the LV1→2 intro boost is the first of those.
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save.
     foes.forEach(f => { const u = f.hp >= f.mx; scaleFoe(f); f.hp = u ? f.mx : Math.min(f.hp, f.mx); });   // RESCALE LIVE FOES + BOSSES on level-up via the shared scaleFoe(). u-flag: undamaged keep full (follow new max); damaged keep their wounds.
-    luT = time + 1.8;                             // trigger LEVEL UP banner (rainbow, top of screen, matches title font).
+    luT = time + 1.8; paused = 1;                 // LEVEL UP banner + AUTO-OPEN the char menu EVERY level-up (the menu itself is the "you have points" prompt — replaces the removed HUD pulse). Frequent early (fast levels = teaching), rare late (quadratic need). Safe: only sets a flag; step() gates on paused, foe-death prune is frame-end.
   }
   if (lvl >= CAP) xp = 0;
 };
@@ -534,9 +532,9 @@ const openChest = (i) => {
   oc |= 1 << i;
   const c = chests[i];
   spawnDrop(c.x, c.y, 2);                                     // items only — heals come from potions / HEAL spell / level-up (rest feature removed)
-  fanfare();   // chest = same "positive milestone" cue as level-up + crit — one shared reward sound reduces audio noise.
+  fanfare(); save();   // chest = same "positive milestone" cue as level-up + crit. save() persists the opened bitfield (oc) immediately — was previously lost if you quit before a level-up, and the Wavedash CHESTS stat (byte-free wrapper reads localStorage) never saw it.
 };
-let dashT = 0, dashCd = 0, adash = 0, dropT = 0;
+let dashT = 0, dashCd = 0, dropT = 0;
 // FIXED physics — never stat-scaled: the map gate proofs depend on these numbers
 const GV = 900, FALLCAP = 400;          // UNIFIED gravity accel — player + foes share ONE constant (world spikes/gaps were tuned to the enemy 900 model, so this is guaranteed-traversable).
 const RUN = 115, JV = 280, IFR = 1.5;   // JV = launch velocity shared by player jump AND enemy hop (identical arcs → learnable). IFR = invuln/flash window (sec) — ONE knob for hurt + heal + dash.
@@ -573,7 +571,7 @@ const fresh = () => {
 const resetTransient = () => {
   pl.vx = pl.vy = pl.air = pl.coyote = pl.inv = pl.gr = pl.t = 0;
   pl.face = 1;
-  jbuf = dashT = dashCd = adash = dropT = deathT = hs = shk = hf = luT = dq = di = tqi = navCD = 0;
+  jbuf = dashT = dashCd = dropT = deathT = hs = shk = hf = luT = dq = di = tqi = navCD = 0;
 };
 const interact = () => { if (nearNpc) { talk(rainbows() === bs.length ? WIN : [TALK[tqi++ % TALK.length]]); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // all 7 rainbows banked → WIN dialogue (celebration on close, adv()); else the re-talk quip cycle // JUMP-near: NPC → re-talk quip · chest → open
 // Player-level progression: every 4 levels adds 1 scale pip.
@@ -683,9 +681,9 @@ const strike = (f, mag) => {
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(FT[f.k][0] + FT[f.k][1] + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP = DIFFICULTY-PROPORTIONAL: base HP + base DM from FT[k] (k1=7/k2=12/k3=17/k4=8/k5=10/k6=13) — was `min(k,3)*4` which paid on the KIND INDEX (capped 3), so light fast k4 (5HP) earned the same 12 as tanky k3 (12HP).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK: rainbow collectible RETIRED.
-      bs[f.bi] = 2; hs = 1.5; fanfare(); save();   // VICTORY BEAT: 1.5s hitstop + rainbow arch flourish (draw) + fanfare + AUTOSAVE. (particle burst removed — the arch carries the moment.)
+      bs[f.bi] = 2; hs = 1.5; fanfare();   // VICTORY BEAT: 1.5s hitstop + rainbow arch flourish (draw) + fanfare. (particle burst removed — the arch carries the moment.)
     }
-    return 1;
+    save(); return 1;   // AUTOSAVE on EVERY kill — persists kc(kills)/dd(damage)/bs(boss bank) so the byte-free Wavedash wrapper (reads localStorage) sees current KILLS/BOSSES immediately for stats+leaderboards, not stale-until-next-level-up. One call covers boss + regular kills.
   }
 };
 
@@ -699,8 +697,7 @@ function shoot() {                                              // magic bolt (g
   for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 10, vx: pl.face * 195, vy: 0, t: .75 + .3 * su[1] });   // every bolt straight (vy 0); DBL/TRI stack vertically by i*10 (bigger r=5 arcs need clear gaps). 195 + lifetime .75: slower + bigger read, reach preserved (~146px).
 }
 function dash() {                                               // THE attack verb: burst + strike-through; 3 MP (uniform).
-  if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;
-  if (!pl.gr) { if (adash) return; adash = 1; }             // dash works in air too — once per airtime, resets on landing
+  if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;   // dash gated ONLY by MP (3) + 0.45s cooldown — air-dash is unlimited (no once-per-airtime cap); spam it as long as mana lasts.
   dashT = su[7] ? .22 : .11;                                    // dash burst duration × 400px/s: base .11=44px, LONG DASH .22=88px
   dashCd = .45; mn -= 3; hf = .5; hfc = 11; sfx(600, 200, .12, 'sawtooth', .12); fly(0, 0, '-3', '#4a76ff', 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=11 = PAL[11] #ffffff; color changed from blue 09-08, window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln).
 }
@@ -718,7 +715,7 @@ const hurt = (n) => {
   hp = Math.max(0, hp - n); shk = Math.max(shk, .22); hf = IFR; hfc = 4;   // hf = invuln flash timer (IFR sec); hfc=4 = red PAL[4]. hurt/heal/dash all share the hf strobe channel (red/green/blue). hp clamped ≥0. Hurt hitstop RETIRED — only the boss-kill victory keeps hitstop now (rainbow-collect hitstop retired).
   fly(0, 0, '-' + n, '#ff5d6c', 0, 1);                 // damage-taken popup routed to the unified player-feedback spot (above potion hot-bar, hud=1) — ALL main-character popups now live in ONE location: XP · MP cost · heal · quaff · pickup · damage taken.
   sfx(140, 55, .25, 'sawtooth', .12);
-  if (hp <= 0) { deathT = 2; return; }   // player death — NO skulls: the respawn-to-paddock + fade-to-black already carry the moment; skull burst was redundant. deathT=2.0: fade drives a 1.0s-out / 1.0s-in SPIKE (full black at deathT=1.0) — the BLACK HOLD was removed since the death dialogue carries the "you died" beat.
+  if (hp <= 0) { deathT = 1.1; return; }   // player death → near-instant HARD SNAP: deathT crosses 1.0 in ~0.1s → teleport fires in the update death-block (kept there — top-of-frame, no mid-loop reseed hazard since hurt() runs inside the foe/bolt loops) → ~1s beat at paddock → DEATH dialogue. NO fade — the cut IS the death beat.
   pl.vy = -180;   // unified knockback recoil (spike + enemy + projectile share one response — lastSafe teleport retired: -180 arc auto-clears every 1-tile pit, so no softlock possible without it)
 };
 
@@ -797,7 +794,6 @@ const step = (dt) => {
   } else {
     for (const ox of [1, PW - 1]) if (solid(pl.x + ox, pl.y)) { pl.y = ((pl.y / T | 0) + 1) * T + .01; pl.vy = 0; break; }
   }
-  if (pl.gr) adash = 0;                                         // air dash recharges on landing (lastSafe tracking retired — spike hurt() now uses standard -180 recoil, no teleport)
 
   for (const [ox, oy] of [[1, PH - 1], [PW - 1, PH - 1], [PW / 2, PH]])
     if (spike(pl.x + ox, pl.y + oy)) { hurt(2); break; }
@@ -861,8 +857,8 @@ const step = (dt) => {
       if (f.ct <= 0) { dir = f.cdir; sp = CSPD; }                                // DASH @ CSPD toward the locked dir (overrides the wind-up pause)
       if (f.ct <= -DA) { f.ct = f.bit ? 1.6 : 2.1; f.cdir = 0; }                 // dash done → re-arm (boss 1.6s / foe 2.1s)
     }
-    // UNIFIED MOVEMENT — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate (non-boss skids at ledge/spike, boss commits). Non-charging pursuer keeps patrol vx when blocked (edge-turn handles it).
-    if (near) { dir ??= Math.sign(pl.x + PW / 2 - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0); f.vx = sp && (f.bit || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
+    // UNIFIED MOVEMENT — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate. GROUNDED boss re-aims every frame (relentless); AIRBORNE boss (f.bit && f.gr = false) falls to the floor-ahead gate like regular foes → over a pit that gate fails → KEEPS launch vx = commits the hop arc (escapes pits instead of re-tracking to a dead vertical bounce).
+    if (near) { dir ??= Math.sign(pl.x + PW / 2 - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0); f.vx = sp && (f.bit && f.gr || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
     // ATTACK: HOP (bit 2) — tier-1 leapers + bosses; leap toward the player on a fixed cadence.
     if (f.cap & 2) {
       f.hop = (f.hop || 1) - dt;
@@ -1143,16 +1139,14 @@ const draw = () => {
     if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#6cf279'); }   // POTION drop — pot() draws body+cork+outline (HP=heal-green, MP=blue).
     else drawPart(d.s, d.x - 6, d.y - 11 + dy, d.c, 1.5);   // GEAR — bare sprite (no box), potion-sized (1.5×), rests on ground like potions
   }
-  ctx.lineWidth = 1;
+  ctx.globalAlpha = 1; ctx.lineWidth = 1;   // one alpha reset for this whole section — covers the drop-fade leaving globalAlpha<1; particles + popups below render at full opacity (fade-outs removed, they just vanish at end-of-life)
   for (const p of parts) {                                        // 2 particle kinds: p.sk===1 white skull (FOE death only) · else 7-band rainbow burst (jumps + boss-win). spray() is the sole spawner.
-    const al = Math.min(1, p.t * 2.5);
-    if (p.sk === 1) { skull(p.x, p.y, .7, al); continue; }  // foe-DEATH skull = white bone (default #e9e3cd) — distinct from the RED ranged-attack skulls.
-    ctx.globalAlpha = al;
+    if (p.sk === 1) { skull(p.x, p.y, .7); continue; }  // foe-DEATH skull = white bone (default #e9e3cd), full alpha — distinct from the RED ranged-attack skulls.
     ctx.lineWidth = .5 * p.z; rArc(p.x, p.y, 2.75 * p.z, .375 * p.z);   // burst rainbow — r/step/width scale together so the 7 bands stay distinct; p.z sizes it (1 = puff, big = victory)
   }
-  ctx.globalAlpha = 1; ctx.lineWidth = 1;
+  ctx.lineWidth = 1;
   for (const f of flies) {                                       // textAlign inherited 'center' from topHUD (last set each frame) — damage centres on origin; hud flies offset by cam to cancel world translate
-    ctx.globalAlpha = Math.min(1, f.t * 2); ctx.font = 'bold 8px monospace';   // ALL popups uniform 8px (= HUD text) — no crit size differentiator; crit reads via its 2× number alone.
+    ctx.font = 'bold 8px monospace';   // ALL popups uniform 8px (= HUD text); full opacity (fade-out removed) — no crit size differentiator; crit reads via its 2× number alone.
     ctx.fillStyle = f.c; const fx = f.x | 0, fy = f.y | 0;   // ALL popups world-space now: player popups anchor above the player's head in-world (set in fly), enemy damage over the foe — the old hud=screen-space cam-cancel is gone.
     ctx.fillText(f.txt, fx, fy);
     if (f.pot) pot(fx + 6, fy - 9, f.c, .7);   // mini potion glyph just right of the centred "+1"
@@ -1165,7 +1159,6 @@ const draw = () => {
 
   // ---------- HUD (gameplay-only overlays: level-up banner, death vignette) ---------
   // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
-  if (started && !paused) fade(1 - Math.abs(deathT - 1));   // DEATH FADE: triangular SPIKE off deathT (init 2.0) — fade-out 1.0s (2.0→1.0, on the death spot) · full black at deathT=1.0 (teleport + cam-snap hidden here) · fade-in 1.0s (1.0→0, reveal at paddock).
 
   // CHARACTER SHEET overlay — cursor navigates freely across stats / inventory / skill tree.
   // Space/Enter on cursor position dispatches: spend stat pt, use item, or spend skill pt.
@@ -1248,6 +1241,10 @@ const draw = () => {
       ctx.fillStyle = '#8cf'; T2(act, 75, 258);
       if (act === 'EQUIP') { ctx.fillStyle = '#8cf'; T2('DROP', 135, 258); }   // DROP = same blue-on-blue treatment as EQUIP (matches every other active button in the game — joystick / action / top cluster all use #8cf)
     }
+    // TUTORIAL GUIDE (B) — description of the SELECTED stat/skill at the bottom strip. Stat rows 0-4 name the opaque abbrevs (STR/HP/MAG/DEF/LCK → what they DO); skill rows 15-24 name the 10 icon-only nodes. EQUIP/DROP owns this strip for gear rows → mutually exclusive by row type, no overlap. This is the comprehension half of the tutorial (auto-open is the flow half).
+    const dsc = aRow < 5 ? ['melee damage', 'max health', 'shot dmg + MP', 'reduce damage', 'crit + drops'][aRow]
+      : aRow >= 5 + BAG && aRow < EB ? ['SHOT', 'FAR SHOT', 'HEAL', 'SUPER HEAL', 'DBL JUMP', 'TRI JUMP', 'DASH', 'LONG DASH', 'DBL SHOT', 'TRI SHOT'][aRow - 5 - BAG] : 0;
+    if (dsc) { ctx.textAlign = 'center'; ctx.fillStyle = '#8cf'; T2(dsc, VW / 2, 258); }
   }
 
   // action buttons — PERSISTENT: shown in gameplay AND the character menu.
