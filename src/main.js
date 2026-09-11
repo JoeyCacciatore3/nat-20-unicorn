@@ -4,7 +4,7 @@
 // - Stat allocation (STR/HP/MAG/DEF/LUCK), no classes
 // - 4-slot color-driven equipment gear (BODY/MANE/HORN/HOOVES) — each drop
 // is an RPG item icon: armor / cape / horn blade / horseshoe (drawPart), tinted by roll color
-// - ONE open skill tree, 10 single-rank nodes, all player-chosen (no auto-learn)
+// - No skill tree — all abilities always-on (triple jump / long dash / double shot / basic heal)
 // - Rainbows = collection goal (one per DARKCORN boss; win = all bands, seeds.bosses.length)
 // - Unified character sheet: pause + level-up share layout
 // - 10-slot inventory (fixed max); potions live in a separate hot-bar (5 HP / 5 MP)
@@ -13,13 +13,13 @@
 // - Fixed world palette; sky (#6bc5ff) + grass (#5ac878) RESERVED for background
 
 // Build: esbuild → terser → roadroller → inline → zip → ECT → 13,312-byte gate.
-// npm run build (also runs map audit + tpos-check, logs to SIZELOG.md)
+// npm run build (also runs map audit + PAL check, logs to SIZELOG.md)
 // wavedash build push -m "message"
 
 // Save: strict v44 JSON to localStorage.
 
 import { T, W, H, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
-import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, TREE, TPOS, I_MP, INTRO, TALK, DEATH, WIN } from './data.js'; // static lookup tables
+import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, I_MP, INTRO, TALK, DEATH, WIN } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
@@ -100,7 +100,7 @@ addEventListener('keydown', (e) => {
   if (helpOn) { helpOn = 0; return; }
   if (dq) { adv(); return; }                                 // dialogue: any key advances one bubble (closes past the last)
   if (phase === 0) return titleKey(e);
-  if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → skills)
+  if (paused) {                                                // CHARACTER MENU owns input — cursor always active (stats → inv → gear)
     if (e.code === 'KeyP') paused = 0;                          // P closes
     else if (e.code === 'ArrowLeft' || e.code === 'KeyA') navSel(-1, 0);
     else if (e.code === 'ArrowRight' || e.code === 'KeyD') navSel(1, 0);
@@ -123,18 +123,18 @@ addEventListener('keyup', (e) => keys.delete(e.code));
 const held = (...c) => c.some(k => keys.has(k));
 
 
-// ---------- touch overlay (minimal: joystick + JUMP + earned skill buttons) ---------
+// ---------- touch overlay (minimal: joystick + 4 action buttons) ---------
 // JUMP is the universal interact/confirm (menu: select; gameplay: NPC/chest).
 // ACTION BUTTONS — all four ALWAYS visible, uniform size.
-// (skill unlocked AND enough MP), else dull #555 — one rule covers both "locked" and "out of MP".
-// Each: [x, y, key, brightColor, suIdx (-1 = always unlocked)].
+// castable = enough MP (BLUE), else WHITE. JUMP is always castable (no MP cost).
+// Each: [x, y, key].
 const AR = 20, BVS = .7;                          // AR = touch radius (hit = AR+6) · BVS = visual scale (buttons draw at 70%, r=14, but keep the 26px touch target)
-// [TOUCH x, y, key, skillGate (-1 = always)].
+// [TOUCH x, y, key].
 const AB = [
-  [VW - 30, VH - 28, 'bJ', -1],   // BR corner
-  [VW - 82, VH - 28, 'bM', 6],    // BL
-  [VW - 82, VH - 80, 'bS', 0],    // TL
-  [VW - 30, VH - 80, 'bH', 2],    // TR
+  [VW - 30, VH - 28, 'bJ'],   // BR corner (JUMP — no MP cost)
+  [VW - 82, VH - 28, 'bM'],   // BL (DASH)
+  [VW - 82, VH - 80, 'bS'],   // TL (SHOOT)
+  [VW - 30, VH - 80, 'bH'],   // TR (HEAL)
 ];
 const ptrs = new Map();
 const toV = (e) => [(e.clientX * DPR - SOX) / SS, (e.clientY * DPR - SOY) / SS];
@@ -195,15 +195,15 @@ addEventListener('pointerdown', (e) => {
     // POTIONS (bottom-center): tap HP box → quaff(0), MP box → quaff(1).
     if (hit(QHX - 3, QHY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
     if (hit(QMX - 3, QMY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
-    // PAUSE overlay — tap a skill-tree cell to rank up; any other tap closes
-    if (paused) {                                                // CHARACTER MENU — inventory + (when points remain) stat/skill allocation, one screen
+    // PAUSE overlay — tap a stat/inv/gear cell to select/spend; any other tap closes
+    if (paused) {                                                // CHARACTER MENU — stats + inventory + gear, one screen
       // GAMEPAD MENU CONTROLS (checked first, take priority over cell-taps): joystick = cursor nav, JUMP = confirm/select.
       if (e.pointerType === 'touch' && Math.hypot(vx - JHX, vy - JHY) < JR + 8) { grabJoy(vx, vy, e.pointerId); return; }
       { const [bx, by] = AB[0]; if (Math.hypot(vx - bx, vy - by) < AR + 6) { spend(); ptrs.set(e.pointerId, 'bJ'); keys.add('bJ'); return; } }   // AB[0] = JUMP
       // ACTION / DROP buttons — overlap the grid (y=250-264 inside grid y=184-268), checked first.
       // LEFT box = EQUIP/UNEQUIP via spend() (dispatches by cursor region).
       if ((inv[aRow - 5] || (aRow >= EB && eq[aRow - EB])) && hit(50, 250, 50, 15)) { spend(); return; }
-      if (inv[aRow - 5] && hit(110, 250, 50, 15)) { inv.splice(aRow - 5, 1); return; }
+      if (inv[aRow - 5] && hit(110, 250, 50, 15)) { const it = inv.splice(aRow - 5, 1)[0]; drops.push({ x: pl.x + PW / 2, y: pl.y, vx: (Math.random() - .5) * 80, vy: -90, life: 0, t: 5, s: it.s, c: it.c, b: it.b, u: it.u, v: it.v }); sfx(420, 240, .1, 'sine', .1); return; }   // DROP → toss the gear onto the map as a REAL pickup (persists like enemy/chest drops, cleared only on death), not deleted
       // WORN gear slots — tap selects; the UNEQUIP button (or JUMP/confirm) acts.
       for (const [s, ex, ey] of EQ) if (hit(ex, ey, 24, 24)) { const r = EB + s; if (aRow === r) spend(); else setRow(r); return; }   // tap selects; tap-again = UNEQUIP (also EQUIP/UNEQUIP button + JUMP)
       // Inventory grid — tap selects; tap-again = EQUIP (also EQUIP button + JUMP).
@@ -212,10 +212,9 @@ addEventListener('pointerdown', (e) => {
         if (iI < BAG && inv[iI]) { const r = 5 + iI; if (aRow === r) spend(); else setRow(r); return; }
         return;                                                  // tap on empty inv area — no-op, keeps menu open
       }
-      // Stat/skill tap — moves cursor there, tap selected again to spend (unified for touch)
-      const ci = ((vx - 56) / 26) | 0;                                       // ci = stat-cell column index (was 'col' — shadowed unicorn palette). 56 = stat render base (sx 69) minus the same ~13px left-lead the tap zone always had
-      if (vy > 156 && vy < 182 && vx > 56 && vx < 186 && ci >= 0 && ci < 5) { if (aRow === ci) spend(); else setRow(ci); return; }
-      for (let i = 0; i < TREE; i++) { const [nx, ny] = TPOS[i]; if (hit(nx, ny, 26, 26)) { const r = 5 + BAG + i; if (aRow === r) spend(); else setRow(r); return; } }
+      // Stat tap — moves cursor there, tap selected again to spend (unified for touch)
+      const ri = ((vy - 57) / 26) | 0;                                       // ri = stat-row index in the right-hand column
+      if (vx > 238 && vx < 296 && vy > 57 && vy < 187 && ri >= 0 && ri < 5) { if (aRow === ri) spend(); else setRow(ri); return; }
       paused = 0; return;                                        // tap anywhere else closes
     }
   }
@@ -273,7 +272,7 @@ setInterval(() => {
   MP++;
 }, 372);
 
-// ---------- RPG: stats, equipment, skill tree ---------
+// ---------- RPG: stats, equipment ---------
 // 5 stats: STR (physical dmg: dash+stomp) · HP (max ♥) · MAG (magic dmg: shoot + max ✦) · DEF (dmg reduction) · LUCK (crit + drops)
 let st = [1, 1, 1, 1, 1];       // 5 base stats indexed [0]STR [1]HP [2]MAG [3]DEF [4]LCK — one array (not 5 named vars) so equip/level/save all dispatch by index, no if-else.
 // Unicorn part colors — one palette index per body part (0=BODY, 1=MANE, 2=HORN, 3=HOOVES).
@@ -283,7 +282,7 @@ let col = [0, 0, 0, 0], ed = .7;                  // ed = shared Watching-Family
 // Slot 0=BODY(+HP), 1=MANE(+MAG), 2=HORN(+STR), 3=HOOVES(+DEF).
 const eq = [null, null, null, null];
 const inv = [];
-const BAG = 10;                                       // BAG cap (fixed; STASH skill removed).
+const BAG = 10;                                       // BAG cap (fixed).
 // Equip: apply color + stat bonus.
 // Equipment folds directly into base stats (single source of truth).
 // stat mutation mirrors spend() so HP/MP grow/shrink together with mHP/mMN (like a level-up).
@@ -312,7 +311,7 @@ const unequip = (s) => {
 const quaff = (t) => { if (deathT > 0) return; if (t === 0) { if (hpPot > 0 && hp < mHP()) { hpPot--; hp = Math.min(mHP(), hp + 20); sfx(520, 1040, .1, 'triangle', .1); fly(0, 0, '+20', '#6cf279', 0, 1); hf = IFR; hfc = 14; } } else if (mpPot > 0 && mn < mMN()) { mpPot--; mn = Math.min(mMN(), mn + 20); sfx(440, 880, .1, 'triangle', .1); fly(0, 0, '+20', '#4a76ff', 0, 1); hf = IFR; hfc = 11; } };   // quaff popups route to unified player-feedback spot (above potion hot-bar), hud=1
 
 // GUARD: gear-drop color range in spawnDrop (`Math.random() * 16`) is coupled to
-// PAL.length (16) — ALL indices 0..15 equippable (white/PAL[0] included; it's just the unequipped body appearance, not a reserved default — equipped-ness is tracked by eq[s], not col). tpos-check.mjs enforces this pairing (swatches - base === range).
+// PAL.length (16) — ALL indices 0..15 equippable (white/PAL[0] included; it's just the unequipped body appearance, not a reserved default — equipped-ness is tracked by eq[s], not col). pal-check.mjs enforces this pairing (swatches - base === range).
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
 const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };   // lineJoin round: default 'miter' shot long spikes off sharp glyph vertices (M/P/X) — the "protruding black ink".
 // Stat bar: dark track + coloured fill to `frac` (clamped 0..1 so vitals > max render as full, never overflow).
@@ -343,7 +342,7 @@ const portraitPanel = () => {
 // • "LVn NAME" header — action-blue #8cf (matches the panel ring + every active-UI accent), same colour as the HP/MP numbers below
 // • mini rainbow arc + '×N' rainbow count spaced to the right of the name
 // • HP/MP/XP triple bars with number overlays
-// Single font set at top: 8px bold monospace throughout — same rhythm as the stat row.
+// Single font set at top: 8px bold monospace throughout — same rhythm as the stats.
 const topHUD = () => {
   // NO PANEL CHROME — HUD floats directly on the world.
   // Still tap-to-open-menu (invisible hit zone, pointerdown).
@@ -408,7 +407,7 @@ let hp = 20, xp = 0, lvl = 1;
 let mn = 20, pending = 0;
 let hpPot = 0, mpPot = 0, kc = 0, dd = 0, rt = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
-// Skills are player-chosen via level-gated rows (canBuy = lvl>=req per node)
+// Skill tree removed — all abilities are always-on at a fixed tier (triple jump / long dash / double shot / basic heal); only stats level up.
 let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY boss-kill victory freeze, 1.5s — also drives the title-style rainbow flourish in draw) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-strobe timer · hfc = flash PAL index (4=red hurt · 14=green heal · 11=white dash). pl.inv now covers only stomp + respawn (silent). hf>0 OR pl.inv>0 = invulnerable.
 // Boss state: 0=IDLE (seeded + visible, passive), 1=AGGRO'd (hunting forever, one-way latch on close approach), 2=killed+banked.
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
@@ -423,7 +422,7 @@ const gainXp = n => {
   if (lvl >= CAP) return;
   xp += n; fly(0, 0, '+' + n + ' XP', '#b06cf0', 0, 1);   // routed to the player-head popup spot (hud=1) — was below XP bar
   while (xp >= need() && lvl < CAP) {
-    xp -= need(); lvl++; pending += 2; if (lvl < TREE + 2) spts++;    // +2 stat pts per level. Skill pt drips lvl 2..11 = exactly 10 (TREE nodes); the LV1→2 intro boost is the first of those.
+    xp -= need(); lvl++; pending += 2;    // +2 stat pts per level (skill points removed — abilities always-on). LV1→2 intro boost is a normal level-up.
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save.
     foes.forEach(f => { const u = f.hp >= f.mx; scaleFoe(f); f.hp = u ? f.mx : Math.min(f.hp, f.mx); });   // RESCALE LIVE FOES + BOSSES on level-up via the shared scaleFoe(). u-flag: undamaged keep full (follow new max); damaged keep their wounds.
     luT = time + 1.8; paused = 1;                 // LEVEL UP banner + AUTO-OPEN the char menu EVERY level-up (the menu itself is the "you have points" prompt — replaces the removed HUD pulse). Frequent early (fast levels = teaching), rare late (quadratic need). Safe: only sets a flag; step() gates on paused, foe-death prune is frame-end.
@@ -433,24 +432,17 @@ const gainXp = n => {
 // STATS — pending-point mutators indexed 0-4 (STR/HP/MAG/DEF/LUCK).
 // stat-point spend inlined in spend() (st[aRow]++ + HP/MAG vital bump) — the STATS closure array retired with the stat array-ize.
 
-// spts = skill points banked · su = per-node purchase count (0/1 for single-rank tree)
-let spts = 0; const su = Array(TREE).fill(0);
-// LEVEL-GATED unlock.
-// Row unlocks: Row1=LV1 (roots) · Row2=LV3 (DBLJ/LDASH) · Row3=LV6 (SHEAL/TRIJ/DBLS) · Row4=LV9 (FAR/TRIS).
-// Matches skill-pt earn rate (spts drip in LV2-11).
-const canBuy = i => lvl >= [1,9,1,6,3,6,1,3,6,9][i];
 let aRow = 0;
-const EB = 5 + BAG + TREE;                        // equip-region base: worn slots (0-3) appended AFTER skills so stats/inv/skills keep their row numbers.
+const EB = 5 + BAG;                        // equip-region base: worn slots (0-3) appended after inventory; stats/inv keep their row numbers.
 const EQ = [[1, 64, 58], [2, 172, 58], [0, 64, 106], [3, 172, 106]];   // worn-slot layout [gearIdx, x, y] (MANE tl · HORN tr · BODY bl · HOOVES br).
-const SN = EB + 4;                                // unified cursor span: stats(0-4) → inv(5..) → skills(..EB-1) → worn(EB..EB+3)
+const SN = EB + 4;                                // unified cursor span: stats(0-4) → inv(5..EB-1) → worn(EB..EB+3)
 // setRow: THE single cursor mutator.
 const setRow = (r) => { aRow = r; };
 // cxy: screen CENTRE of any cursor cell — the spatial map that powers directional nav (↑↓←→ pick the nearest cell, not linear index stepping).
-// Regions: stats(0-4 row) · inventory(5-14, 5×2) · skills · worn gear(EB..EB+3, 2×2).
+// Regions: stats(0-4 row) · inventory(5-14, 5×2) · worn gear(EB..EB+3, 2×2).
 const cxy = (r) =>
-  r < 5 ? [78 + r * 26, 157] :
+  r < 5 ? [267, 68 + r * 26] :
   r < 5 + BAG ? [74 + (r - 5) % 5 * 28, 184 + ((r - 5) / 5 | 0) * 28] :
-  r < EB ? [TPOS[r - 5 - BAG][0] + 13, TPOS[r - 5 - BAG][1] + 13] :
   [(r - EB) > 1 ? 184 : 76, (r - EB) % 3 ? 70 : 118];
 // navSel: move cursor to the nearest cell in direction (dx,dy).
 const navSel = (dx, dy) => {
@@ -471,10 +463,6 @@ const spend = () => {
   } else if (aRow < 5 + BAG) {                                // INV — use/equip item at slot
     if (!inv[aRow - 5]) return;
     useItem(aRow - 5); return;                                // useItem plays its own sfx + splices; do NOT double-save
-  } else if (aRow < EB) {                                    // SKILL node — costs a skill point (respects lock/owned)
-    const i = aRow - 5 - BAG;
-    if (!spts || su[i] || !canBuy(i)) return;
-    su[i] = 1; spts--;
   } else { unequip(aRow - EB); return; }                     // WORN slot — take gear off; unequip plays its own sfx + guards bag-full
   sfx(660, 990, .15, 'triangle', .12);                         // no auto-save, no auto-close — player saves via ✕ when ready
 };
@@ -483,7 +471,7 @@ const spend = () => {
 const save = () => {
   localStorage['uni_s0'] = JSON.stringify({
     v: 44, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
-    t: st, d: pending, k: spts, y: su,
+    t: st, d: pending,
     m: pName, o: oc,
     q: eq, i: inv, P: [hpPot, mpPot], K: kc, D: dd, R: rt,   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
   });
@@ -500,7 +488,6 @@ const load = () => {
     st = d.t;
     pl.x = SX; pl.y = SY;                                       // always respawn at paddock (no checkpoint system since 029aef5)
     pending = d.d;                                                 // unspent stat points survive reload — info panel glows, no auto-open
-    spts = d.k; su.fill(0); d.y.forEach((v, i) => su[i] = v);
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
     hpPot = d.P[0] | 0; mpPot = d.P[1] | 0;
@@ -523,7 +510,7 @@ let paused = 0, helpOn = 0, savePop = 0, luT = 0, navCD = 0;   // pause overlay;
 // Freezes the sim (like the menu); tap/key advances ONE bubble (comedic beat), closing past the last line.
 let dq = 0, di = 0, tqi = 0;
 const talk = (s) => { dq = s; di = 0; };
-const adv = () => { if (++di >= dq.length) { if (dq === WIN) for (let i = 0; i < 24; i++) spray(cam.x + Math.random() * VW, cam.y + Math.random() * VH, 6); if (dq === INTRO && lvl < 2) gainXp(need()); dq = 0; hp = mHP(); mn = mMN(); hf = IFR; hfc = 14; } };   // INTRO close = GREATCORN's "free level": a NORMAL LV1→2 via the SAME gainXp (+2 stat, +1 skill, banner+fanfare+restore) — no bonus; base stats already start at 2. lvl<2 guards single-fire. WIN close = screen-wide rainbow CELEBRATION (24×6=144 bits).
+const adv = () => { if (++di >= dq.length) { if (dq === WIN) for (let i = 0; i < 24; i++) spray(cam.x + Math.random() * VW, cam.y + Math.random() * VH, 6); if (dq === INTRO && lvl < 2) gainXp(need()); dq = 0; hp = mHP(); mn = mMN(); hf = IFR; hfc = 14; } };   // INTRO close = GREATCORN's "free level": a NORMAL LV1→2 via the SAME gainXp (+2 stat, banner+fanfare+restore) — no bonus; base stats already start at 2. lvl<2 guards single-fire. WIN close = screen-wide rainbow CELEBRATION (24×6=144 bits).
 
 // bag selection is derived: the selected item is inv[aRow-5] (undefined for non-bag rows, since inv.length ≤ BAG is invariant).
 // Chest reward: item shower only (no heal — heals come from potions / HEAL spell / level-up).
@@ -556,7 +543,7 @@ const fresh = () => {
   eq.fill(null); inv.length = 0;
   pending = 0; st = [2, 2, 2, 2, 2]; col = [0, 0, 0, 0];   // base stats start at 2 (was 1) — a guaranteed floor on every stat (STR 2 → stomp 2 from the first hit); this IS the early-game head start, so no bonus at the level-up.
   oc = 0; pName = 'HORSE';
-  spts = 0; su.fill(0); kc = dd = rt = 0;
+  kc = dd = rt = 0;
   aRow = 0;   // reset menu cursor (bag selection is derived from aRow, nothing else to clear)
   shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
   chests = seedChests();
@@ -620,27 +607,31 @@ const pot = (x, y, c, z = 1) => { const o = '#17131f';
   for (const d of [-z, z]) { spr(I_MP, x + d, y, 12, o, z); spr(I_MP, x, y + d, 12, o, z); } spr(I_MP, x, y, 12, c, z);   // body: 4-dir dark outline + solid fill
   ctx.fillStyle = o; ctx.fillRect(x + 3 * z, y - 3 * z, 6 * z, 5 * z); ctx.fillStyle = '#c9a26a'; ctx.fillRect(x + 4 * z, y - 2 * z, 4 * z, 3 * z);   // cork: dark outline (1px larger) + solid tan on top
   ctx.fillStyle = '#fff'; ctx.fillRect(x + 2 * z, y + 5 * z, z, 2 * z); ctx.fillRect(x + 3 * z, y + 4 * z, z, z); };   // specular glass highlight (top-left)
-// ACTION ICONS — the four glyphs on the action buttons, extracted so the skill-tree nodes render the same visuals.
-const iShot = (x, y, n, r = 10) => { ctx.lineWidth = 1;
-  if (n > 2) { const rr = r * .72, g = 10; for (let j = 0; j < 3; j++) rArc(x, y + g + rr / 2 - j * g, rr, rr * .12); }   // TRI SHOT — 3 straight rainbows stacked (r*.72 + 10px gap).
-  else for (let j = 0; j < n; j++) rArc(x, y + 4 - j * 14 + (n - 1) * 7, r, r * .12);   // 1/2 = stacked; 14px gap keeps DBL SHOT's two rainbows from overlapping; +(n-1)*7 self-centers
+// ACTION ICONS — the four glyphs on the action buttons.
+const iShot = (x, y) => { ctx.lineWidth = 1;
+  rArc(x, y + 4, 8, 1.2);                             // ONE rainbow, centered (7-band arc)
+  ctx.strokeStyle = '#6cf279';                        // FAR-SHOT green scope — mid-size (between the compact and near-fill versions): ring + 4 crosshair ticks
+  ctx.beginPath(); ctx.arc(x, y, 13, 0, 7);
+  ctx.moveTo(x - 16, y); ctx.lineTo(x - 10, y); ctx.moveTo(x + 10, y); ctx.lineTo(x + 16, y);
+  ctx.moveTo(x, y - 16); ctx.lineTo(x, y - 10); ctx.moveTo(x, y + 10); ctx.lineTo(x, y + 16);
+  ctx.stroke();
 };
-const iHeal = (x, y, up) => {
-  if (up) { ctx.fillStyle = '#6cf279'; for (const [dx, dy] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) ctx.fillRect(x + dx - 1, y + dy - 1, 3, 3); }   // SUPER HEAL aura — 4 green sparkle dots in the diagonal corners (upgrade tier), shared by skill node + HUD button
+const iHeal = (x, y) => {
   ctx.fillStyle = '#17131f'; ctx.fillRect(x - 4, y - 11, 8, 22); ctx.fillRect(x - 11, y - 4, 22, 8);
-  ctx.fillStyle = '#6cf279'; ctx.fillRect(x - 3, y - 10, 6, 20); ctx.fillRect(x - 10, y - 3, 20, 6);   // solid bright-green interior + 1px dark outline; ~18% smaller
+  ctx.fillStyle = '#6cf279'; ctx.fillRect(x - 3, y - 10, 6, 20); ctx.fillRect(x - 10, y - 3, 20, 6);   // solid bright-green interior + 1px dark outline
+  for (const [dx, dy] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) ctx.fillRect(x + dx - 1, y + dy - 1, 3, 3);   // SUPER-HEAL aura — 4 green sparkle dots in the diagonal corners
 };
 const iCorn = (x, y) => {   // GC-palette unicorn icon base (jump/dash nodes) — fixed purple/gold via NPCCOL (constant as the player recolors), then arms the #8cf stroke for the chevron overlay
   ctx.save(); ctx.translate(x, y); ctx.scale(.82, .82); ctx.translate(-5, -8);
   const bc = col; col = NPCCOL; drawUo(0); col = bc; ctx.restore();
   ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.beginPath();
 };
-const iJump = (x, y, n) => { iCorn(x, y);
-  for (let j = 0; j < n; j++) { const by = y + 9 + j * 3; ctx.moveTo(x - 3, by + 3); ctx.lineTo(x, by); ctx.lineTo(x + 3, by + 3); }
+const iJump = (x, y) => { iCorn(x, y);
+  const by = y + 10; ctx.moveTo(x - 3, by + 3); ctx.lineTo(x, by); ctx.lineTo(x + 3, by + 3);   // JUMP — one up-chevron
   ctx.stroke();
 };
-const iDash = (x, y, n) => { iCorn(x, y);
-  for (let j = 0; j < n; j++) { const bx = x - 9 - j * 3; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3); }
+const iDash = (x, y) => { iCorn(x, y);
+  const bx = x - 9; ctx.moveTo(bx - 3, y - 3); ctx.lineTo(bx, y); ctx.lineTo(bx - 3, y + 3);   // DASH — one left-chevron
   ctx.stroke();
 };
 // GEAR icon sprites — pro pixel style: selective outline + top-left light + shade, tinted by roll color c.
@@ -663,7 +654,7 @@ const drawPart = (s, x, y, c, z = 1) => {
 const spawnDrop = (x, y, n) => {
   for (let i = 0; i < n; i++) {
     const d = { x, y: y - 4, vx: (i - (n - 1) / 2) * 80 + (Math.random() - .5) * 20, vy: -90 - Math.random() * 50, life: 0 };   // ANTI-STACK FAN: was pure-random vx (Math.random()-.5)*80, so a 2-drop boss kill regularly settled both items on the SAME spot.
-    // GEAR (60%): slot + color + RANDOM primary (1..cap) + optional SUB-stat at LV4+ (a different stat, ~50%, SAME cap as primary). cap = 1 + (lvl>>2): +1 @LV1 → +6 @LV20. Both d.b (main) and d.v (sub) roll 1..cap → identical max, real per-drop variance. tpos-check.mjs couples "Math.random() * 16" color range to PAL.length — ALL 16 colours (0-15).
+    // GEAR (60%): slot + color + RANDOM primary (1..cap) + optional SUB-stat at LV4+ (a different stat, ~50%, SAME cap as primary). cap = 1 + (lvl>>2): +1 @LV1 → +6 @LV20. Both d.b (main) and d.v (sub) roll 1..cap → identical max, real per-drop variance. pal-check.mjs couples "Math.random() * 16" color range to PAL.length — ALL 16 colours (0-15).
     if (Math.random() < .6) { d.t = 5; d.s = Math.random() * 4 | 0; d.c = Math.random() * 16 | 0; const cap = 1 + (lvl >> 2); d.b = 1 + (Math.random() * cap | 0); if (lvl >= 4 && Math.random() < .5) { d.u = (SLOT_STAT[d.s] + 1 + (Math.random() * 4 | 0)) % 5; d.v = 1 + (Math.random() * cap | 0); } }
     else d.t = Math.random() < .5 ? 0 : 1;      // POTION (40%): HP (0) or MP (1), 50/50
     drops.push(d);
@@ -689,21 +680,20 @@ const strike = (f, mag) => {
 
 // ---------- verbs ---------
 // DASH is a PURE ATTACK verb (never a traversal move — map is jump-only reachable,).
-// Gated behind DASH skill; LONG DASH doubles its reach.
+// Dash: fixed 110px burst (.275s × 400px/s).
 function shoot() {                                              // magic bolt (gold): 3 mana.
-  if (!started || paused || deathT > 0 || !su[0] || mn < 3) return;   // silent fail — MP bar shows the answer
+  if (!started || paused || deathT > 0 || mn < 3) return;   // silent fail — MP bar shows the answer
   mn -= 3; fly(0, 0, '-3', '#4a76ff', 0, 1);   // SHOOT: MP cost at unified player-feedback spot (above potion hot-bar).
-  // Base range SHORT; FAR SHOT extends lifetime (.55s→.80s).
-  for (let i = 0; i < 1 + su[8] + su[9]; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 10, vx: pl.face * 195, vy: 0, t: .75 + .3 * su[1] });   // every bolt straight (vy 0); DBL/TRI stack vertically by i*10 (bigger r=5 arcs need clear gaps). 195 + lifetime .75: slower + bigger read, reach preserved (~146px).
+  for (let i = 0; i < 2; i++) shots.push({ x: pl.x + PW / 2, y: pl.y + 5 - i * 10, vx: pl.face * 195, vy: 0, t: .75 });   // 2 bolts straight (vy 0), stacked vertically by i*10. 195px/s × .75s = ~146px reach.
 }
 function dash() {                                               // THE attack verb: burst + strike-through; 3 MP (uniform).
-  if (!started || paused || deathT > 0 || dashCd > 0 || !su[6] || mn < 3) return;   // dash gated ONLY by MP (3) + 0.45s cooldown — air-dash is unlimited (no once-per-airtime cap); spam it as long as mana lasts.
-  dashT = su[7] ? .22 : .11;                                    // dash burst duration × 400px/s: base .11=44px, LONG DASH .22=88px
+  if (!started || paused || deathT > 0 || dashCd > 0 || mn < 3) return;   // dash gated ONLY by MP (3) + 0.45s cooldown — air-dash is unlimited (no once-per-airtime cap); spam it as long as mana lasts.
+  dashT = .275;                                   // dash burst duration × 400px/s → 110px reach (single fixed tier; sits just under the 146px shot)
   dashCd = .45; mn -= 3; hf = .5; hfc = 11; sfx(600, 200, .12, 'sawtooth', .12); fly(0, 0, '-3', '#4a76ff', 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=11 = PAL[11] #ffffff; color changed from blue 09-08, window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln).
 }
-function heal() {                                               // instant tap-to-cast; 3 MP (uniform), +10 HP base (+20 with SUPER HEAL)
-  if (!started || paused || deathT > 0 || !su[2] || mn < 3 || hp >= mHP()) return;
-  const hm = 20 + su[3] * 20;   // HEAL +20 HP base, SUPER HEAL (su[3]) → +40 HP
+function heal() {                                               // instant tap-to-cast; 3 MP (uniform), fixed +20 HP
+  if (!started || paused || deathT > 0 || mn < 3 || hp >= mHP()) return;
+  const hm = 20;   // HEAL — fixed +20 HP (super-heal tier removed with the skill tree)
   mn -= 3; hp = Math.min(mHP(), hp + hm);
   sfx(520, 1040, .25, 'triangle', .12); fly(0, 0, '-3', '#4a76ff', 0, 1); fly(0, 0, '+' + hm, '#6cf279', 0, 1);   // HEAL: MP cost + HP gain both at the player-head popup spot (hud=1).
   hf = IFR; hfc = 14;   // HEAL: IFR-sec green PAL[14] flash + i-frame. green=heal · red=hurt · white=dash.
@@ -724,7 +714,7 @@ let last = performance.now(), time = 0;
 const step = (dt) => {
   if (hs > 0) { hs -= dt; return; }               // HITSTOP — world freezes ONLY on boss-kill victory (1.5s); hs>0 also drives the title-style rainbow flourish in draw.
   if (paused) {                                    // character menu freezes sim; joystick does spatial (nearest-cell) nav (keyboard nav stays in the keydown handler)
-    time += dt;                                    // keep the UI clock running while paused so the +N stat/skill "spend me" pulse breathes in the menu (world sim stays frozen).
+    time += dt;                                    // keep the UI clock running while paused so the +N stat "spend me" pulse breathes in the menu (world sim stays frozen).
     navCD -= dt;
     let dx = keys.has('bL') ? -1 : keys.has('bR') ? 1 : 0, dy = keys.has('bU') ? -1 : keys.has('bD') ? 1 : 0;   // stick → direction bits
     if (dx && dy) { if (Math.abs(joy.dx) >= Math.abs(joy.dy)) dy = 0; else dx = 0; }   // diagonal push → dominant axis only (predictable single-step)
@@ -757,7 +747,7 @@ const step = (dt) => {
   if (jbuf > 0) {
     let ok = 0;
     if (pl.coyote > 0) { pl.vy = -JV; pl.coyote = 0; pl.air = 0; ok = 1; }
-    else if (su[4] && pl.air < 1 + su[5]) { pl.vy = -JV; pl.air++; ok = 1; }   // DBL/TRI JUMP — full ground-jump height, no timing/hold logic
+    else if (pl.air < 2) { pl.vy = -JV; pl.air++; ok = 1; }   // TRI JUMP — up to 2 air jumps at full ground-jump height, no timing/hold logic
     if (ok) { jbuf = 0; sfx(280, 520, .12); spray(pl.x + PW / 2, pl.y + PH, 5); }   // jump rainbow burst — 5 particles, matches unified skull count.
   }
 
@@ -1160,8 +1150,8 @@ const draw = () => {
   // ---------- HUD (gameplay-only overlays: level-up banner, death vignette) ---------
   // Top-left LV/name/rainbow/bars live in topHUD() below (persistent, also visible in the menu).
 
-  // CHARACTER SHEET overlay — cursor navigates freely across stats / inventory / skill tree.
-  // Space/Enter on cursor position dispatches: spend stat pt, use item, or spend skill pt.
+  // CHARACTER SHEET overlay — cursor navigates freely across stats / inventory / gear.
+  // Space/Enter on cursor position dispatches: spend stat pt, use item, or equip/unequip gear.
   if (paused && started) {
     portraitPanel();                                          // opaque menu bg + centered unicorn art
     // Establish text baseline for the entire menu block: center-aligned, 8px monospace.
@@ -1170,7 +1160,7 @@ const draw = () => {
     // and equipment labels / stat numbers render offset to the right of their boxes.
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     // Stat points available — "+N" centered just under the unicorn
-    if (pending) { ctx.globalAlpha = .7 + .3 * Math.sin(time * 5); ctx.fillStyle = '#8cf'; ctx.font = 'bold 13px monospace'; T2('+' + pending, 130, 137); ctx.globalAlpha = 1; }   // +N STAT POINTS: blue #8cf = universal "actionable" (was gold #ffd75e, which clashed with the gold cursor) + a SINE-OPACITY PULSE via the global `time` (floor .4 → full) so it visibly breathes = "spend me". 13px = shared UI size; y=137 centers it in the gap between the unicorn legs (~y116) and MAG stat top (y146). x=130 = cluster centerline.
+    if (pending) { ctx.globalAlpha = .7 + .3 * Math.sin(time * 5); ctx.fillStyle = '#8cf'; ctx.font = 'bold 13px monospace'; T2('+' + pending, 330, 68); ctx.globalAlpha = 1; }   // +N STAT POINTS (total remaining): pulsing blue #8cf, to the RIGHT of the stat column so it doesn't collide with the per-cell description bubble.
     // EQUIPMENT — 4 slots cornered around the unicorn (anatomy: MANE top-left, HORN top-right, BODY bottom-left, HOOVES bottom-right).
     ctx.font = 'bold 8px monospace';                          // reset from the 13px pending hint above (if it fired)
     EQ.forEach(([s, ex, ey]) => {
@@ -1182,15 +1172,15 @@ const draw = () => {
       if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 6, ey + 22);       // primary stat → BOTTOM-LEFT, in its stat colour (SC): STR red · HP green · MAG blue · DEF violet · LCK orange
         if (eq[s].u != null) { ctx.fillStyle = SC[eq[s].u]; T2('+' + eq[s].v, ex + 18, ey + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
     });
-    // STATS — one row above the inventory; cursor = blue column.
+    // STATS — vertical COLUMN on the right (fills the panel, near HORN/HOOVES); cursor = gold box per row.
     const SL = ['STR', 'HP', 'MAG', 'DEF', 'LCK'];
     SL.forEach((l, i) => { const c = SC[i];
-      const sx = 69 + i * 26, sel = i === aRow;
-      if (sel) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(sx - 3, 146, 25, 23); }   // GOLD cursor (Fix B) — one persistent selection colour across the whole menu
-      ctx.fillStyle = c; T2(l, sx + 9, 154);
-      ctx.fillStyle = c; T2(st[i], sx + 9, 165); if (sel && pending) T2('+', sx + 17, 165);   // number always in its SC stat colour; same-colour "+" on the SELECTED stat when points pending = "confirm to raise THIS". "+" drawn at ambient bold 8px (was a one-off bold 9px — removed to drop a unique font literal).
+      const sy = 60 + i * 26, sel = i === aRow;
+      if (sel) { ctx.strokeStyle = '#ffd75e'; ctx.lineWidth = 1; ctx.strokeRect(238, sy - 3, 58, 22); }   // GOLD cursor box on the selected stat row
+      ctx.fillStyle = c; T2(l, 256, sy + 9);
+      ctx.fillStyle = c; T2(st[i], 282, sy + 9); if (sel && pending) T2('+', 290, sy + 9);   // label + value on one line; "+" on the SELECTED stat when points remain
     });
-    // INVENTORY — 5×2 grid UNDER the stat row (fixed 10 slots).
+    // INVENTORY — 5×2 grid on the LEFT, below the equipment (fixed 10 slots; stats now live in a right-hand column).
     for (let i = 0; i < BAG; i++) {
       const ix = 62 + (i % 5) * 28, iy = 172 + ((i / 5) | 0) * 28, it = inv[i];
       ctx.fillStyle = 'rgba(136,204,255,.14)';   // ALL inventory slots = blue ACTIONABLE fill, empty OR filled (consistent usable panel; was empty=faint white rgba(255,255,255,.05))
@@ -1202,35 +1192,6 @@ const draw = () => {
         if (it.u != null) { ctx.fillStyle = SC[it.u]; T2('+' + it.v, ix + 18, iy + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
     }
     // (Gear stats are now shown INLINE on every icon — bag + worn — so no selection tooltip is needed.)
-    // SKILL TREE — 10 icon nodes in a 3-2-3-2 grid, gated purely by LEVEL ROW (Row1 LV1 · Row2 LV3 · Row3 LV6 · Row4 LV9).
-    // font + textAlign inherited from top of char sheet (unchanged since L1149)
-    if (spts) { ctx.globalAlpha = .7 + .3 * Math.sin(time * 5); ctx.fillStyle = '#8cf'; ctx.font = 'bold 13px monospace'; T2('+' + spts, 317, 52); ctx.globalAlpha = 1; ctx.font = 'bold 8px monospace'; }   // +N SKILL POINTS: same blue #8cf + sine-opacity pulse as the stat badge — one consistent "actionable, spend me" cue.
-    const NS = 26;
-    // No connection lines — level-gated tiers (canBuy = lvl>=[req][i]).
-    // Nodes — all 10 are action skills, rendering the SAME icon as their action button (via iShot/iHeal/iJump/iDash, wrapped in scale to fit).
-    for (let i = 0; i < TREE; i++) {
-      const [cx, cy] = TPOS[i];
-      const av = canBuy(i);   // 3-STATE NODES: ghost 0.25 grey → white ring 0.9 → blue ring/tint 1.0. White=ready matches dash flash; blue=#8cf owned/active accent game-wide.
-      ctx.fillStyle = su[i] || av ? 'rgba(136,204,255,.14)' : 'rgba(255,255,255,.05)'; ctx.fillRect(cx, cy, NS, NS);   // blue ACTIONABLE tint for BOTH purchased (su) AND available (av, 09-08); faint white for locked only.
-      const tOn = aRow === 5 + BAG + i;
-      ctx.strokeStyle = tOn ? '#ffd75e' : su[i] ? '#8cf' : av ? '#fff' : '#555'; ctx.lineWidth = 1; ctx.strokeRect(cx, cy, NS, NS);   // single border, UNIFIED 1px weight — state COLOUR still signals grey locked / white avail / blue purchased / GOLD cursor (same rect, no double outline).
-      const mx = cx + 13, my = cy + 13;
-      // ACTION SKILL — icon scaled to fit cell.
-      // uniform icon alpha inherited (=1; border color IS the state signal — grey/white/blue).
-      ctx.save(); ctx.translate(mx, my); ctx.scale(.65, .65); ctx.translate(-mx, -my);
-      if (i === 0 || i === 8 || i === 9) iShot(mx, my, i === 0 ? 1 : i - 6);   // SHOT (1) / DBL SHOT (2 stacked) / TRI SHOT (3 stacked)
-      else if (i === 1) {   // FAR SHOT — aiming reticle/scope: green ring + crosshair (heal-spray green), evokes long-range aim
-        ctx.strokeStyle = '#6cf279'; ctx.lineWidth = 1;   // FAR SHOT crosshair — unified 1px stroke like every other icon/box
-        ctx.beginPath(); ctx.arc(mx, my, 6, 0, 7);
-        ctx.moveTo(mx - 10, my); ctx.lineTo(mx - 3, my); ctx.moveTo(mx + 3, my); ctx.lineTo(mx + 10, my);
-        ctx.moveTo(mx, my - 10); ctx.lineTo(mx, my - 3); ctx.moveTo(mx, my + 3); ctx.lineTo(mx, my + 10);
-        ctx.stroke();
-      }
-      else if (i === 2 || i === 3) iHeal(mx, my, i === 3);   // HEAL / SUPER HEAL — SUPER adds the 4-dot aura (upgrade tier)
-      else if (i === 4 || i === 5) iJump(mx, my, i - 2);   // DBL / TRI JUMP (2 / 3 chevrons)
-      else if (i === 6 || i === 7) iDash(mx, my, i - 5);   // DASH / LONG DASH (1 / 2 chevrons)
-      ctx.restore();
-    }
     // (rainbow indicator lives in topHUD now — top-left, persistent in gameplay + menu)
     // ACTION labels — honest verb for the selected gear: EQUIP (bag) / UNEQUIP (worn).
     const wi = aRow - EB, act = inv[aRow - 5] ? 'EQUIP' : wi >= 0 && eq[wi] ? 'UNEQUIP' : 0;
@@ -1241,42 +1202,40 @@ const draw = () => {
       ctx.fillStyle = '#8cf'; T2(act, 75, 258);
       if (act === 'EQUIP') { ctx.fillStyle = '#8cf'; T2('DROP', 135, 258); }   // DROP = same blue-on-blue treatment as EQUIP (matches every other active button in the game — joystick / action / top cluster all use #8cf)
     }
-    // TUTORIAL GUIDE (B) — description of the SELECTED stat/skill at the bottom strip. Stat rows 0-4 name the opaque abbrevs (STR/HP/MAG/DEF/LCK → what they DO); skill rows 15-24 name the 10 icon-only nodes. EQUIP/DROP owns this strip for gear rows → mutually exclusive by row type, no overlap. This is the comprehension half of the tutorial (auto-open is the flow half).
-    const dsc = aRow < 5 ? ['melee damage', 'max health', 'shot dmg + MP', 'reduce damage', 'crit + drops'][aRow]
-      : aRow >= 5 + BAG && aRow < EB ? ['SHOT', 'FAR SHOT', 'HEAL', 'SUPER HEAL', 'DBL JUMP', 'TRI JUMP', 'DASH', 'LONG DASH', 'DBL SHOT', 'TRI SHOT'][aRow - 5 - BAG] : 0;
-    if (dsc) { ctx.textAlign = 'center'; ctx.fillStyle = '#8cf'; T2(dsc, VW / 2, 258); }
+    // TUTORIAL GUIDE (B) — description of the SELECTED stat, rendered in a bubble ABOVE the stat cell (tail points at the gold cursor). Stat rows 0-4 name the opaque abbrevs (STR/HP/MAG/DEF/LCK → what they DO). Gear rows show EQUIP/DROP in the bottom strip instead. Comprehension half of the tutorial (auto-open is the flow half).
+    const dsc = aRow < 5 ? ['melee damage', 'max health', 'shot dmg + MP', 'reduce damage', 'crit + drops'][aRow] : 0;
+    if (dsc) { const [bx, by] = cxy(aRow); bubble(bx, by - 12, dsc); }   // description bubble pops ABOVE the selected stat cell — tail points at the gold cursor so it's obvious where you are. Same speech-bubble system as GREATCORN dialogue.
   }
 
   // action buttons — PERSISTENT: shown in gameplay AND the character menu.
   // Colored ring per action, dark disc, glyph in accent color.
   // Menu: JUMP renders as ✓ (confirm/select); a tap on any other button just closes the menu (tap-out) — no guard, by design.
-  // Teaching pattern: locked skills render dim, so buying a skill visibly lights its button.
+  // All four action buttons always active (abilities always-on); BLUE = castable, WHITE = out of MP.
   if (started && !savePop && !helpOn) {
     ctx.textAlign = 'center';
-    for (const [tx, ty, c, s] of AB) {
+    for (const [tx, ty, c] of AB) {
       const x = tx + (tx < 424 ? 7 : -2), y = ty + (ty < 216 ? 7 : -2);   // VISUAL centre = touch (tx,ty) nudged toward the cluster: LEFT/TOP cols +7, RIGHT/BOTTOM -2 (so bottom row + right column sit 5px further out → slightly more space, still a symmetric square).
-      const owned = s < 0 || su[s], usable = owned && (s < 0 || mn >= 3);    // JUMP (s<0) always usable; owned skills need the uniform 3 MP
-      // THREE states: usable = BLUE · owned-but-no-MP = WHITE (matches skill-tree "available") · not-owned = GREY/dim.
-      const rc = usable ? '#8cf' : owned ? '#fff' : '#555';
-      ctx.globalAlpha = usable ? 1 : owned ? .6 : .3;
-      // (INTRO subtractive spotlight REMOVED — locked buttons are already dull-grey (alpha .3) by their own locked state, so "The dull buttons? Locked." dialogue describes exactly what's on screen. Walk/jump were never worth highlighting (always active). Dialogue carries the teaching; the natural dimming is the visual cue. −38 B, and bubble order is no longer index-locked.)
+      const usable = c === 'bJ' || mn >= 3;    // JUMP is free (no MP); the other three need the uniform 3 MP
+      // TWO states: castable = BLUE · out-of-MP = WHITE.
+      const rc = usable ? '#8cf' : '#fff';
+      ctx.globalAlpha = usable ? 1 : .6;   // all four buttons always active (abilities always-on): full when castable, dimmed to .6 when out of MP
       ctx.save(); ctx.translate(x, y); ctx.scale(BVS, BVS); ctx.translate(-x, -y);   // scale the WHOLE visual (disc+glyph+linewidths) — glyph code stays untouched
       ctx.fillStyle = 'rgba(15,15,20,.75)';
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.fill();
       ctx.strokeStyle = rc; ctx.lineWidth = 1;   // action-button ring → 1px like every box/icon
       ctx.beginPath(); ctx.arc(x, y, AR, 0, 7); ctx.stroke();
-      // Action-button glyphs — all four routed through the shared iShot / iHeal / iJump / iDash helpers (same code paths as skill-tree icons).
-      if (c === 'bH') iHeal(x, y, su[3]);   // HUD HEAL button gains the SUPER HEAL aura once owned — matches the skill-node treatment (like JUMP/DASH chevrons)
+      // Action-button glyphs — all four routed through the shared iShot / iHeal / iJump / iDash helpers.
+      if (c === 'bH') iHeal(x, y);   // HEAL glyph — green cross
       if (c === 'bJ') {
         if (paused || nearNpc || ~nearChest) {   // ✓ mode = "tap to confirm/interact" — menu confirm · NPC talk · chest open.
           ctx.lineCap = 'round'; ctx.lineJoin = 'round';
           ctx.strokeStyle = '#8cf'; ctx.lineWidth = 4;   // ✓ — single stroke in the UI accent
           ctx.beginPath(); ctx.moveTo(x - 9, y + 1); ctx.lineTo(x - 3, y + 8); ctx.lineTo(x + 10, y - 8); ctx.stroke();
           ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
-        } else iJump(x, y, 1 + su[4] + su[5]);
+        } else iJump(x, y);
       }
-      if (c === 'bM') iDash(x, y, 1 + su[7]);
-      if (c === 'bS') iShot(x, y, 1 + su[8] + su[9]);   // SHOT button reflects DBL/TRI upgrades (like JUMP/DASH chevrons + the skill-tree icon)
+      if (c === 'bM') iDash(x, y);
+      if (c === 'bS') iShot(x, y);   // SHOT glyph — double rainbow
       ctx.restore();
     }
     ctx.globalAlpha = 1;
@@ -1301,7 +1260,7 @@ const draw = () => {
     const qslot = (x, y, t) => {
       const n = t ? mpPot : hpPot;
       ctx.fillStyle = 'rgba(15,15,20,.75)'; ctx.fillRect(x, y, QSZ, QSZ);           // dark panel — SAME background as the action buttons so the count reads with contrast over the bright world
-      ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(x, y, QSZ, QSZ);  // always-blue outline (no state colours) — UNIFIED 1px slot weight (matches equipment/inventory/skill boxes)
+      ctx.strokeStyle = '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(x, y, QSZ, QSZ);  // always-blue outline (no state colours) — UNIFIED 1px slot weight (matches equipment/inventory boxes)
       pot(x + 6, y + 6, t ? '#4a76ff' : '#6cf279');                                 // potion glyph — solid/crisp regardless of the panel
       ctx.fillStyle = n > 4 ? '#8cf' : '#fff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'right'; ctx.fillText(n, x + QSZ - 2, y + QSZ - 2);   // COUNT is the only state: BLUE at MAX (5), WHITE otherwise incl. empty 0 — no grey
     };

@@ -1,11 +1,8 @@
-// data.js — UNICORN static lookup tables: palette, gear/enemy/boss data, skill
-// tree, sprite bitmaps.
+// data.js — UNICORN static lookup tables: palette, gear/enemy/boss data, sprite bitmaps.
 // game state). esbuild inlines these back into the single bundle, so this split is
 // byte-neutral — it exists purely to keep main.js focused on behaviour.
 // that reads or writes live game state (STATS closures, canvas draws) stays in main.js.
 
-// GUARD: tools/tpos-check.mjs reads TREE, TPOS and PAL from this file (concatenated
-// with main.js). Keep those three literal shapes greppable: `const NAME = [ … \n];`.
 
 // UNIFIED PALETTE — 17 colors, shared across all 4 body parts.
 // auto-derived via dim(): base → 85% → 70% brightness (no stored triples).
@@ -66,32 +63,18 @@ export const ZB = [
 // foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone
 // (rock base derived darker via dim(accent), so one stored color = two-tone boulder).
 
-// SKILL TREE — level-gated rows (see main.js canBuy = lvl>=[1,9,1,6,3,6,1,3,6,9][i]).
-// 10 nodes, 4 visual rows.
-// (iShot/iHeal/iJump/iDash), NOT names, so TREE only needs its LENGTH — the strings are 1-char
-// placeholders (tpos-check counts quoted entries to gate TPOS.length; content is irrelevant).
-// 0 SHOT · 1 FAR SHOT · 2 HEAL · 3 SUPER HEAL · 4 DBL JUMP · 5 TRI JUMP
-// 6 DASH · 7 LONG DASH · 8 DBL SHOT · 9 TRI SHOT
-export const TREE = 10;   // node count — was ['a'..'j'] string array but the labels were never rendered (grep-verified).
-// Row positions: Row1 y=58 (3), Row2 y=98 (2), Row3 y=138 (3), Row4 y=178 (2). 3-2-3-2 grid, 40px spacing.
-// rows 1&3 share columns 248/304/360; rows 2&4 share 276/332 (left column over the MP/mana potion box x=243-267, SHOT centre x=261).
-// LEFT col = SHOT chain (SHOT→[swap]→TRI JUMP→FAR SHOT), MID col = HEAL chain (HEAL→SUPER HEAL)
-// RIGHT col = MOBILITY (DASH→LONG DASH→[swap]→TRI SHOT).
-// swap tiers/columns so mobility unlocks earlier.
-export const TPOS = [[248,58],[276,178],[304,58],[304,138],[276,98],[248,138],[360,58],[332,98],[360,138],[332,178]];
 
 // Pixel sprites (bitmask rows, MSB-left) — decoded by spr() in main.js.
 export const I_MP = [96,96,96,240,504,1020,2046,4095,4095,4095,4095,2046,1020,504];   // POTION 12×14 — 3 skinny 2-wide neck rows (r0-2; cork covers r0 only, r1-2 visible → clear skinny-neck feature), 4-wide shoulder taper starts r3, widening r4-6, 4 rows full 12-wide body, curving base.
 
 // GREATCORN dialogue. '~' prefix = player unicorn speaks (bubble over its head), else GREATCORN. '|' = row break within one bubble.
-// COUPLING: bubbles 6/7/8 are the controls tutorial — main.js SPOTLIGHTS joystick / JUMP / locked buttons by these exact indices (subtractive: target full-alpha, others dimmed).
-// Bubbles 6/7 are the KEYBOARD variants; beginGame() overwrites them with touch variants when `touch` is set (device-conditional prompts — never dual-name inputs).
-export const INTRO = ["Oh! You're awake!", "~...who are you?", "The Greatcorn.|Obviously.", "The Darkcorn|broke my rainbow.", "~...that seems bad.", "Reclaim every rainbow.|One per Darkcorn.|There are seven.", "Enemies give XP.|XP grants levels.", "The dull buttons?|Locked. Greatness|is earned.", "Wounded? Tap a potion,|or talk to me.", "~Wish me luck.", "Luck's for ponies.|Here's a head start.|You'll need it."];
+// COUPLING: DEATH reuses INTRO[7] ("Wounded?…") — keep INTRO defined above with index 7 = the Wounded line (recheck if reordered). No bubble-index spotlight/device-swap anymore (both removed).
+export const INTRO = ["Oh! You're awake!", "~...who are you?", "The Greatcorn.|Obviously.", "The Darkcorn stole|my seven rainbows.|Win them back.", "They hit hard.|Hurt? A potion,|or talk to me.", "~Wish me luck.", "Luck's for ponies.|Here's a head start.|You'll need it."];
 // INTRO cleanups (): dropped "I nearly sat on you" (bubble 0 tail) · removed the MOVE bubble ("Arrow keys walk/WASD") and the JUMP bubble ("SPACE jumps/Jump near me to chat/I permit it") entirely — the ✓ interact glyph on the JUMP button + the "..." talk-available bubble over GREATCORN now carry that, no text needed · new CORNER-PANEL bubble points at the top cluster (? = help/controls screen, sound toggle) which ALSO holds the full control reference, so device-specific control text is gone · dropped "health and magic both" tail from the heal-hub line · device-swap removed in main.js → identical dialogue on browser + mobile.
 // Re-talk quips — cycled one per approach (JUMP near the GREATCORN after the intro).
 // TALK — re-talk pool (jump near GREATCORN).
 export const TALK = ["Rainbows won't fetch|themselves, pony.", "You've got this.|Probably.", "Stop bouncing at me.|I'm not a mushroom.", "This mane grooms|itself. Out of|respect."];
 // DEATH — reuses the dialogue system for a respawn beat: fires at the paddock once the death fade completes (deathT crosses 0).
-export const DEATH = ["~Ugh...", INTRO[8]];   // REUSE INTRO[8] = "Wounded? Tap a potion,|or talk to me." — heal reminder lands exactly when relevant (you just died). Reference, NOT a duplicated literal (roadroller has no copy mechanism → a copy costs full price). COUPLING: INTRO must stay defined above + index 8 = the Wounded line; recheck if INTRO is reordered.
+export const DEATH = ["~Ugh...", INTRO[4]];   // REUSE INTRO[4] = "They hit hard.|Hurt? A potion,|or talk to me." — the defeat + heal reminder lands exactly when relevant (you just died). Reference, NOT a duplicated literal (roadroller has no copy mechanism → a copy costs full price). COUPLING: INTRO must stay defined above + index 4 = the hurt/heal line; recheck if INTRO is reordered.
 // WIN — talk to GREATCORN with all 7 rainbows banked (rainbows()===bs.length).
 export const WIN = ["All seven! History|will remember|MY name."];

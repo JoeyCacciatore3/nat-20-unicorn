@@ -10,10 +10,10 @@ const run = (cmd) => execSync(cmd, { stdio: ['ignore', 'pipe', 'inherit'] }).toS
 
 mkdirSync('dist', { recursive: true });
 
-console.log('0/6 map audit (Return Law) + TPOS drift + spike overlap check…');
+console.log('0/6 map audit (Return Law) + spike overlap + PAL/gear-range check…');
 run('node tools/map-audit.mjs');    // FAILS the build if any reachable spot cannot return to a campfire
-run('node tools/tpos-check.mjs');   // FAILS the build if TREE was edited but TPOS was not regenerated
 run('node tools/spike-audit.mjs');  // FAILS the build if any chest or hand-placed DECO renders on a spike tile
+run('node tools/pal-check.mjs');    // FAILS the build if PAL length and the spawnDrop gear-color range drift apart
 
 console.log('1/6 bundle (esbuild)…');
 run('npx esbuild src/main.js --bundle --format=iife --outfile=dist/bundle.js');
@@ -87,20 +87,19 @@ const WD_GLUE = `<script>
   const push=()=>{
     let d;try{d=JSON.parse(localStorage['uni_s0']||'0')}catch(e){return}
     if(!d||d.v!==44)return;
-    const sig=JSON.stringify([d.l,d.g,d.D,d.K,d.R,d.o,d.y,d.q]);
+    const sig=JSON.stringify([d.l,d.g,d.D,d.K,d.R,d.o,d.q]);
     if(sig===last)return;last=sig;
     const bosses=(d.g||[]).filter(v=>v===2).length;
     up(L,d.l|0);up(B,bosses);up(D,d.D|0);up(K,d.K|0);
     if(bosses>=7)up(W,Math.round(d.R||0));
     if(Wavedash.setStat){
       const pc=n=>{let c=0;n=n|0;while(n){c+=n&1;n>>>=1}return c};
-      const chests=pc(d.o),skills=(d.y||[]).reduce((a,b)=>a+(b?1:0),0),gear=(d.q||[]).filter(x=>x).length;
+      const chests=pc(d.o),gear=(d.q||[]).filter(x=>x).length;
       const fast=bosses>=7&&(d.R||0)>0&&d.R<600?1:0;
       Wavedash.setStat('KILLS',d.K|0,true);
       Wavedash.setStat('CHESTS',chests,true);
       Wavedash.setStat('BOSSES',bosses,true);
       Wavedash.setStat('LEVEL',d.l|0,true);
-      Wavedash.setStat('SKILLS',skills,true);
       Wavedash.setStat('GEAR',gear,true);
       Wavedash.setStat('FASTCLEAR',fast,true);
       Wavedash.storeStats&&Wavedash.storeStats();
