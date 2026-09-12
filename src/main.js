@@ -514,8 +514,8 @@ const load = () => {
 
 // ---------- player ---------
 const PW = 10, PH = 14;
-const NX = 106 * T, NGY = SR * T;                 // GREATCORN guide: center-x (tile 106 = spawn+5, frames player+GC symmetrically under the title arch), feet baseline = SR (compact rebuild surface row 18)
-const SX = 101 * T, SY = NGY - PH;                // spawn point (paddock, MEADOW zone) — feet at NGY surface baseline so intro plays with unicorn standing (no drop-in)
+const NX = 245 * T, NGY = SR * T;                 // GREATCORN guide: tile 245 = spawn+5, frames player+GC symmetrically under the title arch), feet baseline = SR (compact rebuild surface row 18)
+const SX = 240 * T, SY = NGY - PH;                // spawn point (CENTERED at tile 240 = W/2, EAST RUN zone) — feet at NGY surface baseline so intro plays with unicorn standing (no drop-in)
 const NPCCOL = [7, 2, 2, 7];                       // GREATCORN isolated palette: purple body/hooves (PAL[7]), gold mane/horn (PAL[2]) — immune to player gear/color
 const NSC = 10 / 7;                                // unicorn render scale, shared by player/GREATCORN/DARKCORN (boss fs=20 ÷ 14-tall bbox).
 const pl = { x: SX, y: SY, vx: 0, vy: 0, gr: 0, face: 1, coyote: 0, air: 0, inv: 0, t: 0 };   // gr = on-ground flag
@@ -965,7 +965,7 @@ const draw = () => {
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds.
-  const ZC = !phase ? ZB[2] : pl.y > 512 ? ZB[6] : pl.y > 384 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by depth: y>512 (=32*16, deep cavern) = INDIGO ZB[6], y>384 (=24*16, cave top) = VIOLET ZB[5]; surface = x-bands
+  const ZC = !phase ? ZB[2] : pl.y > 416 ? ZB[6] : pl.y > 384 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by depth within the compact cave band: y>416 (=26*16, at the r28 floor) = INDIGO ZB[6], y>384 (=24*16, cave top) = VIOLET ZB[5]; surface = x-bands
   ctx.fillStyle = ZC[5]; ctx.fillRect(0, 0, VW, VH);                        // banded sky
   // CLOUDS — procedural puffs spanning the whole map (parallax .15), culled off-screen.
   // Primes in bitwise ops give deterministic pseudo-random spread. y ≥ 50 clears HUD.

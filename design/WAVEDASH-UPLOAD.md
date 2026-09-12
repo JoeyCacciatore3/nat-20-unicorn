@@ -1,6 +1,6 @@
 # Wavedash store-page update — STAGED, ready to paste
 
-**Currency: batch 35 candidate (2026-09-11, map-rebuild branch).** Build **12,454 B / 858 free**. Copy re-verified against `src/*.js` at B35. Big change since B28: the world is now a compact **480×42, 3-band** map; the **skill tree is gone** (abilities always-on); all six enemies are **grounded walkers**.
+**Currency: B35 shipped & aligned (git `main == origin == 366329d`); B36 map-rework in the working tree (uncommitted, not yet rebuilt).** Last build **12,454 B / 858 free**. Copy re-verified against `src/*.js`. The world is a compact **3-band** map — now **480×30** under B36 (shallow single-level caves, centered spawn at tile 240); the **skill tree is gone** (abilities always-on); all six enemies are **grounded walkers**.
 
 > ⚠️ **MEDIA STALE — RE-SHOOT REQUIRED.** Every cover / screenshot / trailer / GIF referenced below is B28: it shows the removed skill tree, the old 600×160 world, and the old floater enemies. Re-capture against B35 before uploading.
 

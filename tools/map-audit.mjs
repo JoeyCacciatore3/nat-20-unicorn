@@ -23,8 +23,8 @@ const TIERS = [
   { name: '+trijump   ', up: 6, h: 10 },     // TRI = 3rd jump → highest rise + widest air-drift (sim ~10.3t)
 ];
 
-// Spawn point (matches main.js SX = 101*T, feet at surface row SR=18 → stands on row 17).
-const SPAWN = [101, 17];
+// Spawn point (matches main.js SX = 240*T, centered; feet at surface row SR=18 → stands on row 17).
+const SPAWN = [240, 17];
 const BOSS_NAMES = ['RED   ', 'ORANGE', 'YELLOW', 'BLUE  ', 'VIOLET', 'GREEN ', 'INDIGO'];
 
 const at = (c, r) => (c < 0 || c >= W || r >= H) ? 1 : r < 0 ? 0 : grid[r * W + c];
@@ -80,7 +80,7 @@ for (const tr of TIERS) {
   for (const k of F) for (const t of moves(k)) { if (!rev.has(t)) rev.set(t, []); rev.get(t).push(k); }
   const homeCells = [];
   for (let dc = -2; dc <= 2; dc++) for (let dr = -2; dr <= 2; dr++)
-    if (standSet.has(idx(101 + dc, 17 + dr))) homeCells.push(idx(101 + dc, 17 + dr));   // paddock spawn (tile 101, surface row 18)
+    if (standSet.has(idx(240 + dc, 17 + dr))) homeCells.push(idx(240 + dc, 17 + dr));   // paddock spawn (centered tile 240, surface row 18)
   const B = bfs(homeCells.filter(k => F.has(k)), (k) => rev.get(k) || []);
   const stuck = [...F].filter(k => !B.has(k));
 

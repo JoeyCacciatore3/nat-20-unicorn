@@ -17,7 +17,7 @@ intro grants a free first level-up.
 
 ## World — one compact, fully-utilized map
 
-**One unified 480×42-tile map (7,680×672 px)**, no portals or zone loads — walk from any boss to
+**One unified 480×30-tile map (7,680×480 px)**, no portals or zone loads — walk from any boss to
 any other. It is authored as **three clearly-stacked bands** built around the exact jump envelope
 (so every gap/climb is reachable by construction):
 
@@ -25,16 +25,17 @@ any other. It is authored as **three clearly-stacked bands** built around the ex
 |---|---|---|
 | **SKY** | 1–17 | above-ground platform routes (drop-through), climbs, the boss summits |
 | **GROUND** | 18–23 | a **uniform 6-tile walkable band** (`GROUND_H=6`, surface-top row `SR=18`), full-width highway |
-| **CAVES** | 24–40 | a built-from-air underground network — chambers, corridors, return rungs, entered via drop-shafts |
+| **CAVES** | 24–27 | a built-from-air underground network — single-level chambers (floor row 28), return rungs, entered via drop-shafts (two exits per wide chamber) |
 
 The old sprawling 600×160 world (mostly empty air/slab) was fully re-authored into this tighter
-form — same feature set, ~82% smaller grid, and it **saved bytes** (denser, clustered coordinates
-compress better under Roadroller).
+form — same feature set, ~85% smaller grid, and it **saved bytes** (denser, clustered coordinates
+compress better under Roadroller). Caves are deliberately shallow (≈10 tiles below the surface) with
+forgiving ≤3-tile climb rungs — easy to leave.
 
 **7 zones for 7 DARK CORNS** (x-bands scale into the 480-wide world; each has a distinct palette):
-PEAK/BLUE · CANOPY/YELLOW · MEADOW/RED (spawn) · EAST RUN/ORANGE · SUMMIT/GREEN, plus two
-underground zones selected by depth — UNDER-DEPTHS/VIOLET and UNDER-CAVERN/INDIGO. The paddock
-around spawn is a low-threat safe zone.
+PEAK/BLUE · CANOPY/YELLOW · MEADOW/RED · EAST RUN/ORANGE (spawn is centered here at tile 240) ·
+SUMMIT/GREEN, plus two underground zones selected by depth — UNDER-DEPTHS/VIOLET and
+UNDER-CAVERN/INDIGO. The paddock around the centered spawn is a low-threat safe zone.
 
 Every boss, chest, and cell is verified reachable by a build-time traversal audit (Return Law: you
 can always path home) at the player's real ability tier (double- and triple-jump).

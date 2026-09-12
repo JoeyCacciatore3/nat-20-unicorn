@@ -46,18 +46,18 @@ export const RBC = [4, 3, 2, 8, 7, 14, 15];
 export const RC = ['#ff5d6c','#ff9d3c','#ffd75e','#9fe89a','#8cf','#c47fe0','#c9a6f7'];
 // Sky backdrop colour.
 // ZONE BANDS — [xEndTile, dirt, top, foliage, accent, sky].
-// pl.y > 63*16 overrides to the last row (UNDERGROUND — all depths/caverns/RED lair, ONE theme).
+// pl.y depth overrides to an underground row (UNDERGROUND — caves, ONE dark theme, split VIOLET/INDIGO by depth).
 // lookup rethemes terrain, top strips, trees, rocks, tufts AND sky (all read the destructure).
 // 7 ZONES for 7 DARKCORNs: 5 surface boss territories by x + 2 underground bands split by depth
-// (VIOLET shallow depths y=64-71 · INDIGO deep cavern y>=72).
+// (VIOLET cave-top y>384=row24 · INDIGO cave-floor y>416=row26; compact single-level caves rows 24-28).
 export const ZB = [
   [32,  '#4a3a26', '#c0c8d0', '#5a7a6a', '#c0c8d0', '#4a9ad8'],   // PEAK (BLUE) — x-band scaled 600→480 (compact rebuild). snow-cap white top+accent, slate-green alpine foliage.
   [90,  '#5a3a2a', '#3a8a52', '#3a8a52', '#7a5a3a', '#5ab5ef'],   // CANOPY (YELLOW) — warm loam dirt, wood-brown accent.
   [224, '#5a3a1e', '#4a9a3a', '#4a9a3a', '#888888', '#6bc5ff'],   // MEADOW (RED) — original identity (spawn zone)
   [381, '#6a4a22', '#8a9a32', '#8a9a32', '#9a8a62', '#7ecfe8'],   // EAST RUN (ORANGE) — dry gold savanna
   [480, '#52341e', '#3a7a5e', '#3a7a5e', '#7a8a92', '#4a9ad8'],   // SUMMIT (GREEN) — deep teal, storm sky
-  [0, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // UNDER-DEPTHS (VIOLET zone, rows 24-31 / y>384) — col0 (xEnd) NEVER read: underground selected by y-threshold, not the x-find. dead value.
-  [0, '#1a1832', '#3a4a7a', '#6a5acd', '#4a4a72', '#080814'],   // UNDER-CAVERN (INDIGO zone, rows ≥32 / y>512) — col0 dead (see above). foliage reuses PAL[16] literal for LZ.
+  [0, '#32283e', '#6a4a8a', '#8a5aca', '#5a5a6a', '#1a1626'],   // UNDER-DEPTHS (VIOLET zone, cave-top rows 24-25 / y>384) — col0 (xEnd) NEVER read: underground selected by y-threshold, not the x-find. dead value.
+  [0, '#1a1832', '#3a4a7a', '#6a5acd', '#4a4a72', '#080814'],   // UNDER-CAVERN (INDIGO zone, cave-floor rows 26-28 / y>416) — col0 dead (see above). foliage reuses PAL[16] literal for LZ.
 ];
 // Ground palette [dirt, surface-top, foliage, accent]: dirt/top theme solid+platform tiles
 // foliage themes green deco (tree canopy, grass, flower stems); accent is the stone tone
