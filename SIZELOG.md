@@ -1805,4 +1805,4 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-12  12818 B  (96.3%)  free: 494 B
 2026-09-12  12814 B  (96.3%)  free: 498 B
 2026-09-12  12873 B  (96.7%)  free: 439 B  (batch 41 SHIPPED — git 0fdd417 / Wavedash mn72wykmgxxjn7tky69d9drpgx8e831p — enemy AI overhaul: patrollers+hunter leash+boss aggro-on-damage, charge/spike movement fixes; researched opening tutorial (INTRO 7->5, goomba swap, verb hint, first-kill burst); +5 sky platforms + h3 hills; RULE6-8 gates caught+fixed 4 embedded/misplaced foe seeds + 3 boss rows; playtest data wipe #2 + ASCENDED achievement restored)
-2026-09-12  12871 B  (96.7%)  free: 441 B
+2026-09-12  12871 B  (96.7%)  free: 441 B  (batch 42 SHIPPED — git 4f2ad60 / Wavedash mn77p30th3saccrk2w6q0zcyy98e9kws — save v45->v46 fresh-data reset paired with playtest wipe #3; wipe-without-bump was re-unlocking achievements from retained local saves)
