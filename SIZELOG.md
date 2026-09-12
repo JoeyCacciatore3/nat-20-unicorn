@@ -1794,4 +1794,4 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-11  12454 B  (93.6%)  free: 858 B
 2026-09-11  12454 B  (93.6%)  free: 858 B
 2026-09-12  12590 B  (94.6%)  free: 722 B
-2026-09-12  12643 B  (95.0%)  free: 669 B
+2026-09-12  12643 B  (95.0%)  free: 669 B  (batch 36 SHIPPED — git 4a76691 / Wavedash mn7avv6bvvzh7hc7r73dda8mz58e9pm4)
