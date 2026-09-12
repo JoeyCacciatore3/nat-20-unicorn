@@ -1804,4 +1804,4 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-12  12805 B  (96.2%)  free: 507 B  (batch 40 SHIPPED — git 3b5fe16 / Wavedash mn73jsdyt2fjqb6cr3jswt61958e8jpa — varied-height hills + boss enclosures, doubled 2-tall cave tunnels + central 2-chamber network, mushrooms on outdoor ground (RULE5); save v44->v45 fresh-data reset + wavedash clear-playtest-data (achievements/leaderboards/stats/saves wiped))
 2026-09-12  12818 B  (96.3%)  free: 494 B
 2026-09-12  12814 B  (96.3%)  free: 498 B
-2026-09-12  12873 B  (96.7%)  free: 439 B
+2026-09-12  12873 B  (96.7%)  free: 439 B  (batch 41 SHIPPED — git 0fdd417 / Wavedash mn72wykmgxxjn7tky69d9drpgx8e831p — enemy AI overhaul: patrollers+hunter leash+boss aggro-on-damage, charge/spike movement fixes; researched opening tutorial (INTRO 7->5, goomba swap, verb hint, first-kill burst); +5 sky platforms + h3 hills; RULE6-8 gates caught+fixed 4 embedded/misplaced foe seeds + 3 boss rows; playtest data wipe #2 + ASCENDED achievement restored)
