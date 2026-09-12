@@ -24,20 +24,24 @@ import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, I_MP
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
 const QSZ = 24, QHX = VW - 146, QHY = VH - 83, QMX = VW - 146, QMY = VH - 40;   // potion quick-slots = a clear LEFT COLUMN of the action grid: HP box on the SHOOT row, MP box on the DASH row (52px left of the shoot/dash column) → an obvious pair right beside the combat buttons, thumb-reachable. HP above MP (mirrors the HP-over-MP bars). QHY = VH-83 (not -92): the AB buttons render 7px BELOW their touch centre (line ~1246 visual-nudge), so both potion boxes sit a matched +2px under their button-row VISUAL centre (HP↔SHOOT 199/197, MP↔DASH 242/240).
-// DPR + visualViewport: draw at native device pixels (retina crispness), size to
-// the actual viewport (fixes iOS URL-bar overshoot). imageSmoothingEnabled=false
-// keeps the pixel art crisp when the letterbox scale is fractional.
+// Size the backing store from the canvas's OWN laid-out box. The canvas is position:fixed;inset:0
+// (see shipped CSS), so it fills the viewport — or Wavedash's fullscreen element when the host
+// toggles fullscreen. We measure cv.clientWidth/Height, NOT visualViewport/innerWidth: on iOS those
+// report a stale/HALF size across rotation + the host's pseudo-fullscreen (the "fits half the screen"
+// bug), whereas the element's own client box is always correct once layout settles. DPR clamped to 2
+// (a 3× iPhone backing store is pure cost for pixel art). imageSmoothingEnabled=false keeps art crisp.
 let DPR = 1;
 const fit = () => {
-  const vv = visualViewport, w = vv ? vv.width : innerWidth, h = vv ? vv.height : innerHeight;
-  DPR = devicePixelRatio || 1;
-  cv.width = w * DPR | 0; cv.height = h * DPR | 0;
-  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  DPR = Math.min(2, devicePixelRatio || 1);
+  const w = cv.clientWidth || innerWidth, h = cv.clientHeight || innerHeight;
+  cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
   ctx.imageSmoothingEnabled = false;
 };
-addEventListener('resize', fit);
-addEventListener('orientationchange', fit);   // iOS safety-net: resize doesn't always fire on rotation
-visualViewport && (visualViewport.addEventListener('resize', fit), visualViewport.addEventListener('scroll', fit));   // scroll = iOS URL bar mid-slide; keeps letterbox tight during the bar's toggle animation
+const refit = () => { fit(); requestAnimationFrame(fit); setTimeout(fit, 300); };   // iOS reports stale sizes for a beat after rotate/fullscreen → re-measure next frame + after the transition settles
+addEventListener('resize', refit);
+addEventListener('orientationchange', refit);   // iOS safety-net: resize doesn't always fire on rotation
+addEventListener('fullscreenchange', refit);    // Wavedash dispatches a standard fullscreenchange on document when the player toggles its fullscreen control
+visualViewport && (visualViewport.addEventListener('resize', refit), visualViewport.addEventListener('scroll', refit));
 fit();
 let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer mapping)
 
@@ -965,7 +969,7 @@ const draw = () => {
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds.
-  const ZC = !phase ? ZB[2] : pl.y > 416 ? ZB[6] : pl.y > 384 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by depth within the compact cave band: y>416 (=26*16, at the r28 floor) = INDIGO ZB[6], y>384 (=24*16, cave top) = VIOLET ZB[5]; surface = x-bands
+  const ZC = !phase ? ZB[2] : pl.y > 464 ? ZB[6] : pl.y > 384 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by DEPTH: y>464 (=29*16, deep INDIGO spoke floor r31) = INDIGO ZB[6], y>384 (=24*16, shallow VIOLET/CENTRAL spokes) = VIOLET ZB[5]; surface = x-bands
   ctx.fillStyle = ZC[5]; ctx.fillRect(0, 0, VW, VH);                        // banded sky
   // CLOUDS — procedural puffs spanning the whole map (parallax .15), culled off-screen.
   // Primes in bitwise ops give deterministic pseudo-random spread. y ≥ 50 clears HUD.
