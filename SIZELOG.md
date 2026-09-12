@@ -1795,4 +1795,4 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-11  12454 B  (93.6%)  free: 858 B
 2026-09-12  12590 B  (94.6%)  free: 722 B
 2026-09-12  12643 B  (95.0%)  free: 669 B  (batch 36 SHIPPED — git 4a76691 / Wavedash mn7avv6bvvzh7hc7r73dda8mz58e9pm4)
-2026-09-12  12809 B  (96.2%)  free: 503 B
+2026-09-12  12809 B  (96.2%)  free: 503 B  (batch 37 SHIPPED — git 3f58b9c / Wavedash mn77zd3d8pmjbe1nzzg8z9kqdh8e9fmz — mobile portrait rotate prompt)
