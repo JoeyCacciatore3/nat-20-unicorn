@@ -43,8 +43,11 @@ const MEADOW = {
     [292, 18, 3, 1, 3],                                          // ORANGE moat
     [312, 18, 4, 1, 3], [324, 18, 4, 1, 3], [336, 18, 4, 1, 3],  // EASTRUN PIT-GAUNTLET — spike-hop run (the "test")
     [56, 18, 3, 1, 3],                                           // CANOPY arena moat
-    // ---- MESAS (solid hills rising from the ground, rows 15-17) — REQUIRED hops so flat stretches aren't a stroll (B). Land safe on ground; foes edge-turn at them. ----
-    [92, 15, 4, 3, 1], [162, 15, 4, 3, 1], [278, 15, 4, 3, 1],   // west-meadow arena · meadow rest · eastrun intro
+    // ---- HILLS (solid, rising from the ground at VARIED heights h2-h5 for terrain diversity) — REQUIRED hops so flat stretches aren't a stroll; several FLANK surface bosses into enclosed "obvious boss zones." Tops are walkable route-steps; foes edge-turn at them; DECO greens each top. ----
+    [92, 14, 4, 4, 1], [162, 15, 4, 3, 1], [278, 16, 4, 2, 1],   // core mesas, now VARIED: west-meadow arena (h4) · meadow rest (h3) · eastrun intro (h2)
+    [22, 14, 4, 4, 1], [62, 15, 4, 3, 1], [82, 16, 4, 2, 1],     // PEAK/CANOPY: BLUE east wall (h4, encloses BLUE vs the west border) · canopy approach (h3) · west-meadow bump (h2)
+    [178, 14, 4, 4, 1], [203, 16, 3, 2, 1],                      // MEADOW: high-route ridge (h4) · RED west wall (h2, pockets RED vs the cave mouth)
+    [306, 15, 4, 3, 1], [430, 14, 4, 4, 1],                      // EAST: ORANGE east gateway (h3, pockets ORANGE before the gauntlet) · summit ridge (h4 — DJ-returnable; h5 walls off DJ return)
 
     // ============ WEST ARM (hub → PEAK: gentle → hardest) ============
     // --- MEADOW (t90-224): RED arena [TEACH] + open REST + 2 treasure alcoves + combat perch ---
@@ -100,17 +103,19 @@ const MEADOW = {
     [118, 27, 6, 1, 2], [128, 27, 5, 1, 2],// antechamber ledges (r27, 2t headroom) — foes + chest 9
     [112, 29, 2, 1, 0], [110, 30, 8, 3, 0],// SECRET POCKET (single entrance): drop-hole in the floor → hidden pocket cols 110-117 rows 30-32 (chest 15)
     [112, 31, 3, 1, 2],                    // pocket climb-rung (floor r33 → r31 → back up the hole to r29)
-    [139, 28, 8, 1, 0],                    // SKINNY TUNNEL (1-tall walk) antechamber → boss hall (cols 139-146 row 28, floor r29 continues)
+    [139, 27, 8, 2, 0],                    // SKINNY TUNNEL (2-tall walk, doubled) antechamber → boss hall (cols 139-146 rows 27-28, rock ceiling r26, floor r29 continues)
     [147, 25, 29, 4, 0],                   // VIOLET BOSS HALL — air rows 25-28, floor r29 (cols 147-175)
     [154, 27, 6, 1, 2], [164, 27, 5, 1, 2],// boss-hall ledges (r27) — foe + chest 0
     [171, 18, 3, 7, 0],                    // CLIMB-OUT shaft (boss hall → surface at NEW x col 172)
     [171, 26, 3, 1, 2], [171, 23, 3, 1, 2], [171, 20, 3, 1, 2],   // climb-out rungs (rise 3)
 
-    // ===== CENTRAL SECRET (t210) — small single-entrance chamber under the meadow→hub span =====
+    // ===== CENTRAL SYSTEM (t210) — single-entrance NETWORK: entry chamber → skinny tunnel → west pocket chamber =====
     [210, 18, 3, 10, 0],                   // entry/exit shaft (surface → chamber floor r28)
-    [202, 25, 20, 3, 0],                   // secret chamber — air rows 25-27, floor r28 (cols 202-221)
+    [202, 25, 20, 3, 0],                   // entry chamber — air rows 25-27, floor r28 (cols 202-221)
     [206, 27, 5, 1, 2], [214, 27, 4, 1, 2],// chamber ledges (r27, 2t headroom) — chest 12 + foe
     [210, 24, 3, 1, 2], [210, 21, 3, 1, 2],// climb-out rungs
+    [193, 26, 9, 2, 0],                    // SKINNY TUNNEL (2-tall) entry chamber → west pocket (cols 193-201, rows 26-27, rock ceiling r25)
+    [183, 25, 11, 3, 0],                   // WEST POCKET — open chamber, air rows 25-27, floor r28 (cols 183-193); floor foe, loops back out via the entry shaft
 
     // ===== EAST SYSTEM (INDIGO) — DEEP two-tier network: entry → upper chamber → drop → deep hall west (boss) → skinny crawl → deep hall east (treasure) → long climb-out (new x); + single-entrance side pocket =====
     [337, 18, 3, 11, 0],                   // ENTRY drop-shaft (surface col 338 → upper chamber floor r29)
@@ -119,15 +124,15 @@ const MEADOW = {
     [351, 28, 3, 8, 0],                    // DROP-SHAFT upper → deep hall west (cols 351-353 rows 28-35, cuts the r29 divider)
     [340, 30, 30, 6, 0],                   // DEEP HALL WEST (INDIGO boss) — air rows 30-35, floor r36 (cols 340-369)
     [346, 34, 6, 1, 2], [356, 32, 6, 1, 2], [364, 34, 5, 1, 2],   // west-hall platforms (stacked, 2t headroom) — foe + chest 7 + extra step
-    [328, 33, 8, 3, 0], [336, 35, 4, 1, 0],// SIDE POCKET (single entrance via floor crawl-tunnel r35) — hard chest 19 (cols 328-335 rows 33-35, floor r36)
-    [369, 35, 8, 1, 0],                    // SKINNY CRAWL-TUNNEL (floor) west hall → east hall (cols 369-376 row 35)
+    [328, 33, 8, 3, 0], [336, 34, 4, 2, 0],// SIDE POCKET (single entrance via crawl-tunnel, doubled 2-tall r34-35) — hard chest 19 (cols 328-335 rows 33-35, floor r36)
+    [369, 34, 8, 2, 0],                    // SKINNY CRAWL-TUNNEL (2-tall, doubled) west hall → east hall (cols 369-376 rows 34-35, rock ceiling r33)
     [377, 30, 25, 6, 0],                   // DEEP HALL EAST (treasure) — air rows 30-35, floor r36 (cols 377-401)
     [380, 34, 6, 1, 2], [388, 32, 6, 1, 2],// east-hall platforms — foe + chest 13
     [395, 18, 3, 18, 0],                   // CLIMB-OUT shaft (deep hall east → surface at NEW x col 396)
     [395, 34, 3, 1, 2], [395, 31, 3, 1, 2], [395, 28, 3, 1, 2], [395, 25, 3, 1, 2], [395, 22, 3, 1, 2], [395, 19, 3, 1, 2]   // deep climb-out rungs (rise 3 the whole way up)
   ],
 
-  bounce: [[14, 17], [48, 17], [126, 17], [164, 17], [300, 17], [330, 17], [420, 17], [458, 17], [190, 17], [276, 17], [388, 36], [120, 29], [110, 17], [384, 17]],   // BOUNCE MUSHROOMS (launch -510, keeps pl.air=0 so DJ/TRI stack at apex). >=1 per zone; each ENABLES a specific climb, not decoration. [388,36]=East deep-hall express-exit, [120,29]=West antechamber express-exit.
+  bounce: [[14, 17], [48, 17], [126, 17], [154, 17], [300, 17], [330, 17], [420, 17], [458, 17], [190, 17], [276, 17], [408, 17], [73, 17], [110, 17], [384, 17]],   // BOUNCE MUSHROOMS — ALL on the outdoor ground surface (row 17, air cell + solid below, open sky above), never underground/buried. Enforced by tools/map-geometry.mjs RULE5. launch -510 keeps pl.air=0 so DJ/TRI stack at apex.   // BOUNCE MUSHROOMS (launch -510, keeps pl.air=0 so DJ/TRI stack at apex). >=1 per zone; each ENABLES a specific climb, not decoration. [388,36]=East deep-hall express-exit, [120,29]=West antechamber express-exit.
   bosses: [                              // 7 CORN bosses; 3rd field bi picks the rainbow band + palette
     [206, 16, 0],   // RED — MEADOW arena (past the spike moat) — first west boss [TEACH]
     [298, 16, 1],   // ORANGE — EASTRUN arena (past the spike moat) — first east boss [TEACH]
@@ -189,7 +194,7 @@ const MEADOW = {
     // Surface/sky fill to complete 9-of-each (hop kinds on platforms per elevation rule; charge/shoot on flat).
     [172, 14, 1], [268, 14, 1],                                // k1 fill (sky)
     [116, 15, 4], [282, 14, 4], [408, 13, 4],                  // k4 fill (sky)
-    [34, 17, 2], [132, 17, 2],                                 // k2 fill (ground) — 3rd relocated into the EAST deep hall
+    [34, 17, 2], [186, 27, 2],                                 // k2 fill — 2nd seated in the CENTRAL west pocket (floor foe r27→r28), 3rd in the EAST deep hall
     [88, 17, 3], [420, 17, 3],                                 // k3 fill (ground) — 3rd relocated into the EAST deep hall
     [144, 17, 5], [286, 17, 5], [432, 17, 5],                  // k5 fill (ground) — 4th relocated into the EAST deep hall
     [64, 17, 6], [152, 17, 6], [460, 17, 6],                   // k6 fill (ground) — 4th relocated into the EAST upper chamber

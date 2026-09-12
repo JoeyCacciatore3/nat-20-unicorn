@@ -87,7 +87,7 @@ const WD_GLUE = `<script>
   const up=(id,v)=>id&&Wavedash.uploadLeaderboardScore(id,v,true);
   const push=()=>{
     let d;try{d=JSON.parse(localStorage['uni_s0']||'0')}catch(e){return}
-    if(!d||d.v!==44)return;
+    if(!d||d.v!==45)return;
     const sig=JSON.stringify([d.l,d.g,d.D,d.K,d.R,d.o,d.q]);
     if(sig===last)return;last=sig;
     const bosses=(d.g||[]).filter(v=>v===2).length;

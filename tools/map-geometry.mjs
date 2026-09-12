@@ -75,6 +75,28 @@ for (const p of plats) {
   if (!groundReach && !hasNeighbour) Wn(`RULE4 ISOLATED: platform [${p.x},${p.y},w${p.w}] has no platform within a jump and isn't within a jump of the ground — reads as leading nowhere`);
 }
 
+// ============ RULE 5 — BOUNCE PADS ON OUTDOOR GROUND (mushrooms) ============
+// Every mushroom must sit on the OUTDOOR surface: air cell, solid ground directly below, open sky above,
+// above the underground band, and not clipping any platform/terrain. Never buried, never in a cave.
+//   pad cell (x,y) = AIR · (x,y+1) = SOLID (rests on terrain) · (x,y-1) = AIR (nothing clips the sprite)
+//   y < GROUND_TOP (=18, the highway top) → above the lower levels (outdoors, not underground)
+//   column above the pad reaches the sky (no SOLID ceiling) → genuinely outdoors, not a roofed cave
+const GROUND_TOP = 18;                 // ground highway surface row; pads sit at y=17 on top of it
+for (const [x, y] of seeds.bounce) {
+  const tag = `[${x},${y}]`;
+  const cell = at(x, y), below = at(x, y + 1), above = at(x, y - 1);
+  const nm = { [AIR]: 'air', [SOLID]: 'solid', [PLAT]: 'platform', [SPIKE]: 'spike' };
+  if (cell !== AIR) { E(`RULE5 MUSHROOM ${tag}: pad is buried inside ${nm[cell]} — move it to a clear surface tile`); continue; }
+  if (below !== SOLID) E(`RULE5 MUSHROOM ${tag}: not resting on solid ground (tile below is ${nm[below]}) — pads must sit on the ground terrain`);
+  if (above !== AIR) E(`RULE5 MUSHROOM ${tag}: ${nm[above]} directly overhead clips the mushroom — needs open air above`);
+  if (y >= GROUND_TOP) E(`RULE5 MUSHROOM ${tag}: at/below the ground band (row>=${GROUND_TOP}) — all mushrooms must be OUTDOORS above the lower levels`);
+  else { let yy = y - 1, roofed = 0; while (yy >= 0) { if (at(x, yy) === SOLID) { roofed = 1; break; } yy--; } if (roofed) E(`RULE5 MUSHROOM ${tag}: has a solid ceiling above (roofed/underground) — mushrooms must be outdoors, open to the sky`); }
+}
+for (let i = 0; i < seeds.bounce.length; i++) for (let j = i + 1; j < seeds.bounce.length; j++) {
+  const a = seeds.bounce[i], b = seeds.bounce[j];
+  if (a[1] === b[1] && Math.abs(a[0] - b[0]) < 6) Wn(`RULE5 MUSHROOM [${a}] & [${b}] are <6t apart on the same row — clustered, spread them out`);
+}
+
 // ---- report ----
 console.log('=== MAP GEOMETRY (stable-math validator) ===');
 console.log(`  platforms: ${plats.length} · ERRORS: ${errs.length} · warnings: ${warns.length}`);

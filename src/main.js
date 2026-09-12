@@ -16,7 +16,7 @@
 // npm run build (also runs map audit + PAL check, logs to SIZELOG.md)
 // wavedash build push -m "message"
 
-// Save: strict v44 JSON to localStorage.
+// Save: strict v45 JSON to localStorage (v45 = fresh-data reset; old v44 saves invalidated so a fresh build starts clean and never re-pushes stale stats to cleared leaderboards).
 
 import { T, W, H, SR, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, I_MP, INTRO, TALK, DEATH, WIN } from './data.js'; // static lookup tables
@@ -62,7 +62,7 @@ NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // o
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // ONE SAVE SLOT (uni_s0). sMeta reads name+level for the title label without loading.
-const sMeta = () => { try { const d = JSON.parse(localStorage['uni_s0'] || '0'); return d && d.v === 44 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = () => { try { const d = JSON.parse(localStorage['uni_s0'] || '0'); return d && d.v === 45 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase.
 // route here; one source of truth so the begin/resume transitions can't drift.
@@ -490,7 +490,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ---------
 const save = () => {
   localStorage['uni_s0'] = JSON.stringify({
-    v: 44, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 45, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: st, d: pending,
     m: pName, o: oc,
     q: eq, i: inv, P: [hpPot, mpPot], K: kc, D: dd, R: rt,   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
@@ -499,7 +499,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['uni_s0'] || '0');
-    if (!d || d.v !== 44) return;                               // strict v44 gate — no cross-version compat.
+    if (!d || d.v !== 45) return;                               // strict v45 gate — no cross-version compat (v44 fresh-data reset).
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     bs.fill(0); d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;   // fill(0) first: shorter saved arrays must not inherit stale slots from a prior in-session load
