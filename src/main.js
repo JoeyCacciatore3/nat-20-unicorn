@@ -969,7 +969,7 @@ const draw = () => {
 
   // SKY — bright blue gradient, white clouds, cheerful Zelda/Mario feel
   // BACKGROUND = flat blue sky + parallax clouds.
-  const ZC = !phase ? ZB[2] : pl.y > 464 ? ZB[6] : pl.y > 384 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by DEPTH: y>464 (=29*16, deep INDIGO spoke floor r31) = INDIGO ZB[6], y>384 (=24*16, shallow VIOLET/CENTRAL spokes) = VIOLET ZB[5]; surface = x-bands
+  const ZC = !phase ? ZB[2] : pl.y > 480 ? ZB[6] : pl.y > 384 ? ZB[5] : ZB.find(z => pl.x < z[0] * T);   // title=meadow; underground split by DEPTH: y>480 (=30*16, deep INDIGO lower-tier halls) = INDIGO ZB[6], y>384 (=24*16, shallow VIOLET/CENTRAL upper chambers) = VIOLET ZB[5]; surface = x-bands
   ctx.fillStyle = ZC[5]; ctx.fillRect(0, 0, VW, VH);                        // banded sky
   // CLOUDS — procedural puffs spanning the whole map (parallax .15), culled off-screen.
   // Primes in bitwise ops give deterministic pseudo-random spread. y ≥ 50 clears HUD.

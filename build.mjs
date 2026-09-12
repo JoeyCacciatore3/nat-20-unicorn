@@ -12,6 +12,7 @@ mkdirSync('dist', { recursive: true });
 
 console.log('0/6 map audit (Return Law) + spike overlap + PAL/gear-range check…');
 run('node tools/map-audit.mjs');    // FAILS the build if any reachable spot cannot return to a campfire
+run('node tools/map-geometry.mjs'); // FAILS the build on geometry-math violations (platform welded to a ceiling / buried in terrain / cramped vertical stacking) — see the tool header for the derived constants
 run('node tools/spike-audit.mjs');  // FAILS the build if any chest or hand-placed DECO renders on a spike tile
 run('node tools/pal-check.mjs');    // FAILS the build if PAL length and the spawnDrop gear-color range drift apart
 

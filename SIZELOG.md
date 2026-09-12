@@ -1797,3 +1797,7 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-12  12643 B  (95.0%)  free: 669 B  (batch 36 SHIPPED — git 4a76691 / Wavedash mn7avv6bvvzh7hc7r73dda8mz58e9pm4)
 2026-09-12  12809 B  (96.2%)  free: 503 B  (batch 37 SHIPPED — git 3f58b9c / Wavedash mn77zd3d8pmjbe1nzzg8z9kqdh8e9fmz — mobile portrait rotate prompt)
 2026-09-12  12648 B  (95.0%)  free: 664 B  (batch 38 SHIPPED — git 95520c1 / Wavedash mn795432nrhw7c72zbvy3nhapn8e8p5h — functional spine-and-loop map rebuild + platform spacing + mobile canvas-fit fix)
+2026-09-12  12664 B  (95.1%)  free: 648 B
+2026-09-12  12660 B  (95.1%)  free: 652 B
+2026-09-12  12660 B  (95.1%)  free: 652 B
+2026-09-12  12775 B  (96.0%)  free: 537 B
