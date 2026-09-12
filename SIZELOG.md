@@ -1800,4 +1800,4 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-12  12664 B  (95.1%)  free: 648 B
 2026-09-12  12660 B  (95.1%)  free: 652 B
 2026-09-12  12660 B  (95.1%)  free: 652 B
-2026-09-12  12775 B  (96.0%)  free: 537 B
+2026-09-12  12775 B  (96.0%)  free: 537 B  (batch 39 SHIPPED — git 79a7fe5 / Wavedash mn74s1g4rpv6qss2jqmmf7nr6h8e8exv — cave network rebuild + sky highway + cave voids + map-geometry gate; H34->38)
