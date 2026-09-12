@@ -21,7 +21,6 @@ const E = (m) => errs.push(m), Wn = (m) => warns.push(m);
 
 // platform rects (v==2) with their painted footprint
 const plats = seeds.MAP.filter(r => r[4] === PLAT).map(([x, y, w, h]) => ({ x, y, w, h: h || 1, x2: x + w - 1, y2: y + (h || 1) - 1 }));
-const solids = seeds.MAP.filter(r => r[4] === undefined || r[4] === SOLID).map(([x, y, w, h]) => ({ x, y, w, h, x2: x + w - 1, y2: y + h - 1 }));
 
 // ============ RULE 1 — CEILING CLEARANCE / HEADROOM ============
 // Every platform tile must have air above it. 0 air = platform welded to a ceiling (the cave drop-down complaint);

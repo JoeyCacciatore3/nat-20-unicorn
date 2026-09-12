@@ -87,6 +87,11 @@ const MEADOW = {
     [161, 12, 6, 1, 2],                    // meadow-rest upper tier (3 above the t162 h3 hill top) — alcoves r12 → high-route ridge r11 without dropping to r15
     [255, 11, 5, 1, 2],                    // hub-east upper island (DJ rise 4 from the t258 r15 step)
     [277, 11, 5, 1, 2],                    // ORANGE-approach upper island (4 above the t278 h3 hill top; rise 3 from the t282 r14 step)
+    // ---- SKY FREEDOM PASS (B44) — mid-gap steps in the 5 remaining sparse stretches; t51 also FIXES a latent rise-4 law break (r15 t56 → r11 t46 westbound had no legal step)
+    [51, 13, 4, 1, 2],                     // CANOPY-west chain step: r15 t56 → r13 → r11 t46 (rises 2+2, gaps 1)
+    [111, 14, 4, 1, 2],                    // hop-step over the t115-117 cave pit (r13 t106 ↔ r15 t116, rises 1)
+    [331, 13, 4, 1, 2],                    // EASTRUN chain step above the spike-guarded East cave entry (r12 t326 ↔ r14 t336)
+    [392, 13, 4, 1, 2], [403, 14, 4, 1, 2],// summit-approach second tier: r12 t386 → r13 → r15 t396 → r14 → r13 t408
     [56, 15, 5, 1, 2], [66, 15, 5, 1, 2], [76, 15, 5, 1, 2], [86, 15, 5, 1, 2], [98, 16, 4, 1, 2],   // CANOPY→MEADOW span (past the t92 mesa)
     [124, 14, 5, 1, 2],                                                                                 // MEADOW arena→alcoves link
     [182, 13, 5, 1, 2], [190, 14, 5, 1, 2],                                                             // high-route→RED-approach link

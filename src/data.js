@@ -37,7 +37,7 @@ export const FOECOL = [, 5, 9, 7, 3, 2, 6];
 //   TIER 3 CHARGE → k3 (12hp heavy) · k5 (6hp glass)      — telegraphed dash (windup-tell → dash → cooldown)
 // (size UNIFORM — cz 4 for all foes + bosses.) Render sprite is still per-k (k1 walker-small · k2 walker-tent
 // · k3 caster · k4 walker-fast · k5 walker-hop · k6 walker-spike) — ALL grounded walkers, COSMETIC only, decoupled from tier.
-export const FT = [, [4, 3, 2], [8, 4, 1], [12, 5, 16], [5, 3, 2], [6, 4, 16], [9, 4, 1]];   // FT[k]=[hp,dm,capBits] — tier map above.
+export const FT = [, [4, 3, 2], [10, 4, 1], [14, 6, 16], [6, 3, 2], [8, 5, 16], [11, 4, 1]];   // FT[k]=[hp,dm,capBits] — tier map above. B44 tune: hunter kinds +2hp (chargers +1dm) — early/mid game was too forgiving (LV2 trash died in 2-3 hits); k1 stays 4/3 (Goomba law: first foe + sky patrollers remain the forgiving teach targets). lvl² term still dominates late.
 // DARKCORN bosses — all named just 'DARKCORN'; differentiated by horn + mane color = their RBC rainbow band.
 // Count = RBC.length (data-driven; add an RBC entry + a seeds.bosses placement to add one).
 // RBC values are PAL indices (bosses render via drawU + col swap — one canonical unicorn shape everywhere).
