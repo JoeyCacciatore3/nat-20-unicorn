@@ -1802,3 +1802,6 @@ All changes playtested in-browser before shipping. Major rewires:
 2026-09-12  12660 B  (95.1%)  free: 652 B
 2026-09-12  12775 B  (96.0%)  free: 537 B  (batch 39 SHIPPED — git 79a7fe5 / Wavedash mn74s1g4rpv6qss2jqmmf7nr6h8e8exv — cave network rebuild + sky highway + cave voids + map-geometry gate; H34->38)
 2026-09-12  12805 B  (96.2%)  free: 507 B  (batch 40 SHIPPED — git 3b5fe16 / Wavedash mn73jsdyt2fjqb6cr3jswt61958e8jpa — varied-height hills + boss enclosures, doubled 2-tall cave tunnels + central 2-chamber network, mushrooms on outdoor ground (RULE5); save v44->v45 fresh-data reset + wavedash clear-playtest-data (achievements/leaderboards/stats/saves wiped))
+2026-09-12  12818 B  (96.3%)  free: 494 B
+2026-09-12  12814 B  (96.3%)  free: 498 B
+2026-09-12  12873 B  (96.7%)  free: 439 B

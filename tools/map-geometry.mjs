@@ -97,6 +97,48 @@ for (let i = 0; i < seeds.bounce.length; i++) for (let j = i + 1; j < seeds.boun
   if (a[1] === b[1] && Math.abs(a[0] - b[0]) < 6) Wn(`RULE5 MUSHROOM [${a}] & [${b}] are <6t apart on the same row — clustered, spread them out`);
 }
 
+// ============ RULE 6 — FOE/BOSS SEED VALIDITY (audit-D hardening, 2026-09-12) ============
+// Foes are 20px (1.25t) tall; conventions: ground seeds use y = feetRow (floor at y+1), platform seeds use y = the platform row.
+// ERROR: seed cell solid/spike (embedded, or spawning inside a hazard). ERROR: no standable support (mid-air seed).
+// WARN: solid directly overhead (head-cramped — center-height wall checks can misread low ceilings).
+for (const [x, y] of [...seeds.foes, ...(seeds.foesX || []), ...seeds.bosses]) {
+  const tag = `foe[${x},${y}]`, cell = at(x, y), below = at(x, y + 1);
+  if (cell === SOLID) E(`RULE6 FOESEED ${tag}: seeded inside solid terrain`);
+  else if (cell === SPIKE) E(`RULE6 FOESEED ${tag}: seeded inside a spike tile`);
+  if (cell !== PLAT && below !== SOLID && below !== PLAT) E(`RULE6 FOESEED ${tag}: no standable support at (${x},${y + 1}) — mid-air seed (spike/air below)`);
+  if (at(x, y - 1) === SOLID) Wn(`RULE6 FOESEED ${tag}: solid ceiling directly overhead — 20px foe is head-cramped here`);
+}
+
+// ============ RULE 7 — SPIKE TRAP-CLASS POCKETS (audit-D hardening) ============
+// A foe resting ON a spike run (post-B41 they stand on spike tops) escapes by hopping sideways; walls >=2t
+// above spike-top level on BOTH sides make escape impossible (hop apex ~2.7t but wall-snap pins at center height —
+// the old RED-moat permanent-trap class). Advisory: code now tolerates it, but it still reads as jank if recreated.
+{
+  const wallH = (x, r) => { let h = 0; while (h < 4 && at(x, r - 1 - h) === SOLID) h++; return h; };   // solids stacked above spike-top level
+  for (let r = 1; r < H; r++) for (let x = 1; x < W - 1; x++) {
+    if (at(x, r) !== SPIKE || at(x - 1, r) === SPIKE) continue;    // run start only
+    let x2 = x; while (at(x2 + 1, r) === SPIKE) x2++;
+    const lw = wallH(x - 1, r), rw = wallH(x2 + 1, r);
+    if (lw >= 2 && rw >= 2) Wn(`RULE7 SPIKETRAP: spike run [${x}-${x2},${r}] walled ${lw}t left / ${rw}t right at spike-top level — foes that fall in cannot hop out (trap-class pocket)`);
+  }
+}
+
+// ============ RULE 8 — BOUNCE-PAD LAUNCH TARGET (audit-D hardening, advisory) ============
+// A pad whose bounce envelope (rise<=9t, drift ~±5t) contains NO landing surface is a pure horizontal launcher —
+// legal (4 exist by design) but unsignposted; list them so a future pad edit can't silently strand one.
+{
+  const horiz = [];
+  for (const [x, y] of seeds.bounce) {
+    let hit = 0;
+    for (let dy = 2; dy <= 9 && !hit; dy++) for (let dx = -5; dx <= 5 && !hit; dx++) {
+      const v = at(x + dx, y - dy);
+      if ((v === PLAT || v === SOLID) && at(x + dx, y - dy - 1) === AIR) hit = 1;   // standable top within the bounce envelope
+    }
+    if (!hit) horiz.push(`[${x},${y}]`);
+  }
+  if (horiz.length) Wn(`RULE8 PADTARGET: ${horiz.length} pad(s) with no landing surface in the bounce envelope (horizontal launchers — verify intentional): ${horiz.join(' ')}`);
+}
+
 // ---- report ----
 console.log('=== MAP GEOMETRY (stable-math validator) ===');
 console.log(`  platforms: ${plats.length} · ERRORS: ${errs.length} · warnings: ${warns.length}`);

@@ -29,7 +29,7 @@ export const tile = (tx, ty) => (tx < 0 || tx >= W || ty >= H) ? 1 : ty < 0 ? 0 
 
 const box = (x, y, w, h, v = 1) => { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) grid[j * W + i] = v; };
 
-// ---------- MEADOW (480×34 spine-and-loop world, all CORN bosses) ---------
+// ---------- MEADOW (480×38 spine-and-loop world, all CORN bosses) ---------
 const MEADOW = {
   MAP: [
     // ===== SPINE — 3-band skeleton =====
@@ -41,12 +41,12 @@ const MEADOW = {
     [220, 18, 3, 1, 3], [260, 18, 3, 1, 3],                      // HUB paddock pale — flank the safe pocket (x223-259, spawn 240 + GREATCORN 245). Foes edge-turn at spikes; player hops out (teaches the first jump).
     [200, 18, 3, 1, 3],                                          // RED moat (last hop into the arena)
     [292, 18, 3, 1, 3],                                          // ORANGE moat
-    [312, 18, 4, 1, 3], [324, 18, 4, 1, 3], [336, 18, 4, 1, 3],  // EASTRUN PIT-GAUNTLET — spike-hop run (the "test")
+    [312, 18, 4, 1, 3], [324, 18, 4, 1, 3], [336, 18, 4, 1, 3],  // EASTRUN PIT-GAUNTLET — spike-hop run (the "test"). NOTE: the 3rd strip is INTENTIONALLY carved to a single spike (x336) by the East cave entry shaft below (paint-then-carve) — one spike guarding the cave drop at 337-339.
     [56, 18, 3, 1, 3],                                           // CANOPY arena moat
-    // ---- HILLS (solid, rising from the ground at VARIED heights h2-h5 for terrain diversity) — REQUIRED hops so flat stretches aren't a stroll; several FLANK surface bosses into enclosed "obvious boss zones." Tops are walkable route-steps; foes edge-turn at them; DECO greens each top. ----
-    [92, 14, 4, 4, 1], [162, 15, 4, 3, 1], [278, 16, 4, 2, 1],   // core mesas, now VARIED: west-meadow arena (h4) · meadow rest (h3) · eastrun intro (h2)
-    [22, 14, 4, 4, 1], [62, 15, 4, 3, 1], [82, 16, 4, 2, 1],     // PEAK/CANOPY: BLUE east wall (h4, encloses BLUE vs the west border) · canopy approach (h3) · west-meadow bump (h2)
-    [178, 14, 4, 4, 1], [203, 16, 3, 2, 1],                      // MEADOW: high-route ridge (h4) · RED west wall (h2, pockets RED vs the cave mouth)
+    // ---- HILLS (solid, h3-h4 — ALL tall enough to be real TACTICAL terrain: block CHARGE dashes, eat SHOOT bolts (bolts die on solid only), foes edge-turn at them; h2 bumps retired 2026-09-12 — too short to gate anything) — REQUIRED hops so flat stretches aren't a stroll (h3+ needs the double jump). Tops are walkable route-steps; DECO greens each top. ----
+    [92, 14, 4, 4, 1], [162, 15, 4, 3, 1], [278, 15, 4, 3, 1],   // core mesas: west-meadow arena (h4) · meadow rest (h3) · eastrun intro (h3, was h2)
+    [22, 14, 4, 4, 1], [62, 15, 4, 3, 1], [82, 15, 4, 3, 1],     // PEAK/CANOPY: BLUE east wall (h4, encloses BLUE vs the west border) · canopy approach (h3) · west-meadow (h3, was h2)
+    [178, 14, 4, 4, 1], [203, 15, 3, 3, 1],                      // MEADOW: high-route ridge (h4) · RED west wall (h3, was h2 — pockets RED vs the cave mouth; safe beside the moat: foes now rest ON spike tops and exit over the 1-high west side)
     [306, 15, 4, 3, 1], [430, 14, 4, 4, 1],                      // EAST: ORANGE east gateway (h3, pockets ORANGE before the gauntlet) · summit ridge (h4 — DJ-returnable; h5 walls off DJ return)
 
     // ============ WEST ARM (hub → PEAK: gentle → hardest) ============
@@ -82,6 +82,12 @@ const MEADOW = {
     [460, 9, 6, 1, 2],                     // summit crown ledge — chest 15 (beside the landing)
 
     // ============ SKY HIGHWAY — connective platforms so the WHOLE sky is a traversable PARALLEL route (hop platform→platform end-to-end, gaps<=7t) OR use the ground. Every platform is a LINK, not decoration; the mesas (t92/162/278) double as route steps. ============
+    // ---- SKY DEPTH PASS (2026-09-12): +5 platforms from grid gap-analysis — the ONE true dead zone (x20-35 PEAK↔CANOPY needed a TRI-jump; now hop-chained) + a SECOND ALTITUDE TIER (r11-12 islands ≥3 above the r14-15 chain, DJ rise) over the west corridor, meadow rest, and the hub→east corridor so free sky-hopping has vertical texture, not just a flat lane. All placements: headroom ≥2, stack ≥3, gap ≤7, rise ≤3, no spike overlap. ----
+    [29, 14, 5, 1, 2],                     // PEAK↔CANOPY link — BLUE hill top (t22-25 r14) → here → canopy terrace t36 (was a 10t TRI-gap, the only sky dead zone)
+    [71, 12, 5, 1, 2],                     // west-corridor upper island (DJ rise 3 from the t66/t76 r15 span)
+    [161, 12, 6, 1, 2],                    // meadow-rest upper tier (3 above the t162 h3 hill top) — alcoves r12 → high-route ridge r11 without dropping to r15
+    [255, 11, 5, 1, 2],                    // hub-east upper island (DJ rise 4 from the t258 r15 step)
+    [277, 11, 5, 1, 2],                    // ORANGE-approach upper island (4 above the t278 h3 hill top; rise 3 from the t282 r14 step)
     [56, 15, 5, 1, 2], [66, 15, 5, 1, 2], [76, 15, 5, 1, 2], [86, 15, 5, 1, 2], [98, 16, 4, 1, 2],   // CANOPY→MEADOW span (past the t92 mesa) — was a 54t void
     [124, 14, 5, 1, 2],                                                                                 // MEADOW arena→alcoves link
     [182, 13, 5, 1, 2], [190, 14, 5, 1, 2],                                                             // high-route→RED-approach link
@@ -134,10 +140,10 @@ const MEADOW = {
 
   bounce: [[14, 17], [48, 17], [126, 17], [154, 17], [300, 17], [330, 17], [420, 17], [458, 17], [190, 17], [276, 17], [408, 17], [73, 17], [110, 17], [384, 17]],   // BOUNCE MUSHROOMS — ALL on the outdoor ground surface (row 17, air cell + solid below, open sky above), never underground/buried. Enforced by tools/map-geometry.mjs RULE5. launch -510 keeps pl.air=0 so DJ/TRI stack at apex.   // BOUNCE MUSHROOMS (launch -510, keeps pl.air=0 so DJ/TRI stack at apex). >=1 per zone; each ENABLES a specific climb, not decoration. [388,36]=East deep-hall express-exit, [120,29]=West antechamber express-exit.
   bosses: [                              // 7 CORN bosses; 3rd field bi picks the rainbow band + palette
-    [206, 16, 0],   // RED — MEADOW arena (past the spike moat) — first west boss [TEACH]
-    [298, 16, 1],   // ORANGE — EASTRUN arena (past the spike moat) — first east boss [TEACH]
+    [206, 17, 0],   // RED — MEADOW arena (past the spike moat) — first west boss [TEACH] (y 16→17: feet-row convention, was settling 1t on spawn)
+    [298, 17, 1],   // ORANGE — EASTRUN arena (past the spike moat) — first east boss [TEACH] (y 16→17: feet-row convention)
     [45, 6, 2],     // YELLOW — CANOPY crest (sky climb) [TWIST]
-    [16, 16, 3],    // BLUE — PEAK base (far-west, hardest west)
+    [16, 17, 3],    // BLUE — PEAK base (far-west, hardest west) (y 16→17: feet-row convention)
     [160, 28, 4],   // VIOLET — West Boss Hall floor r29 (shallow VIOLET-tinted cave)
     [454, 6, 5],    // GREEN — SUMMIT landing (sky climax) — far-right-top bookend
     [362, 35, 6],   // INDIGO — East Deep Hall West floor r36 (deep INDIGO-tinted cave)
@@ -166,19 +172,23 @@ const MEADOW = {
   ],
   foes: [
     // SKY / CLIMB foes — ELEVATION RULE: gentle hop kinds only (k1/k4); traversal is the challenge.
-    [8, 15, 1], [14, 12, 4], [8, 9, 1], [14, 6, 4],            // PEAK climb
-    [38, 15, 1], [44, 11, 4],                                   // CANOPY climb
-    [104, 13, 1], [172, 11, 4],                                 // MEADOW sky
-    [312, 12, 1], [324, 12, 4],                                 // EASTRUN gauntlet sky (arc)
-    [420, 11, 1], [432, 9, 4],                                  // SUMMIT staircase
-    [450, 7, 1],                                                // GREEN arena (hop, on the landing)
+    // 4th element 1 = PATROLLER (2026-09-12 role separation): sky/platform foes are pure traversal
+    // obstacles — walk + edge-turn + contact damage, NEVER aggro/hop-chase. Ground foes hunt (leashed);
+    // bosses latch. Three legible tiers, zero overlap. ([450,7] GREEN-landing foe stays a HUNTER — it's
+    // an arena fight participant, not a platform dweller.)
+    [8, 15, 1, 1], [14, 12, 4, 1], [8, 9, 1, 1], [14, 6, 4, 1], // PEAK climb (patrol)
+    [38, 15, 1, 1], [44, 11, 4, 1],                             // CANOPY climb (patrol)
+    [104, 13, 1, 1], [172, 11, 4, 1],                           // MEADOW sky (patrol)
+    [312, 12, 1, 1], [324, 12, 4, 1],                           // EASTRUN gauntlet sky arc (patrol — timing obstacles over the spike run)
+    [420, 11, 1, 1], [432, 9, 4, 1],                            // SUMMIT staircase (patrol)
+    [450, 7, 1],                                                // GREEN arena (HUNTER — boss-arena participant on the landing)
     // ARENA / GAUNTLET ground foes — flat carries the tough kinds (charge k3/k5, shoot k2/k6). CLUSTERED, none in rests/hub.
-    [56, 17, 3], [70, 17, 5], [80, 17, 2],                      // CANOPY arena
+    [52, 17, 3], [70, 17, 5], [80, 17, 2],                      // CANOPY arena — k3 was [56,17] = ON the x56-58 spike moat (RULE6): moved 4t west onto real floor, still guards the crossing
     [96, 17, 6], [110, 17, 3], [120, 17, 5],                    // MEADOW combat arena
     [198, 17, 2], [190, 17, 6],                                 // RED arena
-    [270, 17, 3],                                               // EASTRUN intro
+    [270, 17, 1],                                               // EASTRUN intro — GOOMBA LAW (tutorial research 2026-09-12): the FIRST ground foe a new player touches is a k1 hopper (4hp, stompable, gentle leap) — a safe practice target, NOT a tier-3 charger. Chargers debut later in the run.
     [290, 17, 5], [296, 17, 2],                                 // ORANGE arena
-    [308, 17, 6], [320, 17, 3],                                 // EASTRUN gauntlet ground (in the spike-gap lanes)
+    [310, 17, 6], [320, 17, 3],                                 // EASTRUN gauntlet ground (in the spike-gap lanes) — k6 was [308,17] = EMBEDDED in the x306-309 mesa (RULE6): moved to the mesa's east foot, snipes the gauntlet as intended
     [428, 17, 5], [438, 17, 2],                                 // SUMMIT ground
     [444, 17, 6],                                               // GREEN arena ground
   ],
@@ -192,12 +202,12 @@ const MEADOW = {
     [344, 28, 2], [348, 28, 6],                                // EAST upper chamber — floor foes
     [352, 35, 2], [360, 35, 3], [382, 35, 5], [386, 35, 3],    // EAST deep halls — floor foes (seat r35 → floor r36), populate the deep chambers
     // Surface/sky fill to complete 9-of-each (hop kinds on platforms per elevation rule; charge/shoot on flat).
-    [172, 14, 1], [268, 14, 1],                                // k1 fill (sky)
-    [116, 15, 4], [282, 14, 4], [408, 13, 4],                  // k4 fill (sky)
+    [172, 14, 1, 1], [268, 14, 1, 1],                          // k1 fill (sky — patrol, same rule as seeds.foes sky group)
+    [116, 15, 4, 1], [282, 14, 4, 1], [408, 13, 4, 1],         // k4 fill (sky — patrol)
     [34, 17, 2], [186, 27, 2],                                 // k2 fill — 2nd seated in the CENTRAL west pocket (floor foe r27→r28), 3rd in the EAST deep hall
     [88, 17, 3], [420, 17, 3],                                 // k3 fill (ground) — 3rd relocated into the EAST deep hall
-    [144, 17, 5], [286, 17, 5], [432, 17, 5],                  // k5 fill (ground) — 4th relocated into the EAST deep hall
-    [64, 17, 6], [152, 17, 6], [460, 17, 6],                   // k6 fill (ground) — 4th relocated into the EAST upper chamber
+    [144, 17, 5], [286, 17, 5], [436, 17, 5],                  // k5 fill (ground) — 4th relocated into the EAST deep hall · 3rd was [432,17] = EMBEDDED in the x430-433 mesa (RULE6): moved to its east foot
+    [59, 17, 6], [152, 17, 6], [460, 17, 6],                   // k6 fill (ground) — 4th relocated into the EAST upper chamber · 1st was [64,17] = EMBEDDED in the x62-65 mesa (RULE6): moved to the moat-mesa ledge, snipes the crossing westward
   ],
 };
 

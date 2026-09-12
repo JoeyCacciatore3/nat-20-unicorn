@@ -49,7 +49,7 @@ let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer 
 const J_KEYS = ['Space', 'KeyW', 'ArrowUp'];        // JUMP — Space canonical, W (WASD up), ArrowUp (arcade tradition)
 
 const keys = new Set();
-let jbuf = 0, started = 0, touch = 0;
+let jbuf = 0, started = 0, touch = 0, vh = 0;   // vh = verb-hint one-shot (session-scoped, NOT in resetTransient/save): first hunter aggro on DESKTOP pops "J DASH / L SHOOT" once — point-of-need verb naming (touch already has labeled buttons)
 // ---------- title / name-entry / class-select flow ---------
 // phase 0 = title (tMode: 0 slot list / 1 name entry), 2 = playing (started=1).
 let phase = 0, ent = '', pName = 'HORSE';
@@ -67,7 +67,7 @@ const sMeta = () => { try { const d = JSON.parse(localStorage['uni_s0'] || '0');
 // FLOW HELPERS — the ONLY code paths that change phase.
 // route here; one source of truth so the begin/resume transitions can't drift.
 const beginGame = () => {
-  if (!ent) return; NI.blur(); pName = ent;
+  if (!ent) return; NI.blur(); pName = ent; tMode = 0;   // tMode reset: name entry is OVER — leaving it at 1 during gameplay made the M-mute guard below impossible to express.
   // Device-swap REMOVED (): INTRO no longer teaches move/jump keys, so keyboard vs touch prompts are unneeded — one identical script on browser + mobile.
   phase = 2; started = 1; talk(INTRO);   // NO initial save — the first save fires seconds later inside the GREATCORN LV1→2 boost (gainXp→save on INTRO close). Quitting mid-intro leaves the slot empty (clean re-start), no half-state.
 };  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
@@ -100,7 +100,7 @@ addEventListener('keydown', (e) => {
   }
   if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
   boot();                                                    // resume audio on any key (autoplay policy)
-  if (e.code === 'KeyM') { mute ^= 2; return; }              // M = global sound ON/OFF (mirrors the 🔊 button); works title/menu/gameplay (name entry handled above)
+  if (e.code === 'KeyM' && tMode !== 1) { mute ^= 2; return; }   // M = global sound ON/OFF (mirrors the 🔊 button); works title/menu/gameplay. tMode guard: during DESKTOP name entry the letter M must reach titleKey() below (typing "MAX" was toggling mute + eating the M — mobile was fine, the hidden input returns above). beginGame/exit both reset tMode.
   if (savePop) { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') savePop = 3 - savePop; else if (e.code === 'Enter' || e.code === 'Space') { if (savePop === 2) { save(); paused = helpOn = savePop = started = phase = tMode = sPop = 0; } else savePop = 0; } else if (e.code === 'Backspace' || e.code === 'Escape' || e.code === 'KeyP') savePop = 0; return; }   // SAVE/EXIT popup (2-choice, mirrors sPop/dPop): ←→ toggle · Enter confirms (CONTINUE=resume / EXIT GAME=save+title) · Esc/Backspace/P = back to game
   if (dPop) { if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') dPop = 3 - dPop; else if (e.code === 'Enter' || e.code === 'Space') { if (dPop === 2) { inv.splice(aRow - 5, 1); sfx(420, 240, .1, 'sine', .1); } dPop = 0; } else if (e.code === 'Backspace' || e.code === 'Escape' || e.code === 'KeyP') dPop = 0; return; }   // DROP confirm: ←→ toggle (BACK is the safe default), Enter destroys the gear ONLY when DROP is highlighted, Esc/Backspace/P cancels
   if (helpOn) { helpOn = 0; return; }
@@ -332,14 +332,14 @@ const quaff = (t) => { if (deathT > 0) return; if (t === 0) { if (hpPot > 0 && h
 // GUARD: gear-drop color range in spawnDrop (`Math.random() * 16`) is coupled to
 // PAL.length (16) — ALL indices 0..15 equippable (white/PAL[0] included; it's just the unequipped body appearance, not a reserved default — equipped-ness is tracked by eq[s], not col). pal-check.mjs enforces this pairing (swatches - base === range).
 // Outline text helper (module-scope so pause overlay AND creation portrait can both use it)
-const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); };   // lineJoin round: default 'miter' shot long spikes off sharp glyph vertices (M/P/X) — the "protruding black ink".
+const T2 = (t, x, y) => { ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 1; ctx.lineJoin = 'round'; ctx.strokeText(t, x, y); ctx.fillText(t, x, y); ctx.lineJoin = 'miter'; };   // lineJoin round: default 'miter' shot long spikes off sharp glyph vertices (M/P/X) — the "protruding black ink". SELF-CLEANING (restores miter): T2 was the last render-state leak — future stroked shapes get the canvas default they expect.
 // Stat bar: dark track + coloured fill to `frac` (clamped 0..1 so vitals > max render as full, never overflow).
 const bar = (x, y, w, h, frac, c) => { ctx.fillStyle = '#2a2a33'; ctx.fillRect(x, y, w, h); ctx.fillStyle = c; ctx.fillRect(x, y, w * Math.min(1, frac), h); };
 // Full-screen dim overlay — backs the title / save popup / help panels (NOT death: the death beat uses skull particles, no fade).
 const fade = (a) => { if (a > 0) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0, 0, VW, VH); } };
 // Nested rainbow arc — 7 RC semicircles, radius r shrinking by `step` per band.
 const rArc = (cx, cy, r, step) => { for (let i = 0; i < 7; i++) { ctx.strokeStyle = RC[i]; ctx.beginPath(); ctx.arc(cx, cy, r - i * step, Math.PI, 0); ctx.stroke(); } };
-const arch = (cx, cy) => { ctx.strokeStyle = '#17131f'; ctx.lineWidth = 23; ctx.beginPath(); ctx.arc(cx, cy, 69, Math.PI, 0); ctx.stroke(); ctx.lineWidth = 3; rArc(cx, cy, 78, 3); ctx.fillStyle = '#17131f'; ctx.fillRect(159, cy, 24, 1); ctx.fillRect(297, cy, 24, 1); };   // framed rainbow arch (black frame + 7 bands + feet caps) — SHARED by title screen + boss-win flourish so they're pixel-identical
+const arch = (cx, cy) => { ctx.strokeStyle = '#17131f'; ctx.lineWidth = 23; ctx.beginPath(); ctx.arc(cx, cy, 69, Math.PI, 0); ctx.stroke(); ctx.lineWidth = 3; rArc(cx, cy, 78, 3); ctx.fillStyle = '#17131f'; ctx.fillRect(cx - 81, cy, 24, 1); ctx.fillRect(cx + 57, cy, 24, 1); };   // framed rainbow arch (black frame + 7 bands + feet caps) — SHARED by title screen + boss-win flourish so they're pixel-identical. Feet caps are cx-relative (were hardcoded to the VW/2 call site).
 // Per-character rainbow title text (bold 30px, black outline, even spacing) centered on VW/2 at baseline y.
 const rText = (s, y, f) => {
   ctx.font = 'bold ' + (f || 30) + 'px monospace'; ctx.textAlign = 'left'; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.lineWidth = 2;
@@ -564,8 +564,7 @@ const fresh = () => {
   pending = 0; st = [2, 2, 2, 2, 2]; col = [0, 0, 0, 0];   // base stats start at 2 (was 1) — a guaranteed floor on every stat (STR 2 → stomp 2 from the first hit); this IS the early-game head start, so no bonus at the level-up.
   oc = 0; pName = 'HORSE';
   kc = dd = rt = 0;
-  aRow = 0;   // reset menu cursor (bag selection is derived from aRow, nothing else to clear)
-  shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;
+  aRow = 0;   // reset menu cursor (bag selection is derived from aRow, nothing else to clear); entity arrays cleared in resetTransient above
   chests = seedChests();
   foes = seedFoes();
   pl.x = SX; pl.y = SY;
@@ -579,6 +578,8 @@ const resetTransient = () => {
   pl.vx = pl.vy = pl.air = pl.coyote = pl.inv = pl.gr = pl.t = 0;
   pl.face = 1;
   jbuf = dashT = dashCd = dropT = deathT = hs = shk = hf = luT = dq = di = tqi = navCD = 0;
+  shots.length = fbolts.length = parts.length = flies.length = drops.length = 0;   // entity arrays are transient too — clearing here (not just in fresh()) fixes the EXIT→CONTINUE bleed where stale bolts/drops from the previous session resumed after load(), and covers death-respawn uniformly.
+  cam.x = SX - VW / 2; cam.y = SY - VH / 2;   // snap camera to the paddock spawn — all three callers (fresh/load/respawn) put the player there; without this, CONTINUE lerped the camera across the map from its stale position.
 };
 const interact = () => { if (nearNpc) { talk(rainbows() === bs.length ? WIN : [TALK[tqi++ % TALK.length]]); return 1; } if (nearChest >= 0) { openChest(nearChest); return 1; } };   // all 7 rainbows banked → WIN dialogue (celebration on close, adv()); else the re-talk quip cycle // JUMP-near: NPC → re-talk quip · chest → open
 // Player-level progression: every 4 levels adds 1 scale pip.
@@ -592,7 +593,7 @@ const scaleFoe = f => { f.mx = f.bit ? 20 + f.bi * 4 + lvl * lvl : FT[f.k][0] + 
 const mkFoe = (x, y, k, p) => {
   // Kind + level IS the difficulty (no elite subsystem). p = PER-PLACEMENT PATROL flag
   // (world.js seed 4th element): p=1 → Goomba (ignores player, walks + turns, contact only).
-  const [, , fb] = FT[k], f = { x, y, k, cap: fb, pat: p, vx: ASPD * (Math.random() < .5 ? 1 : -1), fl: 0, t: Math.random() * 7 };   // patrol vx = ±ASPD (uniform) — no per-kind speed field anymore.
+  const [, , fb] = FT[k], f = { x, y, hx: x, k, cap: fb, pat: p, vx: ASPD * (Math.random() < .5 ? 1 : -1), fl: 0, t: Math.random() * 7 };   // patrol vx = ±ASPD (uniform). hx = HOME ANCHOR (seed x) — hunters leash back to it when disengaged (see mover), so arena/zone populations never migrate.
   scaleFoe(f); f.hp = f.mx; return f;
 };
 // DARKCORN boss foe: now SEEDED into the world (always present + visible) instead of proximity-spawned.
@@ -615,6 +616,7 @@ const SK = ['.OOOOO.', 'OOOOOOO', 'ODDODDO', 'ODDODDO', 'OOODOOO', '.OOOOO.', '.
 const skull = (x, y, u, a = 1, bc = '#e9e3cd') => {
   ctx.globalAlpha = a;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 7; c++) { const ch = SK[r][c]; if (ch === '.') continue; ctx.fillStyle = ch === 'O' ? bc : '#161210'; ctx.fillRect(x + (c - 3.5) * u, y + (r - 4) * u, u + .4, u + .4); }
+  ctx.globalAlpha = 1;   // self-cleaning — a faded skull must not leak its alpha into subsequent draws
 };
 // ITEM DROPS — physical pickups from kills/chests.
 // Types: 0 HP potion (+10 HP), 1 MP potion (+10 MP), 5 gear.
@@ -690,6 +692,7 @@ const strike = (f, mag) => {
   if (f.hp <= 0) {
     if (f.dead) return;                                         // 2nd hit same frame — cash-out already ran
     f.dead = 1; kc++;                                                 // frame-end prune below; avoids splice-race index shift
+    if (kc === 1) spray(f.x, f.y, 18, 0, 3);                          // FIRST-KILL CELEBRATION (Valve law: amplify the first success): kill #1 EVER (kc persists in the save, so truly once) gets a victory-size rainbow burst on top of the normal skulls — closes the first combat teach loop with an unmistakable "that was right."
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(FT[f.k][0] + FT[f.k][1] + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP = DIFFICULTY-PROPORTIONAL: base HP + base DM from FT[k] (k1=7/k2=12/k3=17/k4=8/k5=10/k6=13) — was `min(k,3)*4` which paid on the KIND INDEX (capped 3), so light fast k4 (5HP) earned the same 12 as tanky k3 (12HP).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
     if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK: rainbow collectible RETIRED.
@@ -700,7 +703,7 @@ const strike = (f, mag) => {
 };
 
 // ---------- verbs ---------
-// DASH is a PURE ATTACK verb (never a traversal move — map is jump-only reachable,).
+// DASH is a PURE ATTACK verb (never a traversal move — map is jump-only reachable).
 // Dash: fixed 110px burst (.275s × 400px/s).
 function shoot() {                                              // magic bolt (gold): 3 mana.
   if (!started || paused || deathT > 0 || mn < 3) return;   // silent fail — MP bar shows the answer
@@ -751,7 +754,7 @@ const step = (dt) => {
     for (const p of parts) { p.t -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; }   // DEATH BEAT: keep particles ALIVE while the world is frozen (this block returns before the normal parts tick) — only the skulls move, so death reads clearly.
     prune(parts);
     if (deathT > 1) { dBurst -= dt; if (dBurst <= 0) { spray(pl.x + PW / 2, pl.y + PH / 2, 4, 1); dBurst = .22; } }   // ongoing skull bursts from the fallen player, ONLY during the pre-teleport beat (deathT>1). resetTransient() clears them at teleport, so nothing lingers at the paddock.
-    if (wt > 1 && deathT <= 1) { resetTransient(); deathT = 1; hp = mHP(); mn = mMN(); pl.x = SX; pl.y = SY; cam.x = SX - VW / 2; cam.y = SY - VH / 2; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); drops.length = 0; save(); }
+    if (wt > 1 && deathT <= 1) { resetTransient(); deathT = 1; hp = mHP(); mn = mMN(); pl.x = SX; pl.y = SY; foes = seedFoes(); seeds.bosses.forEach(([,,bi]) => { if (bs[bi] !== 2) bs[bi] = 0; }); save(); }   // cam snap + drops/bolts clear now live in resetTransient (shared with fresh/load)
     if (wt > 0 && deathT <= 0) talk(DEATH);   // DEATH DIALOGUE: fires ONCE when the transition completes (deathT crosses 0) — player standing at paddock, screen clear.
     return;
   }
@@ -828,7 +831,7 @@ const step = (dt) => {
     }
   }
   prune(shots);
-  // -- foe bolts (CASTER + bosses): hit the player, die on solid -
+  // -- foe bolts (CASTER + bosses): hit the player, die on SOLID only. DESIGN (operator, 2026-09-12): one-way platforms do NOT block bolts — sky platforms are terrain layers for verticality/stomps, NOT ranged cover; only solid hills/mesas eat shots. -
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
@@ -840,13 +843,15 @@ const step = (dt) => {
   for (const f of foes) {
     f.t += dt * (2 + Math.abs(f.vx) * .14); f.fl -= dt;      // UNIFIED RHYTHM: anim phase = idle base 2 + |velocity|*.14 (knobs).
     const fs = 20;
-    if (f.bit && !bs[f.bi] && Math.hypot(pl.x - f.x, pl.y - f.y) < 128) { bs[f.bi] = 1; sfx(784, 1568, .3, 'triangle', .15); }   // AGGRO LATCH: a seeded-IDLE boss (bs=0) flips to bs=1 (aggro → HUNT-FOREVER, never disengages) the first time you enter its 128px (8-tile) ring, + encounter sting.
+    if (f.bit && !bs[f.bi] && (Math.hypot(pl.x - f.x, pl.y - f.y) < 128 || f.fl > 0)) { bs[f.bi] = 1; sfx(784, 1568, .3, 'triangle', .15); }   // AGGRO LATCH: a seeded-IDLE boss (bs=0) flips to bs=1 (aggro → HUNT-FOREVER, never disengages) the first time you enter its 128px (8-tile) ring OR the first time it takes ANY damage (f.fl = unified hit-flash, set by every damage source) — shot reach (146px) exceeds the ring, so range-plinking an idle boss must provoke it, not farm it. Same latch site = same encounter sting either way.
     // ============================ FOE AI — TWO FAMILIES ============================
     // PATROLLER  (f.pat, per-placement): ignores the player entirely — walks, turns at
     //   walls/edges, contact-damage only (Goomba). Implemented as "never near" (see `near`
     //   below): it skips every attack + the pursuit re-aim and falls straight through to the
     //   shared gravity + patrol-walk + edge-turn code. No skull, no charge, no hop.
-    // HUNTER    (default): engages while `near`. ONE pursuit mover, then attack-by-cap-bit:
+    // HUNTER    (default): engages while `near`; when DISENGAGED it leashes back to its seed
+    //   anchor f.hx (guarded mover, target swap) — zones keep their populations. ONE pursuit
+    //   mover, then attack-by-cap-bit:
     //     cap&1  SHOOT  → holds at STAND-OFF (SO) and fires on cadence (rings you, no pile).
     //     cap&16 CHARGE → winds up in place (dir-lock pause = the tell), dashes THROUGH @CSPD.
     //     cap&2  HOP    → leaps in to contact — the melee bruiser; the ONLY verb that closes.
@@ -861,6 +866,7 @@ const step = (dt) => {
     // near (they never engage). Hunters need BOTH |dx|<170 AND |dy|<64 (4 tiles) — a foe more
     // than ~4 tiles above/below you disengages (stops through-floor tracking). Bosses always near.
     const near = !f.pat && (f.bit || Math.abs(pl.x - f.x) < 170 && Math.abs(pl.y - f.y) < 64);
+    if (near && !f.bit && !vh && !touch) { vh = 1; fly(0, 0, 'J DASH / L SHOOT', '#fffdf5', 0, 1); }   // VERB HINT (once/session, desktop): the first approaching hunter creates the question, this answers it — attack verbs named at point of need, in the same above-head popup channel every other feedback uses. !f.bit: bosses have near=1 at any distance (the latch), which would fire this at spawn.
     // RANGED (cap 1) — gate the COUNTDOWN, not just the shot: bosses always in range, regular foes need `near`.
     if (f.cap & 1 && near) {
       f.rc = (f.rc ?? 1.5 + Math.random()) - dt;
@@ -871,26 +877,31 @@ const step = (dt) => {
         if (!f.bit) f.vx = 0;                                   // ranged foe stops to fire.
       }
     }
-    // ATTACK: CHARGE (bit 16) — same countdown skeleton as RANGED: f.ct ticks down; in the final .5s the red-skull TELL shows and dash dir locks; at 0 it dashes @ CSPD for DA seconds, then re-arms (bosses sooner). `chg` feeds the unified mover below.
+    // ATTACK: CHARGE (bit 16) — same countdown skeleton as RANGED: f.ct ticks down; in the final .5s the dir-lock pause tell shows; at 0 it dashes @ CSPD for DA seconds, then re-arms (bosses sooner). `chg` feeds the unified mover below.
+    // COMMITTED CYCLE (near || f.ct < .5): once the wind-up starts, the cycle runs to completion even if the player leaves `near` — previously the state machine froze mid-dash with f.vx stuck at ±CSPD, sending the foe streaking across the map at 2.7× pursuit speed forever (edge-turn preserves magnitude). Undefined f.ct → false → still needs `near` to START a cycle.
     let chg = 0, sp = ASPD, dir;
-    if (f.cap & 16 && near) {
+    if (f.cap & 16 && (near || f.ct < .5)) {
       f.ct = (f.ct ?? 1.5) - dt;
       if (f.ct < .5) { f.cdir ||= Math.sign(pl.x + PW / 2 - f.x - fs / 2) || 1; chg = 1; sp = 0; }   // WIND-UP: lock dir + GATHER (vx→0 pause = the motion tell that replaced the skull)
       if (f.ct <= 0) { dir = f.cdir; sp = CSPD; }                                // DASH @ CSPD toward the locked dir (overrides the wind-up pause)
-      if (f.ct <= -DA) { f.ct = f.bit ? 1.6 : 2.1; f.cdir = 0; }                 // dash done → re-arm (boss 1.6s / foe 2.1s)
+      if (f.ct <= -DA) { f.vx = f.cdir * ASPD; f.ct = f.bit ? 1.6 : 2.1; f.cdir = 0; }   // dash done → DAMP residual dash vx to walk speed (the mover may not run again until `near` returns — without this the ±CSPD residue persists), then re-arm (boss 1.6s / foe 2.1s)
     }
-    // PURSUIT MOVER — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate. GROUNDED boss re-aims every frame (relentless); AIRBORNE boss (f.bit && f.gr = false) falls to the floor-ahead gate like regular foes → over a pit that gate fails → KEEPS launch vx = commits the hop arc (escapes pits instead of re-tracking to a dead vertical bounce).
+    // PURSUIT MOVER — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate. GROUNDED-ONLY (near && f.gr): every airborne body — foe hop, boss hop, ledge fall — COMMITS its launch arc; no mid-air re-aim. This is what makes the hop landing-gate honest (it used to be overridden mid-flight, steering committed arcs sideways into spike moats) and it retires the old airborne stand-off vx-zeroing. Boss branch folded to bare `f.bit` (f.gr guaranteed by this gate) — MEASURED 2026-09-12: fold is 4 B smaller packed; the old "kept verbatim for LZ" note was wrong.
     // STAND-OFF (`so`): a non-boss SHOOT/CHARGE hunter (cap&17) in NORMAL pursuit (sp===ASPD, not winding-up/dashing) HOLDS once within SO px — stops advancing, so ranged kinds ring the player instead of piling into melee. Bosses + HOP kinds ignore it and close.
-    if (near) { dir ??= Math.sign(pl.x + PW / 2 - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0), so = !f.bit && f.cap & 17 && !chg && sp === ASPD && Math.abs(pl.x - f.x) < SO; f.vx = so ? 0 : sp && (f.bit && f.gr || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
+    // LEASH: a disengaged HUNTER >40px from its seed anchor walks HOME through the same guarded mover (target swaps pl.x → f.hx) instead of wandering — pre-leash, idle hunters kept their last vx and migrated across zones (arenas drained, rest areas collected drifters). 40px hysteresis = a small natural pacing territory around home. Patrollers (!near forever) and bosses (near forever once aggro'd) are untouched.
+    const home = !near && !f.pat && !f.bit && Math.abs(f.hx - f.x) > 40;
+    if ((near || home) && f.gr) { dir ??= Math.sign((near ? pl.x + PW / 2 : f.hx) - f.x - fs / 2); const ax = f.x + (dir > 0 ? fs : 0), so = near && !f.bit && f.cap & 17 && !chg && sp === ASPD && Math.abs(pl.x - f.x) < SO; f.vx = so ? 0 : sp && (f.bit || !solid(ax + dir, f.y + fs / 2) && tile((ax + dir * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3) ? dir * sp : chg ? 0 : f.vx; }
     // ATTACK: HOP (bit 2) — tier-1 leapers + bosses; leap toward the player on a fixed cadence.
     if (f.cap & 2) {
       f.hop = (f.hop || 1) - dt;
       if (f.hop <= 0 && f.gr && near) {
-        // LANDING-GATE — a hop travels ~1 tile; if there's no solid/platform floor one tile ahead
-        // in the travel dir, turn back instead of launching (stops hoppers leaping into pits/spikes).
+        // LANDING-GATE — a hop arc travels ~35px (ASPD 56 × 0.62s airtime ≈ 2.2 tiles); probe the TRUE
+        // landing tile in the travel dir, turn back instead of launching (stops hoppers leaping into
+        // pits/spikes). Was s*T (1 tile) — half the real arc, so hops overshot onto spikes; now that the
+        // mover is grounded-only the committed arc lands exactly where this gate looked.
         // Bosses hop unconditionally (arenas are flat + build-audited).
         const s = Math.sign(f.vx) || 1;
-        if (f.bit || tile((f.x + fs / 2 + s * T) / T | 0, (f.y + fs + 6) / T | 0) % 3) {
+        if (f.bit || tile((f.x + fs / 2 + s * 35) / T | 0, (f.y + fs + 6) / T | 0) % 3) {
           f.vy = -JV; f.gr = 0; f.vx ||= s * ASPD; f.hop = 2.1;   // uniform launch (JV) + cadence (~1.5s ground rest, UNIFIED with the 2.1s attack re-arm beat); vx||= anti-freeze after a strike-stop
         } else { f.vx *= -1; f.hop = .3; }
       }
@@ -900,7 +911,7 @@ const step = (dt) => {
     f.gr = 0;   // per-frame ground reset: keeps gr accurate so a foe that falls off a ledge can't hop mid-air (hop-gate) and edge-turn stays correct. Re-set to 1 the same frame on landing below.
     f.vy = Math.min(FALLCAP, (f.vy || 0) + GV * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
-    if (f.vy > 0 && tile((f.x + fs / 2) / T | 0, ty) % 3) {   // %3 standable (solid/platform) — same idiom as chase/hop/edge gates; rest feet on tile top
+    if (f.vy > 0 && tile((f.x + fs / 2) / T | 0, ty)) {   // land on ANY non-air tile — solid, platform, AND spike (same rule as drops L936). Foes take no spike damage; letting them REST ON spike tops (instead of the old %3 skip that sank them a tile deep INSIDE the spikes) means a foe knocked onto a moat hops back out in ≤1 cadence — the embedded state was a permanent trap beside any 2-tall wall (hop apex 43.5px < climb). Walk/hop gates still use %3 → spikes stay a no-go moat for pathing.
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
     }
     f.x += f.vx * dt;
@@ -912,7 +923,7 @@ const step = (dt) => {
     let bl = solid(ex, f.y + fs / 2);
     if (bl) f.x = f.vx > 0 ? (ex / T | 0) * T - fs : ((ex / T | 0) + 1) * T;
     else bl = tile((ex + Math.sign(f.vx) * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3 < 1;   // %3<1: air(0) AND spikes(3) = "no safe floor"
-    if (bl && !f.bit && f.gr) f.vx *= -1;   // `!(f.cap & 2)` term dropped — always false now all kinds hop (was `f.gr || !(f.cap&2)`). hold-ground boss branch REMOVED: bosses never turn back and never park at edges — chase re-picks vx every frame; wall-snap above still prevents embedding.
+    if (bl && !f.bit && f.gr) f.vx *= -1;   // grounded non-boss reverses at walls/edges. (NOTE: only k1/k4 + bosses actually hop — cap&2 per FT; the old "all kinds hop" note here was stale.) hold-ground boss branch REMOVED: bosses never turn back and never park at edges — chase re-picks vx every grounded frame; wall-snap above still prevents embedding.
     // CONTACT — stomp from above, else immediate touch damage (no wind-up tell). hurt() self-gates
     // repeats via its 0.8s i-frame; dash (dashT>0) grants i-frames so you dash THROUGH foes safely.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
@@ -1082,7 +1093,7 @@ const draw = () => {
     if (f.bit) {                                                // DARKCORN — unchanged (renders via drawU with colour swap)
       const bd = 12, hn = RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);
-      ed = pd * .7;                                            // DARKCORN pupil tracks the player (drawU draws the eye now — line ~1075 duplicate removed; the boss inherits the shared Watching-Family eye via drawU).
+      ed = pd * .7;                                            // DARKCORN pupil tracks the player — the boss inherits the shared Watching-Family eye via drawU.
       const bc = col; col = f.fl > 0 && (f.fl * 6 | 0) & 1 ? [4, 4, 4, 4] : [bd, hn, hn, bd]; drawUo(Math.sin(f.t) * 3); col = bc;   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red (mirrors player's hf/hfc strobe at line ~1130).
     } else {
       const bod = f.fl > 0 && (f.fl * 6 | 0) & 1 ? PAL[4] : PAL[FOECOL[f.k]];   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red.
@@ -1167,7 +1178,8 @@ const draw = () => {
     ctx.lineWidth = .5 * p.z; rArc(p.x, p.y, 2.75 * p.z, .375 * p.z);   // burst rainbow — r/step/width scale together so the 7 bands stay distinct; p.z sizes it (1 = puff, big = victory)
   }
   ctx.lineWidth = 1;
-  for (const f of flies) {                                       // textAlign inherited 'center' from topHUD (last set each frame) — damage centres on origin; hud flies offset by cam to cancel world translate
+  ctx.textAlign = 'center';   // EXPLICIT — popups must centre on their origin. Previously relied on inheritance, but the last textAlign setter varies by frame path ('right' after quick-slot counts, 'left' after help rows, canvas-default 'start' after a restore) → popups drifted off-centre depending on UI state.
+  for (const f of flies) {
     ctx.font = 'bold 8px monospace';   // ALL popups uniform 8px (= HUD text); full opacity (fade-out removed) — no crit size differentiator; crit reads via its 2× number alone.
     ctx.fillStyle = f.c; const fx = f.x | 0, fy = f.y | 0;   // ALL popups world-space now: player popups anchor above the player's head in-world (set in fly), enemy damage over the foe — the old hud=screen-space cam-cancel is gone.
     ctx.fillText(f.txt, fx, fy);
