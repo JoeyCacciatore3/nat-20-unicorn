@@ -1366,11 +1366,35 @@ const draw = () => {
   ctx.restore();
 };
 
+// PORTRAIT GUARD — the game is a fixed 16:9 LANDSCAPE scene (VW×VH); in a tall portrait
+// viewport it would letterbox to a tiny centred strip (the "doesn't fit" bug), so when the
+// device is portrait we FREEZE the sim and fill the screen with a rotate-to-landscape cue.
+const rotateScreen = () => {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#1e1928'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const cx = cv.width / 2, cy = cv.height / 2, u = Math.min(cv.width, cv.height) / 9;
+  ctx.translate(cx, cy - u * 1.2);
+  ctx.strokeStyle = '#8cf'; ctx.lineWidth = Math.max(2, u * .11); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeRect(-u * .55, -u, u * 1.1, u * 2);                                           // portrait phone
+  ctx.beginPath(); ctx.arc(0, 0, u * 1.85, Math.PI * .18, Math.PI * .82); ctx.stroke();   // rotate arc
+  ctx.beginPath(); ctx.moveTo(u * 1.85, u * .35); ctx.lineTo(u * 2.25, -u * .15); ctx.lineTo(u * 1.45, -u * .1); ctx.closePath();
+  ctx.fillStyle = '#8cf'; ctx.fill();                                                     // arrowhead
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = 'bold ' + (Math.max(13, u * .5) | 0) + 'px monospace';
+  ctx.fillText('ROTATE YOUR DEVICE', cx, cy + u * 1.3);
+  ctx.fillStyle = '#8cf'; ctx.font = (Math.max(10, u * .34) | 0) + 'px monospace';
+  ctx.fillText('play in landscape', cx, cy + u * 2);
+  ctx.restore();
+};
+
 // ---------- loop ---------
 // Saves load lazily when a slot is picked; title only reads sMeta previews.
 const loop = () => {
   const now = performance.now(), dt = Math.min(.033, (now - last) / 1000); last = now;
-  step(dt); draw();
+  if (cv.height > cv.width) rotateScreen();          // portrait → rotate cue (freeze the landscape sim)
+  else { step(dt); draw(); }
   requestAnimationFrame(loop);
 };
 loop();
