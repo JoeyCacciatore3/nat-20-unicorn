@@ -16,7 +16,7 @@
 // npm run build (also runs map audit + PAL check, logs to SIZELOG.md)
 // wavedash build push -m "message"
 
-// Save: strict v45 JSON to localStorage (v45 = fresh-data reset; old v44 saves invalidated so a fresh build starts clean and never re-pushes stale stats to cleared leaderboards).
+// Save: strict v46 JSON to localStorage (v46 = fresh-data reset PAIRED with playtest wipe #3, 2026-09-12; old saves invalidated so a fresh build starts clean and never re-pushes stale stats to cleared leaderboards/achievements — a server wipe WITHOUT a version bump is cosmetic: retained local saves re-push stats on next load and trigger rules re-unlock everything).
 
 import { T, W, H, SR, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, I_MP, INTRO, TALK, DEATH, WIN } from './data.js'; // static lookup tables
@@ -490,7 +490,7 @@ const spend = () => {
 // ---------- save (single-char keys — terser mangle-props law) ---------
 const save = () => {
   localStorage['uni_s0'] = JSON.stringify({
-    v: 45, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: 46, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: st, d: pending,
     m: pName, o: oc,
     q: eq, i: inv, P: [hpPot, mpPot], K: kc, D: dd, R: rt,   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
@@ -499,7 +499,7 @@ const save = () => {
 const load = () => {
   try {
     const d = JSON.parse(localStorage['uni_s0'] || '0');
-    if (!d || d.v !== 45) return;                               // strict v45 gate — no cross-version compat (v44 fresh-data reset).
+    if (!d || d.v !== 46) return;                               // strict v46 gate — no cross-version compat (v46 = wipe-#3 fresh-data reset; see header note).
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     bs.fill(0); d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;   // fill(0) first: shorter saved arrays must not inherit stale slots from a prior in-session load
