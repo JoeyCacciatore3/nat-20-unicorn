@@ -16,14 +16,18 @@
 // npm run build (also runs map audit + PAL check, logs to SIZELOG.md)
 // wavedash build push -m "message"
 
-// Save: strict v46 JSON to localStorage (v46 = fresh-data reset PAIRED with playtest wipe #3, 2026-09-12; old saves invalidated so a fresh build starts clean and never re-pushes stale stats to cleared leaderboards/achievements — a server wipe WITHOUT a version bump is cosmetic: retained local saves re-push stats on next load and trigger rules re-unlock everything).
+// Save: strict versioned JSON to localStorage. SV is the SINGLE version source — save/load/sMeta all use it.
+// TRAP: a server data-wipe WITHOUT an SV bump is cosmetic — retained local saves re-push stats on next load
+// and trigger rules re-unlock everything. Bump SV whenever leaderboards/achievements are wiped.
+// COUPLING: build.mjs Wavedash glue carries its own version literal — it MUST match SV (grep build.mjs on bump).
+const SV = 46;
 
 import { T, W, H, SR, tile, seeds, DECO, BOUNCE, groundRow } from './world.js';    // map geometry + tiles + shared ground-snap
 import { PAL, mane3, dim, SLOT_STAT, SLOT_LBL, SC, FOECOL, FT, RBC, RC, ZB, I_MP, INTRO, TALK, DEATH, WIN } from './data.js'; // static lookup tables
 
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const VW = 480, VH = 270;
-const QSZ = 24, QHX = VW - 146, QHY = VH - 83, QMX = VW - 146, QMY = VH - 40;   // potion quick-slots = a clear LEFT COLUMN of the action grid: HP box on the SHOOT row, MP box on the DASH row (52px left of the shoot/dash column) → an obvious pair right beside the combat buttons, thumb-reachable. HP above MP (mirrors the HP-over-MP bars). QHY = VH-83 (not -92): the AB buttons render 7px BELOW their touch centre (line ~1246 visual-nudge), so both potion boxes sit a matched +2px under their button-row VISUAL centre (HP↔SHOOT 199/197, MP↔DASH 242/240).
+const QSZ = 24, QHX = VW - 146, QHY = VH - 83, QMX = VW - 146, QMY = VH - 40;   // potion quick-slots = a clear LEFT COLUMN of the action grid: HP box on the SHOOT row, MP box on the DASH row (52px left of the shoot/dash column) → an obvious pair right beside the combat buttons, thumb-reachable. HP above MP (mirrors the HP-over-MP bars). QHY = VH-83 (not -92): the AB buttons render 7px BELOW their touch centre (AB-button visual-nudge in the touch HUD), so both potion boxes sit a matched +2px under their button-row VISUAL centre (HP↔SHOOT 199/197, MP↔DASH 242/240).
 // Size the backing store from the canvas's OWN laid-out box. The canvas is position:fixed;inset:0
 // (see shipped CSS), so it fills the viewport — or Wavedash's fullscreen element when the host
 // toggles fullscreen. We measure cv.clientWidth/Height, NOT visualViewport/innerWidth: on iOS those
@@ -49,7 +53,7 @@ let SS = 1, SOX = 0, SOY = 0;                    // view transform (for pointer 
 const J_KEYS = ['Space', 'KeyW', 'ArrowUp'];        // JUMP — Space canonical, W (WASD up), ArrowUp (arcade tradition)
 
 const keys = new Set();
-let jbuf = 0, started = 0, touch = 0, vh = 0;   // vh = verb-hint one-shot (session-scoped, NOT in resetTransient/save): first hunter aggro on DESKTOP pops "J DASH / L SHOOT" once — point-of-need verb naming (touch already has labeled buttons)
+let jbuf = 0, started = 0, touch = 0, vh = 0, ch = 0, ph = 0;   // vh/ch/ph = ONE-SHOT HINT FAMILY (session-scoped, NOT in resetTransient/save; desktop-only — touch has labeled buttons/visible boxes): each names keys at point of need ONCE then never again. vh: first hunter aggro → "J DASH / L SHOOT" · ch: first chest proximity → "JUMP OPEN" · ph: first potion pickup → "I HP / O MP". Full reference lives in the ? help overlay.
 // ---------- title / name-entry / class-select flow ---------
 // phase 0 = title (tMode: 0 slot list / 1 name entry), 2 = playing (started=1).
 let phase = 0, ent = '', pName = 'HORSE';
@@ -62,13 +66,12 @@ NI.autocapitalize = 'off'; NI.autocorrect = 'off'; NI.spellcheck = false;   // o
 NI.style.cssText = 'position:fixed;left:-99px;top:0;width:1px;height:1px;font-size:16px;border:0;padding:0';
 NI.oninput = () => { ent = NI.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 8); NI.value = ent; };
 // ONE SAVE SLOT (uni_s0). sMeta reads name+level for the title label without loading.
-const sMeta = () => { try { const d = JSON.parse(localStorage['uni_s0'] || '0'); return d && d.v === 45 ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
+const sMeta = () => { try { const d = JSON.parse(localStorage['uni_s0'] || '0'); return d && d.v === SV ? d.m + ' · LV' + d.l : 0; } catch { return 0; } };
 // NAME entry: A-Z type, BACKSPACE delete (empty backspace → back to slot list), ENTER begins.
 // FLOW HELPERS — the ONLY code paths that change phase.
 // route here; one source of truth so the begin/resume transitions can't drift.
 const beginGame = () => {
   if (!ent) return; NI.blur(); pName = ent; tMode = 0;   // tMode reset: name entry is OVER — leaving it at 1 during gameplay made the M-mute guard below impossible to express.
-  // Device-swap REMOVED (): INTRO no longer teaches move/jump keys, so keyboard vs touch prompts are unneeded — one identical script on browser + mobile.
   phase = 2; started = 1; talk(INTRO);   // NO initial save — the first save fires seconds later inside the GREATCORN LV1→2 boost (gainXp→save on INTRO close). Quitting mid-intro leaves the slot empty (clean re-start), no half-state.
 };  // name REQUIRED · auto-opens the GREATCORN intro (new game only; resume skips it)
 const resumeGame = () => { load(); phase = 2; started = 1; if (pending) { paused = 1; setRow(0); } };   // CONTINUE with banked points → open STRAIGHT into the locked allocation menu. Invariant: pending>0 ⟺ locked menu open, on fresh level-up AND on reload — points can never persist "for later".
@@ -76,7 +79,7 @@ const pickSlot = () => {                                               // the si
   if (sMeta()) sPop = 1;                                               // occupied → CONTINUE / DELETE confirm (default = CONTINUE, safe)
   else { fresh(); ent = ''; tMode = 1; }                               // empty → name entry (required) → begin
 };
-const delSlot = () => { localStorage.removeItem('uni_s0'); sPop = 0; };   // wipe save; label reverts to NEW GAME on next render
+const delSlot = () => { try { localStorage.removeItem('uni_s0'); } catch { /* storage unavailable */ } sPop = 0; };   // wipe save; label reverts to NEW GAME on next render
 const titleKey = (e) => {
   if (sPop) {                                                          // CONTINUE / DELETE confirm on an occupied slot
     if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') sPop = 3 - sPop;
@@ -115,7 +118,7 @@ addEventListener('keydown', (e) => {
     else if (e.code === 'Enter' || e.code === 'Space') spend();
     return;
   }
-  if (e.code === 'Escape') { save(); savePop = 1; return; }   // Esc (in play) = save + open the SAVE/EXIT popup (keyboard mirror of the ✕ button; CONTINUE selected by default). Logical back/exit path.
+  if (e.code === 'Escape') { if (deathT > 0) return; save(); savePop = 1; return; }   // Esc (in play) = save + open the SAVE/EXIT popup (keyboard mirror of the ✕ button; CONTINUE selected by default). BLOCKED during the death beat: saving there would persist hp<=0 (walking-dead CONTINUE) and exiting would leave deathT ticking on the title (dq eats keystrokes).
   // JUMP is the universal INTERACT (NPC talk / chest open)
   if (J_KEYS.includes(e.code) && interact()) return;
   keys.add(e.code);
@@ -178,7 +181,7 @@ addEventListener('pointerdown', (e) => {
       if (vy > 188 && vy < 208) { NI.value = ent; NI.focus(); e.preventDefault(); return; }  // tap the name = OS keyboard (preventDefault stops mobile follow-up events from stealing focus back)
       if (hit(VW / 2 - 90, 213, 70, 22)) { tMode = 0; NI.blur(); return; }   // BACK (left) → slot list
       if (hit(VW / 2 + 20, 213, 70, 22)) { beginGame(); return; }            // CONFIRM (right) → begin (needs a name)
-      NI.blur(); return;                                          // tap elsewhere = dismiss keyboard ONLY, stay on name entry (was: auto-back — a stray tap kicked you to the slot list)
+      NI.blur(); return;                                          // tap elsewhere = dismiss keyboard ONLY, stay on name entry
     }
     if (hit(VW / 2 - 100, 200, 200, 16)) pickSlot();               // single slot row (y≈208)
     return;
@@ -200,13 +203,13 @@ addEventListener('pointerdown', (e) => {
   if (dq) { adv(); return; }                                     // dialogue: any tap advances one bubble (before HUD icons, so a tap can't leak through)
   // Universal in-game input — HUD icons + potions work identically in gameplay AND paused menu.
   // Wrapped in one started-guard instead of per-line, and potion hits hoisted above the paused
-  // block so the SAME two hit-tests serve both states (was: duplicated inside + outside paused).
+  // block so the SAME two hit-tests serve both states.
   if (started) {
     // Character menu = tap the top-left info panel (name/HP/MP/XP).
     if (hit(0, 0, 100, 52)) { if (paused && pending) return; paused ^= 1; if (paused) setRow(0); return; }   // menu toggle — close BLOCKED while points pending (allocation lock)
-    if (hit(VW - 60, 0, 18, 20)) { helpOn = 1; return; }   // ? HELP — leftmost (swapped 09-08; cluster order ? · 🔊 · ✕)
-    if (hit(VW - 42, 0, 20, 20)) { mute ^= 2; return; }   // 🔊 Speaker — middle (swapped 09-08; runtime audio toggle, NOT saved)
-    if (hit(VW - 22, 0, 22, 20)) { if (paused) { if (!pending) paused = 0; } else { save(); savePop = 1; } return; }   // ✕ BACK — corner — menu: close (BLOCKED while points pending, allocation lock) · gameplay: save + exit popup
+    if (hit(VW - 60, 0, 18, 20)) { helpOn = 1; return; }   // ? HELP — leftmost (cluster order ? · 🔊 · ✕)
+    if (hit(VW - 42, 0, 20, 20)) { mute ^= 2; return; }   // 🔊 Speaker — middle (runtime audio toggle, NOT saved)
+    if (hit(VW - 22, 0, 22, 20)) { if (paused) { if (!pending) paused = 0; } else if (deathT <= 0) { save(); savePop = 1; } return; }   // ✕ BACK — corner — menu: close (BLOCKED while points pending, allocation lock) · gameplay: save + exit popup (BLOCKED during death beat — same guard as Esc)
     // POTIONS (bottom-center): tap HP box → quaff(0), MP box → quaff(1).
     if (hit(QHX - 3, QHY - 3, QSZ + 6, QSZ + 6)) { quaff(0); return; }
     if (hit(QMX - 3, QMY - 3, QSZ + 6, QSZ + 6)) { quaff(1); return; }
@@ -263,7 +266,7 @@ addEventListener('contextmenu', (e) => e.preventDefault());                     
 
 // ---------- audio ---------
 let AC;
-function boot() { if (!AC) AC = new AudioContext(); AC.resume(); }        // audio-only wake — the game only starts when the title menu is accepted
+function boot() { try { if (!AC) AC = new AudioContext(); AC.resume(); } catch { /* no audio output — sfx() guards on !AC, game runs silent */ } }   // audio-only wake — the game only starts when the title menu is accepted
 let mute = 0;                                     // runtime audio toggle: 0 = on, 2 = muted.
 const sfx = (f0, f1, d, type = 'square', v = .12, dl = 0) => {
   if (mute || !AC) return; const r = .97 + Math.random() * .06;
@@ -369,7 +372,7 @@ const topHUD = () => {
   // each in its bar colour) with THREE EQUAL bars (74×9), numbers centred inside (white). XP = xp/need(), 'MAX' at CAP.
   ctx.font = 'bold 8px monospace'; ctx.textAlign = 'left';
   const hdr = 'LV' + lvl + ' ' + pName;
-  ctx.fillStyle = '#8cf'; T2(hdr, 5, 11);        // action-blue LV+name (top row). HUD points-pending PULSE removed — the every-level menu auto-open (gainXp) is now the "spend your points" prompt.
+  ctx.fillStyle = '#8cf'; T2(hdr, 5, 11);        // action-blue LV+name (top row)..
   const rcx = 5 + ctx.measureText(hdr).width + 16;                    // rainbow icon right of name
   ctx.lineWidth = 1; rArc(rcx, 11, 7, 1); T2('×' + rainbows(), rcx + 9, 11);
   const cap = lvl >= CAP, row = (y, lbl, c, frac, num) => {           // one row = colour label (left) + equal bar + white centred number
@@ -426,7 +429,7 @@ let hp = 20, xp = 0, lvl = 1;
 let mn = 20, pending = 0;
 let hpPot = 0, mpPot = 0, kc = 0, dd = 0, rt = 0;                          // POTION HOT-BAR — HP/MP quaff counts (0–5); pickups fill here, overflow spills to bag
 const CAP = 20;                                   // hard level cap — all stat gains come from level-up points (no hidden cap bonus)
-// Skill tree removed — all abilities are always-on at a fixed tier (triple jump / long dash / double shot / basic heal); only stats level up.
+// All abilities are always-on at a fixed tier (triple jump / long dash / double shot / basic heal); only stats level up.
 let hs = 0, shk = 0, hf = 0, hfc = 4;             // hs = hitstop timer (ONLY boss-kill victory freeze, 1.5s — also drives the title-style rainbow flourish in draw) · shk = screen shake (hurt only, 0.22s) · hf = INVULN-strobe timer · hfc = flash PAL index (4=red hurt · 14=green heal · 11=white dash). pl.inv now covers only stomp + respawn (silent). hf>0 OR pl.inv>0 = invulnerable.
 // Boss state: 0=IDLE (seeded + visible, passive), 1=AGGRO'd (hunting forever, one-way latch on close approach), 2=killed+banked.
 const bs = Array(RBC.length).fill(0);   // boss state per rainbow band — sized off RBC so new CORN are pure data
@@ -441,7 +444,7 @@ const gainXp = n => {
   if (lvl >= CAP) return;
   xp += n; fly(0, 0, '+' + n + ' XP', '#b06cf0', 0, 1);   // routed to the player-head popup spot (hud=1) — was below XP bar
   while (xp >= need() && lvl < CAP) {
-    xp -= need(); lvl++; pending += 2;    // +2 stat pts per level (skill points removed — abilities always-on). LV1→2 intro boost is a normal level-up.
+    xp -= need(); lvl++; pending += 2;    // +2 stat pts per level. LV1→2 intro boost is a normal level-up.
     hp = mHP(); mn = mMN(); fanfare(); save();     // full HP+MP restore + auto-save.
     foes.forEach(f => { const u = f.hp >= f.mx; scaleFoe(f); f.hp = u ? f.mx : Math.min(f.hp, f.mx); });   // RESCALE LIVE FOES + BOSSES on level-up via the shared scaleFoe(). u-flag: undamaged keep full (follow new max); damaged keep their wounds.
     luT = time + 1.8; paused = 1; setRow(0);      // LEVEL UP banner + AUTO-OPEN the char menu on the STR stat (row 0). The ALLOCATION LOCK (pending>0) then confines the cursor to stats AND blocks closing until both points are spent — the game enforces spending. Frequent early (fast levels = teaching), rare late (quadratic need). Safe: only sets flags; step() gates on paused, foe-death prune is frame-end.
@@ -449,7 +452,6 @@ const gainXp = n => {
   if (lvl >= CAP) xp = 0;
 };
 // STATS — pending-point mutators indexed 0-4 (STR/HP/MAG/DEF/LUCK).
-// stat-point spend inlined in spend() (st[aRow]++ + HP/MAG vital bump) — the STATS closure array retired with the stat array-ize.
 
 let aRow = 0;
 const EB = 5 + BAG;                        // equip-region base: worn slots (0-3) appended after inventory; stats/inv keep their row numbers.
@@ -489,24 +491,26 @@ const spend = () => {
 
 // ---------- save (single-char keys — terser mangle-props law) ---------
 const save = () => {
+  try {                                                        // storage can THROW (Safari private mode SecurityError, quota) — an escape here kills the rAF loop = console error = DQ class. Silent skip: the game plays on, save just doesn't stick.
   localStorage['uni_s0'] = JSON.stringify({
-    v: 46, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
+    v: SV, h: hp, x: xp, l: lvl, n: mn, g: bs.map(v => v === 2 ? 2 : 0),
     t: st, d: pending,
     m: pName, o: oc,
     q: eq, i: inv, P: [hpPot, mpPot], K: kc, D: dd, R: rt,   // col derived from eq at load; NOT stored (single source of truth). mute is runtime-only — never persisted.
   });
+  } catch { /* storage unavailable — play on unsaved */ }
 };
 const load = () => {
   try {
     const d = JSON.parse(localStorage['uni_s0'] || '0');
-    if (!d || d.v !== 46) return;                               // strict v46 gate — no cross-version compat (v46 = wipe-#3 fresh-data reset; see header note).
+    if (!d || d.v !== SV) return;                               // strict version gate — no cross-version compat.
     resetTransient();                                             // clean-state guarantee: no velocity / cooldown / dialogue bleed from prior session
     hp = d.h; xp = d.x; lvl = d.l; mn = d.n;
     bs.fill(0); d.g.forEach((v, i) => bs[i] = v); pName = d.m; oc = d.o;   // fill(0) first: shorter saved arrays must not inherit stale slots from a prior in-session load
     chests = seedChests();
     foes = seedFoes();
     st = d.t;
-    pl.x = SX; pl.y = SY;                                       // always respawn at paddock (no checkpoint system since 029aef5)
+    pl.x = SX; pl.y = SY;                                       // always respawn at paddock (no checkpoint system)
     pending = d.d;                                                 // persisted so a mid-lock crash never silently loses points; resumeGame re-opens the locked menu when pending>0 (invariant: pending>0 ⟺ locked menu)
     d.q.forEach((v, i) => eq[i] = v);
     inv.length = 0; d.i.forEach(v => inv.push(v));
@@ -538,7 +542,7 @@ const openChest = (i) => {
   if (oc & (1 << i)) return;
   oc |= 1 << i;
   const c = chests[i];
-  spawnDrop(c.x, c.y, 2);                                     // items only — heals come from potions / HEAL spell / level-up (rest feature removed)
+  spawnDrop(c.x, c.y, 2);                                     // items only — heals come from potions / HEAL spell / level-up
   fanfare(); save();   // chest = same "positive milestone" cue as level-up + crit. save() persists the opened bitfield (oc) immediately — was previously lost if you quit before a level-up, and the Wavedash CHESTS stat (byte-free wrapper reads localStorage) never saw it.
 };
 let dashT = 0, dashCd = 0, dropT = 0;
@@ -605,7 +609,7 @@ const seedFoes = () => [   // single source for init/load/fresh/respawn (foesX =
 let foes = seedFoes();
 
 const shots = [], flies = [], parts = [], fbolts = [], drops = [];
-const fly = (x, y, txt, c, pot, hud) => flies.push({ x: hud ? pl.x + PW / 2 : x, y: (hud ? pl.y - 15 : y) - (hud ? flies.filter(f => f.hud).length : 0) * 9, txt, c, pot, hud, t: 3 });   // ABOVE-PLAYER POPUPS: every hud=1 popup (XP · MP cost · heal · quaff · pickups incl. +BAG · damage-taken) now anchors CENTRED above the player's head, just above the HP bar (pl.x+PW/2, pl.y-15) — world-space, replacing the old fixed HUD hot-bar spot (x/y args ignored for hud=1).
+const fly = (x, y, txt, c, pot, hud) => flies.push({ x: hud ? pl.x + PW / 2 : x, y: (hud ? pl.y - 15 : y) - (hud ? flies.filter(f => f.hud).length : 0) * 9, txt, c, pot, hud, t: 3 });   // ABOVE-PLAYER POPUPS: every hud=1 popup (XP · MP cost · heal · quaff · pickups incl. +BAG · damage-taken) now anchors CENTRED above the player's head, just above the HP bar (pl.x+PW/2, pl.y-15) — world-space (x/y args ignored for hud=1).
 // Unified particle spray — n bits burst radially.
 const spray = (x, y, n, sk = 0, z = 1) => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = 22 + Math.random() * 46; parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 42, t: 1 + Math.random() * .5, sk, z }); } };   // z = rainbow-arc size multiplier (1 = subtle jump puff, big = victory burst). lifetime 1.0-1.5s UNCHANGED.
 // Array cull — reverse iterate + splice.
@@ -695,8 +699,8 @@ const strike = (f, mag) => {
     if (kc === 1) spray(f.x, f.y, 18, 0, 3);                          // FIRST-KILL CELEBRATION (Valve law: amplify the first success): kill #1 EVER (kc persists in the save, so truly once) gets a victory-size rainbow burst on top of the normal skulls — closes the first combat teach loop with an unmistakable "that was right."
     spray(f.x, f.y, 5, 1); sfx(500, 200, .08, 'square', .09); gainXp(FT[f.k][0] + FT[f.k][1] + (f.bit ? 37 + 6 * f.bi : 0)); // foe death — HIGH punchy square (500→200, .08s) = "impact landed." Deliberately distinct from player-hurt sawtooth (140→55, .25s) = "pain received." XP = DIFFICULTY-PROPORTIONAL: base HP + base DM from FT[k] (k1=7/k2=12/k3=17/k4=8/k5=10/k6=13) — was `min(k,3)*4` which paid on the KIND INDEX (capped 3), so light fast k4 (5HP) earned the same 12 as tanky k3 (12HP).
     if (f.bit) spawnDrop(f.x, f.y, 2); else if (Math.random() < .12 + st[4] * .03) spawnDrop(f.x, f.y, 1);   // boss = guaranteed 2 (same system, 100%); else one drop at the same % as crit (.12 + lk*.03)
-    if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK: rainbow collectible RETIRED.
-      bs[f.bi] = 2; hs = VBEAT; fanfare();   // VICTORY BEAT: VBEAT hitstop + rainbow arch flourish (draw) + fanfare. (particle burst removed — the arch carries the moment.) Menu/banner render is gated on hs<=0 so a same-hit level-up can't cover the finale.
+    if (f.bit && bs[f.bi] !== 2) {                              // BOSS FIRST KILL — INSTANT BANK on kill.
+      bs[f.bi] = 2; hs = VBEAT; fanfare();   // VICTORY BEAT: VBEAT hitstop + rainbow arch flourish (draw) + fanfare. Menu/banner render is gated on hs<=0 so a same-hit level-up can't cover the finale.
     }
     save(); return 1;   // AUTOSAVE on EVERY kill — persists kc(kills)/dd(damage)/bs(boss bank) so the byte-free Wavedash wrapper (reads localStorage) sees current KILLS/BOSSES immediately for stats+leaderboards, not stale-until-next-level-up. One call covers boss + regular kills.
   }
@@ -713,11 +717,11 @@ function shoot() {                                              // magic bolt (g
 function dash() {                                               // THE attack verb: burst + strike-through; 3 MP (uniform).
   if (!started || paused || deathT > 0 || dashCd > 0 || mn < 3) return;   // dash gated ONLY by MP (3) + 0.45s cooldown — air-dash is unlimited (no once-per-airtime cap); spam it as long as mana lasts.
   dashT = .275;                                   // dash burst duration × 400px/s → 110px reach (single fixed tier; sits just under the 146px shot)
-  dashCd = .45; mn -= 3; hf = .5; hfc = 11; sfx(600, 200, .12, 'sawtooth', .12); fly(0, 0, '-3', '#4a76ff', 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=11 = PAL[11] #ffffff; color changed from blue 09-08, window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln).
+  dashCd = .45; mn -= 3; hf = .5; hfc = 11; sfx(600, 200, .12, 'sawtooth', .12); fly(0, 0, '-3', '#4a76ff', 0, 1);   // DASH: MP cost + 0.5s WHITE flash i-frame (hfc=11 = PAL[11] #ffffff; window kept short deliberately — 1.5s on a .45s cd would be near-permanent invuln).
 }
 function heal() {                                               // instant tap-to-cast; 3 MP (uniform), fixed +20 HP
   if (!started || paused || deathT > 0 || mn < 3 || hp >= mHP()) return;
-  const hm = 20;   // HEAL — fixed +20 HP (super-heal tier removed with the skill tree)
+  const hm = 20;   // HEAL — fixed +20 HP
   mn -= 3; hp = Math.min(mHP(), hp + hm);
   sfx(520, 1040, .25, 'triangle', .12); fly(0, 0, '-3', '#4a76ff', 0, 1); fly(0, 0, '+' + hm, '#6cf279', 0, 1);   // HEAL: MP cost + HP gain both at the player-head popup spot (hud=1).
   hf = IFR; hfc = 14;   // HEAL: IFR-sec green PAL[14] flash + i-frame. green=heal · red=hurt · white=dash.
@@ -730,7 +734,7 @@ const hurt = (n) => {
   fly(0, 0, '-' + n, '#ff5d6c', 0, 1);                 // damage-taken popup routed to the unified player-feedback spot (above potion hot-bar, hud=1) — ALL main-character popups now live in ONE location: XP · MP cost · heal · quaff · pickup · damage taken.
   sfx(140, 55, .25, 'sawtooth', .12);
   if (hp <= 0) { deathT = VBEAT + 1; dBurst = .22; spray(pl.x + PW / 2, pl.y + PH / 2, 14, 1); return; }   // PLAYER DEATH BEAT: deathT = VBEAT (frozen pause at the death spot, skulls bursting) + 1 (the existing teleport-home→settle→DEATH-dialogue transition, unchanged). Teleport fires as deathT crosses 1.0; dialogue as it crosses 0. NO fade — skulls carry the moment. 14-skull burst now, ongoing bursts in the death block.
-  pl.vy = -180;   // unified knockback recoil (spike + enemy + projectile share one response — lastSafe teleport retired: -180 arc auto-clears every 1-tile pit, so no softlock possible without it)
+  pl.vy = -180;   // unified knockback recoil (spike + enemy + projectile share one response — -180 arc auto-clears every 1-tile pit, so no softlock possible without it)
 };
 
 // ---------- update ---------
@@ -769,7 +773,7 @@ const step = (dt) => {
   pl.vx += (dir * RUN - pl.vx) * Math.min(1, dt * 12 * (pl.gr ? 1 : .65));
   if (dir) pl.face = dir;
 
-  // -- jump: buffer + coyote + double/triple (fixed height — no hold-to-vary since B28 uniform-gravity) -
+  // -- jump: buffer + coyote + double/triple (fixed height) -
   pl.coyote = pl.gr ? .1 : pl.coyote - dt;
   if (jbuf > 0) {
     let ok = 0;
@@ -795,7 +799,7 @@ const step = (dt) => {
     if (pl.vx > 0 && solid(pl.x + PW, py + oy)) { pl.x = ((pl.x + PW) / T | 0) * T - PW - .01; pl.vx = 0; }
     if (pl.vx < 0 && solid(pl.x, py + oy)) { pl.x = ((pl.x / T | 0) + 1) * T + .01; pl.vx = 0; }
   }
-  pl.gr = 0;   // hard-land audio + wasGround snapshot retired — landing is silent unless it's a stomp (which has its own square-thud sfx)
+  pl.gr = 0;   // landing is silent unless it's a stomp (which has its own square-thud sfx)
   pl.y += pl.vy * dt;
   // MUSHROOM BOUNCE — collider MATCHED to the 1.5× sprite (was a 1-tile ground cell): spring at the CAP TOP (~20px above the base, where the sprite top sits) across the full 24px cap width (center within ±12 of cap-center). Fast descent only (vy>80) so gentle contact/walking still rests. Fires here — before the tile-landing snap — so you launch where you SEE the cap, not after sinking to the ground tile.
   if (pl.vy > 80) for (const [bx, br] of BOUNCE) { const cx = bx * T + 8, cy = br * T - 20; if (Math.abs(pl.x + PW / 2 - cx) < 12 && pl.y + PH >= cy && pl.y + PH < cy + 26) { pl.y = cy - PH; pl.vy = -510; pl.air = 0; jbuf = 0; sfx(220, 640, .16, 'sine', .13); break; } }
@@ -818,6 +822,7 @@ const step = (dt) => {
   // -- chest proximity — JUMP-to-open handled in keydown; here just flag the nearest -
   nearChest = -1;
   for (const c of chests) if (!(oc & (1 << c.i)) && Math.hypot(pl.x + PW / 2 - c.x, pl.y + PH / 2 - c.y) < 20) { nearChest = c.i; break; }
+  if (~nearChest && !ch && !touch && !dq) { ch = 1; fly(0, 0, 'JUMP OPEN', '#fffdf5', 0, 1); }   // ONE-SHOT chest hint (desktop): first unopened-chest proximity names the interact verb — touch shows ✓ on the JUMP button instead; !dq keeps it out of dialogue beats.
 
   // -- bosses are SEEDED (always present) via seedFoes + mkBoss; aggro/kill handled in the foe loop.
 
@@ -831,7 +836,7 @@ const step = (dt) => {
     }
   }
   prune(shots);
-  // -- foe bolts (CASTER + bosses): hit the player, die on SOLID only. DESIGN (operator, 2026-09-12): one-way platforms do NOT block bolts — sky platforms are terrain layers for verticality/stomps, NOT ranged cover; only solid hills/mesas eat shots. -
+  // -- foe bolts (CASTER + bosses): hit the player, die on SOLID only. DESIGN: one-way platforms do NOT block bolts — sky platforms are terrain layers for verticality/stomps, NOT ranged cover; only solid hills/mesas eat shots. -
   for (const b of fbolts) {
     b.t -= dt; b.x += b.vx * dt; b.y += b.vy * dt;
     if (solid(b.x, b.y)) b.t = 0;
@@ -886,7 +891,7 @@ const step = (dt) => {
       if (f.ct <= 0) { dir = f.cdir; sp = CSPD; }                                // DASH @ CSPD toward the locked dir (overrides the wind-up pause)
       if (f.ct <= -DA) { f.vx = f.cdir * ASPD; f.ct = f.bit ? 1.6 : 2.1; f.cdir = 0; }   // dash done → DAMP residual dash vx to walk speed (the mover may not run again until `near` returns — without this the ±CSPD residue persists), then re-arm (boss 1.6s / foe 2.1s)
     }
-    // PURSUIT MOVER — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate. GROUNDED-ONLY (near && f.gr): every airborne body — foe hop, boss hop, ledge fall — COMMITS its launch arc; no mid-air re-aim. This is what makes the hop landing-gate honest (it used to be overridden mid-flight, steering committed arcs sideways into spike moats) and it retires the old airborne stand-off vx-zeroing. Boss branch folded to bare `f.bit` (f.gr guaranteed by this gate) — MEASURED 2026-09-12: fold is 4 B smaller packed; the old "kept verbatim for LZ" note was wrong.
+    // PURSUIT MOVER — pursue @ASPD (default) or charge-dash @CSPD; ONE floor-gate. GROUNDED-ONLY (near && f.gr): every airborne body — foe hop, boss hop, ledge fall — COMMITS its launch arc; no mid-air re-aim. This keeps the hop landing-gate honest (a mid-air re-aim would override it, steering committed arcs sideways into spike moats) and it retires the old airborne stand-off vx-zeroing. Boss branch folded to bare `f.bit` (f.gr guaranteed by this gate) — MEASURED 2026-09-12: fold is 4 B smaller packed; the old "kept verbatim for LZ" note was wrong.
     // STAND-OFF (`so`): a non-boss SHOOT/CHARGE hunter (cap&17) in NORMAL pursuit (sp===ASPD, not winding-up/dashing) HOLDS once within SO px — stops advancing, so ranged kinds ring the player instead of piling into melee. Bosses + HOP kinds ignore it and close.
     // LEASH: a disengaged HUNTER >40px from its seed anchor walks HOME through the same guarded mover (target swaps pl.x → f.hx) instead of wandering — pre-leash, idle hunters kept their last vx and migrated across zones (arenas drained, rest areas collected drifters). 40px hysteresis = a small natural pacing territory around home. Patrollers (!near forever) and bosses (near forever once aggro'd) are untouched.
     const home = !near && !f.pat && !f.bit && Math.abs(f.hx - f.x) > 40;
@@ -911,7 +916,7 @@ const step = (dt) => {
     f.gr = 0;   // per-frame ground reset: keeps gr accurate so a foe that falls off a ledge can't hop mid-air (hop-gate) and edge-turn stays correct. Re-set to 1 the same frame on landing below.
     f.vy = Math.min(FALLCAP, (f.vy || 0) + GV * dt); f.y += f.vy * dt;   // FALLCAP for foes too — no tile tunneling
     const ty = (f.y + fs) / T | 0;
-    if (f.vy > 0 && tile((f.x + fs / 2) / T | 0, ty)) {   // land on ANY non-air tile — solid, platform, AND spike (same rule as drops L936). Foes take no spike damage; letting them REST ON spike tops (instead of the old %3 skip that sank them a tile deep INSIDE the spikes) means a foe knocked onto a moat hops back out in ≤1 cadence — the embedded state was a permanent trap beside any 2-tall wall (hop apex 43.5px < climb). Walk/hop gates still use %3 → spikes stay a no-go moat for pathing.
+    if (f.vy > 0 && tile((f.x + fs / 2) / T | 0, ty)) {   // land on ANY non-air tile — solid, platform, AND spike (same rule as drops L936). Foes take no spike damage; letting them REST ON spike tops means a foe knocked onto a moat hops back out in ≤1 cadence — the embedded state was a permanent trap beside any 2-tall wall (hop apex 43.5px < climb). Walk/hop gates still use %3 → spikes stay a no-go moat for pathing.
       f.y = ty * T - fs; f.vy = 0; f.gr = 1;
     }
     f.x += f.vx * dt;
@@ -923,7 +928,7 @@ const step = (dt) => {
     let bl = solid(ex, f.y + fs / 2);
     if (bl) f.x = f.vx > 0 ? (ex / T | 0) * T - fs : ((ex / T | 0) + 1) * T;
     else bl = tile((ex + Math.sign(f.vx) * 3) / T | 0, (f.y + fs + 6) / T | 0) % 3 < 1;   // %3<1: air(0) AND spikes(3) = "no safe floor"
-    if (bl && !f.bit && f.gr) f.vx *= -1;   // grounded non-boss reverses at walls/edges. (NOTE: only k1/k4 + bosses actually hop — cap&2 per FT; the old "all kinds hop" note here was stale.) hold-ground boss branch REMOVED: bosses never turn back and never park at edges — chase re-picks vx every grounded frame; wall-snap above still prevents embedding.
+    if (bl && !f.bit && f.gr) f.vx *= -1;   // grounded non-boss reverses at walls/edges. (NOTE: only k1/k4 + bosses actually hop — cap&2 per FT.) hold-ground boss branch REMOVED: bosses never turn back and never park at edges — chase re-picks vx every grounded frame; wall-snap above still prevents embedding.
     // CONTACT — stomp from above, else immediate touch damage (no wind-up tell). hurt() self-gates
     // repeats via its 0.8s i-frame; dash (dashT>0) grants i-frames so you dash THROUGH foes safely.
     const hit = pl.x < f.x + fs && pl.x + PW > f.x && pl.y < f.y + fs && pl.y + PH > f.y;
@@ -947,13 +952,12 @@ const step = (dt) => {
     if (d.vy > 0 && tile(d.x / T | 0, (d.y + 3) / T | 0)) { d.vy = 0; d.y = ((d.y + 3) / T | 0) * T - 3; }   // land on ANY non-air tile — solid, platform, AND spike (drops physically settle on spikes like any surface; unlike player/enemy who use %3 to skip spikes because spikes damage them)
     // GRACE PERIOD: drop must be visible for ≥0.5s before pickup — matches the fast fade-in (below in draw loop) so you always SEE the drop before it vanishes into inventory.
     if (d.life > .5 && Math.hypot(pl.x + PW / 2 - d.x, pl.y + PH / 2 - d.y) < 18) {   // touch it → pick up (stays on ground if nowhere to put it).
-      // (RAINBOW collectible retired — bosses bank on kill; drops here are only potion/gear now.)
       // Potion → hot-bar counter (cap 5, drop stays on ground if full).
       // Potion "+1" flies are HUD-anchored above the matching hot-bar slot (HP left, MP right) — clear, separated, never fights with damage numbers at the kill site.
       const took = d.t === 0 ? (hpPot < 5 && (hpPot++, fly(0, 0, '+1', '#6cf279', 1, 1), 1))
         : d.t === 1 ? (mpPot < 5 && (mpPot++, fly(0, 0, '+1', '#4a76ff', 1, 1), 1))
         : inv.length < BAG && (inv.push({ s: d.s, c: d.c, b: d.b, u: d.u, v: d.v }), fly(0, 0, '+BAG', '#8cf', 0, 1), 1);   // ALL pickup popups routed to the player-head popup spot (hud=1). +BAG uses #8cf — same blue as action-button rings + joystick + top cluster (universal "active/UI" accent). u/v = optional sub-stat.
-      if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); }   // only vanish when actually collected
+      if (took) { d.dead = 1; sfx(520, 1040, .1, 'triangle', .1); if (d.t < 2 && !ph && !touch) { ph = 1; fly(0, 0, 'I HP / O MP', '#fffdf5', 0, 1); } }   // only vanish when actually collected. ONE-SHOT potion hint (desktop): first potion banked names the quaff keys — stacks above the '+1' via fly()'s hud auto-stack; touch has visible quick-slot boxes.
     }
   }
   prune(drops, e => e.dead);
@@ -1000,7 +1004,7 @@ const draw = () => {
   // TWO-PASS terrain: all dirt bodies first, all surface-top strips after.
   // them per-tile made each column's dirt stomp the previous column's antialiased top-strip
   // edge — at fractional SS the re-blends never recompose, leaving a dark tick every tile
-  // boundary (verified: 42.7px-period seams at SS 2.667, operator report 09-04).
+  // boundary (42.7px-period seams at SS 2.667).
   // color pass over finished dirt = seam-free at any scale.
   const tops = [];
   for (let j = y0; j < y1; j++) for (let i = x0; i < x1; i++) {
@@ -1083,7 +1087,7 @@ const draw = () => {
   for (const f of foes) {
     // "Watching Family" v3 — ONE body family (all walkers, grounded on terrain), each enemy ONE distinguishing feature (Kirby rule).
     // Kept from v2: universal round white eye + tracking pupil (species signature) + 1px black outline (figure/ground pop on any background) + FOECOL as PAL indices.
-    // Changed from v2: walkers get a separate HEAD block (eye rides the head, gap between body/head/legs = negative space, per Slynyrd rule).
+    // Walkers get a separate HEAD block (eye rides the head, gap between body/head/legs = negative space, per Slynyrd rule).
     const s = 4, fs = 20, wob = Math.sin(f.t * .75) * 1.5, step = Math.sin(f.t) * s * .35;
     ctx.save();
     ctx.translate(f.x + fs / 2, f.y + fs);
@@ -1094,7 +1098,7 @@ const draw = () => {
       const bd = 12, hn = RBC[f.bi];
       ctx.scale(fs / 14, fs / 14);
       ed = pd * .7;                                            // DARKCORN pupil tracks the player — the boss inherits the shared Watching-Family eye via drawU.
-      const bc = col; col = f.fl > 0 && (f.fl * 6 | 0) & 1 ? [4, 4, 4, 4] : [bd, hn, hn, bd]; drawUo(Math.sin(f.t) * 3); col = bc;   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red (mirrors player's hf/hfc strobe at line ~1130).
+      const bc = col; col = f.fl > 0 && (f.fl * 6 | 0) & 1 ? [4, 4, 4, 4] : [bd, hn, hn, bd]; drawUo(Math.sin(f.t) * 3); col = bc;   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red (mirrors the player's hf/hfc strobe).
     } else {
       const bod = f.fl > 0 && (f.fl * 6 | 0) & 1 ? PAL[4] : PAL[FOECOL[f.k]];   // HIT FLASH — while f.fl > 0, strobe ~6 Hz to PAL[4] red.
       const oR = (x, y, w, h) => { ctx.fillStyle = '#000'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2); ctx.fillStyle = bod; ctx.fillRect(x, y, w, h); };
@@ -1124,7 +1128,7 @@ const draw = () => {
         }
         oR(s * .3, s * .5, fs - s * .6, s * 2);                // dome body — centered
         eye(fs / 2, s * 1.4);
-      } else if (f.k == 6) {                                    // k6 walker-spike — dome body + 4 DOWNWARD spiky legs (flipped from the old upside-down floater; now grounded + steps like every walker)
+      } else if (f.k == 6) {                                    // k6 walker-spike — dome body + 4 DOWNWARD spiky legs (grounded, steps like every walker)
         for (let i = 0; i < 4; i++) oR(fs / 2 - s * 2 + i * s * 1.2, fs - s * .9 + (i & 1 ? step : -step), s * .4, s * .9);   // 4 spiky legs at the ground line — adjacent-opposite step pump (walker gait). i=0,3 outer; i=1,2 inner
         oR(s * .3, s * .8, fs - s * .6, s * 2.3);              // dome body — centered
         eye(fs / 2, s * 1.8);
@@ -1172,7 +1176,7 @@ const draw = () => {
     if (d.t < 2) { const px = d.x - 6, py = d.y - 11 + dy; pot(px, py, d.t ? '#4a76ff' : '#6cf279'); }   // POTION drop — pot() draws body+cork+outline (HP=heal-green, MP=blue).
     else drawPart(d.s, d.x - 6, d.y - 11 + dy, d.c, 1.5);   // GEAR — bare sprite (no box), potion-sized (1.5×), rests on ground like potions
   }
-  ctx.globalAlpha = 1; ctx.lineWidth = 1;   // one alpha reset for this whole section — covers the drop-fade leaving globalAlpha<1; particles + popups below render at full opacity (fade-outs removed, they just vanish at end-of-life)
+  ctx.globalAlpha = 1; ctx.lineWidth = 1;   // one alpha reset for this whole section — covers the drop-fade leaving globalAlpha<1; particles + popups below render at full opacity (popups vanish at end-of-life, no fade)
   for (const p of parts) {                                        // 2 particle kinds: p.sk===1 white skull (FOE death only) · else 7-band rainbow burst (jumps + boss-win). spray() is the sole spawner.
     if (p.sk === 1) { skull(p.x, p.y, .7); continue; }  // foe-DEATH skull = white bone (default #e9e3cd), full alpha — distinct from the RED ranged-attack skulls.
     ctx.lineWidth = .5 * p.z; rArc(p.x, p.y, 2.75 * p.z, .375 * p.z);   // burst rainbow — r/step/width scale together so the 7 bands stay distinct; p.z sizes it (1 = puff, big = victory)
@@ -1180,8 +1184,8 @@ const draw = () => {
   ctx.lineWidth = 1;
   ctx.textAlign = 'center';   // EXPLICIT — popups must centre on their origin. Previously relied on inheritance, but the last textAlign setter varies by frame path ('right' after quick-slot counts, 'left' after help rows, canvas-default 'start' after a restore) → popups drifted off-centre depending on UI state.
   for (const f of flies) {
-    ctx.font = 'bold 8px monospace';   // ALL popups uniform 8px (= HUD text); full opacity (fade-out removed) — no crit size differentiator; crit reads via its 2× number alone.
-    ctx.fillStyle = f.c; const fx = f.x | 0, fy = f.y | 0;   // ALL popups world-space now: player popups anchor above the player's head in-world (set in fly), enemy damage over the foe — the old hud=screen-space cam-cancel is gone.
+    ctx.font = 'bold 8px monospace';   // ALL popups uniform 8px (= HUD text); full opacity — no crit size differentiator; crit reads via its 2× number alone.
+    ctx.fillStyle = f.c; const fx = f.x | 0, fy = f.y | 0;   // ALL popups world-space now: player popups anchor above the player's head in-world (set in fly), enemy damage over the foe.
     ctx.fillText(f.txt, fx, fy);
     if (f.pot) pot(fx + 6, fy - 9, f.c, .7);   // mini potion glyph just right of the centred "+1"
   }
@@ -1212,7 +1216,7 @@ const draw = () => {
       const wOn = aRow === EB + s;
       ctx.strokeStyle = wOn ? '#ffd75e' : '#8cf'; ctx.lineWidth = 1; ctx.strokeRect(ex, ey, 24, 24);   // UNIFIED SLOT BORDER: every slot box = 1px, blue #8cf actionable passive + GOLD #ffd75e cursor (same rect, no double outline).
       if (eq[s]) drawPart(s, ex + 6, ey + 2, eq[s].c, 2);     // gear icon @2× — y+2 (was +4): nudged 2px UP so top margin tightens (4→2) and bottom margin opens (2→4), giving "+N" stat text at ey+22 double the breathing room.
-      ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 35);   // label offset +35 (was +31): boxes moved up 6px (ey 64/112→58/106), labels net up ~2px, box↔word gap widened so the text no longer kisses the box bottom
+      ctx.fillStyle = '#ccc'; T2(SLOT_LBL[s], ex + 12, ey + 35);   // label offset +35: clears the box bottom
       if (eq[s]) { ctx.fillStyle = SC[SLOT_STAT[s]]; T2('+' + eq[s].b, ex + 6, ey + 22);       // primary stat → BOTTOM-LEFT, in its stat colour (SC): STR red · HP green · MAG blue · DEF violet · LCK orange
         if (eq[s].u != null) { ctx.fillStyle = SC[eq[s].u]; T2('+' + eq[s].v, ex + 18, ey + 22); } }   // sub-stat → BOTTOM-RIGHT, its own colour
     });
@@ -1331,7 +1335,7 @@ const draw = () => {
     // Save popup — centered: rainbow SAVED! + CONTINUE + EXIT GAME
     if (savePop) {
       fade(.8);
-      rText('GAME SAVED', 110);   // UNIFIED big-text: routed through the ONE rainbow helper at its default 30px — same as LEVEL UP + the title (was a hand-rolled 24px duplicate loop). rText also adds the shared black outline.
+      rText('GAME SAVED', 110);   // UNIFIED big-text: routed through the ONE rainbow helper at its default 30px — same as LEVEL UP + the title. rText also adds the shared black outline.
       ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';   // buttons — reset textAlign to center (rText leaves it 'left')
       ctx.fillStyle = savePop === 2 ? '#8cf' : '#888';   T2('EXIT GAME', VW / 2 - 55, 258);   // SELECTED = blue #8cf, else dim grey — game already saved so EXIT is safe (no red; red reserved for destructive DROP/DELETE)
       ctx.fillStyle = savePop === 1 ? '#8cf' : '#888';   T2('CONTINUE', VW / 2 + 55, 258);     // CONTINUE is the safe DEFAULT (popup opens at savePop=1)
@@ -1345,7 +1349,7 @@ const draw = () => {
       ctx.fillStyle = dPop === 1 ? '#8cf' : '#888'; T2('BACK', VW / 2 + 55, 258);
     }
   }
-  // TITLE SCREEN — world scene renders behind, title art on top (scrim REMOVED the .34 black dim muted the vibrant meadow colors; the rainbow arch + rText title carry their own black outlines, so they stay legible on the bright scene without it)
+  // TITLE SCREEN — world scene renders behind, title art on top (no scrim — the rainbow arch + rText title carry their own black outlines, so they stay legible on the bright scene)
   if (!phase) {
     arch(VW / 2, 130);   // title rainbow arch — shared with the boss-win flourish
     rText('HOOVES OF HOPE', 178);
@@ -1353,7 +1357,7 @@ const draw = () => {
     if (tMode === 1) {
       const nm = ent + (Math.sin(time * 4) > 0 && ent.length < 8 ? '_' : '');
       ctx.font = 'bold 13px monospace';
-      ctx.fillStyle = '#fff'; T2(nm || '(tap to type)', VW / 2, 200);
+      ctx.fillStyle = '#fff'; T2(nm || '(tap / type name)', VW / 2, 200);   // dual-device prompt: desktop types directly (global A-Z handler), mobile taps to raise the soft keyboard
       ctx.fillStyle = '#fff'; T2('BACK', VW / 2 - 55, 224);                       // white = secondary/usable
       ctx.fillStyle = ent ? '#8cf' : '#555'; T2('CONFIRM', VW / 2 + 55, 224);     // blue = ready · grey = disabled (no name yet)
     } else {
@@ -1372,12 +1376,12 @@ const draw = () => {
     fade(.88);
     ctx.textAlign = 'center'; ctx.font = 'bold 8px monospace';
     ctx.fillStyle = '#8cf'; T2('CONTROLS', VW / 2, 60);
-    [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H'],['POTION','I HP  O MP'],['SOUND','M'],['MENU','P / tap name']].forEach(([a, b], i) => {
-      const y = 74 + i * 18;
+    [['MOVE','A D S / ← → ↓'],['JUMP','SPACE / W / ↑'],['DASH','J'],['SHOOT','L'],['HEAL','H'],['POTION','I HP  O MP'],['OPEN / TALK','JUMP near'],['SOUND','M'],['MENU','P / tap name'],['SAVE + EXIT','ESC']].forEach(([a, b], i) => {   // COMPLETE binding reference — every shortcut incl. interact + ESC
+      const y = 76 + i * 17;   // 10 rows @17px: 76→229, footer 246 — clears the y60 CONTROLS heading (16px) and the VH=270 floor (24px)
       ctx.fillStyle = '#8cf'; ctx.textAlign = 'right'; T2(a, VW / 2 - 10, y);
       ctx.fillStyle = '#8cf'; ctx.textAlign = 'left'; T2(b, VW / 2 + 10, y);
     });
-    ctx.textAlign = 'center'; ctx.fillStyle = '#8cf'; T2('tap to close', VW / 2, 230);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#8cf'; T2('tap / any key', VW / 2, 248);
   }
   ctx.restore();
 };

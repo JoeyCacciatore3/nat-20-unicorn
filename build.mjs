@@ -46,17 +46,9 @@ const SHELL = '<title>HOOVES OF HOPE</title>'
 writeFileSync('dist/min2.js', `document.write('${SHELL.replace(/'/g, "\\'")}');` + readFileSync('dist/min.js', 'utf8'));
 // Pinned flags = deterministic builds (no ±20 B jitter). After big source changes,
 // re-tune: `TUNE=1 node build.mjs` and paste the "use ... to replicate" flags here.
-// NOTE (measured 2026-08-19): re-tuned flags -Zab16/-Zlr1000/-Zmd10/... estimated
-// 115 B smaller pre-zip but produced a 31 B BIGGER final zip after ECT. The
-// estimate lies; only dist/game.zip counts.
-// NOTE (measured 2026-08-31): after the data.js/CAVE/doors/ZG/scatter changes the old
-// pin went stale. Two independent -O2 searches both converged ~12,683 vs the old pin's
-// 12,696 — re-verified by packing+zip+ECT each candidate (not the estimate). −13 B, free.
-// NOTE (measured 2026-08-31, diligence sweep): a single -O2 search has ~±18 B VARIANCE
-// (identical flags gave 12,669 and 12,687). The shippable value is the MIN over many
-// searches. 4 baseline runs floored at 12,663 (this pin) vs the prior 12,678 — −15 B.
-// Also tested & rejected: granular unsafe flags (arrows/methods/proto/undefined/regexp)
-// floor 12,668 ≥ baseline 12,663 = no help; hoist_vars = +203 B (terser-doc warning holds).
+// TUNING LESSONS (measured): roadroller's pre-zip estimate LIES — only dist/game.zip after ECT counts.
+// A single -O2 search has ~±18 B variance; the shippable pin is the MIN over several searches.
+// Tested & rejected: granular unsafe terser flags (no help) and hoist_vars (+203 B).
 const ROADFLAGS = process.env.TUNE ? '-D' : '-D -Zab23 -Zlr1596 -Zmc4 -Zpr15 -S0,1,2,3,6,7,13,21,42,57,193,344';
 run(`npx roadroller ${ROADFLAGS} dist/min2.js -o dist/packed.js`);
 
@@ -87,7 +79,7 @@ const WD_GLUE = `<script>
   const up=(id,v)=>id&&Wavedash.uploadLeaderboardScore(id,v,true);
   const push=()=>{
     let d;try{d=JSON.parse(localStorage['uni_s0']||'0')}catch(e){return}
-    if(!d||d.v!==45)return;
+    if(!d||d.v!==46)return;   // VERSION: must equal SV in src/main.js — grep both on every bump
     const sig=JSON.stringify([d.l,d.g,d.D,d.K,d.R,d.o,d.q]);
     if(sig===last)return;last=sig;
     const bosses=(d.g||[]).filter(v=>v===2).length;

@@ -1,6 +1,6 @@
 # Submission Kit — UNICORN, Hooves of Hope
 
-> 🧹 **MEDIA WIPED 2026-09-12 (operator directive):** all stale capture media DELETED — `screenshots/` (5 generations), all 4 trailers, `gif/`, `masters_4k/`. They showed the pre-rebuild world / removed skill tree and were unusable. KEPT: `cover/` + `cover_square.png` (store-live art, refresh when new captures exist) and `achievements/` (icon art, still valid). Any media path referenced below that isn't cover/achievements NO LONGER EXISTS — re-capture fresh screenshots + a LIVE gameplay video against the current build before any store/submission update.
+> ✅ **MEDIA: 100% FRESH (2026-09-12)** — 7 screenshots + 38s live trailer + GIF + cover, all captured from the current build. Inventory below.
 
 Copy is paste-ready. **All facts re-verified against `src/*.js` 2026-09-12 at B42 (SHIPPED — git 4f2ad60 == Wavedash mn77p30th3saccrk2w6q0zcyy98e9kws; 12,871 B, 441 free; save v46).**
 
@@ -8,9 +8,9 @@ Copy is paste-ready. **All facts re-verified against `src/*.js` 2026-09-12 at B4
 
 > **Ground-truth rule:** if any figure here disagrees with `src/data.js` + `src/main.js` + `src/world.js`, the source wins — re-grep before trusting.
 
-## Verified game facts (from source, batch 28)
+## Verified game facts (from source, batch 43)
 - **Title (player-facing):** the title screen renders `UNICORN` (one word, rainbow letters) over `HOOVES OF HOPE`; the cover art matches. → **`UNICORN, Hooves of Hope`**.
-- **Physics (B28):** player and every enemy share ONE jump/gravity model (`GV=900`, launch `JV=280`) — arcs are identical and learnable; enemies no longer out-jump you. The player keeps a smaller, nimbler collision box.
+- **Physics:** player and every enemy share ONE jump/gravity model (`GV=900`, launch `JV=280`) — arcs are identical and learnable; enemies no longer out-jump you. The player keeps a smaller, nimbler collision box.
 - **6 enemy kinds (`FT`) organized into 3 ATTACK TIERS × 2 kinds** — pursuit speed is UNIFORM for every foe (they all home at one speed); the **attack** is what separates them (cap bits: 1=shoot, 2=hop, 16=charge):
   - **Tier 1 — HOP (melee leapers):** k1 (fragile), k4 (tankier) — leap toward you on a cadence.
   - **Tier 2 — SHOOT (ranged):** k2, k6 — hold position and fire bolts.
@@ -27,8 +27,8 @@ Copy is paste-ready. **All facts re-verified against `src/*.js` 2026-09-12 at B4
 - **Potion hot-bar** — 2 slots (HP / MP), stack to 5 each, **+20** per drink (+1.5s i-frame flash). Both boxes sit as a left column of the action grid — HP box on the SHOOT row, MP box on the DASH row. Hotkeys **I** (HP) · **O** (MP).
 - **Bounce mushrooms** — spring-launch traversal, stacks with DBL/TRI JUMP (west bounce-sky route feeds the BLUE summit).
 - **Controls** — Keyboard: WASD/arrows move · Space/W/↑ jump (= interact, fixed-height triple jump) · S/↓ drop-through · J dash-attack · L shot · H heal · **I** HP-potion · **O** MP-potion · P menu · M mute · **Esc** back / save-exit. Touch: floating joystick + action buttons (full parity). One build, desktop + mobile.
-- **Save** — v44, strict version gate (no cross-version compat), single slot `uni_s0`. Auto-saves on level-up + respawn; player always respawns at the paddock.
-- **Console errors** — 0 in Chromium (B28 smoke test). ⚠️ **Firefox DevTools zero-console check is a SEPARATE hard requirement** — re-run against the final `dist/game.zip` before each js13k upload.
+- **Save** — v46, strict version gate (SV const, single source) (no cross-version compat), single slot `uni_s0`. Auto-saves on level-up + respawn; player always respawns at the paddock.
+- **Console errors** — ✅ 0 in BOTH gates, verified 2026-09-12 against the shipped dist: Chromium (full opening flow) + real Firefox 155 (full opening flow). The disqualifying criterion is CLOSED.
 
 ## Names (keep identical everywhere)
 - **Title:** `UNICORN, Hooves of Hope`
@@ -98,15 +98,14 @@ Verify current live state with `wavedash achievement list --game-id j97697bsqqnz
 ## Assets inventory
 ```
 design/
-├── cover_square.png      ✅ FRESH B28 (2026-09-10) — 1080×1080, center-crop of the B28 title (full "HOOVES OF HOPE" logo + rainbow arch + both unicorns). Lossless. (Old Aug-30 720² archived → cover/cover_square_aug30_stale.png.)
-├── cover/                ✅ downscaled cover variants: cover_512.png (512²), cover_256.png (256²) — for gallery thumb / social. cover_square_aug30_stale.png = old, do NOT use.
-├── trailer.mp4 / gif/ / masters_4k/ / screenshots/   🧹 DELETED 2026-09-12 (media wipe — all were pre-rebuild). Re-capture against B41+: fresh screenshot set (title · hill combat · sky highway · cave network · boss arena · RPG menu) + a LIVE gameplay video. Keep the proven capture practices: equipped colorful unicorn, overlay visible, lossless truecolor stills; video recipe `-tune animation -crf 15 -pix_fmt yuv420p` + silent AAC + faststart.
+├── cover_square.png      ✅ FRESH B42 (2026-09-12) — 1080×1080, center-crop of the LIVE B42 title screenshot (01_title.png crop 1080:1080:420:0 — full "HOOVES OF HOPE" logo + rainbow arch + both unicorns, current world/ground band). Lossless. Replaced the B28 cover, whose lower band still showed the REMOVED floater enemies + old sky layout.
+├── cover/                ✅ downscaled B42 variants: cover_512.png (512²), cover_256.png (256²) — regenerated 2026-09-12 from the new square (neighbor scale, verified crisp). Aug-30 stale archive deleted.
+├── screenshots/          ✅ FRESH B42 (2026-09-12) — 7×1920×1080 native lossless, captured LIVE from dist/capture (real engine, real inputs; gear staged via __G.power(), same practice as B28 set): 01_title · 02_intro ("The Greatcorn.|Obviously." bubble) · 03_combat (CANOPY arena, relocated moat sniper visible) · 04_menu (4 gear slots + pending +2 pulse + description bubble) · 05_world (sky platform + drops + ORANGE DARKCORN leaping in-frame) · 06_cave (INDIGO deep hall, chest + lurking DARKCORN + live damage) · 07_boss (ORANGE fight, damage popups, spike-edge standoff)
+├── trailer.mp4           ✅ FRESH B42 — 38s 1920×1080 h264 (`-tune animation -crf 15 -pix_fmt yuv420p` + silent AAC + faststart), cut from a LIVE recorded gameplay run (operator directive: real gameplay only): title → intro bubbles → LV1 moat jump + goomba first-kill (the "J DASH / L SHOOT" verb hint fires ON CAMERA at t≈12s) → sky-highway hops → cave dive → ORANGE boss kill + rainbow bank. Traversal beats at 1.2-1.4×.
+├── gif/gameplay.gif      ✅ FRESH B42 — 640×360, 8s sky-hop loop, 20fps, 3.0 MB (palettegen 192c + bayer, gifsicle -O3). For the js13k Markdown description embed.
+├── cover/cover_square_b42.png   ✅ PROMOTED 2026-09-12 (operator: "fix the title image") — now identical to cover_square.png; kept as the B42 provenance copy
 └── achievements/         ✅ 8 PNGs (thresholds need CLI re-tune per table above)
 ```
-⚠️ **The entire media set above is STALE (B28)** — it shows the removed skill tree, the old 600×160 world, the old menu, and the floater enemies. It must be **re-captured against the B35 build** before any upload. The recipes/encode settings and the upload order (01_title → 04_menu → 03_combat → 05_world → 02_intro — lead with logo, then RPG depth, then action) remain the right guidance for the re-shoot.
-
----
-
 ## Master checklist (operator)
 
 ### ⚠️ Pre-submission action items
@@ -114,7 +113,7 @@ design/
 |---|---|---|---|
 | 1 | Register js13k draft, claim name `UNICORN, Hooves of Hope` | js13kgames.com/submit | NOW — locks name; tests roadroller zip. Deadline Sep 13 13:00 CEST |
 | 2 | Firefox DevTools zero-console-errors check on `dist/game.zip` | local | Before each js13k upload (disqualifying criterion) |
-| 3 | 🔴 **RE-SHOOT ALL MEDIA against B35** — the B28 set is stale (removed skill tree, old 600×160 world, old menu, floater enemies). Re-capture 5 screenshots + trailer + GIF + cover via `tools/capture-build.mjs`; reuse the encode recipes + upload order from the Assets section. | local | Before Sep 13 upload |
+| 3 | ✅ ~~Re-shoot all media~~ — DONE 2026-09-12: 7 screenshots + trailer + GIF + cover, all live-captured vs current build | local | done |
 | 4 | Wavedash store paste-in (title, desc, tags, cover, screenshots, trailer) | Portal (see `WAVEDASH-UPLOAD.md`) | Anytime — review has lag |
 | 5 | Re-tune EXPLORER / HALFWAY / PRISMATIC thresholds | `wavedash achievement update` | Before Sep 20 |
 | 6 | Final zip → js13k form | js13kgames.com/submit | ≤ Sep 13 13:00 CEST |

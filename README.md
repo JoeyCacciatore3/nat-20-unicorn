@@ -8,7 +8,7 @@ and reclaim the **RAINBOW SHARDS** that restore the world. STR/MAG combat with L
 gear that recolors your unicorn, and permanent stat allocation.
 
 A **GREAT CORN** — a violet, gold-maned elder, boss-sized (matches the DARK CORN silhouette) —
-stands watch at the starting paddock. On a new game he opens an auto-playing 7-bubble intro
+stands watch at the starting paddock. On a new game he opens an auto-playing 5-bubble intro
 (head-stemmed speech bubbles, advanced one per tap) that sets the goal, nudges the controls, and
 points you outward. Walk back and JUMP near him afterward for cycled re-talk quips. Finishing the
 intro grants a free first level-up.
@@ -17,7 +17,7 @@ intro grants a free first level-up.
 
 ## World — one compact, fully-utilized map
 
-**One unified 480×30-tile map (7,680×480 px)**, no portals or zone loads — walk from any boss to
+**One unified 480×38-tile map (7,680×608 px)**, no portals or zone loads — walk from any boss to
 any other. It is authored as **three clearly-stacked bands** built around the exact jump envelope
 (so every gap/climb is reachable by construction):
 
@@ -25,12 +25,12 @@ any other. It is authored as **three clearly-stacked bands** built around the ex
 |---|---|---|
 | **SKY** | 1–17 | above-ground platform routes (drop-through), climbs, the boss summits |
 | **GROUND** | 18–23 | a **uniform 6-tile walkable band** (`GROUND_H=6`, surface-top row `SR=18`), full-width highway |
-| **CAVES** | 24–27 | a built-from-air underground network — single-level chambers (floor row 28), return rungs, entered via drop-shafts (two exits per wide chamber) |
+| **CAVES** | 24–36 | a built-from-air underground network — three systems, two-tier halls (floor seal row 37), return rungs, entered via drop-shafts (two exits per wide chamber) |
 
 The old sprawling 600×160 world (mostly empty air/slab) was fully re-authored into this tighter
 form — same feature set, ~85% smaller grid, and it **saved bytes** (denser, clustered coordinates
-compress better under Roadroller). Caves are deliberately shallow (≈10 tiles below the surface) with
-forgiving ≤3-tile climb rungs — easy to leave.
+compress better under Roadroller). Caves span three distinct systems (rows 24–36, floor seal row 37) with
+return rungs in every shaft — always leavable.
 
 **7 zones for 7 DARK CORNS** (x-bands scale into the 480-wide world; each has a distinct palette):
 PEAK/BLUE · CANOPY/YELLOW · MEADOW/RED · EAST RUN/ORANGE (spawn is centered here at tile 240) ·
@@ -106,8 +106,7 @@ player) and differ only by **sprite + one attack verb + HP/damage**. Attack bits
 
 - **Two behavior modes** (per-placement, not per-kind): **HUNTER** (default — engages when near) and
   **PATROL** (optional 4th seed element `[x,y,k,1]` → a Goomba-style walker that ignores you,
-  contact-damage only). Currently all placements are hunters; the patrol flag + map-editor toggle are
-  wired for future use.
+  contact-damage only). 17 sky/platform foes are PATROLLERS (never chase — pure terrain obstacles); the 37 ground/cave foes are leashed HUNTERS that return home when disengaged.
 - **Stand-off de-pile:** SHOOT/CHARGE hunters stop ~`SO`=100 px out and ring you instead of all
   homing to the same point (only HOP kinds close to contact) — clusters read as a formation, not a
   dogpile.
@@ -117,7 +116,7 @@ player) and differ only by **sprite + one attack verb + HP/damage**. Attack bits
   launches as the projectile. CHARGE kinds telegraph with a dir-lock wind-up + committed dash (no
   skull). Contact damage is universal.
 
-Roster is a clean **9 of each kind = 54 regular foes**, elevation-rule placed.
+Roster is **54 regular foes** (k1×10 · k2×9 · k3×8 · k4×9 · k5×9 · k6×9 — the first-east charger swapped to a gentle hopper per the Goomba law), elevation-rule placed.
 
 ## Item drops
 A kill drops loot at `12% + LUCK×3%` (bosses guaranteed; **chests** give 2 guaranteed items). Each
@@ -165,11 +164,11 @@ double/triple-jump tier, Return Law), **spike-audit** (chest + procedural-scatte
 **pal-check** (PAL length ⇔ gear-color range), minified-check + packed-check (artifact integrity),
 and the **13,312-byte** budget (also: no external URLs, no unprefixed localStorage).
 
-**Current: 12,454 / 13,312 B (93.6%) — 858 B free.** See `SIZELOG.md` for the live-updated tail and
+**Current: 12,954 / 13,312 B (97.3%) — 358 B free.** See `SIZELOG.md` for the live-updated tail and
 the "Definitive state" knowledge entry for the authoritative snapshot.
 
 ## Save format
-One slot: `localStorage.uni_s0`. Version **v44** (strict gate — older saves auto-discard).
+One slot: `localStorage.uni_s0`. Version **v46** (strict gate — older saves auto-discard; `SV` const in main.js is the single source).
 
 Fields: `{ v, h(hp), x(xp), l(lvl), n(mn), g(bosses[7] → 2|0), t(stats[STR,HP,MAG,DEF,LUCK]),
 d(pending), m(name), o(chestBits), q(eq[4]), i(inv[]), P([hpPot,mpPot]), K(kills), D(deaths),

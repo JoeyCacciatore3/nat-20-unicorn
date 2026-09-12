@@ -2,7 +2,7 @@
 
 **Currency: B42 shipped & aligned (git `main == origin == 4f2ad60`; Wavedash playtest build `mn77p30th3saccrk2w6q0zcyy98e9kws`).** Build **12,871 B / 441 free (96.7%)**, save **v46** (fresh-data reset — old saves invalidated; Wavedash playtest achievements/leaderboards/stats/saves cleared). Copy re-verified against `src/*.js`. The world is a **480×38 spine-and-loop** map — a surface spine with the spawn hub at center (tile 240), difficulty ramping outward, distinct zone shapes, varied-height hills (h3-h4) enclosing surface bosses, a parallel sky highway (traverse at altitude or on the ground), and an underground **cave network** carved into rock (three distinct systems with chambers, 2-tall skinny tunnels, single-entrance secrets, 6 chests, cave voids you platform across to escape). Platform/mushroom/cave-clearance placement is enforced by a stable-math geometry gate (tools/map-geometry.mjs). B38 fixed iPhone landscape/fullscreen (canvas sized from its own box, not visualViewport). The **skill tree is gone** (abilities always-on); all six enemies are **grounded walkers**.
 
-> 🧹 **MEDIA WIPED 2026-09-12 (operator directive).** All stale capture media (screenshots ×5 generations, 4 trailers, GIF, 4K masters) is DELETED — it showed the removed skill tree / old world and was unusable. KEPT: `cover/` + `cover_square.png` (store-live) and `achievements/` icons. Re-capture fresh screenshots + a LIVE gameplay video against the CURRENT build (B41+, h3 hills + AI fixes), then update this doc's media references before uploading anything.
+> ✅ **MEDIA: 100% FRESH (2026-09-12)** — all capture media re-shot live against the current build; references below are current.
 
 **Why this doc exists:** the store page (title, description, cover, screenshots, tags, trailer) is editable **only** in the web Developer Portal — session-auth gated. The CLI/API key has NO store-metadata endpoint. An agent cannot push these; they need your logged-in browser. Everything below is pre-written so your part is copy-paste + file-pick.
 
@@ -49,14 +49,14 @@ platformer · rpg · action · pixel-art · metroidvania · adventure · fantasy
 
 ## 4. COVER ART
 ```
-design/cover_square.png   🔴 STALE B28 — RE-SHOOT against B35 (1080×1080)
+design/cover_square.png   ✅ FRESH B42 (2026-09-12) — 1080×1080 crop of the live B42 title (old B28 cover showed removed floater enemies; replaced + 512/256 variants regenerated)
 ```
-> The title-screen logo/arch composition is largely unchanged, so the cover is the *least* stale asset — but re-verify against the CURRENT (B41+) title before uploading. If the portal wants 16:9 instead of 1:1, use a freshly captured title screenshot.
+> Cover is now the FRESH B42 title crop — verified against the live build 2026-09-12 (the B28 version's lower band showed removed floater enemies; that was the staleness). If the portal wants 16:9 instead of 1:1, use `design/screenshots/01_title.png` (1920×1080) directly.
 
 ---
 
-## 5. SCREENSHOTS (upload 3–5, gameplay first) — 🔴 STALE B28, RE-SHOOT AGAINST B35
-The old `design/screenshots/` set was **DELETED in the 2026-09-12 media wipe** (pre-rebuild content). Capture a fresh set against the CURRENT build (equipped unicorn, overlay visible) via `tools/capture-build.mjs`. The recommended composition/order below still applies:
+## 5. SCREENSHOTS (upload 3–5, gameplay first) — ✅ FRESH set in design/screenshots/
+`design/screenshots/` ✅ FRESH B42 set (01_title…07_boss, 1920×1080 native, captured live via `tools/capture-build.mjs` + `__G` staging — equipped unicorn, overlay visible). The recommended composition/order below matches the shipped set:
 
 | # | File | Shows |
 |---|---|---|
@@ -72,11 +72,11 @@ The old `design/screenshots/` set was **DELETED in the 2026-09-12 media wipe** (
 
 ## 6. TRAILER (optional but recommended)
 ```
-design/trailer.mp4   🧹 DELETED (2026-09-12 media wipe) — shoot a NEW trailer from LIVE gameplay against the current build (operator directive: real gameplay footage, no synthetic cuts)
+design/trailer.mp4   ✅ FRESH B42 (2026-09-12) — 38s 1080p live-gameplay cut (title → intro → moat/goomba + on-camera verb hint → sky hops → cave → boss kill + rainbow bank); B28-proven encode recipe (animation/crf15/yuv420p + silent AAC + faststart)
 ```
 > Encoded with the verified best-practice recipe for flat-color pixel art: `-tune animation -crf 15 -pix_fmt yuv420p`, silent AAC track (needed for Twitter/X autoplay), `+faststart` for web streaming. Features the EQUIPPED colored unicorn (matches the screenshots). Structure: crisp title card (2.5s) → 1.8× gameplay body (movement, combat, menu flash showing equipped slots) → end card ("HOOVES OF HOPE / Unicorns and Rainbows / js13kGames 2026"). No play URL baked in (publish not yet live). Old cuts → `trailer_bareunicorn_prev.mp4`, `trailer_720_prev.mp4`, `trailer_sep05_stale.mp4`.
 
-**GIF for the js13k description:** `design/gif/gameplay.gif` was DELETED in the media wipe — re-make from the new live-gameplay capture (640×360, ~8s, palettegen + bayer dither, gifsicle-optimized; GIF-in-description remains a discoverability best-practice for js13k entries).
+**GIF for the js13k description:** `design/gif/gameplay.gif` ✅ FRESH B42 — 640×360, 8s sky-hop loop, 3.0 MB (palettegen 192c + bayer, gifsicle -O3). Embed in the Markdown description (GIF-in-description remains a js13k discoverability best-practice).
 
 ---
 
@@ -107,8 +107,8 @@ wavedash achievement update PRISMATIC --description "..." --game-id j97697bsqqnz
 1. **Title** → `UNICORN, Hooves of Hope`
 2. **Description** → paste Section 2
 3. **Tags** → Section 3
-4. **Cover art** → `design/cover_square.png` (verify/refresh first)
-5. **Screenshots** → upload the re-shot B28 set (Section 5), gameplay first
+4. **Cover art** → `design/cover_square.png` (✅ fresh B42, ready to upload)
+5. **Screenshots** → upload the FRESH B42 set (Section 5), gameplay first
 6. **Trailer** → shoot fresh `design/trailer.mp4` from live gameplay (optional)
 7. **Achievements** → re-tune 3 thresholds via CLI (Section 7)
 
